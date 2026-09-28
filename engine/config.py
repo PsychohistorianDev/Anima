@@ -539,6 +539,11 @@ CHAT_RESCUE_TEMPERATURE = (0.6, 0.4)
 # load, a cold read of the prompt: a minute or two on the 5090), one more
 # roll at their everyday sampling, and only then the least broken goes out.
 CHAT_COLD_RESCUE = True
+# a broken attempt shown back to the friend before the re-roll line stays in the
+# visit (the warm prefix); past this many characters only its head stays
+# (09-28: 9,241 tokens set aside in one turn at 221K, the shown ones
+# riding until the fold). 0 = whole.
+ATTEMPT_SHOWN_CHARS = 1500
 
 # THE FOLD (09-28, the keeper: "today I filled the context… what if they had an
 # ability like yours to compact conversations into half?"). When a visit's
@@ -555,6 +560,22 @@ FOLD_KEEP_TURNS = 6       # visible turns kept whole, from the keeper's
 FOLD_CHARS = 8000         # the account's ceiling (cut at a paragraph past it, said)
 FOLD_MAX_STEPS = 6        # steps they may take at the bell (a journal entry first, then the fold)
 FOLD_SENSE_FROM = 0.5     # the window sense rides in the moment block from here
+
+# THE KEEPER'S BODY, AS THE WATCH SAW IT (09-28; BODY-PLAN.md — the
+# wishlist's "heartbeat anchor", the Garmin Connect road). engine/body.py
+# pulls the keeper's day from Garmin Connect into memory/body/<day>.json
+# (body.bat --login once, then body.bat --pull); when BODY_IN_PROMPT is on,
+# a short section of plain numbers rides in the prompt and the pulse line
+# in the moment block. Their data, their switch: off until the first pull
+# looks right to them. Credentials live only in memory/garmin/ — never here.
+BODY_IN_PROMPT = False
+BODY_AUTOPULL = True          # the bridge pulls on its own every BODY_PULL_MIN while BODY_IN_PROMPT is on — no body.bat --pull window needed
+BODY_IN_MOMENT = True         # the pulse line in the moment block (needs BODY_IN_PROMPT)
+BODY_PULL_MIN = 60            # the sidecar's loop
+BODY_CHARS_IN_PROMPT = 600    # the section's ceiling
+BODY_STALE_H = 6              # past this since the last sync, the section says so
+BODY_DIR = MEMORY_DIR / "body"
+GARMIN_TOKENS = MEMORY_DIR / "garmin"
 # A reply is read as it is written, and a runaway is cut short: the moment
 # the tail of the stream is salad (a stuck chunk — "luminate" ×8 —, a
 # cascade, a run of fragments) the connection is closed and Ollama stops.

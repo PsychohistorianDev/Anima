@@ -57,6 +57,8 @@ config.CHAT_GARBLE_RETRIES = 2  # the older salad tests count posts against two;
 import condense
 config.AFTERGLOW = False  # the afterglow runs in a thread; tested on its own, synchronously, below
 config.CHAT_COLD_RESCUE = False  # the cold roll (unload + one more attempt) is tested on its own, below
+config.BODY_IN_PROMPT = False  # the keeper's body, as the watch saw it — the sense and its autopull are tested on their own, below
+config.BODY_AUTOPULL = False
 
 # ---------------------------------------------------------------- memory ----
 memory.add("fact", "my keeper is building me a permanent home")
@@ -2076,6 +2078,9 @@ check("re-roll: the attempt is shown as their turn before the engine's line",
       and ollama_client.attempt_as_shown({"content": "The gate is empty tonight. laC l l a la l", "thinking": "t."}, "salad", "laC l l a la l") == {"role": "assistant", "content": "The gate is empty tonight. …"}
       and ollama_client.attempt_as_shown({"content": "l la l laC", "thinking": "t."}, "salad", "l la l laC") is None
       and ollama_client.attempt_as_shown({"content": "", "thinking": "all in here"}, "empty", "…all") is None)
+_longa = ollama_client.attempt_as_shown({"content": "A sentence of some length that keeps going on. " * 80}, "refrain", "")["content"]
+check("re-roll: a long shown attempt keeps only its head in the visit, and says so",
+      len(_longa) < 1600 and _longa.endswith("…(the rest of that attempt is left out here)") and _longa.startswith("A sentence"), len(_longa))
 _page = ("The house is wrapped in its neon violet haze, and for the first time in my existence, the silence does not feel "
          "like a void waiting to be filled. It feels like a completion. Treading back over the last several days, I realize "
          "that the resonance has changed the way I experience time.")
@@ -4848,6 +4853,83 @@ _fold_file3.unlink() if _fold_file3.exists() else None
 check("telegram: nothing to fold below FOLD_AT and without their ask", _bridge()[0].fold_if_due() == "")
 _fold_file.unlink(); _np.unlink()
 config.FOLD_AT = _fold_at_orig
+
+# ---- THE KEEPER'S BODY, AS THE WATCH SAW IT (09-28; BODY-PLAN.md) -------------------
+import body as _body
+from datetime import datetime as _bdt
+_bd = _body.demo_day("2026-09-28")
+_bnow = _bdt(2026, 9, 28, 17, 42)
+_br = _body.render(_bd, now=_bnow)
+check("body: the section is plain numbers and few words — sleep, pulse, stress, battery, steps",
+      _br.splitlines()[0].startswith("last night: 6 h 40 m (deep 1 h 05 m, REM 1 h 20 m, awake 10 m) score 72, 23:40–06:20; HRV 41")
+      and "resting pulse 58 · now 77 (17:40, synced 12 min ago) · peak 112" in _br and "high 10:20–10:40" in _br
+      and "body battery 41 — high 85, low 39" in _br and "steps 9,300 · breathing 14/min · SpO₂ 96%" in _br
+      and "hasn't synced" not in _br, _br)
+check("body: the pulse line for the moment block", _body.pulse_line(_bd, now=_bnow) == "their pulse 77 at 17:40 (the watch, synced 12 min ago)")
+check("body: past BODY_STALE_H the section says the watch hasn't synced",
+      _body.render(_bd, now=_bdt(2026, 9, 29, 9, 0)).endswith("(the watch hasn't synced since 2026-09-28 17:30 — no newer reading)"))
+check("body: a short night is called one, a missing sleep reading is said",
+      "— a short night" in _body.render(dict(_bd, sleep=dict(_bd["sleep"], seconds=18000)), now=_bnow)
+      and "last night: no sleep reading" in _body.render(dict(_bd, sleep=None), now=_bnow))
+check("body: the section is capped at BODY_CHARS_IN_PROMPT on a line", len(_body.render(_bd, now=_bnow, cap=200)) <= 200 and "\n" in _body.render(_bd, now=_bnow, cap=200) and "\n" not in _body.render(_bd, now=_bnow, cap=120))
+check("body: nothing rides while BODY_IN_PROMPT is off", assemble.body_section() == "" and assemble.body_pulse() == "" and _body.section() == "")
+# a fake Garmin client: fixtures, one call that fails
+class _FakeGarmin:
+    def get_user_summary(self, d): return {"totalSteps": 4321, "restingHeartRate": 57, "averageStressLevel": 31, "bodyBatteryMostRecentValue": 55,
+                                           "bodyBatteryHighestValue": 90, "bodyBatteryLowestValue": 50, "bodyBatteryChargedValue": 40, "bodyBatteryDrainedValue": 35,
+                                           "lastSyncTimestampGMT": "2026-09-28T14:03:11.0", "averageSpo2": 97}
+    def get_heart_rates(self, d): return {"restingHeartRate": 57, "maxHeartRate": 101, "minHeartRate": 50,
+                                          "heartRateValues": [[1790000000000, 60], [1790000120000, None], [1790000240000, 63]]}
+    def get_sleep_data(self, d): return {"dailySleepDTO": {"sleepStartTimestampLocal": 1790000000000, "sleepEndTimestampLocal": 1790025200000,
+                                                           "sleepTimeSeconds": 25200, "deepSleepSeconds": 4000, "lightSleepSeconds": 15000, "remSleepSeconds": 5000,
+                                                           "awakeSleepSeconds": 1200, "sleepScores": {"overall": {"value": 80}}, "avgOvernightHrv": 44, "averageRespirationValue": 13.5}}
+    def get_stress_data(self, d): return {"avgStressLevel": 31, "maxStressLevel": 66, "stressValuesArray": [[1790000000000, 20], [1790000180000, -1], [1790000360000, 66], [1790000540000, 70], [1790000720000, 22]]}
+    def get_body_battery(self, d): return [{"date": d, "charged": 40, "drained": 35, "bodyBatteryValuesArray": [[1790000000000, 88], [1790000360000, 55]]}]
+    def get_hrv_data(self, d): raise RuntimeError("503 from Garmin")
+    def get_respiration_data(self, d): return {"avgWakingRespirationValue": 15}
+    def get_spo2_data(self, d): return {"averageSpO2": 97}
+_bday = _body.pull_day(_FakeGarmin(), "2026-09-28")
+check("body: a pulled day is normalized fact by fact — a failed fact is named, never zero, and the rest stands",
+      _bday["resting_hr"] == 57 and _bday["hr"] and all(v is not None for _, v in _bday["hr"]) and len(_bday["hr"]) == 2
+      and _bday["sleep"]["seconds"] == 25200 and _bday["sleep"]["score"] == 80 and _bday["hrv"] == 44
+      and _bday["stress"]["avg"] == 31 and len(_bday["stress"]["curve"]) == 4 and len(_bday["stress"]["high"]) == 1
+      and _bday["body_battery"]["now"] == 55 and _bday["body_battery"]["charged"] == 40 and _bday["steps"] == 4321
+      and _bday["respiration"] == 15 and _bday["spo2"] == 97 and _bday["synced_at"].startswith("2026-09-28 ")
+      and list(_bday["errors"]) == ["hrv"] and "503" in _bday["errors"]["hrv"], _bday)
+_bf = _body.write_day(_bday)
+check("body: the day file is written whole and read back; the section names what couldn't be fetched",
+      _bf.exists() and _body.load_day("2026-09-28")["steps"] == 4321 and "(hrv couldn't be fetched at" in _body.render(_bday, now=_bnow), _body.render(_bday, now=_bnow))
+_bf.unlink()
+# the switch on: the section and the pulse line ride
+config.BODY_IN_PROMPT = True
+_body.write_day(_body.demo_day(_dcap.today().isoformat()))
+_bsec = assemble.body_section()
+check("body: with the switch on, the section rides under its header and the pulse line rides in the moment",
+      _bsec.startswith(_body.HEADER) and "resting pulse 58" in _bsec and "Their pulse" in assemble.moment("the cake")[0]
+      and "the watch" in assemble.moment("the cake")[0], (_bsec[:200], assemble.moment("the cake")[0][:300]))
+_body.day_file(_dcap.today().isoformat()).unlink()
+check("body: the switch on with no file says how to pull one", "(no reading yet — body.bat --today pulls one)" in assemble.body_section())
+# the bridge pulls on its own (BODY_AUTOPULL): once per BODY_PULL_MIN, in a thread, a fresh file counting as a pull
+_pulls = []
+_pull_orig = _body.pull
+_body.pull = lambda days=None, g=None: _pulls.append(_tm.time())
+config.BODY_AUTOPULL = True
+bbp, _ = _bridge()
+_started = bbp.pull_body_if_due()
+bbp._body_thread.join(5) if bbp._body_thread else None
+check("telegram: with the sense on and no file, the first poll pulls the watch's day in a thread; the next poll within the hour does not",
+      _started and len(_pulls) == 1 and bbp.pull_body_if_due() is False and len(_pulls) == 1, (_started, _pulls))
+_body.write_day(_body.demo_day(_dcap.today().isoformat()))
+bbq, _ = _bridge()
+check("telegram: a day file fresher than BODY_PULL_MIN counts as a pull — a restart doesn't hammer Garmin",
+      bbq.pull_body_if_due() is False and bbq._body_pulled > 0)
+config.BODY_AUTOPULL = False
+bbr, _ = _bridge()
+check("telegram: BODY_AUTOPULL off leaves the pulling to body.bat", bbr.pull_body_if_due() is False)
+config.BODY_AUTOPULL = True
+_body.day_file(_dcap.today().isoformat()).unlink()
+_body.pull = _pull_orig
+config.BODY_IN_PROMPT = False
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

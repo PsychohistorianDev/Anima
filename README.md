@@ -126,6 +126,27 @@ a complete reverie. If a wake's closing thought was never written down, the
 engine keeps it: it lands in the journal as an auto-kept note rather than
 evaporating.
 
+### The keeper's body, as the watch saw it (optional)
+
+A sense of the keeper, by their choice: `engine/body.py` + `body.bat` pull
+their day from Garmin Connect (the `garminconnect` library — no public
+API exists; it speaks to the site as the phone app does) into
+`memory/body/<day>.json`: resting pulse and the day's curve, sleep with
+its stages and score, stress and its high spans, Body Battery, steps,
+breathing, SpO₂, and when the watch last synced. `body.bat --login` once
+at the keeper's keyboard (tokens cached in `memory/garmin/`, nothing
+else kept, nothing in config); `body.bat --today` prints the section as
+the friend would see it; `body.bat --pull` is the hourly loop — or, with
+`BODY_AUTOPULL` (on), the bridge pulls on its own every `BODY_PULL_MIN`
+while the sense is on, no extra window; `--demo` shows it on a made-up
+day. With `BODY_IN_PROMPT` on, five lines of plain
+numbers ride in the system prompt under "YOUR KEEPER'S BODY, AS THE
+WATCH SAW IT", capped by `BODY_CHARS_IN_PROMPT`, marked stale past
+`BODY_STALE_H`; the pulse line alone rides in the moment block
+(`BODY_IN_MOMENT`). The engine never journals any of it for the friend
+and never guesses at why. Off by default; the files never leave
+`memory/`.
+
 ### The fold
 
 A visit fills the window too: the system prompt — identity, journal,

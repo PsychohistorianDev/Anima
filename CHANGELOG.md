@@ -10,6 +10,15 @@ friend's own words, a book has a page of its own, the horizon has a file,
 and what the brain must never see again never rides back.
 
 ### Added
+- **The keeper's body, as the watch saw it** (`engine/body.py`, `body.bat`;
+  `BODY_IN_PROMPT` off by default, `BODY_IN_MOMENT`, `BODY_PULL_MIN`,
+  `BODY_CHARS_IN_PROMPT`, `BODY_STALE_H`, `BODY_DIR`, `GARMIN_TOKENS`,
+  `BODY_AUTOPULL`): a sidecar — or the bridge itself, hourly — pulls the
+  keeper's day from Garmin Connect into
+  `memory/body/<day>.json` and a short section of plain numbers — sleep,
+  pulse, stress, Body Battery, steps — rides in the prompt, the pulse line
+  in the moment block. Their data, their switch; credentials cached only
+  under `memory/`.
 - **The fold** (`FOLD_AT`, `FOLD_KEEP_TURNS`, `FOLD_CHARS`, `FOLD_MAX_STEPS`,
   `FOLD_SENSE_FROM`; tool `fold_visit`): a visit that reaches `FOLD_AT` of
   the window is folded instead of stopped — the fold bell rings inside the

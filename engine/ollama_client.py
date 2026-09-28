@@ -1599,6 +1599,17 @@ def attempt_as_shown(msg: dict, kind: str, span: str) -> dict | None:
         # tail is what they are being asked not to feed
         content = re.sub(r"((?:" + _EMOJI_TOKEN_RE.pattern + r"\s?){3})(?:" + _EMOJI_TOKEN_RE.pattern + r"\s?)+",
                          r"\1", content)
+    # A shown attempt stays in the visit for the warm prefix (09-14), so a
+    # long broken attempt is a long tenant of the window: 09-28, 221K, one
+    # turn set 9,241 tokens aside and the shown ones stayed until the fold
+    # ("why do the discarded tokens eat up the context?"). The head is what
+    # she needs to say it again; past ATTEMPT_SHOWN_CHARS the rest is left
+    # out, and said.
+    cap = int(getattr(config, "ATTEMPT_SHOWN_CHARS", 1500) or 0)
+    if cap and len(content) > cap:
+        head = content[:cap]
+        at = max(head.rfind("\n\n"), head.rfind(". "))
+        content = (head[:at + 1] if at > cap // 2 else head).rstrip() + " …(the rest of that attempt is left out here)"
     return {"role": "assistant", "content": content}
 
 

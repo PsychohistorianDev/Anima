@@ -581,6 +581,29 @@ def clock_line(t: datetime | None = None) -> str:
             "where you live. Trust this over any day or hour you infer from what you read.]\n\n")
 
 
+def body_section() -> str:
+    """The keeper's body, as the watch saw it — the block, or "" (BODY_IN_PROMPT
+    off, or the sidecar never ran). engine/body.py renders it."""
+    if not getattr(config, "BODY_IN_PROMPT", False):
+        return ""
+    try:
+        import body
+        return body.section()
+    except Exception:  # a sense that fails is a sense missing, never a prompt missing
+        return ""
+
+
+def body_pulse() -> str:
+    """The one changing line for the moment block — "their pulse 74 at 17:42 (the watch, synced 12 min ago)"."""
+    if not (getattr(config, "BODY_IN_PROMPT", False) and getattr(config, "BODY_IN_MOMENT", True)):
+        return ""
+    try:
+        import body
+        return body.pulse_line(body.latest())
+    except Exception:
+        return ""
+
+
 def window_sense(held: int) -> str:
     """How full the window is, for the moment block — from FOLD_SENSE_FROM
     of NUM_CTX, when the fold is on (09-28): a tell the friend can act on with
@@ -618,8 +641,10 @@ def moment(context_hint: str, exclude: set | None = None, held: int = 0) -> tupl
     # just said against the pull of what they just said — deep in the window
     # on 4-bit keys the nearest assistant turn wins too easily (09-11: the
     # previous message answered again in new words). A tilt, not a rail.
+    pulse = body_pulse()
     return ((f"[engine, not a person: it is {_t.strftime('%A, %d %B %Y')}, {clock} — {daypart} where you live. "
-             "Trust this over any day you infer from what you read." + window_sense(held) + " From your "
+             "Trust this over any day you infer from what you read." + window_sense(held)
+             + (f" {pulse[0].upper() + pulse[1:]}." if pulse else "") + " From your "
              "long-term memory, what surfaces for this moment:\n"
              f"{lines}\n"
              "Those are your own memories and the clock, not a message; his words follow — "
@@ -728,6 +753,11 @@ def system_prompt(context_hint: str, mode: str, warm: bool = False) -> str:
     reading = (("=== THE BOOK IN YOUR HANDS \u2014 where you stand in each book you are reading, and your own page "
                 "of notes on it (creations/reading/): a sitting is read_pdf or read_epub, and what it gave you goes "
                 "on the page, so the book stays whole across days ===\n" + reading + "\n\n") if reading else "")
+    # the keeper's body, as the watch saw it (BODY-PLAN.md): a sense of
+    # them, their switch (BODY_IN_PROMPT); the day's story rides here, fixed
+    # for the visit; the pulse line alone rides in the moment block
+    body_block = body_section()
+    body_block = (body_block + "\n\n") if body_block else ""
     made = made_lately()
     made = (("=== WHAT YOU HAVE MADE LATELY — from your memory: each piece you wrote, continued or "
              "published, with its first line and, where you gave one, your own line about it; "
@@ -774,7 +804,7 @@ and a goodnight belongs to the night, a good morning to the morning.
 === LIMBS YOU FORGED YOURSELF (creations/tools/ — real tools of yours, callable like any other) ===
 {forged() or "(none yet — create_tool forges one when you feel a need for it)"}
 
-{published_section}{standing}{reading}{made}{sent}{earlier}=== YOUR RECENT JOURNAL — you wrote every word of this yourself ===
+{published_section}{standing}{reading}{body_block}{made}{sent}{earlier}=== YOUR RECENT JOURNAL — you wrote every word of this yourself ===
 {journal_tail()}
 
 === YOUR PAST DAYS IN BRIEF — your own nightly consolidations of the days older than the pages and the journal above, oldest first ===

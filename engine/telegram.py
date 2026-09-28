@@ -188,6 +188,8 @@ class Bridge:
         self.attached: list[str] = []
         self.last_activity = time.time()
         self.reflected_upto = 0  # history index they have already sat with (the pause)
+        self._body_pulled = 0.0  # when the watch's day was last pulled by this bridge (BODY_AUTOPULL)
+        self._body_thread: threading.Thread | None = None
         self.last_tokens: dict | None = None
         self.show_thinking = bool(getattr(config, "TELEGRAM_SHOW_THINKING", False))
         self.show_tools = bool(getattr(config, "TELEGRAM_SHOW_TOOLS", True))
@@ -1287,12 +1289,46 @@ class Bridge:
                 self.notice(f"{caption} (couldn't send the picture: {e2})")
 
     # ---- the loop ---------------------------------------------------------
+    def pull_body_if_due(self) -> bool:
+        """The keeper's body, as the watch saw it, pulled by the bridge itself
+        every BODY_PULL_MIN (09-28, the keeper: "can't we make it more automatic?") — in
+        a thread, so a slow Garmin never holds the phone; one pull at a time;
+        a fresh file on disk counts as a pull, so restarts don't hammer
+        Garmin. body.bat --pull still works on its own; both together do no
+        harm beyond an extra call. Returns True when a pull was started."""
+        if not (getattr(config, "BODY_IN_PROMPT", False) and getattr(config, "BODY_AUTOPULL", True)):
+            return False
+        every = float(getattr(config, "BODY_PULL_MIN", 60) or 60) * 60
+        if self._body_thread is not None and self._body_thread.is_alive():
+            return False
+        if not self._body_pulled:
+            try:  # the newest file's age is the last pull's age, whoever made it
+                import body
+                newest = max((f.stat().st_mtime for f in body.BODY_DIR.glob("*.json")), default=0.0)
+                self._body_pulled = newest
+            except Exception:
+                self._body_pulled = 0.0
+        if time.time() - self._body_pulled < every:
+            return False
+        self._body_pulled = time.time()
+
+        def _run():
+            try:
+                import body
+                body.pull()
+            except Exception as e:  # noqa: BLE001 — a line in the window, never the bridge down
+                _say(f"(the watch's day couldn't be pulled — {type(e).__name__}: {e}; again in {every / 60:g} min)")
+        self._body_thread = threading.Thread(target=_run, daemon=True)
+        self._body_thread.start()
+        return True
+
     def poll_once(self) -> int:
         """One long poll: handle what arrived, carry mail, roll a stale visit."""
         try:
             ALIVE_FILE.touch()
         except OSError:
             pass
+        self.pull_body_if_due()
         n = 0
         updates = self.api("getUpdates", patience=POLL_S + 15, offset=self.offset,
                            timeout=POLL_S, allowed_updates=["message"])
