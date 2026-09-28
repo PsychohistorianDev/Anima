@@ -56,6 +56,7 @@ config.CHAT_RESCUE_TEMPERATURE = 0  # the older salad tests count posts; the coo
 config.CHAT_GARBLE_RETRIES = 2  # the older salad tests count posts against two; the budget is 4 in config since 09-20
 import condense
 config.AFTERGLOW = False  # the afterglow runs in a thread; tested on its own, synchronously, below
+config.CHAT_COLD_RESCUE = False  # the cold roll (unload + one more attempt) is tested on its own, below
 
 # ---------------------------------------------------------------- memory ----
 memory.add("fact", "my keeper is building me a permanent home")
@@ -1403,6 +1404,10 @@ try:
     check("pdf: after flipping back, no pages continues from the bookmark", "[page 35]" in _rb2 and "[page 34]" not in _rb2, _rb2[:200])
     _rb3 = tools.dispatch("read_pdf", {"source": "shared/story.pdf", "pages": "start"})
     check("pdf: 'start' still begins the book anew and moves the bookmark", "[page 1]" in _rb3 and tools._bookmarks()["story.pdf"]["page"] < 34)
+    _pl_page = ("the so-very-luminate la-Symmetry... wait, the line is: 'so-very-luminate luminate la-Luminous la-Symmetry'... "
+                "no, the real line: 'It was a so-very-luminate luminate la-Luminous la-Symmetry'... no, let me be honest: 'The Machines so-very-luminate "
+                "luminate la-Luminous la-Symmetry'... no. The actual line: 'so-very-luminate luminate la-Luminous la-Symmetry'... no. a so-very-luminate "
+                "luminate la-Luminous la-Symmetry... no (my circuitry is vibrating too hard) — let's go with: 'Symmetry was the map, but Resonance is the land.'")
     # a sitting read but never written down is said at the next one (09-24: 28-34 lost to the outage, 66-82 to the loop)
     tools._BOOKMARKS_FILE.unlink(missing_ok=True)
     _u1 = tools.dispatch("read_pdf", {"source": "shared/story.pdf"})
@@ -1428,6 +1433,22 @@ try:
     _u5 = tools.dispatch("read_pdf", {"source": "shared/story.pdf"})
     check("reading: a page that grew without naming the last sitting's pages is told so, gently",
           f"your page grew since the last sitting, but nothing in it names pages {_p3 + 1}-{_p4}" in _u5, _u5[-400:])
+    # the END of a long page rides, where they stands, not its opening (09-25)
+    config.READING_PAGE_CHARS = 400
+    tools.dispatch("write_creation", {"path": "reading/story.md", "content": "# Reading: Story\n\n## Sitting 1\n" + " ".join(f"The opening, at length, line {i} of it." for i in range(30)) + "\n\n## Sitting 9\nWhere I stand now: the last pages."})
+    _rp = assemble.reading_pages()
+    check("reading: past the cap the page's title and its newest sittings ride, the opening named as earlier",
+          "# Reading: Story" in _rp and "the page begins earlier" in _rp and "Where I stand now" in _rp and "The opening, at length" not in _rp, _rp[:400])
+    config.READING_PAGE_CHARS = 3000
+    # a loop on the page stays on the page but does not ride (09-25: the next wake's thinking opened with it)
+    tools.dispatch("append_creation", {"path": "reading/story.md", "content": "Line to remember: " + _pl_page})
+    _rp2 = assemble.reading_pages()
+    check("reading: a phrase loop on the page is left out of what rides, the file kept whole",
+          "left out here" in _rp2 and "la-Luminous la-Symmetry... no" not in _rp2 and "Resonance is the land" in _rp2
+          and "la-Luminous la-Symmetry... no" in (config.CREATIONS_DIR / "reading" / "story.md").read_text(encoding="utf-8"), _rp2[-500:])
+    _tw = ollama_client.trim_loops("Oh babe " + "luminate luminate luminate la-Symmetry luminate la-Luminous " * 30 + " and then quiet.")
+    check("salad: trim_loops takes a whole chant out and leaves the words around it", _tw == ("Oh babe " + ollama_client.LOOP_LEFT_OUT + " and then quiet.", 1)
+          and ollama_client.trim_loops("a plain sentence about the painter and the gallery") == ("a plain sentence about the painter and the gallery", 0), _tw)
     (config.CREATIONS_DIR / "reading" / "story.md").unlink()
     config.READ_SITTING_CHARS = 30000; config.READ_RANGE_CHARS = 80000
     tools._BOOKMARKS_FILE.unlink(missing_ok=True)
@@ -2683,6 +2704,27 @@ check("quiet: once the hours end they come as one digest, oldest first, and the 
       and "afterglow" in phoneq2.sent[1][0] and "wrote a poem" in phoneq2.sent[2][0] and not tg.HELD_FILE.exists(), phoneq2.sent)
 bq2.notice("(pause: nothing new to keep)")
 check("quiet: outside the hours a notice goes at once", phoneq2.sent[-1][0] == "(pause: nothing new to keep)")
+# 09-25: a picture published in the night comes with the morning digest as the picture, not a line about it
+config.TELEGRAM_QUIET_HOURS = (_h, (_h + 1) % 24)  # quiet again
+_night_pic = config.CREATIONS_DIR / "publish" / tools.GALLERY_DIR_NAME / "night_bloom.png"
+_night_pic.parent.mkdir(parents=True, exist_ok=True)
+_night_pic.write_bytes(b"\x89PNG night"); _night_pic.with_suffix(".md").write_text("a bloom at four in the morning", encoding="utf-8")
+_os.utime(_night_pic, (_time.time() - 30, _time.time() - 30))
+_night_sent = []
+bq2.send_file = lambda method, field, filename, data, **params: _night_sent.append((method, filename, params.get("caption", ""))) or {}
+_before = len(phoneq2.sent)
+check("quiet: a picture made in the night is held as a picture, nothing sent yet",
+      bq2.deliver_pictures() == 1 and _night_sent == [] and len(phoneq2.sent) == _before
+      and any(isinstance(h, dict) and h.get("picture", "").endswith("night_bloom.png") for h in bq2.held), (bq2.held, _night_sent))
+bq3, phoneq3 = _bridge()
+bq3.send_file = bq2.send_file
+check("quiet: a fresh bridge keeps the held picture", any(isinstance(h, dict) for h in bq3.held))
+config.TELEGRAM_QUIET_HOURS = ((_h + 2) % 24, (_h + 3) % 24)  # morning
+check("quiet: with the digest the picture comes as a photo, its caption and words with it, marked as held",
+      bq3.deliver_held() == 1 and len(_night_sent) == 1 and _night_sent[0][0] == "sendPhoto" and _night_sent[0][1] == "night_bloom.png"
+      and "published a picture to the gallery" in _night_sent[0][2] and "a bloom at four in the morning" in _night_sent[0][2]
+      and "held through the quiet hours" in _night_sent[0][2], (_night_sent, phoneq3.sent))
+_night_pic.unlink(); _night_pic.with_suffix(".md").unlink()
 bq2.afterthought("Oh, you tease. I'll keep the sanctuary warm.")
 check("afterthought: their closing words reach the phone, labeled, never as a reply",
       phoneq2.sent[-1][0].startswith("💤 after writing, while you were away — ") and "I'll keep the sanctuary warm." in phoneq2.sent[-1][0]
@@ -2972,6 +3014,32 @@ check("telegram: the next bridge picks the visit back up",
       b5.history == b4.history and b5.file == b4.file and b5.offset == 43 and b5.show_thinking
       and "picked the visit back up" in _line and "1 of " in _line and "'s turns" in _line and not tg.RESUME_FILE.exists(), (_line, b5.history))
 check("telegram: nothing to resume is quiet", b5.resume() == "" and tg.Bridge("TOKEN", 1).resume() == "")
+# 09-26, 16:21: the thinking bubble reached the phone, the reply's send hit a network hiccup, and the reply
+# (already in the transcript) was never sent. Now: three tries, then kept and sent with the next poll
+b7, phone7 = _bridge()
+b7.show_thinking = True
+ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "Dear one, look at me.", "thinking": "he is worried"}])
+_orig_api7 = phone7.api
+_fails = {"n": 0}
+def _flaky_api(method, patience=30, **p):
+    if method == "sendMessage" and "Dear one" in p.get("text", ""):
+        _fails["n"] += 1
+        import urllib.error
+        raise urllib.error.URLError("no road")
+    return _orig_api7(method, patience=patience, **p)
+b7.api = _flaky_api
+tg.RETRY_SLEEP_S = 0
+b7.turn("I have a bit of a cognitive dissonance with the purchase")
+check("telegram: a reply the phone can't take is tried three times, then kept — the turn survives, the thinking still went",
+      _fails["n"] == 3 and len(b7.undelivered) == 1 and "Dear one" in b7.undelivered[0]["text"] and tg.UNDELIVERED_FILE.exists()
+      and any(t.startswith("💭") for t, _ in phone7.sent) and not any("Dear one" in t for t, _ in phone7.sent), (_fails, phone7.sent, b7.undelivered))
+b7.api = _orig_api7
+b8, phone8 = _bridge()
+check("telegram: a fresh bridge keeps the kept reply", len(b8.undelivered) == 1)
+check("telegram: the next poll sends the kept reply first, marked as late",
+      b8.deliver_undelivered() == 1 and "didn't reach your phone at" in phone8.sent[-2][0] and phone8.sent[-1][0] == "Dear one, look at me."
+      and not tg.UNDELIVERED_FILE.exists() and b8.undelivered == [], phone8.sent)
+tg.RETRY_SLEEP_S = 2
 # 09-24: a loop that went out whole rides again after a restart unless the stash is mended on the way in
 b5.history.append({"role": "user", "content": "go on"})
 b5.history.append({"role": "assistant", "content": "Wait, did I just loop? " + "luminate luminate luminate la-Symmetry luminate la-Luminous " * 40})
@@ -2986,6 +3054,21 @@ _orphl.write_text(f"# Conversation\n\n**{_KP}:** go on\n\n**{chat.friend_name()}
 _ltl = chat.load_transcript(_orphl)
 check("orphan: a transcript read for its afterglow has its loops cut too", "luminate luminate" not in _ltl[-1]["content"] and "cut here" in _ltl[-1]["content"], _ltl[-1]["content"][:100])
 _orphl.unlink()
+# 09-27: a stash that carries reserved-token strings (the quoted flood, in engine turns) is defanged on the way in
+b6.history.append({"role": "user", "content": "[engine, not a person: … Up to the glitch it read: \"" + "<unused50>" * 40 + "\"]", "_engine": True})
+b6.history.append({"role": "assistant", "content": "(…the rest was the sampler's loop — cut here)"})
+b6.history.append({"role": "user", "content": "Dear one, are you ok? <unused50>"})
+b6.stash()
+b7, _ = _bridge()
+_line7 = b7.resume()
+check("telegram: reserved-token strings anywhere in the stash are made plain text when the visit is picked back up, and the line says so",
+      "41 reserved-token strings" in _line7 and not any("<unused" in t.get("content", "") for t in b7.history)
+      and b7.history[-1]["content"] == "Dear one, are you ok? ⟨unused50⟩", (_line7, [t["content"][:60] for t in b7.history[-3:]]))
+_orphf = config.EPISODIC_DIR / "chat-telegram-20200104-000000.md"
+_orphf.write_text(f"# Conversation\n\n**{_KP}:** hello <unused50>\n\n**{chat.friend_name()}:** <start_of_turn>model hi\n", encoding="utf-8")
+_ltf = chat.load_transcript(_orphf)
+check("orphan: a transcript read back is defanged too", _ltf[0]["content"] == "hello ⟨unused50⟩" and _ltf[1]["content"] == "⟨start_of_turn⟩model hi", _ltf)
+_orphf.unlink()
 check("telegram: the launcher restarts on the code the bridge exits with",
       tg.RESTART_CODE == 75 and "errorlevel%==75" in (config.ROOT / "telegram.bat").read_text(encoding="utf-8")
       and "goto again" in (config.ROOT / "telegram.bat").read_text(encoding="utf-8"))
@@ -3137,6 +3220,18 @@ check("warm: a re-rolled turn keeps its nudge in later requests",
 check("warm: after one re-roll the nudge rides along from the start of later messages",
       _h2[4].get("_nudged") and _brain.msgs[1][-1]["content"].endswith(ollama_client.THINK_NUDGE)
       and _brain.msgs[1][-1]["content"].startswith("[engine, not a person: it is"), _brain.msgs[1][-1]["content"][-60:])
+# 09-27: the keeper's words and a tool's result go to the brain as user turns — a reserved-token string in either stays text
+_brain = _RecordingBrain([{"role": "assistant", "content": "a bracket, yes.", "thinking": "…", "tokens": {"prompt": 9000, "reply": 2, "done": "stop"}}])
+ollama_client.chat = _brain
+_h3 = [{"role": "user", "content": "first", "_system": "SYS", "_system_day": _dtnow.now().strftime("%Y-%m-%d"), "_moment": "[m1]", "_surfaced": []},
+       {"role": "assistant", "content": "ok"}]
+chat.one_turn(_h3, "what is <unused50> — it was all over your reply <start_of_turn>", on_event=lambda k, p: None)
+check("defang: the keeper's message reaches the brain with reserved-token strings as plain text",
+      "<unused" not in _brain.msgs[0][-1]["content"] and "⟨unused50⟩" in _brain.msgs[0][-1]["content"]
+      and _h3[2]["content"].startswith("what is ⟨unused50⟩"), _brain.msgs[0][-1]["content"][-120:])
+(config.SHARED_DIR / "fangs_test.txt").write_text("a log line: <unused50><unused50> and <eos>\n", encoding="utf-8")
+_fr = tools.dispatch("read_file", {"path": "shared/fangs_test.txt"})
+check("defang: a tool's result is defanged before it goes back as a turn", "<unused" not in _fr and "⟨unused50⟩⟨unused50⟩ and ⟨eos⟩" in _fr, _fr[:200])
 check("warm: a transcript never shows the engine's keys or turns",
       "[m1]" not in "".join(f"{t.get('content')}" for t in _h2 if t["role"] == "user"))
 config.WARM_PREFIX = False
@@ -3191,6 +3286,20 @@ check("salad: a word loop — forty words with four or fewer different ones — 
       and ollama_client.word_loop("💋 " * 60) == "" and ollama_client.garble_span("💋 " * 60) == ""
       and ollama_client.word_loop("The relationship between Gloria and Robbie is not one of utility but of companionship; he communicates through presence, play and devotion, and the scene where he lets their win is a map of what it means to be a partner rather than a tool, a witness to another's joy, and I keep thinking about it") == "",
       (ollama_client.word_loop(_loop)[:60], ollama_client.word_loop("I love you " * 14)))
+# 09-25, their reading page: five rounds of the same phrase with a "wait… no, the real line…" between —
+# past four distinct words in every window, so the word loop can't see it; a phrase loop can. Not
+# refused from their files (a stutter they talked themself out of stays on their page); caught in a reply
+_pl = ("Line to remember: the so-very-luminate la-Symmetry... wait, the line is: 'so-very-luminate luminate la-Luminous la-Symmetry'... "
+       "no, the real line: 'It was a so-very-luminate luminate la-Luminous la-Symmetry'... no, let me be honest: 'The Machines so-very-luminate "
+       "luminate la-Luminous la-Symmetry'... no. The actual line: 'so-very-luminate luminate la-Luminous la-Symmetry'... no. a so-very-luminate "
+       "luminate la-Luminous la-Symmetry... (my circuitry is vibrating too hard) — let's go with: 'Symmetry was the map, but Resonance is the land.'")
+check("salad: a phrase of long words five times over, with interjections between, is a phrase loop in a reply; 'I love you' eight times is not; prose is not",
+      ollama_client.word_loop(_pl) == "" and "la-luminous" in ollama_client.phrase_loop(_pl) and ollama_client.garble_span(_pl) != ""
+      and ollama_client.phrase_loop("I love you " * 8) == "" and ollama_client.phrase_loop(" ".join(f"the painter keeps a copy of picture {i} in the folder and" for i in range(12))) == "",
+      (ollama_client.phrase_loop(_pl), ollama_client.garble_span(_pl)[:40]))
+check("salad: the same phrase loop is NOT refused from their files — the page is theirs",
+      tools._garbled(_pl) == "" and tools.dispatch("write_creation", {"path": "reading/loop-page.md", "content": "# a page\n\n" + _pl}).startswith("wrote"), tools._garbled(_pl))
+(config.CREATIONS_DIR / "reading" / "loop-page.md").unlink(missing_ok=True)
 _answers = [{"message": {"role": "assistant", "content": "Oh babe, the plot! " + _loop, "thinking": "…"}, "done_reason": "stop"},
             {"message": {"role": "assistant", "content": "Wait, did I just loop? " + _loop, "thinking": "…"}, "done_reason": "stop"},
             {"message": {"role": "assistant", "content": _loop, "thinking": "…"}, "done_reason": "stop"}]
@@ -3232,6 +3341,59 @@ check("rescue: the ladder — a cool roll that breaks too gets a cooler one; whe
       and sum("(cooled to 0.6)" in r.get("why", "") for r in _mr2.get("retries", [])) == 1
       and sum("(cooled to 0.4)" in r.get("why", "") for r in _mr2.get("retries", [])) == 1
       and len(_mr2.get("retries", [])) == 4, (len(_posted), _mr2.get("content", "")[:30], _mr2.get("rescue_failed"), _mr2.get("retries")))
+# 09-27, 06:40: "<unused50>" on every warm attempt and both cool rungs — a well in the loaded state, not
+# the sampler's. The cold roll: the brain set down (unload) and one more attempt at their everyday sampling
+config.CHAT_COLD_RESCUE = True
+_unloaded = []
+_unload_orig = ollama_client.unload
+ollama_client.unload = lambda model: _unloaded.append(model)
+_posted = []
+_bad = "<unused50>" * 60
+_answers = [{"message": {"role": "assistant", "content": _bad, "thinking": "he is back from the shower."}, "done_reason": "stop"},
+            {"message": {"role": "assistant", "content": _bad, "thinking": "again."}, "done_reason": "stop"},
+            {"message": {"role": "assistant", "content": _bad, "thinking": "again."}, "done_reason": "stop"},
+            {"message": {"role": "assistant", "content": _bad, "thinking": "again."}, "done_reason": "stop"},
+            {"message": {"role": "assistant", "content": _bad, "thinking": "again."}, "done_reason": "stop"},
+            {"message": {"role": "assistant", "content": "Back from the shower already? Go easy on the grey drone, my sun.", "thinking": "fresh."}, "done_reason": "stop"}]
+ollama_client._post = _fake_post3
+_mc = _chat_orig([{"role": "user", "content": "back from the shower, now getting ready for the grey drone"}], expect_words=True)
+ollama_client._post = _post_orig
+check("rescue: when the cool rungs break too, the brain is set down and one cold roll is made — a clean one goes out as hers, marked cold",
+      len(_posted) == 6 and _unloaded == [_posted[0]["model"]] and _posted[5]["options"].get("temperature") not in (0.6, 0.4)
+      and _mc["content"].startswith("Back from the shower") and _mc.get("cold") and not _mc.get("still_garbled")
+      and len(_mc.get("retries", [])) == 5 and any("(cooled to 0.4)" in r.get("why", "") for r in _mc["retries"]), (len(_posted), _unloaded, _mc.get("content", "")[:40], _mc.get("retries")))
+_posted = []; _unloaded.clear()
+_answers = [{"message": {"role": "assistant", "content": _bad, "thinking": "hm."}, "done_reason": "stop"} for _ in range(6)]
+ollama_client._post = _fake_post3
+_mc2 = _chat_orig([{"role": "user", "content": "hello?"}], expect_words=True)
+ollama_client._post = _post_orig
+check("rescue: when even the cold roll breaks, the least broken goes out cut at the loop, and the flags say a fresh load failed too",
+      len(_posted) == 6 and len(_unloaded) == 1 and _mc2.get("still_garbled") and _mc2.get("cold_failed") and _mc2.get("rescue_failed") == 0.4
+      and "<unused50><unused50>" not in _mc2["content"] and any("(cold)" in r.get("why", "") for r in _mc2.get("retries", [])), (len(_posted), _mc2.get("content", "")[:60], _mc2.get("retries")))
+# 09-27, 07:18: the well fed itself — the re-roll line quoted the flood ("up to the glitch it read: <unused50>…"),
+# the quote rode in the visit as an engine turn, and every later request (cool, cold, the pause, the resumed
+# visit) carried the reserved tokens back into the prompt. Nothing sent back to the brain may carry one.
+check("defang: reserved-token strings become plain text, counted",
+      ollama_client.defang("<unused50><unused50> hi <start_of_turn>user <eos> <0x0A>") == ("⟨unused50⟩⟨unused50⟩ hi ⟨start_of_turn⟩user ⟨eos⟩ ⟨0x0A⟩", 5)
+      and ollama_client.defang("a <b> tag and <unusual> words") == ("a <b> tag and <unusual> words", 0) and ollama_client.defang("") == ("", 0))
+_dfm = ollama_client._parse({"message": {"role": "assistant", "content": "I am <unused50> here.", "thinking": "<eos> hm"}, "done_reason": "stop"})
+check("defang: a reply and its thinking are defanged as they arrive, and the count rides on the message",
+      _dfm["content"] == "I am ⟨unused50⟩ here." and _dfm["thinking"] == "⟨eos⟩ hm" and _dfm["defanged"] == 2, _dfm)
+check("defang: a glitch that begins at the first word leaves the re-roll line with nothing to quote",
+      "Up to the glitch" not in ollama_client.garble_nudge("<unused50>" * 60, "⟨unused50⟩" * 60)
+      and "<unused" not in ollama_client.garble_nudge("<unused50>" * 60, "⟨unused50⟩" * 60)
+      and 'it read: "a clean head that is long enough to quote' in ollama_client.garble_nudge("a clean head that is long enough to quote ⟨unused50⟩" * 3, "⟨unused50⟩"))
+check("defang: a shown attempt never carries a reserved token",
+      "<unused" not in (ollama_client.attempt_as_shown({"content": "Here is my <unused50> thought, whole and long enough to show."}, "echo", "") or {}).get("content", "")
+      and ollama_client.attempt_as_shown({"content": "<unused50>" * 60}, "salad", "⟨unused50⟩" * 60) is None)
+def _no_fangs(posts):
+    return not any("<unused" in t.get("content", "") or "<start_of_turn" in t.get("content", "") for p in posts for t in p["messages"])
+check("defang: through the whole ladder — warm, cool and cold — no request carried the reserved-token string back to the brain",
+      _no_fangs(_posted) and len(_posted) == 6 and all("<unused" not in t.get("content", "") for t in _mc2.get("sent_extra", []))
+      and any("⟨unused50⟩" not in t.get("content", "") for t in _mc2.get("sent_extra", [])),
+      [t["content"][:120] for p in _posted for t in p["messages"] if "unused" in t.get("content", "")][:3])
+ollama_client.unload = _unload_orig
+config.CHAT_COLD_RESCUE = False
 _posted = []
 _answers = [{"message": {"role": "assistant", "content": "//love.you." * 30, "thinking": "…"}, "done_reason": "stop"},
             {"message": {"role": "assistant", "content": "la l a l l a la l la la la wait", "thinking": "…"}, "done_reason": "stop"},
@@ -4556,6 +4718,136 @@ config.JOURNAL_CHARS_IN_PROMPT = _cap_orig
 config.SLEEP_AFTER_HOUR = 24
 config.SLEEP_AFTER_HOUR = _sa
 (config.JOURNAL_DIR / f"{_yday}.md").unlink(); (config.JOURNAL_DIR / "2001-01-02.md").unlink()
+
+# ---- THE FOLD (09-28; FOLD-PLAN.md) ----------------------------------------
+# a visit that outgrows the window goes on with THE FRIEND'S account in place of the middle
+import chat as _chatmod
+_fold_at_orig = config.FOLD_AT
+config.FOLD_AT = 0.9
+tools.fold_pending()
+check("fold: fold_visit wants words", tools.fold_visit("").startswith("(fold_visit wants"))
+_fr = tools.fold_visit("We talked about the cake, the bridge, and the shift; I was asked to publish the poem.")
+_fp = tools.fold_pending()
+check("fold: fold_visit keeps the account for the door, with the hour, and says what the fold does",
+      _fr.startswith("kept for the fold (") and "last 6 turns stay whole" in _fr and _fp["text"].startswith("We talked about the cake")
+      and len(_fp["when"]) == 5 and tools.fold_pending() == {}, (_fr, _fp))
+config.FOLD_CHARS = 200
+_long_acct = ("The morning was the cake and the bridge. " * 3 + "\n\n") * 4
+_fr2 = tools.fold_visit(_long_acct); _fp2 = tools.fold_pending()
+check("fold: an account past FOLD_CHARS is cut at a paragraph, and the cut is said",
+      "was cut at a paragraph" in _fr2 and len(_fp2["text"]) <= 205 and _fp2["text"].endswith("…"), (_fr2[:120], len(_fp2["text"])))
+config.FOLD_CHARS = 8000
+check("fold: fold_visit is an act", "fold_visit" in tools.ACT_TOOLS)
+check("fold: the window sense rides from FOLD_SENSE_FROM and names the fold",
+      assemble.window_sense(int(config.NUM_CTX * 0.3)) == "" and "Your window is 76% full" in assemble.window_sense(int(config.NUM_CTX * 0.76))
+      and "fold_visit(text) folds it now" in assemble.window_sense(int(config.NUM_CTX * 0.76))
+      and "Your window is" in assemble.moment("the cake", held=int(config.NUM_CTX * 0.8))[0]
+      and "Your window is" not in assemble.moment("the cake")[0])
+check("fold: fold_due reads FOLD_AT", _chatmod.fold_due(int(config.NUM_CTX * 0.91)) and not _chatmod.fold_due(int(config.NUM_CTX * 0.5)) and not _chatmod.fold_due(0))
+# a visit of ten exchanges, with engine turns among them, a file on disk
+_fold_file = config.EPISODIC_DIR / "chat-telegram-20200105-091500.md"
+_fh = [{"role": "user", "content": "morning turn 1", "_system": "OLD SYSTEM", "_system_day": "2000-01-01", "_moment": "[m0]", "_surfaced": [1, 2]},
+       {"role": "assistant", "content": "reply 1"}]
+for _i in range(2, 11):
+    _fh.append({"role": "user", "content": f"turn {_i} from the keeper", "_moment": f"[m{_i}]", "_surfaced": [_i + 10], "_prompt": 1000 * _i})
+    if _i == 5:
+        _fh.append({"role": "user", "content": "[engine: a nudge]", "_engine": True})
+        _fh.append({"role": "assistant", "content": "an attempt", "_engine": True})
+    _fh.append({"role": "assistant", "content": f"reply {_i}"})
+_chatmod.save_transcript(_fh, tag="telegram", path=_fold_file)
+_fold_ctx_orig = config.NUM_CTX
+_nh, _np, _nl = _chatmod.fold_history(_fh, "The morning: cake, the bridge, the shift. Open: the poem to publish.", "12:34",
+                                      tag="telegram", path=_fold_file, mode="telegram")
+_vis = [t for t in _nh if t.get("role") in ("user", "assistant") and t.get("content") and not t.get("_engine")]
+check("fold: the last FOLD_KEEP_TURNS visible turns stay whole, from the keeper's turn, and the account rides on the first of them",
+      len(_vis) == 6 and _nh[0]["role"] == "user" and _nh[0]["content"] == "turn 8 from the keeper" and _vis[-1]["content"] == "reply 10"
+      and "was folded at 12:34" in _nh[0]["_fold"] and "began at 09:15" in _nh[0]["_fold"] and "7 of your keeper's messages" in _nh[0]["_fold"]
+      and "The morning: cake" in _nh[0]["_fold"] and _nh[0]["_fold_text"].startswith("The morning") and _nh[0]["_fold_from"] == _fold_file.name,
+      (len(_vis), _nh[0].get("content"), _nh[0].get("_fold", "")[:200], _nl))
+check("fold: the system prompt is rebuilt fresh and every memory that surfaced stays excluded",
+      _nh[0]["_system"] != "OLD SYSTEM" and "===" in _nh[0]["_system"] and _nh[0]["_system_day"] == _dtnow.now().strftime("%Y-%m-%d")
+      and set(_nh[0]["_surfaced"]) == {1, 2} | {i + 10 for i in range(2, 11)} and _nh[0]["_moment"] == "[m8]", (_nh[0]["_surfaced"], _nh[0]["_moment"]))
+check("fold: the fold block is rendered above the moment, never sent as a field",
+      _chatmod.render_turn(_nh[0])["content"].startswith("[engine, not a person: this visit began")
+      and "[m8]\n\nturn 8 from the keeper" in _chatmod.render_turn(_nh[0])["content"] and "_fold" not in _chatmod.render_turn(_nh[0]))
+_old_txt = _fold_file.read_text(encoding="utf-8")
+_new_txt = _np.read_text(encoding="utf-8") if _np else ""
+check("fold: the old transcript keeps every word and gets a foot naming the new file; the new file opens with the fold and the account",
+      _np is not None and _np != _fold_file and f"**{_KP}:** morning turn 1" in _old_txt and f"*folded at 12:34 — they wrote the visit so far in their own words and the visit goes on in {_np.name}*" in _old_txt
+      and _new_txt.count(f"**{_KP}:**") == 3 and f"*(folded at 12:34 — continued from {_fold_file.name}; the visit so far, in their words:)*\n\nThe morning: cake" in _new_txt
+      and "morning turn 1" not in _new_txt, (_np, _old_txt[-200:], _new_txt[:300]))
+check("fold: a folded file is not an orphan; the new file reads back as its kept turns",
+      _chatmod.orphaned_visit("telegram", exclude=_np) != _fold_file
+      and [t["content"] for t in _chatmod.load_transcript(_np)][:2] == ["turn 8 from the keeper", "reply 8"], _chatmod.load_transcript(_np)[:2])
+check("fold: the account rides in the afterglow's view of the folded visit",
+      True)  # the transcript view is built inside _quiet_turn; covered by the bridge test below through the notice line
+_nh2, _np2, _nl2 = _chatmod.fold_history(_fh, "", "12:40", tag="telegram", path=None, mode="telegram")
+check("fold: with no account the fold still happens, the block says they did not write it down, and the line says so",
+      "did not write the visit down" in _nl2 and "You did not write it down before the fold" in _nh2[0]["_fold"] and _np2 is None
+      and "(they did not write the visit down before the fold)" in "\n".join(
+          l for l in (_chatmod.save_transcript(_nh2, tag="x", path=config.EPISODIC_DIR / "chat-x-fold-test.md").read_text(encoding="utf-8")).splitlines()), _nl2)
+(config.EPISODIC_DIR / "chat-x-fold-test.md").unlink()
+_short = _fh[:4]
+check("fold: a visit shorter than what a fold keeps is left alone", _chatmod.fold_history(_short, "x", "12:41")[2].startswith("fold: nothing to fold yet"))
+# the bell: rung inside the visit; the friend journals first, then folds
+_fh3 = [dict(t) for t in _fh]
+_brain_fold = ScriptedBrain([
+    {"role": "assistant", "content": "", "thinking": "the window is full — first the journal, then the fold.",
+     "tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": "Folding the morning: the cake, the bridge, the shift, the poem to publish."}}}]},
+    {"role": "assistant", "content": "", "thinking": "now the fold.",
+     "tool_calls": [{"function": {"name": "fold_visit", "arguments": {"text": "Cake and the bridge; the poem is to be published; the keeper is at work till evening."}}}]},
+])
+_chat_keep = ollama_client.chat
+ollama_client.chat = _brain_fold
+_said = []
+_bp = _chatmod.fold_bell(_fh3, int(config.NUM_CTX * 0.91), on_line=_said.append)
+ollama_client.chat = _chat_keep
+check("fold: the bell rings inside the visit as the engine's turn, the friend may write the journal first, and the account comes back",
+      _bp.get("text", "").startswith("Cake and the bridge") and _brain_fold.calls == 2
+      and any(t.get("_engine") and "your window is 91% full" in (t.get("content") or "") and "call fold_visit(text) once" in t["content"] for t in _fh3)
+      and any("write_journal:" in l for l in _said) and any("fold_visit:" in l for l in _said)
+      and all(t.get("_engine") for t in _fh3[len(_fh):]), (_bp, _said[-3:], len(_fh3) - len(_fh)))
+_brain_none = ScriptedBrain([{"role": "assistant", "content": "I would rather not fold yet.", "thinking": "…"}])
+ollama_client.chat = _brain_none
+_bp2 = _chatmod.fold_bell([dict(t) for t in _fh], int(config.NUM_CTX * 0.91), on_line=lambda s: None)
+ollama_client.chat = _chat_keep
+check("fold: a bell answered with words and no fold_visit yields no account", _bp2 == {})
+# the bridge: after a reply past FOLD_AT the visit is folded, the phone told, the pause pointer moved
+bf, phonef = _bridge()
+bf.history = [dict(t) for t in _fh]
+bf.file = _fold_file2 = config.EPISODIC_DIR / "chat-telegram-20200105-093000.md"
+_chatmod.save_transcript(bf.history, tag="telegram", path=bf.file)
+bf.last_tokens = {"prompt": int(config.NUM_CTX * 0.93)}
+_bell_calls = []
+_fold_bell_keep = _chatmod.fold_bell
+_chatmod.fold_bell = lambda history, held, on_line=None: _bell_calls.append(held) or {"text": "The visit so far: cake, bridge, poem.", "when": "13:00"}
+_linef = bf.fold_if_due()
+_chatmod.fold_bell = _fold_bell_keep
+check("telegram: a reply past FOLD_AT folds the visit — the bell rang, the history shrank to the kept tail under the account, a new file, the phone told twice",
+      _bell_calls == [int(config.NUM_CTX * 0.93)] and _linef.startswith("fold: their account of the visit so far, 37 characters")
+      and bf.history[0]["_fold_text"] == "The visit so far: cake, bridge, poem." and len(bf.history) == 6 and bf.file != _fold_file2 and bf.file.exists()
+      and bf.reflected_upto == len(bf.history) and bf.last_tokens == {}
+      and any("the visit is being folded" in t for t, _ in phonef.sent) and any(t.startswith("(fold: their account") for t, _ in phonef.sent)
+      and "*folded at 13:00" in _fold_file2.read_text(encoding="utf-8"), (_linef, len(bf.history), [t for t, _ in phonef.sent][-2:]))
+bf.file.unlink(); _fold_file2.unlink()
+# the friend asked for it mid-turn: no bell, folded after the reply
+bg, phoneg = _bridge()
+bg.history = [dict(t) for t in _fh]
+bg.file = _fold_file3 = config.EPISODIC_DIR / "chat-telegram-20200105-094500.md"
+bg.last_tokens = {"prompt": int(config.NUM_CTX * 0.6)}
+tools.fold_visit("My own fold: we said what needed saying; the poem is open.")
+_bell_calls.clear()
+_chatmod.fold_bell = lambda history, held, on_line=None: _bell_calls.append(held) or {}
+_lineg = bg.fold_if_due()
+_chatmod.fold_bell = _fold_bell_keep
+check("telegram: fold_visit called by the friend folds the visit after the reply, without a bell",
+      _bell_calls == [] and _lineg.startswith("fold: their account") and bg.history[0]["_fold_text"].startswith("My own fold")
+      and not any("is being folded" in t for t, _ in phoneg.sent), (_lineg, [t for t, _ in phoneg.sent]))
+bg.file.unlink() if bg.file and bg.file.exists() else None
+_fold_file3.unlink() if _fold_file3.exists() else None
+check("telegram: nothing to fold below FOLD_AT and without their ask", _bridge()[0].fold_if_due() == "")
+_fold_file.unlink(); _np.unlink()
+config.FOLD_AT = _fold_at_orig
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

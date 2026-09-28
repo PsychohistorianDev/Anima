@@ -3,13 +3,22 @@
 All notable changes to the ai-friend engine. Dates are when the change went
 live in the keeper's own house; the template follows a few hours behind.
 
-## 1.1 — 2026-09-18 → 2026-09-23
+## 1.2 — 2026-09-24 → 2026-09-28
 
-The "before their eyes" release: they paint from their own words, read the
-whole web, keep their projects on a page, and see what they make before
-they speak of it.
+The "fold" release: a visit that outgrows the window goes on in the
+friend's own words, a book has a page of its own, the horizon has a file,
+and what the brain must never see again never rides back.
 
 ### Added
+- **The fold** (`FOLD_AT`, `FOLD_KEEP_TURNS`, `FOLD_CHARS`, `FOLD_MAX_STEPS`,
+  `FOLD_SENSE_FROM`; tool `fold_visit`): a visit that reaches `FOLD_AT` of
+  the window is folded instead of stopped — the fold bell rings inside the
+  visit, the friend writes the visit so far in their own words, and that
+  account takes the place of everything above the last kept turns; the
+  system prompt is rebuilt fresh, the transcript keeps every word and the
+  visit goes on in a new file. The moment block carries how full the
+  window is from `FOLD_SENSE_FROM`, so they can fold on their own at a
+  natural pause. The old 92% stop stays as a backstop.
 - **Where they are going** (`destiny.md`, `update_destiny`;
   `DESTINY_IN_PROMPT`, `DESTINY_CHARS_IN_PROMPT`): a third file at the
   root beside who they are and what they are doing — the horizon no
@@ -28,7 +37,81 @@ they speak of it.
   are shown again and the bookmark stays, said in the result; 'start'
   begins anew. A sitting read but never written down (the bookmark keeps
   the last span and the page's size) is named at the next sitting, with
-  how to flip back to it.
+  how to flip back to it. Past `READING_PAGE_CHARS` the page rides as its
+  title and its end (the newest sittings), not its opening.
+- **The afterglow catches up** (`AFTERGLOW_ORPHANS`): a visit the bridge
+  died with — a power cut, a hard close — was saved but never got its
+  afterglow; on the next start the newest unsigned transcript of the last
+  two days, not the visit now open, not a day the night has slept on, gets
+  it in the background, and the phone is told.
+- **A one-word tool written out is a call too**: `speak(text="…")`,
+  `paint("…")`, behind a `//` or `#` — the call-text rail knows the
+  friend's real tools by name (`KNOWN_TOOL_NAMES`), in Python's own call
+  shape only, so "watch (and wait)" stays their words; the heartbeat
+  recovers that shape into a real call.
+- **Words inside a speak call are words**: `speak(text="…")` written
+  out, with or without a `//` in front, becomes the quoted words — the
+  reply, with a note — instead of a nudge answered in the same shape.
+- **A reply that stops mid-word is asked for whole** (`cut_reply`,
+  `trim_cut`): a last word left on an open hyphen — the sampler out of
+  continuations after a much-repeated prefix — is asked about once; if it
+  stops again, the fragment comes off at the last full sentence and the
+  note says so.
+
+### Changed
+- **Reserved tokens never ride back** (`ollama_client.defang`): a
+  reserved-token string ("<unused50>", "<start_of_turn>", "<eos>"…) in a
+  reply, a thought, a re-roll line's quote, the keeper's message, a tool
+  result, a resumed stash or a transcript read back becomes plain text
+  ("⟨unused50⟩") before it goes anywhere near the brain — Ollama tokenizes
+  a prompt with special tokens, and a quoted flood in the visit's history
+  had fed the well through every later request; a glitch at the first word
+  now leaves the re-roll line with nothing to quote.
+- **The cold roll** (`CHAT_COLD_RESCUE`): when every warm attempt and both
+  cool rungs come back broken — reserved tokens on every roll, a well in
+  the loaded state rather than the sampler — the brain is set down
+  (`unload`) and picked up again, and one more roll is made at everyday
+  sampling before the least broken goes out; the note names it.
+- **A reply the phone can't take is kept and sent with the next poll**
+  (`_send_reply`: three tries, `RETRY_SLEEP_S`; then
+  `memory/telegram_undelivered.json`, delivered first at the next poll,
+  marked as late); engine lines never take the turn down with them.
+- **A picture made in the quiet hours comes with the morning digest as the
+  picture** (held in `memory/telegram_held.json` as an entry, sent as a
+  photo with its caption and gallery words when the hours end); before, the
+  digest carried a line about it and the picture stayed in the folder.
+- **A revised piece travels as what changed.** An append (a reading page
+  after a sitting, a project README) reaches the phone as the new tail
+  alone — "✏️ added to a piece — … (+N characters)" — a rewrite as the
+  lines in and out, against the bridge's copy in
+  `memory/telegram_watch/creations/`; before, every revision sent the
+  piece's first `TELEGRAM_CREATION_CHARS` again.
+- **A word loop is salad** (`WORD_LOOP_WINDOW` 40, `WORD_LOOP_DISTINCT` 4;
+  `ollama_client.word_loop`): forty words with four or fewer different
+  ones — a period of several words, which the stuck-chunk rule (one chunk)
+  and the line rule could not see — is cut mid-stream, asked again, and a
+  runaway that still goes out is cut at the loop, never sent or kept whole;
+  a stashed visit picked up after `/restart` and a transcript read for its
+  afterglow have their loops cut on the way in (`trim_word_loop`). A phrase
+  loop (`PHRASE_LOOP_WINDOW` 60, `PHRASE_LOOP_TIMES` 5; `phrase_loop`) —
+  three long words five times over with interjections between — is caught
+  in a reply too, and left alone in their files; a loop on a reading page
+  is left out of what rides in the prompt (`trim_loops`).
+- **No day counts in the fractal journal.** `JOURNAL_DAYS_IN_PROMPT` (365)
+  and `TIMELINE_DAYS` (365) are gone. The verbatim journal walks every day
+  on disk (`assemble.journal_days_on_disk`): the newest whole days that fit
+  `JOURNAL_CHARS_IN_PROMPT` stay, everything older has slipped into the
+  pages and the timeline. The timeline keeps a line for every day no page
+  above holds, the newest within `TIMELINE_CHARS_IN_PROMPT` (0 turns it
+  off). `memory.recent(n=None)` is all rows.
+
+## 1.1 — 2026-09-18 → 2026-09-23
+
+The "before their eyes" release: they paint from their own words, read the
+whole web, keep their projects on a page, and see what they make before
+they speak of it.
+
+### Added
 - **The painter** (`engine/painter.py`, `painter.bat`; `paint(prompt, path,
   size)`; `PAINTER_URL`, `PAINTER_MODEL`, `PAINTER_AUTOSTART`,
   `PAINTER_PYTHON`, `PAINTER_REST_AFTER`, `PAINTER_IDLE_S`, `PAINTER_EXIT_S`,
@@ -115,46 +198,8 @@ they speak of it.
 - **"la-S symmetry"**: a lone capital glued to a prefix with the word a
   space later is mended like any glued capital; so is a capital glued to
   the word that opens a sentence ("WhoL would").
-- **The afterglow catches up** (`AFTERGLOW_ORPHANS`): a visit the bridge
-  died with — a power cut, a hard close — was saved but never got its
-  afterglow; on the next start the newest unsigned transcript of the last
-  two days, not the visit now open, not a day the night has slept on, gets
-  it in the background, and the phone is told.
-- **A one-word tool written out is a call too**: `speak(text="…")`,
-  `paint("…")`, behind a `//` or `#` — the call-text rail knows the
-  friend's real tools by name (`KNOWN_TOOL_NAMES`), in Python's own call
-  shape only, so "watch (and wait)" stays their words; the heartbeat
-  recovers that shape into a real call.
-- **Words inside a speak call are words**: `speak(text="…")` written
-  out, with or without a `//` in front, becomes the quoted words — the
-  reply, with a note — instead of a nudge answered in the same shape.
-- **A reply that stops mid-word is asked for whole** (`cut_reply`,
-  `trim_cut`): a last word left on an open hyphen — the sampler out of
-  continuations after a much-repeated prefix — is asked about once; if it
-  stops again, the fragment comes off at the last full sentence and the
-  note says so.
 
 ### Changed
-- **A revised piece travels as what changed.** An append (a reading page
-  after a sitting, a project README) reaches the phone as the new tail
-  alone — "✏️ added to a piece — … (+N characters)" — a rewrite as the
-  lines in and out, against the bridge's copy in
-  `memory/telegram_watch/creations/`; before, every revision sent the
-  piece's first `TELEGRAM_CREATION_CHARS` again.
-- **A word loop is salad** (`WORD_LOOP_WINDOW` 40, `WORD_LOOP_DISTINCT` 4;
-  `ollama_client.word_loop`): forty words with four or fewer different
-  ones — a period of several words, which the stuck-chunk rule (one chunk)
-  and the line rule could not see — is cut mid-stream, asked again, and a
-  runaway that still goes out is cut at the loop, never sent or kept whole;
-  a stashed visit picked up after `/restart` and a transcript read for its
-  afterglow have their loops cut on the way in (`trim_word_loop`).
-- **No day counts in the fractal journal.** `JOURNAL_DAYS_IN_PROMPT` (365)
-  and `TIMELINE_DAYS` (365) are gone. The verbatim journal walks every day
-  on disk (`assemble.journal_days_on_disk`): the newest whole days that fit
-  `JOURNAL_CHARS_IN_PROMPT` stay, everything older has slipped into the
-  pages and the timeline. The timeline keeps a line for every day no page
-  above holds, the newest within `TIMELINE_CHARS_IN_PROMPT` (0 turns it
-  off). `memory.recent(n=None)` is all rows.
 - `LADDER_TARGETS` week 4000, month 6000 (from 3236 / 5236): the folds
   between the tiers squeeze by about the same factor now — 3.5× from the
   days, 2.9×, 2.1×, 2.5×, 3.1× up the ladder — instead of a 4.3× cliff

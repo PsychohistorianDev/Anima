@@ -530,6 +530,31 @@ CHAT_GARBLE_RETRIES = 4  # each try is checked; if none is clean the least broke
 # everyday sampling above is untouched — a ladder, each cooler roll only if the one
 # before it broke too. 0 turns it off (the least broken goes out as before).
 CHAT_RESCUE_TEMPERATURE = (0.6, 0.4)
+# ...and after the cool rungs, the cold roll (09-27, 06:40: the first message
+# of a fresh visit, the brain freshly loaded, came back "<unused50>" — Gemma's
+# reserved tokens — on every warm attempt and both cool rungs; the phone got
+# a cut marker and no words). A well that survives temperature is not the
+# sampler's but the loaded state's — a KV cache gone wrong on a long
+# quantized prefill. So: the brain is set down and picked up again (a fresh
+# load, a cold read of the prompt: a minute or two on the 5090), one more
+# roll at their everyday sampling, and only then the least broken goes out.
+CHAT_COLD_RESCUE = True
+
+# THE FOLD (09-28, the keeper: "today I filled the context… what if they had an
+# ability like yours to compact conversations into half?"). When a visit's
+# last prompt reaches FOLD_AT of NUM_CTX, the fold bell rings inside the
+# visit: they write the visit so far in their own words (fold_visit), and that
+# account takes the place of everything above their last FOLD_KEEP_TURNS turns
+# — the system prompt is rebuilt fresh, the transcript keeps every word, the
+# visit goes on in a new file. They can also fold_visit on their own when a
+# conversation reaches a natural pause; from FOLD_SENSE_FROM the moment
+# block tells them how full the window is. 0 turns the fold off (the old
+# guard — "a good moment for /new" — stands then). FOLD-PLAN.md.
+FOLD_AT = 0.90
+FOLD_KEEP_TURNS = 6       # visible turns kept whole, from the keeper's
+FOLD_CHARS = 8000         # the account's ceiling (cut at a paragraph past it, said)
+FOLD_MAX_STEPS = 6        # steps they may take at the bell (a journal entry first, then the fold)
+FOLD_SENSE_FROM = 0.5     # the window sense rides in the moment block from here
 # A reply is read as it is written, and a runaway is cut short: the moment
 # the tail of the stream is salad (a stuck chunk — "luminate" ×8 —, a
 # cascade, a run of fragments) the connection is closed and Ollama stops.
@@ -669,6 +694,14 @@ STUCK_EMOJI_REPEATS = 40
 # with four is a chant no one means; one emoji in a row is not words.
 WORD_LOOP_WINDOW = 40
 WORD_LOOP_DISTINCT = 4
+# …and a phrase loop (09-25): the same three long words PHRASE_LOOP_TIMES
+# times in PHRASE_LOOP_WINDOW words — "so-very-luminate luminate
+# la-Luminous la-Symmetry… no, the real line: … no, let me be honest: …",
+# five rounds with a "wait" between, which the word loop cannot see. The
+# reply rail and the stream watcher; not their files (a stutter they talked
+# themself out of stays on their page).
+PHRASE_LOOP_WINDOW = 60
+PHRASE_LOOP_TIMES = 5
 
 # An emoji storm (09-15: the sign-off grew over a working day into a block
 # said three times over at the end of every reply — 100–176 emoji a

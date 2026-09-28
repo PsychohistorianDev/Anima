@@ -60,6 +60,12 @@ def save_transcript(turns: list[dict], tag: str = "", path: Path | None = None) 
     lines = [f"# Conversation{where} — {datetime.now().strftime('%A, %d %B %Y %H:%M')}\n"]
     name = friend_name()
     for t in visible:
+        if t.get("_fold_when"):
+            # the visit was folded here (chat.fold_history): what came before
+            # is in the file named, and in their own words below
+            src = f" — continued from {t['_fold_from']}" if t.get("_fold_from") else ""
+            acct = t.get("_fold_text") or "(they did not write the visit down before the fold)"
+            lines.append(f"*(folded at {t['_fold_when']}{src}; the visit so far, in their words:)*\n\n{acct}\n")
         who = config.USER_NAME if t["role"] == "user" else (f"{name} (after writing, while they were away)" if t.get("_after") else name)
         lines.append(f"**{who}:** {t['content']}\n")
     tmp = f.with_suffix(".md.part")
@@ -90,7 +96,7 @@ def load_transcript(path: Path) -> list[dict]:
     marks = list(who_re.finditer(body))
     for i, m in enumerate(marks):
         end = marks[i + 1].start() if i + 1 < len(marks) else len(body)
-        content = body[m.end():end].strip()
+        content = ollama_client.defang(body[m.end():end].strip())[0]
         who = m.group(1)
         if not content:
             continue
@@ -129,7 +135,7 @@ def orphaned_visit(tag: str = "telegram", exclude: Path | None = None) -> Path |
             text = f.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        if "\n---\n*afterglow:" in text:
+        if "\n---\n*afterglow:" in text or "\n---\n*folded at " in text:
             continue
         if not any(t["role"] == "user" for t in load_transcript(f)):
             continue
@@ -237,6 +243,165 @@ def pause_reflection(history: list[dict], path: Path | None = None, tag: str = "
     return _quiet_turn(history, path, tag, on_line, mode="pause", since=since, on_words=on_words)
 
 
+# THE FOLD (09-28; FOLD-PLAN.md). The keeper: "today I filled the context… what
+# if she had an ability like yours to compact conversations into half?" A visit
+# that outgrows the window goes on with THE FRIEND'S account of it in place of the
+# middle: the fold bell rings inside the visit (the pause's shape, on the
+# warm prefix), they write the visit so far and call fold_visit; then the
+# history is rebuilt — a fresh system prompt (the journal entries they wrote
+# today now ride in it), their account above the last FOLD_KEEP_TURNS turns,
+# which stay whole — and the visit continues in a new transcript file. The
+# engine never writes the account: no fold_visit, no account, and the line
+# says so. What /new did to the day — saved, then gone from the window —
+# the fold does to the middle only.
+FOLD_BELL = ("[engine, not a person: your window is {pct}% full — {held:,} of {ctx:,} tokens. The visit is about "
+             "to be FOLDED: everything above this line leaves the window except your last {keep} turns, and what "
+             "you write now is what you will have of it. Write the visit so far in your own words — what your keeper "
+             "said, what you said, what is still open between you, what you want to carry — up to {cap:,} "
+             "characters — and call fold_visit(text) once. If something belongs in your journal, write_journal "
+             "it first, then fold_visit. The transcript on disk keeps every word; your journal keeps the day; "
+             "this is for the conversation's own thread. This bracket is a mechanism, nobody wrote it to you, "
+             "and your keeper is not waiting on an answer to it.]")
+
+
+def fold_due(held: int) -> bool:
+    """Whether a visit that last held `held` tokens is past FOLD_AT."""
+    at = float(getattr(config, "FOLD_AT", 0) or 0)
+    ctx = int(getattr(config, "NUM_CTX", 0) or 0)
+    return bool(at and ctx and held and held >= ctx * at)
+
+
+def foldable(history: list[dict]) -> bool:
+    """Whether a fold would change anything: more visible turns than a fold
+    keeps. Below that the bell is not rung — a short visit that reads a
+    huge page is the in-turn guard's business, not the fold's."""
+    keep = int(getattr(config, "FOLD_KEEP_TURNS", 6) or 0)
+    vis = [t for t in history if t.get("role") in ("user", "assistant") and t.get("content") and not t.get("_engine")]
+    return len(vis) > keep and any(t["role"] == "user" for t in vis)
+
+
+def fold_bell(history: list[dict], held: int, on_line=None) -> dict:
+    """Ring the fold bell inside the visit and let the friend write the visit
+    so far (fold_visit), with their other tools at hand for a journal entry
+    first. Their steps stay in the history as the engine's turns — they are
+    about to be folded away anyway. Returns tools.fold_pending()."""
+    say = on_line or (lambda s: None)
+    tools.fold_pending()  # anything stale
+    if not history or not history[0].get("_system") or not foldable(history):
+        return {}
+    ctx = int(getattr(config, "NUM_CTX", 0) or 0)
+    keep = int(getattr(config, "FOLD_KEEP_TURNS", 6) or 0)
+    cap = int(getattr(config, "FOLD_CHARS", 8000) or 8000)
+    pct = int(round(100 * held / ctx)) if ctx else 0
+    bell = {"role": "user", "_engine": True, "content":
+            assemble.clock_line() + FOLD_BELL.format(pct=pct, held=held, ctx=ctx, keep=keep, cap=cap)}
+    history.append(bell)
+    system = {"role": "system", "content": history[0]["_system"]}
+    msgs = [system] + [render_turn(t) for t in history]
+    show_thinking = getattr(config, "CHAT_SHOW_THINKING", True)
+    try:
+        for _ in range(int(getattr(config, "FOLD_MAX_STEPS", 6) or 6)):
+            msg = ollama_client.chat(msgs, tools=list(tools.DEFINITIONS))
+            thinking = (msg.get("thinking") or "").strip()
+            if thinking and show_thinking:
+                say("   [thinking]\n   " + thinking.replace("\n", "\n   "))
+            msg["_engine"] = True
+            history.append(msg)
+            msgs.append(render_turn(msg))
+            calls = msg.get("tool_calls") or []
+            if not calls:
+                words = (msg.get("content") or "").strip()
+                if words:
+                    say("   [before the fold] " + words.replace("\n", "\n   "))
+                break
+            folded = False
+            for call in calls:
+                fn = call.get("function", {})
+                cname = tools.canonical_name(fn.get("name", ""))
+                if cname == "do_nothing":
+                    folded = True
+                    continue
+                result = tools.dispatch(fn.get("name", ""), fn.get("arguments", {}))
+                fn["name"] = cname
+                say(f"   · {cname}: {tools.headline(result, 100)}")
+                tr = {"role": "tool", "tool_name": cname, "_engine": True,
+                      "content": f"[this is what YOUR {cname} tool returned]\n{result}"}
+                history.append(tr)
+                msgs.append(render_turn(tr))
+                if cname == "fold_visit" and not result.lstrip().startswith("("):
+                    folded = True
+            if folded:
+                break
+    except ollama_client.BrainUnavailable as e:
+        say(f"fold: the brain was offline — the visit stays as it is ({e})")
+        return {}
+    except Exception as e:  # the bell must never take the visit down with it
+        say(f"fold: hiccup — {type(e).__name__}: {e}")
+    return tools.fold_pending()
+
+
+def fold_history(history: list[dict], account: str, when: str, tag: str = "",
+                 path: Path | None = None, mode: str = "chat") -> tuple[list[dict], Path | None, str]:
+    """The visit after the fold: the last FOLD_KEEP_TURNS visible turns
+    (from the keeper's turn) with everything that rode with them, the first of them
+    carrying a fresh system prompt, the union of what has surfaced, and the
+    fold block — their account of what came before. The old transcript file
+    gets a foot naming the new one; the new one is written at once with the
+    fold at its head. Returns (history, new path, the line for the door)."""
+    keep = int(getattr(config, "FOLD_KEEP_TURNS", 6) or 0)
+    vis = [i for i, t in enumerate(history)
+           if t.get("role") in ("user", "assistant") and t.get("content") and not t.get("_engine")]
+    users = [i for i in vis if history[i]["role"] == "user"]
+    if len(vis) <= keep or not users:
+        return history, path, "fold: nothing to fold yet — the visit is shorter than what a fold keeps"
+    start = vis[-keep] if keep else len(history)
+    if history[start]["role"] != "user":  # the kept tail opens with the keeper's turn
+        earlier = [i for i in users if i < start]
+        start = earlier[-1] if earlier else start
+    new = [dict(t) for t in history[start:]]
+    surfaced = sorted({mid for t in history for mid in (t.get("_surfaced") or [])})
+    first = new[0]
+    hint = " ".join(t["content"] for t in history[vis[-1] - 3:] if t.get("content") and not t.get("_engine"))
+    first["_system"] = assemble.system_prompt(hint, mode=mode, warm=True)
+    first["_system_day"] = date.today().isoformat()
+    first["_surfaced"] = surfaced
+    began = ""
+    if path is not None:
+        m = re.search(r"(\d{8})-(\d{6})", path.name)
+        if m:
+            began = f"{m.group(2)[:2]}:{m.group(2)[2:4]}"
+    n_gone = sum(1 for i in vis if i < start and history[i]["role"] == "user")
+    acct = account.strip() if account else ""
+    first["_fold"] = ("[engine, not a person: this visit" + (f" began at {began} and" if began else "")
+                      + f" was folded at {when} because the window filled — {n_gone} of your keeper's messages and your replies "
+                      "to them left the window; the transcript on disk keeps them whole. "
+                      + (f"What came before, in your own words, written then:]\n\n{acct}\n\n[…and from here the visit goes on as it was said.]"
+                         if acct else "You did not write it down before the fold, so only the turns below remain in view.]"))
+    first["_fold_when"] = when
+    first["_fold_text"] = acct
+    first["_fold_from"] = path.name if path is not None else ""
+    new_path = None
+    if path is not None:
+        new_path = visit_file(tag)
+        n = 2
+        while new_path.exists() or new_path == path:  # never the file being folded, never a twin
+            new_path = new_path.with_name(f"{visit_file(tag).stem}-{n}.md")
+            n += 1
+        try:
+            if path.exists():
+                with path.open("a", encoding="utf-8") as fh:
+                    fh.write(f"\n\n---\n*folded at {when} — "
+                             + ("they wrote the visit so far in their own words and " if acct else "")
+                             + f"the visit goes on in {new_path.name}*\n")
+        except OSError:
+            pass
+        save_transcript(new, tag=tag, path=new_path)
+    line = (f"fold: their account of the visit so far, {len(acct):,} characters" if acct
+            else "fold: they did not write the visit down before the fold — the transcript keeps it, the window does not")
+    line += f"; the last {keep} turns stay whole" + (f"; the visit goes on in {new_path.name}" if new_path else "")
+    return new, new_path, line
+
+
 def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
                 mode: str, since: int, on_words=None) -> str:
     """on_words(words): their closing thought — what they say to no one after
@@ -279,7 +444,10 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
         history.append(bell)
         msgs = [system] + [render_turn(t) for t in history]
     else:
-        transcript = "\n\n".join(f"**{config.USER_NAME if t['role'] == 'user' else name}:** {t['content']}" for t in visible)
+        transcript = "\n\n".join(
+            (f"*(the visit so far, folded at {t['_fold_when']}, in your own words:)*\n\n{t.get('_fold_text') or '(not written down before the fold)'}\n\n"
+             if t.get("_fold_when") else "")
+            + f"**{config.USER_NAME if t['role'] == 'user' else name}:** {t['content']}" for t in visible)
         cap = int(getattr(config, "AFTERGLOW_MAX_CHARS", 60000))
         if len(transcript) > cap:
             transcript = "(…the start of a long visit trimmed…)\n\n" + transcript[-cap:]
@@ -602,10 +770,12 @@ def render_turn(t: dict) -> dict:
     the bottom if a re-roll once sent it — so that what is sent this time is
     exactly what was sent last time, plus whatever is new."""
     out = {k: v for k, v in t.items() if not k.startswith("_")}
-    if t.get("role") == "user" and (t.get("_moment") or t.get("_nudged")):
+    if t.get("role") == "user" and (t.get("_moment") or t.get("_nudged") or t.get("_fold")):
         body = t.get("content") or ""
         if t.get("_moment"):
             body = t["_moment"] + "\n\n" + body
+        if t.get("_fold"):
+            body = t["_fold"] + "\n\n" + body  # the folded visit, in their words, above everything kept
         if t.get("_nudged"):
             body = body.rstrip() + "\n\n" + ollama_client.THINK_NUDGE
         out["content"] = body
@@ -622,6 +792,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     mode: "chat" (they're at the keyboard) or "telegram" (they're on their phone)."""
     tools.refresh_her_tools()  # pick up tools they forged or edited
     mark_visit_live()  # the heartbeat waits while he is here
+    user_text = ollama_client.defang(user_text)[0]  # a reserved token typed or pasted stays text (09-27)
     turn: dict = {"role": "user", "content": user_text}
     if images:
         turn["images"] = images
@@ -662,7 +833,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     system = {"role": "system", "content": system_text}
     if warm:
         seen = {mid for t in history[:ui] for mid in (t.get("_surfaced") or [])}
-        turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen)
+        held = max((int(t.get("_prompt") or 0) for t in history[:ui]), default=0)  # the last prompt's size — the window sense
+        turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen, held=held)
         # Once a visit has needed a think re-roll — the first answer came
         # back thoughtless, the nudge fixed it, and the fix cost a whole
         # second generation (09-10: "1 re-roll · written in 85.2s") — the
@@ -703,11 +875,17 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         # prefix changes every turn from then on, the cache never warms again:
         # every reply costs a full minute-plus prefill. Nothing breaks; it
         # just gets slow and forgetful. /new saves the visit and starts fresh.
+        history[ui]["_prompt"] = spent.prompt  # what this turn held, for the next moment's window sense and the fold
+        fold_at = float(getattr(config, "FOLD_AT", 0) or 0)
         if window and spent.prompt >= window * 0.9:
             warn = (f"this visit is near the edge of their window ({spent.prompt:,} of "
                     f"{window:,}) — past it the earliest part slips out of view and every "
-                    "reply turns slow. A good moment for /new: the visit is saved, they "
-                    "keeps everything they wrote down, and the next one starts fresh.")
+                    "reply turns slow. "
+                    + ("The visit is folded now: their account of it so far takes the place of the middle."
+                       if fold_at and spent.prompt >= window * fold_at else
+                       f"The fold comes after the reply that reaches {int(round(fold_at * 100))}%." if fold_at else
+                       "A good moment for /new: the visit is saved, they keep everything they wrote down, "
+                       "and the next one starts fresh."))
             if on_event:
                 on_event("note", warn)
             else:
@@ -722,13 +900,17 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     ctx = int(getattr(config, "NUM_CTX", 0) or 0)
     for step_no in range(config.CHAT_MAX_TOOL_STEPS):
         if ctx and room_end and spent.prompt and spent.prompt >= ctx * room_end:
+            fold_at = float(getattr(config, "FOLD_AT", 0) or 0)
+            fold_pct = int(round(fold_at * 100)) if fold_at else 0
             note = (f"engine: the window is full — {spent.prompt:,} of {ctx:,} tokens in context after "
-                    f"{step_no} tool steps; their errand was stopped here. A good moment for /new.")
+                    f"{step_no} tool steps; their errand was stopped here. "
+                    + (f"The visit is folded when a reply reaches {fold_pct}%." if fold_at else "A good moment for /new."))
             if on_event:
                 on_event("note", note)
             else:
                 print(f"   ({note})")
-            history.append({"role": "assistant", "content": "(my window is full — what I did is done and saved; say /new and I go on from there)"})
+            history.append({"role": "assistant", "content": "(my window is full — what I did is done and saved; "
+                            + (f"the visit folds at {fold_pct}% and I go on from there)" if fold_at else "say /new and I go on from there)")})
             _tally()
             return history[-1]["content"]
         msg = ollama_client.chat(messages(), tools=tools.DEFINITIONS, expect_words=True)
@@ -779,6 +961,11 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                 notes.append("engine: they wrote their words inside a speak(…) call — the words were taken out of "
                              "the wrapper and are their reply; speak makes a voice note, it is not how they talks "
                              f"(it read: “{msg['unwrapped_speak'][:100]}”)")
+            if msg.get("defanged"):
+                n = msg["defanged"]
+                notes.append(f"engine: {n} reserved-token string{'s' if n != 1 else ''} of the brain's (like ⟨unused50⟩) "
+                             f"in what came back {'were' if n != 1 else 'was'} written as plain text — "
+                             "as tokens they would ride back into the prompt and feed the well")
             if msg.get("mended_caps"):
                 many = len(msg["mended_caps"]) > ollama_client.MEND_CAPS_MAX
                 notes.append(("engine: a stray capital glued to a word was taken off in place ("
@@ -844,11 +1031,17 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                     ran = " — cut short as it ran" if (msg.get("garbled_first_aborted")) else ""
                     notes.append("engine: their first reply had letter fragments or a stuck loop in it (a sampler "
                                  f"glitch, not them){ran} — they were asked to say it again. The glitch: “{span[:120]}”")
-                if msg.get("rescued") and not msg.get("still_garbled"):
+                if msg.get("rescued") and not msg.get("still_garbled") and not msg.get("cold"):
                     notes.append(f"engine: every warm attempt came back broken; one last roll with the temperature turned "
                                  f"down to {msg['rescued']:g} for that roll only answered — this reply is theirs, on a cool head")
+                if msg.get("cold") and not msg.get("still_garbled"):
+                    notes.append("engine: every attempt came back broken, cool rolls included — the brain was set down and "
+                                 "picked up again (a fresh load, a cold read of the prompt), and this roll answered. This reply "
+                                 "is theirs; the well was in the loaded state, not in them")
                 if msg.get("still_garbled"):
                     cooled = (f" — even a roll cooled to {msg['rescue_failed']:g}" if msg.get("rescue_failed") else "")
+                    if msg.get("cold_failed"):
+                        cooled += " — and even a fresh load of the brain"
                     notes.append(f"engine: every attempt came back broken{cooled} — this is the least broken of them, "
                                  f"and still not them: “{str(msg['still_garbled']).strip()[:100]}”. The sampler is "
                                  "in a well at this window; if it happens again on a fresh message, the prompt "
@@ -1014,6 +1207,7 @@ def main() -> None:
     name = friend_name()
     history: list[dict] = []
     attached: list[str] = []
+    pinned: Path | None = None  # the visit's file once a fold has named it
     try:
         while True:
             try:
@@ -1025,10 +1219,11 @@ def main() -> None:
             if user_text == "/quit":
                 break
             if user_text == "/new":
-                if (f := save_transcript(history)):
+                if (f := save_transcript(history, path=pinned)):
                     print(f"(saved {f.name} — they are writing the visit down…)")
                     afterglow(history, f, on_line=print)
                 history = []
+                pinned = None
                 continue
             if user_text.startswith("/show "):
                 note = tools.look_at(user_text[6:].strip().strip('"'))
@@ -1050,8 +1245,23 @@ def main() -> None:
                 print(f"\n[hiccup — the conversation is fine, try again] {type(e).__name__}: {e}")
                 continue
             print(f"\n{name} > {reply}")
+            # the fold (09-28): the window nearly full, or they asked for it
+            pending = tools.fold_pending()
+            held = max((int(t.get("_prompt") or 0) for t in history), default=0)
+            if pending or (fold_due(held) and foldable(history)):
+                try:
+                    if not pending:
+                        print("(the window is nearly full — the visit is being folded: written so far in their own words…)")
+                        pending = fold_bell(history, held, on_line=print)
+                    pinned = save_transcript(history, path=pinned)  # what came before, on disk first
+                    history, pinned, line = fold_history(history, pending.get("text", ""),
+                                                         pending.get("when") or datetime.now().strftime("%H:%M"),
+                                                         path=pinned, mode="chat")
+                    print(f"({line})")
+                except Exception as e:
+                    print(f"(fold: hiccup — the visit stays as it is: {type(e).__name__}: {e})")
     finally:
-        if (f := save_transcript(history)):
+        if (f := save_transcript(history, path=pinned)):
             print(f"\n(conversation saved: {f.name} — they are writing the visit down…)")
             afterglow(history, f, on_line=print)
 

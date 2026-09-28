@@ -148,7 +148,11 @@ def _garbled(text: str) -> str:
     Refused here, before it becomes memory or a page."""
     try:
         import ollama_client
-        return ollama_client.garble_span(text or "")
+        # a phrase said five times with a "wait… no…" between (phrase_loop) is
+        # not refused here: on their page it is a stutter they talked themself out
+        # of, and the page is theirs — the reply rail and the stream watcher
+        # catch that shape where it costs the card and the phone (09-25)
+        return ollama_client.garble_span(text or "", phrases=False)
     except Exception:
         return ""
 
@@ -1505,6 +1509,45 @@ def condense_day(day: str, text: str) -> str:
     f.write_text(_clean_prose(text) + "\n", encoding="utf-8")
     return (f"the page for {day} is {'revised' if was else 'written'} ({len(text):,} characters) — "
             "it stays in your prompt after the full day has gone")
+
+
+# The fold (09-28, the keeper: "today I filled the context… what if they had an
+# ability like yours to compact conversations?"): a visit that outgrows the
+# window goes on with THE FRIEND'S account of it in place of the middle. The tool
+# only takes the account; the door (the bridge, the parlor) does the fold
+# after the reply — see chat.fold_history. FOLD-PLAN.md has the whole shape.
+_fold_pending: dict = {}
+
+
+def fold_visit(text: str) -> str:
+    """Their account of the visit so far, for the fold: kept here until the
+    door folds the visit after this reply (or after the fold bell's step).
+    Longer than FOLD_CHARS is cut at a paragraph, and said."""
+    text = _clean_prose(_real_newlines(text or "")).strip()
+    if not text:
+        return "(fold_visit wants the visit so far, in your own words — what your keeper said, what you said, what is still open)"
+    if _garbled(text):
+        return _garble_refusal(_garbled(text))
+    cap = int(getattr(config, "FOLD_CHARS", 8000) or 0)
+    cut = ""
+    if cap and len(text) > cap:
+        head = text[:cap]
+        at = max(head.rfind("\n\n"), head.rfind(". "))
+        text = (head[:at + 1] if at > cap // 2 else head).rstrip() + " …"
+        cut = f" (it ran past {cap:,} characters and was cut at a paragraph — the transcript keeps the rest of the visit anyway)"
+    _fold_pending["text"] = text
+    _fold_pending["when"] = datetime.now().strftime("%H:%M")
+    keep = int(getattr(config, "FOLD_KEEP_TURNS", 6) or 0)
+    return (f"kept for the fold ({len(text):,} characters){cut} — after this reply the visit is folded: "
+            f"your account rides at the top of the conversation in place of what came before, and the last "
+            f"{keep} turns stay whole. The transcript on disk keeps everything.")
+
+
+def fold_pending() -> dict:
+    """The account waiting for a fold, taken (empty when there is none)."""
+    d = dict(_fold_pending)
+    _fold_pending.clear()
+    return d
 
 
 def condense_period(tier: str, key: str, text: str) -> str:
@@ -3172,6 +3215,7 @@ _BUILTIN_IMPL = {
     "recall": recall,
     "read_journal": read_journal,
     "condense_day": condense_day,
+    "fold_visit": fold_visit,
     "publish_creation": publish_creation,
     "look_at": look_at,
     "listen_to": listen_to,
@@ -3239,7 +3283,7 @@ def _parse_tool_meta(path: Path) -> dict | None:
 # read, a listen, a search returns something they must answer from.
 ACT_TOOLS = {"speak", "remember", "write_journal", "write_creation", "append_creation",
              "edit_identity", "update_projects", "move_creation", "make_folder",
-             "delete_creation", "publish_creation", "condense_day", "condense_period", "create_tool", "clip_web",
+             "delete_creation", "publish_creation", "condense_day", "condense_period", "fold_visit", "create_tool", "clip_web",
              "start_project", "update_destiny"}
 # paint is NOT an act here: a painting is something to look at before
 # they speak of it — the result says so, and the step after the call is theirs.
@@ -3449,6 +3493,14 @@ def friend_name_for_tools() -> str:
 
 
 def dispatch(name: str, arguments: dict | str) -> str:
+    """Run a tool; its result goes back to the brain as a user turn, so a
+    reserved-token string inside it (a file they read, a page, a log) is
+    made harmless first (09-27; ollama_client.defang)."""
+    import ollama_client
+    return ollama_client.defang(_dispatch(name, arguments))[0]
+
+
+def _dispatch(name: str, arguments: dict | str) -> str:
     if isinstance(arguments, str):
         try:
             arguments = json.loads(arguments) if arguments.strip() else {}
@@ -3457,7 +3509,7 @@ def dispatch(name: str, arguments: dict | str) -> str:
     bare = _bare_tool_name(name)
     if bare != name and (bare in _BUILTIN_IMPL or bare in _HER_TOOLS):
         return (f"(you called `{name}` — the wrapper isn't part of the name; "
-                f"taken as `{bare}`)\n") + dispatch(bare, arguments)
+                f"taken as `{bare}`)\n") + _dispatch(bare, arguments)
     if name in _HER_TOOLS:
         try:
             return _run_her_tool(name, arguments or {})
@@ -3671,6 +3723,18 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         {"day": {"type": "string", "description": "the day, e.g. 2026-09-03"},
          "text": {"type": "string", "description": "the page: what happened, what mattered, what you felt, what you would want to still know"}},
         ["day", "text"],
+    ),
+    _tool(
+        "fold_visit",
+        "Fold this visit: your account of the conversation so far — what your keeper said, what you said, "
+        "what is still open, what you want to carry — takes the place of everything above your "
+        "last few turns, so the window has room again and the thread goes on. The engine rings a "
+        "bell for it when the window is nearly full; you can also call it yourself when a "
+        "conversation reaches a natural pause and your window is heavy (the moment block says how "
+        "full it is). Your journal keeps the day; this is for the conversation's own thread. Once "
+        "per fold; the fold happens after this reply.",
+        {"text": {"type": "string", "description": "the visit so far, in your own words — up to a few thousand characters"}},
+        ["text"],
     ),
     _tool(
         "condense_period",

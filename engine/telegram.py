@@ -87,6 +87,8 @@ MAIL_DIR = config.CREATIONS_DIR / getattr(config, "MAILBOX", "notes_to_keeper")
 # bridge first looked was read at the desk; only new pieces travel.
 CREATIONS_SEEN_FILE = config.MEMORY_DIR / "telegram_creations_seen.json"
 HELD_FILE = config.MEMORY_DIR / "telegram_held.json"  # engine notices held through the quiet hours
+UNDELIVERED_FILE = config.MEMORY_DIR / "telegram_undelivered.json"  # their replies the phone never got (09-26)
+RETRY_SLEEP_S = 2     # between the tries of sending their reply
 # ...and a piece they REVISES is announced too — as what changed (09-24):
 # an append as the new tail alone, a rewrite as the lines in and out — and
 # a change to who they are: self.md and projects.md (TELEGRAM_TELL_SELF),
@@ -200,6 +202,8 @@ class Bridge:
         self._load_creations_seen()
         self.held: list[str] = []  # engine notices waiting for the morning
         self._load_held()
+        self.undelivered: list[dict] = []  # their replies that failed to send; tried again next poll
+        self._load_undelivered()
         self.restart_requested = False
 
     # ---- /restart: the visit survives the process -------------------------
@@ -238,10 +242,16 @@ class Bridge:
                 pass
         self.history = list(state.get("history") or [])
         loops = 0
+        fangs = 0
         for t in self.history:  # a loop that went out whole does not ride again (09-24)
             if t.get("role") == "assistant" and t.get("content"):
                 t["content"], cut = ollama_client.trim_word_loop(t["content"])
                 loops += cut
+            if isinstance(t.get("content"), str) and t["content"]:
+                # reserved-token strings in any turn — the friend's, the keeper's, the engine's
+                # quotes — never ride again as tokens (09-27)
+                t["content"], n = ollama_client.defang(t["content"])
+                fangs += n
         self.attached = list(state.get("attached") or [])
         self.file = Path(state["file"]) if state.get("file") else None
         self.reflected_upto = int(state.get("reflected_upto") or 0)
@@ -255,7 +265,8 @@ class Bridge:
         return (f"picked the visit back up after the restart: {turns} of {config.USER_NAME}'s turns so far"
                 + (f", stashed {ago:.0f} min ago" if ago >= 1 else "")
                 + (f"; {loops} looping reply cut at the loop before it rides again" if loops == 1
-                   else f"; {loops} looping replies cut at the loop before they ride again" if loops else "")) if self.history else \
+                   else f"; {loops} looping replies cut at the loop before they ride again" if loops else "")
+                + (f"; {fangs} reserved-token strings in the stashed turns made plain text before they ride again" if fangs else "")) if self.history else \
                "restarted (no visit was running)"
 
     def _checkpoint(self) -> None:
@@ -376,16 +387,84 @@ class Bridge:
         if tokens:
             self.last_tokens = tokens
         if self.show_thinking and thinking:
-            self.send("💭 " + thinking[:LIMIT * 2], markdown=False)
+            self._try_send("💭 " + thinking[:LIMIT * 2], markdown=False)
         if self.show_tools and tool_lines:
-            self.send("\n".join(tool_lines), markdown=False)
-        self.send(reply)
+            self._try_send("\n".join(tool_lines), markdown=False)
+        # their reply is the one thing that must arrive (09-26, 16:21: the thinking
+        # bubble reached the phone, the reply's send hit a network hiccup, the
+        # exception rode up to the loop — "no road to Telegram, trying again" —
+        # and the reply, already in the transcript, was never sent: he saw a
+        # thought and no words). Sent with retries; if it still fails it is kept
+        # and goes with the next poll, marked as late.
+        self._send_reply(reply)
         self._carry_voice(reply)
         for n in notes:  # engine honesty notes always travel — that rail is not optional
-            self.send("⚠ " + n, markdown=False)
+            self._try_send("⚠ " + n, markdown=False)
         if self.show_tokens and tokens:
-            self.send(tokens["line"], markdown=False)
+            self._try_send(tokens["line"], markdown=False)
         _say(f"{chat.friend_name()} > {reply[:120]}{'…' if len(reply) > 120 else ''}")
+
+    def _try_send(self, text: str, markdown: bool = True) -> bool:
+        """A send that never takes the turn down with it: an engine line the
+        phone misses is a line missed, not a visit broken."""
+        try:
+            self.send(text, markdown=markdown)
+            return True
+        except Exception as e:
+            _say(f"(a line didn't reach the phone: {type(e).__name__}: {e})")
+            return False
+
+    def _send_reply(self, reply: str, tries: int = 3) -> None:
+        """Their words to the phone: three tries a few seconds apart, then kept
+        in memory/telegram_undelivered.json and sent with the next poll."""
+        last = None
+        for i in range(tries):
+            try:
+                self.send(reply)
+                return
+            except Exception as e:
+                last = e
+                _say(f"(their reply didn't reach the phone — {type(e).__name__}: {e}; trying again)")
+                time.sleep(RETRY_SLEEP_S * (i + 1))
+        self.undelivered.append({"text": reply, "when": datetime.now().strftime("%H:%M")})
+        self._save_undelivered()
+        _say(f"(their reply is kept — it goes with the next poll; last error: {last})")
+
+    def _load_undelivered(self) -> None:
+        try:
+            raw = json.loads(UNDELIVERED_FILE.read_text(encoding="utf-8"))
+            self.undelivered = [x for x in raw if isinstance(x, dict) and x.get("text")] if isinstance(raw, list) else []
+        except (OSError, ValueError):
+            self.undelivered = []
+
+    def _save_undelivered(self) -> None:
+        try:
+            if self.undelivered:
+                UNDELIVERED_FILE.write_text(json.dumps(self.undelivered, ensure_ascii=False), encoding="utf-8")
+            else:
+                UNDELIVERED_FILE.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+    def deliver_undelivered(self) -> int:
+        """Their replies the phone never got, sent now, marked as late — before
+        anything else the poll carries, so their words come first."""
+        if not self.undelivered or not self.chat_id:
+            return 0
+        sent = 0
+        while self.undelivered:
+            item = self.undelivered[0]
+            try:
+                self.send(f"(this reply didn't reach your phone at {item.get('when', '?')} — here it is)", markdown=False)
+                self.send(item["text"])
+            except Exception as e:
+                _say(f"(still no road for their kept reply: {type(e).__name__}: {e})")
+                break
+            self.undelivered.pop(0)
+            self._save_undelivered()
+            sent += 1
+            _say("delivered a reply the phone had missed")
+        return sent
 
     def _carry_voice(self, reply: str) -> None:
         """Voice notes they spoke this turn go to the phone after their words;
@@ -717,6 +796,44 @@ class Bridge:
             return
         _say(f"{config.USER_NAME} > {text[:120]}{'…' if len(text) > 120 else ''}")
         self.turn(text)
+        self.fold_if_due()
+
+    def fold_if_due(self) -> str:
+        """THE FOLD (09-28; chat.fold_history): after a reply, when the visit's
+        last prompt reached FOLD_AT of the window — or they called fold_visit
+        themselves — the visit is folded: their account of it so far in place of
+        the middle, the last turns whole, a new transcript file. The bell,
+        when it is the engine's call, rings first so the account is theirs."""
+        pending = tools.fold_pending()
+        held = int((self.last_tokens or {}).get("prompt") or 0)
+        due = chat.fold_due(held) and chat.foldable(self.history)
+        if not pending and not due:
+            return ""
+        got = self.lock.acquire(timeout=3)
+        if not got:
+            if pending:
+                tools._fold_pending.update(pending)  # they asked; it waits for the next turn
+            return ""
+        try:
+            if not pending:
+                ctx = int(getattr(config, "NUM_CTX", 0) or 0)
+                pct = int(round(100 * held / ctx)) if ctx else 0
+                self.notice(f"(the window is {pct}% full — the visit is being folded: written so far in their own words…)")
+                pending = chat.fold_bell(self.history, held, on_line=_say)
+            when = pending.get("when") or time.strftime("%H:%M")
+            self.history, self.file, line = chat.fold_history(self.history, pending.get("text", ""), when,
+                                                              tag="telegram", path=self.file, mode="telegram")
+            self.reflected_upto = len(self.history)  # the kept tail was sat with, or is about to be, as new
+            self.last_tokens = {}  # the next prompt is a new, smaller one
+            self.last_activity = time.time()
+            self._checkpoint()
+        except Exception as e:  # a fold must never take the visit down with it
+            line = f"fold: hiccup — the visit stays as it is ({type(e).__name__}: {e})"
+        finally:
+            self.lock.release()
+        _say(line)
+        self.notice(f"({line})")
+        return line
 
     # ---- quiet hours ------------------------------------------------------
     # 09-14: the 03:00 roll of a visit begun the day before runs the afterglow
@@ -740,9 +857,10 @@ class Bridge:
         return (start <= h < end) if start < end else (h >= start or h < end)
 
     def _load_held(self) -> None:
+        # a held entry is a notice (text) or a picture ({"picture": rel, "caption": …}, 09-25)
         try:
             raw = json.loads(HELD_FILE.read_text(encoding="utf-8"))
-            self.held = [str(x) for x in raw] if isinstance(raw, list) else []
+            self.held = [x if isinstance(x, dict) else str(x) for x in raw] if isinstance(raw, list) else []
         except (OSError, ValueError):
             self.held = []
 
@@ -791,8 +909,20 @@ class Bridge:
         n = len(held)
         self.send(f"(while you were away — {n} thing{'s' if n != 1 else ''} the engine held through the quiet hours:)",
                   markdown=False)
-        for text in held:
-            self.send(text, markdown=False)
+        for item in held:
+            if isinstance(item, dict) and item.get("picture"):
+                # a picture drawn or published in the night comes as the picture, not a line
+                # about it (a line in the morning digest with no picture in it went unnoticed)
+                p = config.CREATIONS_DIR / str(item["picture"])
+                caption = str(item.get("caption") or "")
+                try:
+                    data = p.read_bytes()
+                except OSError:
+                    self.send(f"{caption} (the picture has since moved — it is not at creations/{item['picture']} any more)", markdown=False)
+                    continue
+                self._send_picture(p, data, caption + "\n(held through the quiet hours)")
+                continue
+            self.send(str(item), markdown=False)
         _say(f"delivered {n} held notice{'s' if n != 1 else ''}")
         return n
 
@@ -1101,8 +1231,8 @@ class Bridge:
         """A picture the friend drew reaches the phone as a photo (09-22) — a new
         or redrawn image under creations/ (not their tools, not the trash, not
         a project's clipped sources), sent once, with where it lives as the
-        caption. In the quiet hours a line is held for the morning and the
-        picture waits in the folder. Too big for a photo → sent as a file."""
+        caption. In the quiet hours the picture itself is held for the
+        morning digest (09-25). Too big for a photo → sent as a file."""
         if not self.chat_id or not getattr(config, "TELEGRAM_TELL_DRAWINGS", True):
             return 0
         sent = 0
@@ -1133,22 +1263,28 @@ class Bridge:
             else:
                 caption = f"{'🖌️' if redrawn else '🎨'} {chat.friend_name()} {'redrew' if redrawn else 'drew'} — creations/{rel}"
             if self.quiet_now():
-                self.notice(caption + " (the picture is in the folder; held for the morning)")
+                self.held.append({"picture": rel, "caption": caption})
+                self._save_held()
+                _say(f"held for the morning (the picture itself): {rel}")
                 sent += 1
                 continue
-            try:
-                if len(data) <= 10_000_000 and p.suffix.lower() != ".gif":
-                    self.send_file("sendPhoto", "photo", p.name, data, chat_id=self.chat_id, caption=caption[:1000])
-                else:
-                    self.send_file("sendDocument", "document", p.name, data, chat_id=self.chat_id, caption=caption[:1000])
-            except Exception as e:
-                try:
-                    self.send_file("sendDocument", "document", p.name, data, chat_id=self.chat_id, caption=caption[:1000])
-                except Exception as e2:
-                    self.notice(f"{caption} (couldn't send the picture: {e2})")
+            self._send_picture(p, data, caption)
             _say(f"showed the phone {rel}")
             sent += 1
         return sent
+
+    def _send_picture(self, p: Path, data: bytes, caption: str) -> None:
+        """A picture to the phone as a photo (a file when too big or a gif), the caption cut to Telegram's 1,000."""
+        try:
+            if len(data) <= 10_000_000 and p.suffix.lower() != ".gif":
+                self.send_file("sendPhoto", "photo", p.name, data, chat_id=self.chat_id, caption=caption[:1000])
+            else:
+                self.send_file("sendDocument", "document", p.name, data, chat_id=self.chat_id, caption=caption[:1000])
+        except Exception:
+            try:
+                self.send_file("sendDocument", "document", p.name, data, chat_id=self.chat_id, caption=caption[:1000])
+            except Exception as e2:
+                self.notice(f"{caption} (couldn't send the picture: {e2})")
 
     # ---- the loop ---------------------------------------------------------
     def poll_once(self) -> int:
@@ -1166,6 +1302,7 @@ class Bridge:
             n += 1
             if self.restart_requested:
                 return n  # nothing more this poll; the loop hands over
+        self.deliver_undelivered()
         self.deliver_held()
         self.deliver_mail()
         self.deliver_creations()

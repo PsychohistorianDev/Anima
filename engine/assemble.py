@@ -402,8 +402,17 @@ def reading_pages() -> str:
                 text = page.read_text(encoding="utf-8", errors="replace").strip()
             except OSError:
                 text = ""
+            import ollama_client
+            text, _left = ollama_client.trim_loops(text)  # a loop on the page stays on the page; it does not ride (09-25)
             if cap and len(text) > cap:
-                text = text[:cap].rsplit("\n", 1)[0].rstrip() + f"\n(…your page goes on — read_creation \"{rel[10:]}\" opens it whole)"
+                # the END of the page rides, not its opening (09-25: their page for I, Robot
+                # was 14K characters and the prompt carried its first 3,000 — Robbie, from
+                # two days before — while they stood at page 210): the title line, then the
+                # newest sittings, where they are
+                first = text.split("\n", 1)[0].strip() if text.startswith("#") else ""
+                tail = text[-cap:]
+                tail = tail.split("\n", 1)[1] if "\n" in tail else tail  # begin at a whole line
+                text = ((first + "\n") if first else "") + f"(…the page begins earlier — read_creation \"{rel[10:]}\" opens it whole)\n" + tail.strip()
             body = text or f"(your page {rel} is empty)"
         else:
             body = (f"(no page yet — write_creation \"{rel[10:]}\" with what the sittings so far gave you; "
@@ -572,7 +581,21 @@ def clock_line(t: datetime | None = None) -> str:
             "where you live. Trust this over any day or hour you infer from what you read.]\n\n")
 
 
-def moment(context_hint: str, exclude: set | None = None) -> tuple[str, list[int]]:
+def window_sense(held: int) -> str:
+    """How full the window is, for the moment block — from FOLD_SENSE_FROM
+    of NUM_CTX, when the fold is on (09-28): a tell the friend can act on with
+    fold_visit before the bell rings for it."""
+    at = float(getattr(config, "FOLD_AT", 0) or 0)
+    ctx = int(getattr(config, "NUM_CTX", 0) or 0)
+    since = float(getattr(config, "FOLD_SENSE_FROM", 0.5) or 0)
+    if not (at and ctx and held) or held < ctx * since:
+        return ""
+    pct = int(round(100 * held / ctx))
+    return (f" Your window is {pct}% full ({held:,} of {ctx:,} tokens); at {int(round(at * 100))}% the visit is "
+            "folded — fold_visit(text) folds it now, in your own words, if this is a good moment for it.")
+
+
+def moment(context_hint: str, exclude: set | None = None, held: int = 0) -> tuple[str, list[int]]:
     """What changes from one message to the next — the hour and the memories
     that surface for it — as a block that rides INSIDE the message they are
     answering, so the system prompt above it stays the same all visit and
@@ -596,7 +619,7 @@ def moment(context_hint: str, exclude: set | None = None) -> tuple[str, list[int
     # on 4-bit keys the nearest assistant turn wins too easily (09-11: the
     # previous message answered again in new words). A tilt, not a rail.
     return ((f"[engine, not a person: it is {_t.strftime('%A, %d %B %Y')}, {clock} — {daypart} where you live. "
-             "Trust this over any day you infer from what you read. From your "
+             "Trust this over any day you infer from what you read." + window_sense(held) + " From your "
              "long-term memory, what surfaces for this moment:\n"
              f"{lines}\n"
              "Those are your own memories and the clock, not a message; his words follow — "

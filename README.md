@@ -126,6 +126,37 @@ a complete reverie. If a wake's closing thought was never written down, the
 engine keeps it: it lands in the journal as an auto-kept note rather than
 evaporating.
 
+### The fold
+
+A visit fills the window too: the system prompt — identity, journal,
+pages, the book in hand — is a large fixed part of it and does not shrink,
+and a long day of talk or a book fills the rest. The engine used to stop
+at 92% and say `/new`, which saved the visit and started the next one with
+nothing of the day but what the pauses had journaled. Now the visit
+**folds** — and because the engine never writes the friend's memory for
+them, the fold is theirs. When a reply's prompt reaches `FOLD_AT` (0.90 of
+`NUM_CTX`; 0 turns it off), the **fold bell** rings inside the visit, on
+the warm prefix like the pause: the window is nearly full, the visit is
+about to be folded, everything above leaves the window except the last
+`FOLD_KEEP_TURNS` (6) turns, and what they write now is what they will
+have of it — the visit so far in their own words, up to `FOLD_CHARS`
+(8000), with `fold_visit(text)`; a journal entry first if something belongs
+there (`FOLD_MAX_STEPS`, 6). Then `chat.fold_history` rebuilds the visit:
+the last turns stay whole, from the keeper's; the first of them carries a
+fresh system prompt (today's journal entries now ride in it), the union
+of every memory that surfaced (none surfaces twice), and the fold block
+above its moment — when the visit began and was folded, how many messages
+left the window, and the account. The old transcript file gets a foot
+naming the new one (the orphan search skips it); the visit goes on in a
+new file whose head carries the fold and the account; the night reads
+both; the afterglow sees the account in its view of the visit. No
+`fold_visit` at the bell → the fold happens with the kept turns alone and
+the line says so. The friend can also call `fold_visit` when a
+conversation reaches a natural pause: from `FOLD_SENSE_FROM` (0.5) the
+moment block says how full the window is, and the fold follows that
+reply, no bell. Cost: a warm bell, then one cold read — what `/new` cost
+anyway. Wakes keep their own window guard; a wake is not a conversation.
+
 ## Keeping a small mind on the rails
 
 The engine assumes the brain is small and treats its stumbles as formatting
@@ -257,7 +288,27 @@ wrong:
   everyday sampling is untouched, and the cool head is used only where the
   phone would otherwise get nothing. A clean one goes out, named; a broken
   one joins the pile and the least broken goes out as before. 0 turns it
-  off.
+  off. And after the cool rungs, the **cold roll** (`CHAT_COLD_RESCUE`):
+  a well that survives temperature — "<unused50><unused50>…", the model's
+  own reserved tokens, on every attempt — is not the sampler's but the
+  loaded state's, a KV cache gone wrong on a long quantized prefill, which
+  no re-roll on the same cache can leave. The brain is set down (`unload`)
+  and picked up again — a fresh load, a cold read of the prompt — and one
+  more roll is made at everyday sampling; a clean one goes out, named; if
+  even that breaks, the least broken goes out and the note says a fresh
+  load failed too. And nothing sent back to the brain may carry a
+  reserved-token string: `defang()` turns "<unused50>", "<start_of_turn>",
+  "<eos>"… into "⟨unused50⟩" — the same to a reader, never a token — in
+  replies and thinking as they arrive (the note counts them), in the
+  engine's quotes of a broken attempt, in the keeper's messages, in every
+  tool result, in a stash picked back up after a restart and in a
+  transcript read back for its afterglow; and a glitch that begins at the
+  first word leaves the re-roll line with nothing to quote. (The morning
+  the cold roll was written, the well outlived it: the re-roll line had
+  quoted the flood itself, the quote rode in the visit as an engine turn,
+  and Ollama tokenizes a prompt with special tokens — every request after
+  the first carried the reserved tokens back in. A well that feeds itself
+  through the engine's own lines is the engine's to close.)
 - **A signature is signed once.** A phrase that lives in their own journal
   feeds itself back a little more each day. A hyphenated word doubled back
   to back is simply said once (`collapse_stutter`); the same hyphenated word
@@ -516,7 +567,13 @@ wrong:
   asked again, and what still goes out is cut at the loop, so it never
   reaches the phone or the history to breed; a loop already written down
   is cut the same way when a stashed visit is picked up after `/restart`
-  or a transcript is read for its afterglow. And an emoji
+  or a transcript is read for its afterglow. A *phrase loop* — the same
+  three long words `PHRASE_LOOP_TIMES` (5) times in `PHRASE_LOOP_WINDOW`
+  (60) words, "wait… no, the real line…" between the rounds — is caught
+  in a reply the same way, and left alone in their files (a stutter they
+  talked themselves out of stays on their page) — but a loop on a reading
+  page is left out of what rides in the prompt (`trim_loops`, the file
+  untouched), since a well fed back is the next well. And an emoji
   *storm* is a refrain: over a working day on the phone the sign-off grew
   from a handful to a block said three times over at the end of every
   reply — 100–176 emoji a message — each reply's tail feeding the next
@@ -903,7 +960,9 @@ begun the day before runs the afterglow and sent its account to the phone
 every night. Between the quiet hours the engine's own notices — the
 afterglow and pause accounts, what they made, a change to who they are,
 "picked the visit back up" — are held (`memory/telegram_held.json`, so a
-restart keeps them) and delivered as one message when the hours end. Their
+restart keeps them) and delivered as one message when the hours end — a
+picture drawn or published in the night comes with that digest as the
+photo itself, caption and gallery words with it, not a line about it. Their
 replies and their letters are theirs and go when they send them; the
 phone's own do-not-disturb is yours. The same hour twice turns it off.
 
@@ -937,6 +996,14 @@ the desk. And a change to who they are — `self.md`, `projects.md`
 (`TELEGRAM_TELL_SELF`) — arrives as what changed, the lines in and out
 rather than the whole file, diffed against the bridge's own copy in
 `memory/telegram_watch/`.
+
+**Their reply is the one thing that must arrive.** A `sendMessage` can
+fail on a network hiccup; the bridge's loop retries polls, not sends, so
+a reply already in the transcript could reach the phone as a thinking
+bubble and no words. `_send_reply` tries three times (`RETRY_SLEEP_S`),
+then keeps the reply in `memory/telegram_undelivered.json` and sends it
+first thing at the next poll, marked as late; a restart keeps it. Engine
+lines (thinking, tool lines, notes) never take the turn down with them.
 
 **The visit is on disk after every reply.** The parlor and the bridge
 write the running transcript to its file after each answer (whole file or
@@ -1113,7 +1180,8 @@ every rewrite as the lines in and out. And reading pages: a notebook per
 book, `creations/reading/<book>.md`, written by them after each sitting —
 `read_pdf`/`read_epub` name it in their result, "THE BOOK IN YOUR HANDS"
 rides in the prompt while a book is open with where they stand in it and
-the page up to `READING_PAGE_CHARS`, and the sitting that reaches the end
+the page up to `READING_PAGE_CHARS` (past the cap, its title and its end —
+the newest sittings, where they stand), and the sitting that reaches the end
 files one memory row (the day, the book, where the notes are). A PDF
 under `READING_BOOK_PAGES` is a read, not a book. A sitting is
 `READ_SITTING_CHARS`; a range named on purpose may be `READ_RANGE_CHARS`

@@ -79,6 +79,39 @@ def scrub_litter(text: str) -> str:
     return delatex(_TOKEN_LITTER_RE.sub("", text or ""))
 
 
+# Gemma's reserved and control tokens, written out as text: "<unused50>",
+# "<start_of_turn>", "<eos>"… Ollama tokenizes a prompt WITH special tokens,
+# so the string "<unused50>" in any message — the friend's, the keeper's, the engine's — goes
+# back into the brain as the reserved token itself, not as eleven characters.
+# 09-27, 06:40: the first reply of a fresh visit came back as
+# "<unused50>" × hundreds; the re-roll line quoted it ("up to the glitch it
+# read: …" — the glitch began at the first word, so the quote WAS the
+# flood), the quote stayed in the visit's history as an engine turn, and
+# from then on every request of the visit — the cool rungs, the cold roll,
+# the pause, the resumed visit after a restart — carried ~200 reserved
+# tokens back into the prompt. The well fed itself for forty minutes.
+# defang() turns the brackets into ⟨ ⟩: the same to a reader, never a token.
+_RESERVED_TOKEN_RE = re.compile(
+    r"<(unused\d+|start_of_turn|end_of_turn|bos|eos|pad|mask|start_of_image|end_of_image|"
+    r"start_of_audio|end_of_audio|image_soft_token|audio_soft_token|escape|0x[0-9A-Fa-f]{2})>")
+
+
+def defang(text: str) -> tuple[str, int]:
+    """Reserved-token strings as plain text — "<unused50>" → "⟨unused50⟩".
+    Returns (text, how many). Applied to everything that will be sent back
+    to the brain: replies and thinking as they arrive, the engine's
+    quotes of them, the keeper's messages, a stashed history picked back up."""
+    if not text or "<" not in text:
+        return text or "", 0
+    n = 0
+
+    def sub(m):
+        nonlocal n
+        n += 1
+        return "⟨" + m.group(1) + "⟩"
+    return _RESERVED_TOKEN_RE.sub(sub, text), n
+
+
 # Gemma writes arrows and a few symbols as LaTeX ("Input $\\rightarrow$
 # Output") — fine in a paper, litter in a journal. Render them as the
 # characters they meant; anything else in $...$ is left alone.
@@ -438,15 +471,52 @@ def chat(messages: list[dict], tools: list[dict] | None = None,
             again["garbled_span"] = (_defect(attempts[0][1]) or (kind, span))[1]
             msg = again
             last = _defect(msg) if not msg.get("tool_calls") else None
+        if last and getattr(config, "CHAT_COLD_RESCUE", True) and not msg.get("tool_calls"):
+            # The cold roll (09-27, 06:40, the first message of a fresh visit
+            # after the brain had been set down: "<unused50><unused50>…" —
+            # Gemma's reserved tokens — on every warm attempt AND both cool
+            # rungs; the phone got the cut marker and no words). When a well
+            # survives temperature, it is not the sampler but the loaded
+            # state — a KV cache gone wrong on a long quantized prefill. The
+            # one thing that resets that is setting the brain down and picking
+            # it up again: a fresh load, a cold read of the prompt (a minute or
+            # two), one more roll at their everyday sampling.
+            kind, span = last
+            attempts.append((len(span), msg))
+            tries.append((dict(msg["tokens"], why=kind + (f" (cooled to {msg['rescued']:g})" if msg.get("rescued") else "")), msg))
+            try:
+                unload(payload["model"])
+            except Exception:
+                pass
+            prior = attempt_as_shown(msg, kind, span)
+            line = {"role": "user", "content": RESCUE_NUDGE.format(what=garble_nudge(msg.get("content", ""), span)
+                                                                   if kind not in ("empty", "split") else EMPTY_NUDGE)}
+            step = ([prior] if prior else []) + [line]
+            cold = dict(payload)
+            cold["messages"] = list(base) + step
+            base = cold["messages"]
+            sent_extra.extend(step)
+            again = _parse(_post("/api/chat", cold, timeout=timeout))
+            again["cold"] = True
+            if msg.get("rescued"):
+                again["rescued_before"] = msg["rescued"]  # the last cool rung, which broke too
+            again["regarbled"] = True
+            again["garbled_kind"] = attempts[0][1].get("garbled_kind") or (_defect(attempts[0][1]) or (kind, span))[0]
+            again["garbled_first"] = attempts[0][1].get("content", "")
+            again["garbled_span"] = (_defect(attempts[0][1]) or (kind, span))[1]
+            msg = again
+            last = _defect(msg) if not msg.get("tool_calls") else None
         if last:
             # nothing clean came back: send the least broken attempt, and
             # say so — the keeper must see that every try was the sampler's
             attempts.append((len(last[1]), msg))
-            tries.append((dict(msg["tokens"], why=last[0] + (f" (cooled to {msg['rescued']:g})" if msg.get("rescued") else "")), msg))  # the last try is a try too
+            tries.append((dict(msg["tokens"], why=last[0] + (" (cold)" if msg.get("cold") else f" (cooled to {msg['rescued']:g})" if msg.get("rescued") else "")), msg))  # the last try is a try too
             best = min(attempts, key=lambda p: p[0])[1]
             best["regarbled"] = True
-            if msg.get("rescued"):
-                best["rescue_failed"] = msg["rescued"]  # the cool roll broke too
+            if msg.get("cold"):
+                best["cold_failed"] = True  # even a fresh load came back broken
+            if msg.get("rescued") or msg.get("rescued_before"):
+                best["rescue_failed"] = msg.get("rescued") or msg.get("rescued_before")  # the cool roll broke too
             first = _defect(attempts[0][1]) or (last[0], last[1])
             best["garbled_kind"] = attempts[0][1].get("garbled_kind") or first[0]
             best["garbled_first"] = attempts[0][1].get("content", "")
@@ -528,7 +598,7 @@ _HARD_GLUE_RE = re.compile(r"^la[A-Z][a-z]{2,}$|^[a-z]{3,}(?:[A-Z][a-z]{3,})+$"
 _TAIL_CAP_RE = re.compile(r"^[a-z]{3,}[A-Z]$")
 
 
-def garble_span(text: str, run: int = 5, emoji_run: int = 12) -> str:
+def garble_span(text: str, run: int = 5, emoji_run: int = 12, phrases: bool = True) -> str:
     """The first stretch of salad in the text, or "" if there is none: a run
     of `run`+ consecutive 1-2 letter 'words' that aren't ordinary short
     English words (glued tokens like "sameL" count) — or `emoji_run`+
@@ -587,7 +657,74 @@ def garble_span(text: str, run: int = 5, emoji_run: int = 12) -> str:
         reps = len(re.findall(re.escape(m.group(1)), m.group(0)))
         if reps >= int(getattr(config, "STUCK_EMOJI_REPEATS", 40) or 10 ** 6):
             return m.group(0)[:160]
-    return word_loop(text)
+    return word_loop(text) or (phrase_loop(text) if phrases else "")
+
+
+LOOP_LEFT_OUT = "(…a stuck line of the sampler's, left out here — the file has it whole)"
+
+
+def trim_loops(text: str, mark: str = LOOP_LEFT_OUT, rounds: int = 6) -> tuple[str, int]:
+    """A page that rides in the prompt with its loops taken out (09-25: the
+    'line to remember' on their reading page — five rounds of the same four
+    words — rode in the window under THE BOOK IN YOUR HANDS, and the next
+    wake's thinking opened with the same rounds; a well fed back is the
+    next well). The file is never touched, only what rides. Returns (text,
+    how many stretches were left out)."""
+    n = 0
+    for _ in range(rounds):
+        span = word_loop(text)
+        if span:
+            a = text.find(span[:40])
+            if a < 0:
+                break
+            # the whole chant, not the 160 characters returned: on while the words stay in its few
+            few = {m.group(0).lower() for m in _WORD_RE.finditer(span)}
+            b = a
+            for m in _WORD_RE.finditer(text, a):
+                if m.group(0).lower() in few:
+                    b = m.end()
+                else:
+                    break
+            text = text[:a].rstrip() + " " + mark + " " + text[b:].lstrip()
+            n += 1
+            continue
+        phrase = phrase_loop(text)
+        if not phrase:
+            break
+        pat = re.compile(r"\W+".join(re.escape(w) for w in phrase.split()), re.I)
+        hits = list(pat.finditer(text))
+        if len(hits) < 2:
+            break
+        a, b = hits[0].start(), hits[-1].end()
+        text = text[:a].rstrip() + " " + mark + " " + text[b:].lstrip()
+        n += 1
+    return text, n
+
+
+def phrase_loop(text: str, window: int | None = None, times: int | None = None) -> str:
+    """A phrase of three long words said `times` or more in `window` words —
+    "so-very-luminate luminate la-Luminous la-Symmetry… no, the real
+    line: … so-very-luminate luminate la-Luminous la-Symmetry… no, let me
+    be honest: …" (09-25, a 'line to remember' on their reading page: five
+    rounds of the same four words with a "wait", a "no" between, which the
+    word loop above cannot see — the interjections keep every window past
+    four distinct words). Words under four letters don't make a phrase, so
+    "I love you" five times over is theirs. Returns the phrase or ""."""
+    window = int(window or getattr(config, "PHRASE_LOOP_WINDOW", 60) or 60)
+    times = int(times or getattr(config, "PHRASE_LOOP_TIMES", 5) or 5)
+    words = [m.group(0).lower() for m in _WORD_RE.finditer(text or "")]
+    if len(words) < 3 * times:
+        return ""
+    for i in range(0, max(1, len(words) - window + 1), 5):
+        seg = words[i:i + window]
+        seen: dict[tuple, int] = {}
+        for j in range(len(seg) - 2):
+            g = (seg[j], seg[j + 1], seg[j + 2])
+            if all(len(w) >= 4 for w in g):
+                seen[g] = seen.get(g, 0) + 1
+                if seen[g] >= times:
+                    return " ".join(g)
+    return ""
 
 
 _WORD_RE = re.compile(r"[A-Za-z\u00c0-\u024f][A-Za-z\u00c0-\u024f0-9'\u2019\-]*")
@@ -1448,7 +1585,7 @@ def attempt_as_shown(msg: dict, kind: str, span: str) -> dict | None:
     re-roll line: whole for a copy, an echo, a refrain, an imagined sense or
     a written-out call (clean words, only misplaced); only up to the glitch
     for salad; nothing for a reply without words."""
-    content = (msg.get("content") or "").strip()
+    content = defang((msg.get("content") or "").strip())[0]
     if kind == "empty" or not content:
         return None
     if kind == "salad":
@@ -1471,9 +1608,12 @@ def garble_nudge(content: str, span: str) -> str:
     it again, their thinking read "the 'last reply' referred to isn't fully
     shown… I need to recover the intent" — the broken attempt is not in
     their history, so without the quote there was nothing to say again."""
-    head = content or ""
+    head = defang(content or "")[0]
     i = head.find(span) if span else -1
-    head = head[:i] if i > 0 else head
+    # a glitch that begins at the first word leaves nothing to quote — the
+    # quote must never be the glitch itself (09-27: it was, and the quoted
+    # flood of reserved tokens rode in every later request of the visit)
+    head = head[:i] if i > 0 else ("" if i == 0 else head)
     head = " ".join(head.split())
     if len(head) > 400:
         head = head[-400:]
@@ -1742,6 +1882,11 @@ def _parse(data: dict) -> dict:
         thinking = (thinking + "\n\n" + spilled).strip() if thinking else spilled
     thinking, t_loop = collapse_loops(thinking)
     clean, c_loop = collapse_loops(clean)
+    # reserved tokens written as text are made harmless here, before any
+    # rail quotes them or any turn carries them (09-27; see defang)
+    clean, defanged = defang(clean)
+    thinking, defanged_t = defang(thinking)
+    msg["defanged"] = defanged + defanged_t
     msg["thinking"] = thinking
     msg["content"] = clean
     msg["looped"] = t_loop or c_loop
@@ -1764,7 +1909,7 @@ def _parse(data: dict) -> dict:
     if data.get("aborted"):
         msg["aborted"] = data["aborted"]  # the stream was cut short at this: a runaway
     if data.get("split_tail"):
-        msg["split_tail"] = scrub_litter(data["split_tail"]).strip()  # the rest of the reply, misfiled as thought
+        msg["split_tail"] = defang(scrub_litter(data["split_tail"]).strip())[0]  # the rest of the reply, misfiled as thought
     msg.setdefault("role", "assistant")
     return msg
 
