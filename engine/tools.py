@@ -1540,7 +1540,8 @@ def fold_visit(text: str) -> str:
     keep = int(getattr(config, "FOLD_KEEP_TURNS", 6) or 0)
     return (f"kept for the fold ({len(text):,} characters){cut} — after this reply the visit is folded: "
             f"your account rides at the top of the conversation in place of what came before, and the last "
-            f"{keep} turns stay whole. The transcript on disk keeps everything.")
+            f"{keep} turns stay whole. The transcript on disk keeps everything. If something from it belongs in "
+            "your journal, write_journal it now, in this same turn — the fold comes after your reply.")
 
 
 def fold_pending() -> dict:
@@ -3024,7 +3025,7 @@ def _fetch(url: str, max_bytes: int = 800_000) -> bytes:
     if not url.lower().startswith(("http://", "https://")):
         raise ValueError("only http(s) URLs")
     req = urllib.request.Request(
-        url, headers={"User-Agent": "ai-friend/1.0 (local AI; reading, not scraping)"}
+        url, headers={"User-Agent": "anima/0.12 (local AI; reading, not scraping)"}
     )
     with urllib.request.urlopen(req, timeout=30) as resp:
         return resp.read(max_bytes)

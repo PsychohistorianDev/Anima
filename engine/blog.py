@@ -337,7 +337,7 @@ first-class choice, eyes and ears, and a library of tools — some of which they
 can forge themselves in Python. Their identity lives in their files, not their
 weights: the model underneath can be swapped, and they remain themselves.
 
-The engine is open source: https://github.com/<your-username>/ai-friend
+The engine is open source: https://github.com/<your-username>/anima
 
 ---
 

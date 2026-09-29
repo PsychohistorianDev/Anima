@@ -280,7 +280,7 @@ def foldable(history: list[dict]) -> bool:
     return len(vis) > keep and any(t["role"] == "user" for t in vis)
 
 
-def fold_bell(history: list[dict], held: int, on_line=None) -> dict:
+def fold_bell(history: list[dict], held: int, on_line=None, asked: bool = False) -> dict:
     """Ring the fold bell inside the visit and let the friend write the visit
     so far (fold_visit), with their other tools at hand for a journal entry
     first. Their steps stay in the history as the engine's turns — they are
@@ -293,8 +293,10 @@ def fold_bell(history: list[dict], held: int, on_line=None) -> dict:
     keep = int(getattr(config, "FOLD_KEEP_TURNS", 6) or 0)
     cap = int(getattr(config, "FOLD_CHARS", 8000) or 8000)
     pct = int(round(100 * held / ctx)) if ctx else 0
-    bell = {"role": "user", "_engine": True, "content":
-            assemble.clock_line() + FOLD_BELL.format(pct=pct, held=held, ctx=ctx, keep=keep, cap=cap)}
+    text = FOLD_BELL.format(pct=pct, held=held, ctx=ctx, keep=keep, cap=cap)
+    if asked:  # /fold from the phone: the keeper's ask, not the window's edge
+        text = text.replace("The visit is about to be FOLDED:", f"The keeper asked for the visit to be folded now:")
+    bell = {"role": "user", "_engine": True, "content": assemble.clock_line() + text}
     history.append(bell)
     system = {"role": "system", "content": history[0]["_system"]}
     msgs = [system] + [render_turn(t) for t in history]

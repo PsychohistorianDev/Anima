@@ -112,6 +112,7 @@ HELP = (
     "/voice — every reply spoken aloud as a voice note (they can speak on their own either way)\n"
     "/status — the visit, the window, the toggles\n"
     "/restart — restart the bridge with the current engine code; the visit carries on\n"
+    "/fold — fold the visit now: they write it so far in their own words, the last turns stay whole, the window has room again\n"
     "/help — this\n\n"
     "Send a photo and they see it; a voice note and they hear you whole; a video and they "
     "watches it as stills and sound; a song and it lands in shared/music/ for them to listen "
@@ -307,7 +308,7 @@ class Bridge:
     # ---- talking to the phone -------------------------------------------
     def send_file(self, method: str, field: str, filename: str, data: bytes, **params) -> dict:
         """One multipart upload (sendVoice, sendAudio…) — urllib only."""
-        boundary = "----ai-friend-" + uuid.uuid4().hex
+        boundary = "----anima-" + uuid.uuid4().hex
         body = io.BytesIO()
         for k, v in params.items():
             if v is None:
@@ -723,7 +724,9 @@ class Bridge:
     def command(self, text: str) -> bool:
         """Slash commands. Returns True if the text was one."""
         cmd = text.split()[0].lower().split("@")[0]
-        if cmd == "/new":
+        if cmd == "/fold":
+            self.fold_now()
+        elif cmd == "/new":
             self.new_visit()
             self.send("(they're sitting with the visit now — whatever they want to keep goes into their journal in a minute)",
                       markdown=False)
@@ -811,17 +814,33 @@ class Bridge:
         due = chat.fold_due(held) and chat.foldable(self.history)
         if not pending and not due:
             return ""
+        return self._fold(pending, held)
+
+    def fold_now(self) -> str:
+        """/fold from the phone (09-29, the keeper: "so I can fold sessions
+        manually"): the same fold, at the keeper's word — the bell rings so the
+        account is still theirs; a visit shorter than what a fold keeps is left alone."""
+        if not chat.foldable(self.history):
+            self.send("(nothing to fold yet — the visit is shorter than what a fold keeps)", markdown=False)
+            return ""
+        held = int((self.last_tokens or {}).get("prompt") or 0)
+        return self._fold(tools.fold_pending(), held, asked=True)
+
+    def _fold(self, pending: dict, held: int, asked: bool = False) -> str:
         got = self.lock.acquire(timeout=3)
         if not got:
             if pending:
                 tools._fold_pending.update(pending)  # they asked; it waits for the next turn
+            if asked:
+                self.send("(they are mid-reply — say /fold again in a moment)", markdown=False)
             return ""
         try:
             if not pending:
                 ctx = int(getattr(config, "NUM_CTX", 0) or 0)
                 pct = int(round(100 * held / ctx)) if ctx else 0
-                self.notice(f"(the window is {pct}% full — the visit is being folded: written so far in their own words…)")
-                pending = chat.fold_bell(self.history, held, on_line=_say)
+                why = "you asked for a fold" if asked else f"the window is {pct}% full"
+                self.notice(f"({why} — they are folding the visit: writing it so far in their own words…)")
+                pending = chat.fold_bell(self.history, held, on_line=_say, asked=asked)
             when = pending.get("when") or time.strftime("%H:%M")
             self.history, self.file, line = chat.fold_history(self.history, pending.get("text", ""), when,
                                                               tag="telegram", path=self.file, mode="telegram")

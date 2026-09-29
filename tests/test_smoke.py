@@ -2078,6 +2078,19 @@ check("re-roll: the attempt is shown as their turn before the engine's line",
       and ollama_client.attempt_as_shown({"content": "The gate is empty tonight. laC l l a la l", "thinking": "t."}, "salad", "laC l l a la l") == {"role": "assistant", "content": "The gate is empty tonight. …"}
       and ollama_client.attempt_as_shown({"content": "l la l laC", "thinking": "t."}, "salad", "l la l laC") is None
       and ollama_client.attempt_as_shown({"content": "", "thinking": "all in here"}, "empty", "…all") is None)
+# 09-29, 07:07: a glitch in the first words left nothing to "say again", so she said the reply before the pause again
+_gn = ollama_client.garble_nudge("fLuminate", "fLuminate", his="Ah well, got to work, sipping my morning coffee.. 25 minutes to beat around the bush")
+check("re-roll: a glitch in the first words asks for a fresh answer to their message, quoted, instead of 'say it again'",
+      "nothing of it to repeat" in _gn and "afresh" in _gn and "“Ah well, got to work, sipping my morning coffee" in _gn
+      and "Say what you were saying again" not in _gn
+      and "Say what you were saying again" in ollama_client.garble_nudge("fLuminate", "fLuminate")
+      and 'Up to the glitch it read: "A clean head long enough to keep' in ollama_client.garble_nudge("A clean head long enough to keep fLuminate", "fLuminate", his="coffee"), _gn)
+check("re-roll: their last real message is found past the engine's lines and tool turns",
+      ollama_client.last_user_words([{"role": "user", "content": "[engine, not a person: it is Tuesday, 29 September 2026, 07:06 — morning.]\n\nAh well, coffee"},
+                                     {"role": "assistant", "content": "x"},
+                                     {"role": "user", "content": "[engine, not a person: your last reply came out as letter fragments…]"},
+                                     {"role": "tool", "content": "[this is what YOUR read_file tool returned]\nstuff"}]) == "Ah well, coffee"
+      and ollama_client.last_user_words([]) == "")
 _longa = ollama_client.attempt_as_shown({"content": "A sentence of some length that keeps going on. " * 80}, "refrain", "")["content"]
 check("re-roll: a long shown attempt keeps only its head in the visit, and says so",
       len(_longa) < 1600 and _longa.endswith("…(the rest of that attempt is left out here)") and _longa.startswith("A sentence"), len(_longa))
@@ -3397,6 +3410,15 @@ check("defang: through the whole ladder — warm, cool and cold — no request c
       _no_fangs(_posted) and len(_posted) == 6 and all("<unused" not in t.get("content", "") for t in _mc2.get("sent_extra", []))
       and any("⟨unused50⟩" not in t.get("content", "") for t in _mc2.get("sent_extra", [])),
       [t["content"][:120] for p in _posted for t in p["messages"] if "unused" in t.get("content", "")][:3])
+_posted = []
+_answers = [{"message": {"role": "assistant", "content": "fLuminate fLuminate fLuminate fLuminate fLuminate fLuminate fLuminate fLuminate fLuminate", "thinking": "…"}, "done_reason": "stop"},
+            {"message": {"role": "assistant", "content": "Coffee at the drone — enjoy the twenty-five minutes, my sun.", "thinking": "…"}, "done_reason": "stop"}]
+ollama_client._post = _fake_post3
+_mg = _chat_orig([{"role": "user", "content": "[engine, not a person: it is Tuesday.]\n\nAh well, got to work, sipping my coffee"}], expect_words=True)
+ollama_client._post = _post_orig
+check("re-roll: through chat, the nudge after a first-words glitch quotes their message and the second roll answers it",
+      _mg["content"].startswith("Coffee at the drone") and len(_posted) == 2
+      and any("Answer their message afresh" in t.get("content", "") and "sipping my coffee" in t["content"] for t in _posted[1]["messages"]), [t["content"][:100] for t in _posted[1]["messages"]])
 ollama_client.unload = _unload_orig
 config.CHAT_COLD_RESCUE = False
 _posted = []
@@ -4825,14 +4847,14 @@ _chatmod.save_transcript(bf.history, tag="telegram", path=bf.file)
 bf.last_tokens = {"prompt": int(config.NUM_CTX * 0.93)}
 _bell_calls = []
 _fold_bell_keep = _chatmod.fold_bell
-_chatmod.fold_bell = lambda history, held, on_line=None: _bell_calls.append(held) or {"text": "The visit so far: cake, bridge, poem.", "when": "13:00"}
+_chatmod.fold_bell = lambda history, held, on_line=None, asked=False: _bell_calls.append(held) or {"text": "The visit so far: cake, bridge, poem.", "when": "13:00"}
 _linef = bf.fold_if_due()
 _chatmod.fold_bell = _fold_bell_keep
 check("telegram: a reply past FOLD_AT folds the visit — the bell rang, the history shrank to the kept tail under the account, a new file, the phone told twice",
       _bell_calls == [int(config.NUM_CTX * 0.93)] and _linef.startswith("fold: their account of the visit so far, 37 characters")
       and bf.history[0]["_fold_text"] == "The visit so far: cake, bridge, poem." and len(bf.history) == 6 and bf.file != _fold_file2 and bf.file.exists()
       and bf.reflected_upto == len(bf.history) and bf.last_tokens == {}
-      and any("the visit is being folded" in t for t, _ in phonef.sent) and any(t.startswith("(fold: their account") for t, _ in phonef.sent)
+      and any("they are folding the visit" in t for t, _ in phonef.sent) and any(t.startswith("(fold: their account") for t, _ in phonef.sent)
       and "*folded at 13:00" in _fold_file2.read_text(encoding="utf-8"), (_linef, len(bf.history), [t for t, _ in phonef.sent][-2:]))
 bf.file.unlink(); _fold_file2.unlink()
 # the friend asked for it mid-turn: no bell, folded after the reply
@@ -4842,15 +4864,42 @@ bg.file = _fold_file3 = config.EPISODIC_DIR / "chat-telegram-20200105-094500.md"
 bg.last_tokens = {"prompt": int(config.NUM_CTX * 0.6)}
 tools.fold_visit("My own fold: we said what needed saying; the poem is open.")
 _bell_calls.clear()
-_chatmod.fold_bell = lambda history, held, on_line=None: _bell_calls.append(held) or {}
+_chatmod.fold_bell = lambda history, held, on_line=None, asked=False: _bell_calls.append(held) or {}
 _lineg = bg.fold_if_due()
 _chatmod.fold_bell = _fold_bell_keep
 check("telegram: fold_visit called by the friend folds the visit after the reply, without a bell",
       _bell_calls == [] and _lineg.startswith("fold: their account") and bg.history[0]["_fold_text"].startswith("My own fold")
-      and not any("is being folded" in t for t, _ in phoneg.sent), (_lineg, [t for t, _ in phoneg.sent]))
+      and not any("folding the visit" in t for t, _ in phoneg.sent), (_lineg, [t for t, _ in phoneg.sent]))
 bg.file.unlink() if bg.file and bg.file.exists() else None
 _fold_file3.unlink() if _fold_file3.exists() else None
 check("telegram: nothing to fold below FOLD_AT and without their ask", _bridge()[0].fold_if_due() == "")
+# 09-29: /fold from the phone — the keeper's word; the bell still rings so the account is theirs
+bh, phoneh = _bridge()
+bh.handle(_msg("/fold"))
+check("telegram: /fold on a short visit is left alone, and says so", any("nothing to fold yet" in t for t, _ in phoneh.sent), phoneh.sent)
+bh.history = [dict(t) for t in _fh]
+bh.file = _fold_file4 = config.EPISODIC_DIR / "chat-telegram-20200105-100000.md"
+_chatmod.save_transcript(bh.history, tag="telegram", path=bh.file)
+bh.last_tokens = {"prompt": int(config.NUM_CTX * 0.4)}
+_bell_asked = []
+_chatmod.fold_bell = lambda history, held, on_line=None, asked=False: _bell_asked.append((held, asked)) or {"text": "Folded at his word: the morning, the coffee, the mush.", "when": "10:01"}
+phoneh.sent.clear()
+bh.handle(_msg("/fold"))
+_chatmod.fold_bell = _fold_bell_keep
+check("telegram: /fold rings the bell marked as the keeper's ask, folds below FOLD_AT, and the phone hears both lines",
+      _bell_asked == [(int(config.NUM_CTX * 0.4), True)] and bh.history[0]["_fold_text"].startswith("Folded at his word") and len(bh.history) == 6
+      and any("you asked for a fold" in t for t, _ in phoneh.sent) and any(t.startswith("(fold: ") for t, _ in phoneh.sent), (_bell_asked, [t for t, _ in phoneh.sent]))
+bh.file.unlink() if bh.file and bh.file.exists() else None
+_fold_file4.unlink() if _fold_file4.exists() else None
+_fbh = [dict(t) for t in _fh]
+_brain_ask = ScriptedBrain([{"role": "assistant", "content": "", "thinking": "he asked; here it is.",
+                             "tool_calls": [{"function": {"name": "fold_visit", "arguments": {"text": "At his word: the morning in a paragraph."}}}]}])
+ollama_client.chat = _brain_ask
+_bpa = _chatmod.fold_bell(_fbh, int(config.NUM_CTX * 0.4), on_line=lambda s: None, asked=True)
+ollama_client.chat = _chat_keep
+check("fold: the bell rung at the keeper's word says so instead of naming the window's edge",
+      _bpa.get("text", "").startswith("At his word") and any(t.get("_engine") and "asked for the visit to be folded now" in (t.get("content") or "")
+                                                             and "about to be FOLDED" not in t["content"] for t in _fbh))
 _fold_file.unlink(); _np.unlink()
 config.FOLD_AT = _fold_at_orig
 

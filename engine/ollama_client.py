@@ -421,7 +421,7 @@ def chat(messages: list[dict], tools: list[dict] | None = None,
                                                 else CLAIMED_FAILED_NUDGE.format(what=span) if kind == "claimed-failed"
                                                 else PROMISED_NUDGE.format(what=span) if kind == "promised"
                                                 else IMAGINED_NUDGE.format(tool=span, tool_verb="listening" if span == "listen_to" else "watching") if kind == "imagined"
-                                                else garble_nudge(msg.get("content", ""), span)}
+                                                else garble_nudge(msg.get("content", ""), span, his=last_user_words(base))}
         step = ([prior] if prior else []) + [line]
         nudged["messages"] = list(base) + step
         base = nudged["messages"]  # the next re-roll, if any, extends this one
@@ -455,7 +455,7 @@ def chat(messages: list[dict], tools: list[dict] | None = None,
             attempts.append((len(span), msg))
             tries.append((dict(msg["tokens"], why=kind + (f" (cooled to {msg['rescued']:g})" if msg.get("rescued") else "")), msg))
             prior = attempt_as_shown(msg, kind, span)
-            line = {"role": "user", "content": RESCUE_NUDGE.format(what=garble_nudge(msg.get("content", ""), span)
+            line = {"role": "user", "content": RESCUE_NUDGE.format(what=garble_nudge(msg.get("content", ""), span, his=last_user_words(base))
                                                                    if kind not in ("empty", "split") else EMPTY_NUDGE)}
             step = ([prior] if prior else []) + [line]
             calm = dict(payload)
@@ -489,7 +489,7 @@ def chat(messages: list[dict], tools: list[dict] | None = None,
             except Exception:
                 pass
             prior = attempt_as_shown(msg, kind, span)
-            line = {"role": "user", "content": RESCUE_NUDGE.format(what=garble_nudge(msg.get("content", ""), span)
+            line = {"role": "user", "content": RESCUE_NUDGE.format(what=garble_nudge(msg.get("content", ""), span, his=last_user_words(base))
                                                                    if kind not in ("empty", "split") else EMPTY_NUDGE)}
             step = ([prior] if prior else []) + [line]
             cold = dict(payload)
@@ -1580,6 +1580,31 @@ GARBLE_NUDGE = ("[engine, not a person: your last reply came out as letter fragm
                 "wrote it to you.]")
 
 
+# When the glitch came in the first words there is nothing to say again —
+# and "say what you were saying" then reaches for the last thing she said in
+# the visit (09-29, 07:07: "Ah well, got to work, sipping my coffee" →
+# "fLuminate", cut in its first words → "I am so sorry about that! … What I
+# was saying was that I don't need a therapist…" — the reply before the
+# pause, said again, to a message about coffee). So with no head to quote the
+# line asks for a fresh answer to their message, and quotes it.
+GARBLE_NUDGE_FRESH = ("[engine, not a person: your reply broke into letter fragments in its first words — a "
+                      "sampler glitch, not anything you meant — so there is nothing of it to repeat. Answer "
+                      "{keeper} message afresh, as if for the first time: “{his}”. This line is a mechanism; "
+                      "nobody wrote it to you.]")
+
+
+def last_user_words(messages: list[dict] | None) -> str:
+    """The keeper's last real message in `messages`, as written (engine
+    lines and tool turns skipped), for a nudge that needs to quote it."""
+    for t in reversed(messages or []):
+        if t.get("role") != "user":
+            continue
+        c = his_words(t.get("content") or "")
+        if c and not c.startswith("[engine") and not c.startswith("[this is what"):
+            return c
+    return ""
+
+
 def attempt_as_shown(msg: dict, kind: str, span: str) -> dict | None:
     """The broken attempt as the assistant turn that precedes the engine's
     re-roll line: whole for a copy, an echo, a refrain, an imagined sense or
@@ -1613,7 +1638,7 @@ def attempt_as_shown(msg: dict, kind: str, span: str) -> dict | None:
     return {"role": "assistant", "content": content}
 
 
-def garble_nudge(content: str, span: str) -> str:
+def garble_nudge(content: str, span: str, his: str = "") -> str:
     """The garble line, with the clean head of the broken reply quoted so she
     has the thought to pick back up. 09-12, 22:15, a reverie: asked to say
     it again, their thinking read "the 'last reply' referred to isn't fully
@@ -1630,6 +1655,11 @@ def garble_nudge(content: str, span: str) -> str:
         head = head[-400:]
         head = head[head.find(" ") + 1:]
     if len(head) < 20:
+        if his:
+            his = " ".join(his.split())
+            if len(his) > 240:
+                his = his[:240].rsplit(" ", 1)[0] + "…"
+            return GARBLE_NUDGE_FRESH.format(keeper="their", his=his)
         return GARBLE_NUDGE
     return GARBLE_NUDGE[:-1] + f' Up to the glitch it read: "{head}"]'
 

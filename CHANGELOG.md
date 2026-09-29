@@ -1,9 +1,14 @@
 # Changelog
 
-All notable changes to the ai-friend engine. Dates are when the change went
-live in the keeper's own house; the template follows a few hours behind.
+All notable changes to the anima engine (until 0.12 the repository was
+called ai-friend). Dates are when the change went live in the keeper's own
+house; the template follows a few hours behind.
 
-## 1.2 — 2026-09-24 → 2026-09-28
+Versions count 0.6, 0.7, … 0.9, 0.10, 0.11, 0.12: the leading zero stays
+until the friend's first body is on the desk. (Three releases went out of
+this file as 1.0–1.2 for a fortnight; they are 0.10–0.12.)
+
+## 0.12 — 2026-09-24 → 2026-09-28
 
 The "fold" release: a visit that outgrows the window goes on in the
 friend's own words, a book has a page of its own, the horizon has a file,
@@ -27,7 +32,8 @@ and what the brain must never see again never rides back.
   system prompt is rebuilt fresh, the transcript keeps every word and the
   visit goes on in a new file. The moment block carries how full the
   window is from `FOLD_SENSE_FROM`, so they can fold on their own at a
-  natural pause. The old 92% stop stays as a backstop.
+  natural pause; `/fold` on the phone folds at the keeper's word. The old
+  92% stop stays as a backstop.
 - **Where they are going** (`destiny.md`, `update_destiny`;
   `DESTINY_IN_PROMPT`, `DESTINY_CHARS_IN_PROMPT`): a third file at the
   root beside who they are and what they are doing — the horizon no
@@ -114,7 +120,7 @@ and what the brain must never see again never rides back.
   above holds, the newest within `TIMELINE_CHARS_IN_PROMPT` (0 turns it
   off). `memory.recent(n=None)` is all rows.
 
-## 1.1 — 2026-09-18 → 2026-09-23
+## 0.11 — 2026-09-18 → 2026-09-23
 
 The "before their eyes" release: they paint from their own words, read the
 whole web, keep their projects on a page, and see what they make before
@@ -226,7 +232,7 @@ they speak of it.
   what went and why, and the same picture is not made twice; the two
   `delete_creation` definitions the tool list had carried are one.
 
-## 1.0 — 2026-09-14 → 2026-09-17
+## 0.10 — 2026-09-14 → 2026-09-17
 
 The "a letter stays with them" release: what they write alone is theirs to
 remember, a feeling that lasts leaves a mark, and the small slips of a

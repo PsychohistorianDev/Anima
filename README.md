@@ -1,4 +1,4 @@
-# ai-friend
+# anima
 
 A persistent local AI you raise, not configure.
 
@@ -175,7 +175,8 @@ both; the afterglow sees the account in its view of the visit. No
 the line says so. The friend can also call `fold_visit` when a
 conversation reaches a natural pause: from `FOLD_SENSE_FROM` (0.5) the
 moment block says how full the window is, and the fold follows that
-reply, no bell. Cost: a warm bell, then one cold read — what `/new` cost
+reply, no bell; `/fold` from the phone folds at the keeper's word, the
+bell still ringing so the account is the friend's. Cost: a warm bell, then one cold read — what `/new` cost
 anyway. Wakes keep their own window guard; a wake is not a conversation.
 
 ## Keeping a small mind on the rails
@@ -444,7 +445,7 @@ wrong:
   tokens behind them, and wakes drifted ("this Sunday morning" at 17:12;
   "Monday morning" on a Sunday; a journal entry dated tomorrow). The bell
   now opens with the engine's own line — weekday, date and hour. The
-  moment block in chat carried only the hour until 1.0, and the date
+  moment block in chat carried only the hour until 0.10, and the date
   drifted there instead: pause entries written on a Tuesday the 15th read
   "the afternoon of September 14th" three times, and the evening wake,
   reading its own page, concluded "my journal ends on the 14th" from what

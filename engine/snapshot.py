@@ -44,7 +44,7 @@ def git_snapshot() -> str:
         r = _git("commit", "-m", f"first snapshot ({STAMP})")
         if r.returncode != 0 and "identity" in (r.stderr + r.stdout).lower():
             # git wants a name/email; give the repo a local one and retry
-            _git("config", "user.name", "ai-friend")
+            _git("config", "user.name", "anima")
             _git("config", "user.email", "friend@localhost")
             r = _git("commit", "-m", f"first snapshot ({STAMP})")
         if r.returncode != 0:
@@ -58,7 +58,7 @@ def git_snapshot() -> str:
         if "nothing to commit" in out.lower():
             return "Nothing changed since the last snapshot."
         if "identity" in out.lower():
-            _git("config", "user.name", "ai-friend")
+            _git("config", "user.name", "anima")
             _git("config", "user.email", "friend@localhost")
             r = _git("commit", "-m", f"snapshot {STAMP}")
             if r.returncode == 0:
