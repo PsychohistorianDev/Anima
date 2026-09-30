@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 site/
 backups/
+.update/
 # your friend's private life — never push these to a public remote
 self.md
 projects.md

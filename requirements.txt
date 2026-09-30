@@ -1,0 +1,20 @@
+# Every package here is OPTIONAL — the engine itself is standard library only.
+# Each gives the friend one sense or hand; without it the tool that needs it
+# says what to install and the rest runs on. Install what you want, one by one
+# (py -m pip install pypdf), or all of these at once:
+#   py -m pip install -r requirements.txt
+# update.bat compares this file old → new and prints what is new; it never
+# installs anything itself.
+faster-whisper   # ears: WORDS — speech and lyrics transcribed (listen_to, watch); ffmpeg on PATH too (winget install ffmpeg)
+numpy            # ears: SOUND — tempo, loudness, tonal color measured; also the fast path of memory search
+pypdf            # reading PDFs (read_pdf)
+matplotlib       # drawing in run_python — a chart, a picture saved under creations/
+schemdraw        # drawing circuit diagrams in run_python
+garminconnect    # the keeper's body, as the watch saw it (body.bat; Python 3.12+)
+kokoro           # their voice (speak) — on Python 3.14 install it in a 3.12 instead: py -3.12 -m pip install kokoro soundfile
+soundfile        # their voice: Kokoro writes its audio through it
+# The music ear (music_ears.py) and the painter (painter.py) are bigger
+# installs of their own, with torch from its own index — see the README:
+#   py -m pip install torch --index-url https://download.pytorch.org/whl/cu128
+#   py -m pip install "transformers>=5.14" accelerate librosa soundfile huggingface_hub
+#   py -m pip install -U diffusers transformers accelerate safetensors pillow

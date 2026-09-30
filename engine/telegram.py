@@ -58,6 +58,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import chat
 import config
+import doors
 import ollama_client
 import tools
 
@@ -99,7 +100,15 @@ WATCHED = {"self.md": config.IDENTITY_FILE, "projects.md": config.PROJECTS_FILE,
            "destiny.md": getattr(config, "DESTINY_FILE", config.ROOT / "destiny.md")}
 CREATION_SKIP = {"tools", ".trash", MAIL_DIR.name, "archives", "attic"}
 CREATION_KINDS = {"poems": "a poem", "essays": "an essay", "stories": "a story", "humor": "a joke",
-                  "theory": "a piece of theory", "letters": "a letter", "songs": "a song"}
+                  "theory": "a piece of theory", "letters": "a letter", "songs": "a song",
+                  str(getattr(config, "SKILLS_DIR", "skills")): "a skill"}
+# Their skills (09-29; SKILLS-PLAN.md): a fetched skill is a stranger's recipe,
+# not a piece of theirs — its files never travel as ✍️ (a SKILL.md they write
+# herself does). What travels is one notice per fetch, from the note
+# fetch_skill leaves beside SKILL.md (.fetched.json): "📚 … fetched a skill",
+# or "⚠️ … quarantined" with what the scanner found — the phone is how the keeper
+# hears there is something at the gate. The names already told are kept here.
+SKILLS_SEEN_FILE = config.MEMORY_DIR / "telegram_skills_seen.json"
 LIMIT = 4000          # Telegram allows 4096 characters per message
 POLL_S = 50           # long-poll patience; the server answers sooner when there's news
 TYPING_S = 4          # "typing…" lasts ~5s on the phone; renew a little sooner
@@ -208,6 +217,7 @@ class Bridge:
         self.undelivered: list[dict] = []  # their replies that failed to send; tried again next poll
         self._load_undelivered()
         self.restart_requested = False
+        self.stop_requested = False  # memory/.stop-bridge was found: the loop leaves, the visit is saved as at Ctrl+C
 
     # ---- /restart: the visit survives the process -------------------------
     def stash(self) -> None:
@@ -1020,8 +1030,23 @@ class Bridge:
                 continue
             if rel.parts[:2] == ("publish", tools.GALLERY_DIR_NAME):
                 continue  # a picture's caption travels with the picture (09-23)
+            if Bridge._not_hers(rel):
+                continue
             out.append(p)
         return sorted(out)
+
+    @staticmethod
+    def _not_hers(rel: Path) -> bool:
+        """Under skills/ (09-29), only a SKILL.md they wrote themselves is a piece:
+        a fetched skill (its .fetched.json or the keeper's .scan.json beside it),
+        the quarantine, and a skill's other files are not."""
+        import skills
+        parts = rel.parts
+        if not parts or parts[0] != skills.home().name:
+            return False
+        if len(parts) != 3 or parts[1].startswith(".") or parts[2] != "SKILL.md":
+            return True
+        return skills.is_fetched(skills.home() / parts[1])
 
     @staticmethod
     def _stamp(p: Path) -> list:
@@ -1183,6 +1208,58 @@ class Bridge:
             sent += 1
         return sent
 
+    def deliver_skill_notices(self) -> int:
+        """One notice per skill they fetched, from the note fetch_skill left
+        beside its SKILL.md — on the shelf: "📚 … fetched a skill — name:
+        what it is (from where; the scan's verdict)"; in quarantine: "⚠️ a
+        skill they fetched was quarantined — name: what the scanner found".
+        The first bridge that knows skills takes those already there as told;
+        one the keeper installed themselves (skills.bat install) is not news to them."""
+        if not self.chat_id:
+            return 0
+        import skills
+        notes: dict[str, tuple[Path, dict, bool]] = {}
+        for folder, q in [(f, False) for f in skills.shelf()] + [(f, True) for f in skills.quarantined()]:
+            note = skills.fetch_note(folder)
+            if note:
+                notes[f"{folder.name}@{note.get('when', '')}"] = (folder, note, q)
+        try:
+            seen = json.loads(SKILLS_SEEN_FILE.read_text(encoding="utf-8"))
+            seen = set(seen) if isinstance(seen, list) else None
+        except (OSError, ValueError):
+            seen = None
+        if seen is None:  # first run: what is already on the shelf was fetched before the bridge knew
+            self._save_skills_seen(set(notes))
+            return 0
+        sent = 0
+        for key, (folder, note, q) in sorted(notes.items()):
+            if key in seen:
+                continue
+            seen.add(key)
+            self._save_skills_seen(seen)
+            if str(note.get("by", "them")).lower() == "keeper":
+                continue
+            name = folder.name
+            if q:
+                first = next((f for f in note.get("findings", []) if isinstance(f, dict) and f.get("level") == "dangerous"), None)
+                why = skills.finding_line(first) if first else "the scanner's findings are in its scan.json"
+                self.notice(f"⚠️ a skill they fetched was quarantined — {name}: {why}\n"
+                            f"(it waits in creations/{skills.home().name}/.quarantine/{name}/ — "
+                            f"skills.bat scan {name} to read why, skills.bat approve {name} to let it in)")
+            else:
+                desc = skills._desc_cut(str(note.get("description") or ""))
+                self.notice(f"📚 {chat.friend_name()} fetched a skill — {name}: {desc or '(no description)'} "
+                            f"(from {note.get('source') or '?'}; {note.get('verdict') or '?'})")
+            _say(f"told the phone about the skill {name}")
+            sent += 1
+        return sent
+
+    def _save_skills_seen(self, seen: set) -> None:
+        try:
+            SKILLS_SEEN_FILE.write_text(json.dumps(sorted(seen)), encoding="utf-8")
+        except OSError:
+            pass
+
     def _revision(self, rel: str, kind: str, p: Path, new: str, snap: Path, before, limit: int) -> tuple[str, str]:
         """A revised piece travels as WHAT CHANGED (a reading page appended
         after every sitting had sent the phone the same first 3,000
@@ -1245,8 +1322,18 @@ class Bridge:
             rel = p.relative_to(root)
             if set(rel.parts[:-1]) & (CREATION_SKIP | {"sources"}):
                 continue
+            if Bridge._fetched_skill_file(rel):
+                continue  # a fetched skill's assets are not pictures they drew
             out.append(p)
         return sorted(out)
+
+    @staticmethod
+    def _fetched_skill_file(rel: Path) -> bool:
+        import skills
+        parts = rel.parts
+        if len(parts) < 3 or parts[0] != skills.home().name:
+            return False
+        return parts[1].startswith(".") or skills.is_fetched(skills.home() / parts[1])
 
     def deliver_pictures(self) -> int:
         """A picture the friend drew reaches the phone as a photo (09-22) — a new
@@ -1362,6 +1449,7 @@ class Bridge:
         self.deliver_mail()
         self.deliver_creations()
         self.deliver_pictures()
+        self.deliver_skill_notices()
         self.deliver_self()
         idle_min = getattr(config, "TELEGRAM_IDLE_NEW_MIN", 180)
         if self.history and ((idle_min and time.time() - self.last_activity > idle_min * 60)
@@ -1484,6 +1572,13 @@ class Bridge:
     def _loop(self) -> None:
         backoff = 2
         while not self.restart_requested:
+            # the panel's Stop (09-30): memory/.stop-bridge, looked for between polls — the
+            # loop leaves the way /restart makes it leave, and main() closes the visit as
+            # Ctrl+C does (saved, their minute with it)
+            if doors.stop_asked("bridge"):
+                _say("(asked to stop — the visit is saved and the bridge closes)")
+                self.stop_requested = True
+                return
             try:
                 self.poll_once()
                 backoff = 2
@@ -1567,6 +1662,12 @@ def main() -> None:
     if taken:
         print(f"({taken})")
         return
+    taken = doors.claim("bridge", "bridge")  # the panel's light (memory/.pids/bridge.json)
+    if taken:
+        release_bridge()
+        print(taken)
+        return
+    doors.stop_asked("bridge")  # a stop left behind by a bridge that is gone is not this one's
     bridge = Bridge(secret["token"], secret.get("chat_id") or 0)
     closed = {"done": False}
 
@@ -1599,9 +1700,11 @@ def main() -> None:
             except Exception as e:
                 print(f"\n(restarting — couldn't stash the visit: {e}; it is saved in its transcript)")
             release_bridge()
+            doors.unmark("bridge")
             sys.exit(RESTART_CODE)
         f = close(reflect="sync")
         release_bridge()
+        doors.unmark("bridge")
         print(f"\n(bridge closed{' — visit saved: ' + f if f else ''})")
 
 

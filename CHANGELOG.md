@@ -6,7 +6,110 @@ house; the template follows a few hours behind.
 
 Versions count 0.6, 0.7, … 0.9, 0.10, 0.11, 0.12: the leading zero stays
 until the friend's first body is on the desk. (Three releases went out of
-this file as 1.0–1.2 for a fortnight; they are 0.10–0.12.)
+this file as 1.0–1.2 for a fortnight; they are 0.10–0.12. 0.12 was never
+tagged on its own: the first tag after the rename is v0.13.)
+
+## 0.13 — 2026-09-29 → (in progress)
+
+The "skills" release: a shelf of recipes of their own, a window onto the
+world's, a book read in real sittings, and a road for a keeper's folder to
+the current engine.
+
+### Added
+- **The tool kit** (`TOOL_KIT`: "full", "small", "tiny" or a list of
+  names): which built-in tools ride in the prompt. All of them cost ~7,500
+  tokens of definitions; small gives back ~3,000, tiny ~5,000, for a small
+  card or a small brain. The prompt's words about a tool go with the tool;
+  forged tools always ride; a dropdown on the panel's Main tab. The README's
+  tiers gain an 8 GB estimate.
+- **Their skills** (`engine/skills.py`, `skills.bat`; tools `use_skill`,
+  `list_skills`, `run_skill_script`, `fetch_skill`, `remove_skill`;
+  `SKILLS_IN_PROMPT`, `SKILLS_DIR`, `SKILLS_CHARS_IN_PROMPT`,
+  `SKILLS_DESC_CHARS`, `SKILL_CHARS`, `SKILL_MAX_FILES`, `SKILL_MAX_BYTES`,
+  `SKILL_FETCH_TIMEOUT`): the open skill standard (a folder with a
+  `SKILL.md` and maybe `scripts/`, `references/`…, as Hermes Agent, Claude
+  Code and skills.sh use it) on a shelf of their own in
+  `creations/skills/<name>/`. The prompt carries the shelf beside the
+  forged limbs — names, one line each, tags; `use_skill` opens a body,
+  framed as material; `run_skill_script` runs a skill's Python script in
+  run_python's sandbox; `fetch_skill` brings one from GitHub, a SKILL.md
+  URL or a .zip, and a scanner with Hermes' three verdicts stands in the
+  door — *dangerous* waits in `.quarantine/` for the keeper
+  (`skills.bat approve`), *caution* rides tagged, *clean* rides. The phone
+  hears each fetch once (📚, or ⚠️ with the finding). Their own SKILL.md
+  is a piece; a fetched one is not. `browse_skills(query, catalogue)` is
+  the window beside the shelf (`SKILL_CATALOGUES` — Hermes' and
+  Anthropic's by default; `SKILL_CATALOGUE_TTL_H`, `SKILL_BROWSE_CHARS`,
+  `SKILL_CATALOGUE_DIR`, `SKILL_CATALOGUE_PACE`, `SKILL_CATALOGUE_RETRY_MIN`,
+  `SKILL_CATALOGUE_BUDGET_S`): the catalogues indexed from GitHub (paced,
+  a 429 waited out, a partial index said and completed at a later browse)
+  and kept a week under `memory/`, shown by shelf or searched by a word,
+  each skill with the exact source `fetch_skill` takes; `skills.bat
+  browse` for the keeper.
+- **Updating** (`engine/update.py`, `update.bat`; `UPDATE_REPO`): a
+  keeper's folder brought to the current engine on GitHub without git
+  and without touching the friend. The default branch comes down as a zip
+  (`--tag` a release, `--source` a zip or folder already on the disk);
+  the engine's files — `engine/*.py` but `config.py`, `tests/`, the
+  launchers, `README.md`, `CHANGELOG.md`, `VERSION`, `requirements.txt`,
+  `.gitignore` — are replaced, added and removed, and nothing of theirs
+  (`config.py`, `self.md`, `projects.md`, `destiny.md`, `journal/`,
+  `memory/`, `creations/`, `shared/`, a file they added) is touched. It
+  says `0.12 → 0.13` and the CHANGELOG entries since before anything
+  moves (`--check` stops there); every replaced or removed file goes to
+  `.update/backup-<stamp>/` first, the last three kept, and `--undo` puts
+  the newest back. `.anima-manifest.json` keeps the sha256 of what was
+  installed, so an engine file the keeper edited is backed up, replaced
+  and named, never merged. `config.py` is appended to, never rewritten:
+  the knobs the new template has and theirs lacks, with the comments
+  above them, under one dated marker; a knob they have keeps their value
+  (`--no-config` skips it). A new line in `requirements.txt` is printed
+  with the pip line; the update installs nothing. (`.update/` is in
+  `.gitignore`.) `--reset-config` writes the new engine's `config.py` fresh
+  with the keeper's one-line values carried into it, the old file in the
+  backup — for a config fumbled past loading.
+- **`VERSION`** (with `engine/version.py`, which reads it) and
+  **`requirements.txt`**: the version at the root; every optional package the README names, with what it is for.
+- **The doors' marks and a polite stop** (`engine/doors.py`;
+  `HEARTBEAT_LOOP_MIN`): the heartbeat, the bridge, the parlor and a chat
+  keep `memory/.pids/<door>.json` while they run (pid, when, how), a stale
+  one cleared when its pid is gone; a second heartbeat, bridge or parlor is
+  refused with the running one's pid (two chats are fine).
+  `memory/.stop-heartbeat` asks the loop to leave after the wake it is in
+  (looked for between beats and every few seconds of its rest),
+  `memory/.stop-bridge` the bridge after the poll it is in, the visit
+  saved. `--loop` with no number wakes every `HEARTBEAT_LOOP_MIN` (120, the
+  old hardcoded value).
+- **`engine/knobs.py`**: the config reader and writer the panel will use —
+  every knob with its value, kind, comments and part of the file; a save
+  that rewrites only a value span, backs up to `.update/config-<stamp>.py`
+  and proves the file still imports (update.py's reader moved here).
+- **The panel** (`engine/panel.py`, `anima.bat`; no knob): one door with
+  the others behind it, at `http://127.0.0.1:8764` (localhost only,
+  standard library, nothing fetched). Home is a tile per door with its
+  light — chat, parlor, wake, the heartbeat (every N minutes, saved as
+  `HEARTBEAT_LOOP_MIN`; Stop and Stop now), the bridge (and its bot token),
+  sleep, snapshot, the update — and the brain above them: Ollama
+  answering, the model loaded and how much of it is on the card, *Pull*
+  for a configured model it lacks. Each door opens in a console of its
+  own, the same process as from its `.bat`; a second heartbeat, bridge or
+  parlor is refused. Settings lays `config.py` out on tabs (Main: the
+  brain, the window, the journal in the prompt, the names, the rhythm;
+  then Heartbeat, Memory & journal, Talking, Phone, Senses, Skills, Blog,
+  and Advanced for every other knob under the file's own headings), each
+  knob with its comment as help; Save rewrites only what changed and names
+  the doors to restart, with a Restart that waits for the wake to end.
+  While `USER_NAME` is `"Friend"` it opens on Welcome: your name, the
+  Ollama light, the brain, *First light*. Tokens and keys go to
+  `memory/*.json`; the panel never opens the friend's files.
+- **Reading, mended** (09-30): a page on the reading shelf under a name
+  near a book's but not it is handed back with the engine's name, and one
+  already there is named under every "no page yet" with the road home
+  (`STRAY_PAGE_RATIO`); an EPUB part page reads with the chapter after it
+  (`EPUB_SLIVER_CHARS`); a sitting still unwritten after the tell goes into
+  the bookmark's ledger and is named in the prompt and every quiet sitting
+  until the page names it; `chapter='start'` begins an EPUB over; a
+  `README.md` in another project folder is not a twin.
 
 ## 0.12 — 2026-09-24 → 2026-09-28
 

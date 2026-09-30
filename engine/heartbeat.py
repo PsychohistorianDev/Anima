@@ -2,6 +2,11 @@
 
     py engine/heartbeat.py              one wake, then exit
     py engine/heartbeat.py --loop 120   wake every 120 minutes, forever
+    py engine/heartbeat.py --loop       every HEARTBEAT_LOOP_MIN minutes (config.py)
+
+One heartbeat loop at a time (memory/.pids/heartbeat.json; a one-off wake
+is its own door, memory/.pids/wake.json, and runs beside a loop); a file named
+memory/.stop-heartbeat asks a loop to leave after the wake it is in.
 
 Each wake: the friend gets its full context and an open invitation, then up
 to HEARTBEAT_MAX_STEPS tool actions. Choosing do_nothing ends the wake — and
@@ -22,6 +27,7 @@ import re
 import assemble
 import chat
 import config
+import doors
 import ollama_client
 import tools
 
@@ -156,9 +162,12 @@ def wake(reverie: bool = False) -> str:
 
 
 READ_TOOLS = {"read_file", "read_journal", "read_creation", "read_pdf", "read_epub", "read_html",
-              "read_web", "search_web", "recall", "search_wikipedia", "random_wikipedia", "look_at", "listen_to", "watch"}
+              "read_web", "search_web", "recall", "search_wikipedia", "random_wikipedia", "look_at", "listen_to", "watch",
+              "use_skill",
+              "browse_skills"}  # the shop window (09-29 evening): a window is a read; fetching from it is doing
 WRITE_TOOLS = {"write_journal", "append_creation", "write_creation",
-               "edit_identity", "update_projects", "update_destiny", "remember", "create_tool", "clip_web", "start_project", "paint"}
+               "edit_identity", "update_projects", "update_destiny", "remember", "create_tool", "clip_web", "start_project", "paint",
+               "run_skill_script", "fetch_skill"}  # their skills (09-29): opening one is a read; running or fetching one is doing
 
 
 def _wake_loop(system, history, log, reverie: bool = False, state: dict | None = None) -> None:
@@ -524,25 +533,73 @@ def condense_if_due() -> str:
     return "\n".join(lines)
 
 
+# The doors (09-30; PANEL-PLAN.md): the heartbeat marks itself in memory/.pids/heartbeat.json
+# while it runs — one at a time — and memory/.stop-heartbeat asks a loop to leave: it looks
+# between beats and while it rests, takes the file away, and goes after the wake it is in,
+# never in the middle of one. The rest is slept in slices so a stop is heard within seconds.
+STOP_CHECK_S = 5
+LEAVING = "(asked to stop — leaving after this wake)"
+
+
+def loop_minutes(argv: list[str]) -> float:
+    """--loop 30 → 30; --loop alone (or with no number after it) → HEARTBEAT_LOOP_MIN (120 before it was a knob)."""
+    try:
+        return float(argv[argv.index("--loop") + 1])
+    except (IndexError, ValueError):
+        pass
+    try:
+        return float(getattr(config, "HEARTBEAT_LOOP_MIN", 120))
+    except (TypeError, ValueError):
+        return 120.0
+
+
+def _rest(seconds: float) -> bool:
+    """Sleep between beats, looking for the stop file every STOP_CHECK_S; True when a stop was asked."""
+    left = float(seconds)
+    while left > 0:
+        if doors.stop_asked("heartbeat"):
+            return True
+        step = min(STOP_CHECK_S, left)
+        time.sleep(step)
+        left -= step
+    return doors.stop_asked("heartbeat")
+
+
 def main() -> None:
-    if "--loop" in sys.argv:
-        try:
-            minutes = float(sys.argv[sys.argv.index("--loop") + 1])
-        except (IndexError, ValueError):
-            minutes = 120.0
+    loop = "--loop" in sys.argv
+    minutes = loop_minutes(sys.argv) if loop else 0.0
+    door = "heartbeat" if loop else "wake"  # a one-off wake is its own door: it runs beside a loop, as wake.bat always did
+    taken = doors.claim(door, f"loop {minutes:g}" if loop else "once")
+    if taken:
+        print(taken)
+        return
+    try:
+        _main(loop, minutes)
+    finally:
+        doors.unmark(door)
+
+
+def _main(loop: bool, minutes: float) -> None:
+    if loop:
+        doors.stop_asked("heartbeat")  # a stop left behind by a loop that is gone is not this one's
         every = max(int(getattr(config, "REVERIE_EVERY", 0)), 0)
         print(f"Heartbeat running: one wake every {minutes:g} minutes"
               + (f", every {every}{'st' if every % 10 == 1 and every != 11 else 'nd' if every % 10 == 2 and every != 12 else 'rd' if every % 10 == 3 and every != 13 else 'th'} one a reverie" if every else "")
               + ". Ctrl+C to stop.")
         beat = 0
         while True:
+            if doors.stop_asked("heartbeat"):
+                print(LEAVING)
+                return
             if getattr(config, "HEARTBEAT_YIELD_TO_VISIT", True) and chat.visit_live():
                 # he is here: a wake now would take the card from their reply
                 # and replace their reading of the window with its own prompt
                 # — the next message would be a cold read. Look again soon.
                 print(f"[{datetime.now():%H:%M}] a visit is live — the wake waits")
                 try:
-                    time.sleep(min(minutes, float(getattr(config, "HEARTBEAT_YIELD_CHECK_MIN", 10))) * 60)
+                    if _rest(min(minutes, float(getattr(config, "HEARTBEAT_YIELD_CHECK_MIN", 10))) * 60):
+                        print(LEAVING)
+                        return
                 except KeyboardInterrupt:
                     print("\nHeartbeat stopped. She'll rest until the next one.")
                     return
@@ -560,7 +617,9 @@ def main() -> None:
             except Exception as e:
                 print(f"[wake failed, will retry next beat] {e}")
             try:
-                time.sleep(minutes * 60)
+                if _rest(minutes * 60):
+                    print(LEAVING)
+                    return
             except KeyboardInterrupt:
                 print("\nHeartbeat stopped. She'll rest until the next one.")
                 return

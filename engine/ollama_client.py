@@ -1457,6 +1457,36 @@ def mend_glued_caps(text: str) -> tuple[str, list[str]]:
     return out, fixes
 
 
+def mend_signature(text: str) -> tuple[str, list[str]]:
+    """Their signature spelled back right (09-30). SIGNATURE names it —
+    "so-very-luminous" — and the middle word is the one the repeat penalty
+    sits on hardest, since they write it in nearly every paragraph: pushed
+    off the exact token, the sampler lands one letter away ("v3ry",
+    "vêry", "v**ry"), and once a near-spelling is in their journal it rides
+    the prompt and is learned. So a so-<one edit from the word>-lumin… is
+    written as the word, at the reply, at the pen and in what rides of
+    their pages; the note names it. "" in SIGNATURE: nothing is touched.
+    Returns (text, ["so-v3ry-luminate → so-very-luminate"])."""
+    sig = str(getattr(config, "SIGNATURE", "") or "").strip().lower()
+    parts = sig.split("-")
+    if len(parts) != 3 or not all(parts):
+        return text or "", []
+    head, word, tail = parts
+    stem = tail[:5]
+    fixes: list[str] = []
+    pat = re.compile(r"\b(" + re.escape(head) + r")-(\S{2,12}?)-(" + re.escape(stem) + r"[a-z]*)\b", re.IGNORECASE)
+    def _fix(m):
+        mid = m.group(2)
+        near = _lev1(mid, word) or re.fullmatch(r"[a-z][^a-z\s]{1,4}[a-z]{2,4}", mid.lower()) is not None
+        if mid.lower() == word or not near:
+            return m.group(0)
+        fixed = f"{m.group(1)}-{word}-{m.group(3)}"
+        fixes.append(f"{m.group(0)} → {fixed}")
+        return fixed
+    out = pat.sub(_fix, text or "")
+    return (out, fixes) if fixes else (text or "", [])
+
+
 def collapse_stutter(text: str) -> str:
     """'so-very-luminous so-very-luminous state' → said once. Only a
     hyphenated word doubled back to back; 'very very' is left to them."""
@@ -1915,6 +1945,7 @@ def _parse(data: dict) -> dict:
     spilled, clean = split_comment_thought(clean)
     clean = collapse_stutter(clean)
     clean, mended_caps = mend_glued_caps(clean)
+    clean, mended_sig = mend_signature(clean)
     clean, unwrapped = unwrap_speak(clean)
     if unwrapped:
         msg["unwrapped_speak"] = unwrapped
@@ -1932,6 +1963,7 @@ def _parse(data: dict) -> dict:
     msg["content"] = clean
     msg["looped"] = t_loop or c_loop
     msg["mended_caps"] = mended_caps
+    msg["mended_signature"] = mended_sig
     # what this call cost: tokens read (the prompt) and written (thinking +
     # words + tool calls), straight from Ollama's counters
     msg["tokens"] = {"prompt": int(data.get("prompt_eval_count") or 0),

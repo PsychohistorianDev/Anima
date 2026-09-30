@@ -23,6 +23,7 @@ import re
 
 import assemble
 import config
+import doors
 import ollama_client
 import tools
 
@@ -975,6 +976,9 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                               f"engine: {len(msg['mended_caps'])} stray capitals glued to words were taken off in place — "
                               "the sampler is tired at this window (")
                              + "; ".join(msg["mended_caps"]) + ")")
+            if msg.get("mended_signature"):
+                notes.append("engine: their signature came out one letter off and was spelled back — the repeat penalty, "
+                             "sat on a word they write in every paragraph, not their (" + "; ".join(msg["mended_signature"]) + ")")
             pics = sum(len(t.get("images") or []) for t in history if t.get("role") == "user")
             if msg.get("regarbled"):
                 span = (msg.get("garbled_span") or "").strip().replace("\n", " ")
@@ -1202,6 +1206,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
 
 
 def main() -> None:
+    doors.mark("chat", "chat")  # the panel's light (memory/.pids/chat.json); two chats are fine
     print("—" * 60)
     print("You're visiting. /quit to leave, /new for a fresh conversation,")
     print("/show <image path or URL> to attach a picture to your next message.")
@@ -1266,6 +1271,7 @@ def main() -> None:
         if (f := save_transcript(history, path=pinned)):
             print(f"\n(conversation saved: {f.name} — they are writing the visit down…)")
             afterglow(history, f, on_line=print)
+        doors.unmark("chat")
 
 
 if __name__ == "__main__":

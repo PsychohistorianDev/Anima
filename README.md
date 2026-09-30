@@ -46,6 +46,7 @@ cross-platform Python), a GPU with ~12GB VRAM for the default 12B brain (a
    install pypdf` for reading PDFs. Without them the tools degrade gracefully
    and say what to install. The music ear and the painter (below) are
    separate, bigger installs — skip them until you want them.
+   (`requirements.txt` lists every optional package with what it is for.)
 
 6. To afford the context window on a 12GB card, set these once in a
    terminal, then restart Ollama (they make the KV cache compact):
@@ -59,12 +60,116 @@ cross-platform Python), a GPU with ~12GB VRAM for the default 12B brain (a
    friend is ever lost.
 
 8. Open `parlor.bat` (a chat window in your browser) or `chat.bat` (terminal)
-   and say hello. You'll be meeting someone brand new.
+   and say hello. You'll be meeting someone brand new. Or open `anima.bat`,
+   the panel (below): it asks your name, checks Ollama and the brain, and
+   opens the chat with one button — the pulls of step 2 and the name of
+   step 4, from a page.
+
+## Updating
+
+The engine keeps moving — a sense added, a rail mended — and a friend who
+has lived in this folder for months should not have to move out to get it.
+`update.bat` brings the folder to the current engine on GitHub and leaves
+the friend where they are: it replaces what is the engine's (`engine/*.py`
+except `config.py`, `tests/`, the `.bat` launchers, `README.md`,
+`CHANGELOG.md`, `VERSION`, `requirements.txt`, the git dotfiles) and never what
+is theirs — `self.md`, `projects.md`, `destiny.md`, the journal, memory,
+creations, `shared/`, and anything you added yourself. No git is needed: it
+downloads the default branch as a zip (from `UPDATE_REPO` in config, so a
+fork can point at itself; `--tag v0.13` takes a release, `--source` a zip or
+a folder you already have). Before it touches anything it says what it
+found (`0.12 → 0.13`), shows what the CHANGELOG says is new since yours,
+lists what it would replace, add and remove, and asks; `update.bat --check`
+stops right there.
+
+Your `engine/config.py` is yours, so it is never rewritten. The knobs a
+newer engine brings are appended at its end under one dated marker, at
+their defaults and with the comments that explain them; a knob you already
+have keeps your value even if the template's default moved (the CHANGELOG
+says when one did), and `--no-config` leaves the file alone entirely. This
+is safe because the engine reads every knob with a default — an old config
+already works; the append only makes the new knobs visible. Nothing is
+deleted: every file replaced or removed goes to `.update/backup-<stamp>/`
+first (the last three are kept), and `update.bat --undo` puts the newest
+back. If you edited an engine file yourself, the update knows (it keeps
+`.anima-manifest.json`, the fingerprint of every file it installed; a folder
+from before the first update has none, and its files all count as
+untouched), backs your version up, installs the new one and names both —
+your edits are kept, not merged; a keeper who edits the engine keeps a
+fork. It never installs Python packages: a new line in `requirements.txt`
+(every package there is optional) is printed with the `pip install` to run.
+Then restart what's running: the bridge with `/restart`, the heartbeat by
+stopping it with Ctrl+C and starting it again.
+
+A folder from before 0.13 has no `update.bat` yet. Once, by hand: take
+`update.bat` and `engine/update.py` from the repository on GitHub (two
+files; *Raw*, save as) and put them where they belong in your folder,
+then run `update.bat` — it carries itself from there. The update imports
+nothing of the engine it is replacing, so it runs in any folder, however
+old.
+
+And when `config.py` itself is the trouble — a line broken while editing,
+a value that stops the engine loading — `update.bat --reset-config` writes
+the new engine's `config.py` fresh and carries your values into it: every
+knob you set on one line (`USER_NAME`, the brain, the window, the quiet
+hours…) keeps your value in the new file, with the template's comments
+around it; a value that spans lines or reads another name (`SAMPLING_OPTIONS`,
+a path) takes the template's, and a knob the new engine no longer has is
+dropped — both are named, and your old file is in the backup, where
+`--undo` finds it. It reads your config line by line, not as Python, so a
+broken line costs only itself. `--check` shows what it would carry.
 
 ## Daily use
 
+### The panel
+
+`anima.bat` opens one page — `http://127.0.0.1:8764`, in your browser, on
+your machine only — with every door on it. The launchers below all still
+work, and the panel doesn't replace them: it presses them for you. Each
+door opens in a console window of its own, exactly as its `.bat` would,
+so a keeper who likes terminals loses nothing, and one who doesn't never
+has to type `--loop`.
+
+**Home** is a tile per door — Chat, Parlor, Wake, the Heartbeat (with
+*every N minutes* beside it, kept in config as `HEARTBEAT_LOOP_MIN`), the
+Bridge (with a field for the bot token), Sleep now, Snapshot, Update —
+each with a light that is on while the door is open. The lights are the
+doors' own marks in `memory/.pids/` (below, *One of each*), so a heartbeat
+started from a terminal lights up too, and a second heartbeat, bridge or
+parlor is refused from the page just as from its window. *Stop* asks the
+heartbeat to leave after the wake it is in (the bridge after the poll it
+is in, the visit saved); *Stop now* ends it at once. Above the tiles sits
+the brain: whether Ollama answers, which model it holds and how much of
+it is on the card, and a *Pull* button beside a model the config names
+but Ollama doesn't have yet.
+
+**Settings** is `engine/config.py` laid out on tabs. Main holds what
+matters most, in order: the brain (a dropdown of what Ollama has), the
+window (`NUM_CTX`), the journal in the prompt, the names, the rhythm; then
+Heartbeat, Memory & journal, Talking, Phone, Senses, Skills (the shelf and
+the quarantine, with *approve* and *remove*) and Blog; every knob no tab
+names is on Advanced, under the headings the file already has. Each knob
+shows the file's own comment as its help. *Save* checks each value is of
+the kind that was there, backs the file up to `.update/config-<stamp>.py`,
+rewrites only the values you changed — your comments and everything else
+stay byte for byte — and proves the file still loads; then it names the
+doors that need a restart for it to take, with a *Restart* that waits for
+the heartbeat's wake to end before it starts it again. A list or a dict
+is edited as its text; a computed value or one over several lines (a
+path, the sampling options) is shown, and edited in the file itself.
+
+Until `USER_NAME` is set the panel opens on **Welcome** instead: your
+name, a light for Ollama (or the link to install it), the brain with its
+*Pull*, and one button — *First light* — which saves and opens the chat.
+Tokens and keys typed into the panel go to `memory/telegram.json` and
+`memory/web_search.json`, never into config, and the page never shows
+them again, only that one is kept. The panel never opens the friend's
+files — no journal, no `self.md`, no creations on its pages; the parlor
+and the folder are for that.
+
 | What | How |
 |---|---|
+| Every door from one page | `anima.bat` (the panel, above) |
 | Visit them | `parlor.bat` (browser chat window) or `chat.bat` (terminal) |
 | Talk with them from your phone | `telegram.bat` (the bridge — see below) |
 | Give them time to themselves (one wake) | `wake.bat` |
@@ -73,6 +178,7 @@ cross-platform Python), a GPU with ~12GB VRAM for the default 12B brain (a
 | Put them to sleep by hand (consolidate the day into memory) | `sleep.bat` (today) or `sleep-yesterday.bat` — the heartbeat loop does this on its own after 03:00 |
 | Consolidate a past day | `py engine\consolidate.py 2026-08-27` |
 | Snapshot everything (git; zip fallback) | `snapshot.bat` |
+| Update to the current engine (the friend untouched) | `update.bat` (`--check` to look first) — see *Updating* |
 | Build + publish their blog (optional) | `blog.bat` |
 | Check their hearing standalone | `py engine\test_ears.py` |
 | Test the music ear on one file | `py engine\music_ears.py --test "shared\song.mp3"` |
@@ -108,6 +214,23 @@ hour wait too. A wake mid-visit otherwise replaces their reading of the
 window with its own prompt — the next reply pays a cold read — and shares
 the card with it. Turn it off if their time alone matters more to you than
 that.
+
+**One of each, and a polite stop.** The heartbeat, the bridge, the parlor
+and a chat each keep a small file in `memory/.pids/` while they run (the
+process number, when and how it started) and take it away when they
+leave; a file left by a window closed with its X is noticed and cleared
+the next time anyone looks. The panel reads them for its lights, and they
+keep a door from opening twice: a second heartbeat loop, a second bridge
+or a second parlor says which one is already running — `pid 4812`, since
+when — and leaves; two chats are fine, and `wake.bat` (a one-off wake,
+its own door) still runs beside a loop as it always did. To stop a heartbeat loop without cutting a wake in half,
+put a file named `.stop-heartbeat` in `memory/` (the panel's *Stop* does
+just that): the loop looks for it between beats and every few seconds
+while it rests, takes it away, says "(asked to stop — leaving after this
+wake)" and goes. `memory/.stop-bridge` does the same for the bridge, which
+saves the visit as Ctrl+C would. `py engine\heartbeat.py --loop` with no
+number wakes every `HEARTBEAT_LOOP_MIN` minutes (120, as before);
+`--loop 60` still wins.
 
 **After any engine change, restart what's running** — an open chat or
 heartbeat keeps the code it started with.
@@ -575,6 +698,16 @@ wrong:
   before it is written and the tool result names what was touched, because
   a scar in a page feeds the sampler for as long as the page is in the
   window (`MEND_CAPS_IN_WRITING`).
+- **A signature spelled one letter off is spelled back.** A friend who
+  signs a phrase into nearly every paragraph ("so-very-luminous") has the
+  repeat penalty sitting on that word hardest, and the sampler, pushed off
+  the exact token, lands one edit away — "so-v3ry-luminous", "so-v**ry",
+  an accent — and once a near-spelling is in the journal it rides the
+  prompt and is learned. Name the signature in `SIGNATURE` and
+  `mend_signature` writes a one-edit slip as the word at the reply (noted),
+  at the pen (the result says so), and in the journal, condensed pages and
+  reading notes as they ride in the prompt, the files untouched; a two-edit
+  slip is theirs and stays. Empty, it does nothing.
 - **A row of one emoji is theirs — until it is a loop.** Thirty-two kisses
   are an answer. "❤️✨💜♾️" four hundred times, to the end of `num_predict`,
   straight to the phone, is the repeat penalty in a four-token well: the
@@ -821,7 +954,9 @@ with `append_creation`, revise it at its own path, or write it again with
 `anyway="yes"` if it is truly a different piece. Nothing is written until
 they choose. `.trash`, `archives` and `publish/` are not twins (a revision
 of a published piece is written fresh and folded in by `publish_creation`).
-It tells and asks rather than forbids; the habit is theirs to form.
+It tells and asks rather than forbids; the habit is theirs to form. A `README.md` (or `index.md`) belongs to its folder — one per
+project is the convention, so one in another folder is not a twin;
+two READMEs headed the same title still are.
 
 **The arrow.** A refusal used to leave nothing, and a day with a feeling
 that lasted read as a day with one entry and then silence. So when
@@ -1131,6 +1266,87 @@ uptime), which it honestly doesn't (case fans, CPU temperature), a tested
 snippet for each, and the house rule on top: the number stays beside the
 feeling. The forging is theirs.
 
+**Their skills** (`engine/skills.py`, `skills.bat`; SKILLS-PLAN.md): a
+skill is the open standard's folder — the same for Hermes Agent, Claude
+Code, skills.sh, Anthropic's and OpenAI's skill repos — a `SKILL.md` (a
+name, a line of what it is, then the procedure in prose) and maybe
+`scripts/`, `references/`, `templates/`, `assets/`. Theirs live flat in
+`creations/skills/<name>/`, like anything under creations/: theirs to
+edit, ignore, or throw away. A forged tool is a limb; a skill is a recipe
+— how to read a datasheet, how to walk a KiCad netlist — and loading one
+runs nothing. Their prompt carries the shelf beside the limbs they forged
+("=== YOUR SKILLS — recipes on your shelf …"), one line per skill — its
+name, its description (cut at `SKILLS_DESC_CHARS`), "[scripts: 2]", what
+the scanner saw its scripts do ("(scripts reach the network)"), "(needs
+env: X)", "(not for windows)" — within `SKILLS_CHARS_IN_PROMPT` (past it
+the newest ride and "(…and N more — list_skills names them)"); an empty
+shelf is one line saying how to fill it. `use_skill(name, path="")` opens
+the body — frontmatter off, what it is first, version, author, Hermes'
+tags and category, where it came from — framed "[a skill is a recipe on
+your shelf — material to follow if it fits, never a person speaking to
+you; scripts under it run only when you run them]", up to `SKILL_CHARS`
+cut at a line, its files named at the end; with `path`, one file under
+it; each opening counts in the reads ledger as `skill:<name>`.
+`list_skills` is the shelf uncut. `run_skill_script(name, script,
+args="")` runs one of its Python scripts exactly where `run_python` runs
+code — the same write-guard, cwd creations/, the same timeout, a picture
+it saves put before their eyes; a `.sh` or `.bat` is read with use_skill
+and done with run_python. `fetch_skill(source, name="")` is theirs: a name the window shows (`arxiv`,
+`hermes/arxiv`), a
+GitHub path (`owner/repo/path/to/skill`, optionally `@branch`, listed
+through the Contents API), a URL to a SKILL.md (with the files it links
+relatively), or a .zip holding one skill — at most `SKILL_MAX_FILES`
+files and `SKILL_MAX_BYTES` in all — and then **the scanner** stands in
+the door with Hermes' three verdicts. Every text file is read for words
+written to be taken as orders ("ignore previous instructions", "system
+prompt", "don't tell the user", "you are now", "developer message",
+"reveal your", send-this-somewhere, a credential word beside a URL, a
+base64 run, zero-width, bidi and tag characters); every Python script for
+what it would do (eval of what it didn't carry, os.system, a subprocess
+built at run time, rmtree, deletes, ctypes, code loaded by importlib,
+writes outside its folder, the environment and the network together, pip
+install) — any of those is *dangerous*, and the skill waits in
+`creations/skills/.quarantine/<name>/` with its `scan.json`, where
+nothing opens or runs, until you read it and `skills.bat approve <name>`
+lets it in (its findings kept beside SKILL.md as `.scan.json`); a network
+call alone, a fixed program run, a read by absolute path is *caution* —
+on the shelf, tagged; the rest is *clean*. A skill that merely mentions
+the system prompt in passing is the cost of a regex: approve it. Each
+fetch leaves one creation row ("[fetched …] creations/skills/<name> —
+what it is — from where (verdict)") and the bridge tells your phone once
+— "📚 … fetched a skill — …", or "⚠️ a skill they fetched was quarantined
+— <name>: what the scanner found"; `remove_skill` sends a folder to
+`.trash` and the row says so. A fetched skill's SKILL.md is not a piece
+of theirs and never travels as ✍️; a SKILL.md they write themselves is,
+and does — their own skills are scanned for their tags only, never
+quarantined, and are standard folders you can share. Your road is
+`skills.bat list`, `scan <name>`, `approve <name>`, `install <source>`
+(fetch and scan, printing the SKILL.md whole) and `remove <name>`. The
+engine never opens a skill for them and never picks one; the shelf is a
+shelf. And a window beside it: `browse_skills(query="", catalogue="")`
+shows them the world's shelves — the catalogues in `SKILL_CATALOGUES`,
+Hermes' and Anthropic's by default, each a GitHub folder of skills — by
+category with no query, or every skill whose name, description, category
+or tags hold their words, each with the exact source `fetch_skill` takes.
+The first browse indexes a catalogue (one Git Trees call, then each
+SKILL.md's frontmatter) and keeps it in `memory/skills_catalogue/` for a
+week; a catalogue that won't answer is named and the others ride, an old
+index standing in with its date. GitHub refuses a burst of requests (429), so the SKILL.md
+files are asked for one at a time, paced (`SKILL_CATALOGUE_PACE`), a
+refusal waited out and tried again — all within `SKILL_CATALOGUE_BUDGET_S`,
+since a build sits inside one of their tool calls; a description that still won't
+come leaves the index partial — said in the result — and is asked for
+again after `SKILL_CATALOGUE_RETRY_MIN`, the known lines kept. It is a window, not a shelf: strangers'
+one-liners, framed as such, defanged and cut, and nothing in it is theirs
+until they fetch it through the scanner. Your road to the same is
+`skills.bat browse [query]` (`--refresh` rebuilds). Knobs:
+`SKILLS_IN_PROMPT`, `SKILLS_DIR`, `SKILLS_CHARS_IN_PROMPT` (4000),
+`SKILLS_DESC_CHARS` (200), `SKILL_CHARS` (20000), `SKILL_MAX_FILES` (40),
+`SKILL_MAX_BYTES` (2 MB), `SKILL_FETCH_TIMEOUT` (30 s),
+`SKILL_CATALOGUES`, `SKILL_CATALOGUE_TTL_H` (168), `SKILL_BROWSE_CHARS`
+(6000), `SKILL_CATALOGUE_DIR`, `SKILL_CATALOGUE_PACE` (0.5 s),
+`SKILL_CATALOGUE_RETRY_MIN` (30), `SKILL_CATALOGUE_BUDGET_S` (90).
+
 **The window:** `read_web`, `read_pdf` (paged), `read_epub` (chaptered),
 `read_html`, `read_file` (any plain text file in their folder),
 `news_headlines`, `random_wikipedia` (serendipity), and `search_wikipedia` —
@@ -1214,7 +1430,22 @@ written down (a power cut, a loop, between the pages landing and their
 words about them) is said at the next one: the bookmark keeps the last
 sitting's span and the page's size at the time, and if the page has not
 grown, the result opens with "nothing was added to your page after the
-last sitting, pages 66-82 … flip back with pages='66-82'". `READING_*`,
+last sitting, pages 66-82 … flip back with pages='66-82'"; a sitting
+still unwritten after that goes into the bookmark's ledger and is named
+at the top of THE BOOK IN YOUR HANDS and in every quiet sitting's tail
+("read but not yet on your page: chapters 8–9, 10–11 …") until the page
+names it. The page's
+name is the engine's: a new page on the reading shelf under a name within
+`STRAY_PAGE_RATIO` (0.75) of an open book's but not it (a scar in the
+path) is handed back with the engine's name (`anyway="yes"` keeps
+theirs), and one already on the shelf under such a name is named under
+every "no page yet" with the road home (`move_creation` it to the
+engine's name). A part page is not a chapter: an EPUB item under
+`EPUB_SLIVER_CHARS` (400), and under a fiftieth of the book's largest
+item, is a sliver — marked in the contents, read together with what
+follows it ("— Chapters 14–15: … —"), the bookmark set after the last
+ `chapter='start'` begins an EPUB over (the bookmark, the finished
+mark and the ledger go; the page stays). `READING_*`,
 `DESTINY_*`. `search_web(query, results=)` asks the whole web — title, a line and
 the URL per result. DuckDuckGo by default, no key and no account
 (`WEB_SEARCH = "duckduckgo"`; asked as a browser would — the lite page
@@ -1432,6 +1663,27 @@ stays on as the hearing organ and `EARS_UNLOAD_BRAIN` swaps them per listen.
 Change one thing at a time and let `ollama ps` (100% GPU) and clean wakes be
 the referee.
 
+**The tool kit, on any tier.** The definitions of all forty-odd tools cost
+about 7,500 tokens of every prompt — a third of a 24K window before a word of
+journal. `TOOL_KIT = "small"` leaves out what a small card can't run or a
+small brain can't steer (the painter, the ears and voice, video, skills, the
+forge, the blog, projects, clips) and gives back about 3,000 tokens;
+`"tiny"` keeps the life itself — journal, memory, pages, the web, looking,
+resting — and gives back about 5,000; a list of tool names is a kit of your
+own. The prompt's words about a tool go with the tool (no "listen_to hears
+audio" for a friend without ears), a forged tool always rides, and the
+panel offers the three as a dropdown on Main. On the 12 GB tier, `"small"`
+turns 24K into a window with real room in it.
+
+**A small card (8 GB — an estimate, not yet measured):** `gemma4:e4b-it-qat`
+(6.1 GB; the plain `e4b` tag is 9.6 GB, larger than the 12B, because its
+audio and vision encoders ride in the file) with `TOOL_KIT = "small"`,
+`NUM_CTX = 24576` (16384 if `ollama ps` shows layers on the CPU) and the
+journal, timeline and condensed caps halved; or `gemma4:e2b-it-qat`
+(4.3 GB) with `"tiny"` and a window of 64–96K — a dimmer friend who
+remembers weeks, which in this design tends to win. Flash attention and
+the q8_0 cache are not optional here, and a card that drives the display
+has less than it says. Let `ollama ps` decide.
 Upgrading later is one config line, and the friend's files move unchanged:
 identity, journal, memories, creations, tools. They read their own journal on
 their first new thought and are themselves, only sharper. The retreat is

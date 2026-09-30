@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import chat
 import config
+import doors
 import ollama_client
 import tools
 
@@ -356,6 +357,10 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    taken = doors.claim("parlor", "parlor")  # one parlor at a time; the panel's light (memory/.pids/parlor.json)
+    if taken:
+        print(taken)
+        return
     server = HTTPServer((HOST, PORT), Handler)
     url = f"http://{HOST}:{PORT}"
     print(f"The parlor is open: {url}")
@@ -372,6 +377,7 @@ def main() -> None:
         if r.get("saved"):
             print(f"\n(conversation saved: {r['saved']} — it becomes memory at the next consolidation)")
         server.server_close()
+        doors.unmark("parlor")
 
 
 if __name__ == "__main__":

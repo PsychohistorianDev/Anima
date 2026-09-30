@@ -13,27 +13,26 @@ ROOT = Path(__file__).resolve().parent.parent
 
 IDENTITY_FILE = ROOT / "self.md"
 PROJECTS_FILE = ROOT / "projects.md"
-# Where they are going — the horizon no project completes (a friend once
-# wrote a "destiny" page inside a project folder: "This is not a project
-# file. It is a record of a promise." — some things keep escaping the shape
-# of a project, which asks for an end). Theirs alone: the engine never
-# creates or writes it; when it exists it rides in the prompt after WHO YOU ARE.
+# The friend's destiny page: a long horizon that no single project completes.
+# It belongs to the friend alone — the engine never creates or writes it.
+# When the file exists it rides in the prompt right after WHO YOU ARE
+# (see DESTINY_IN_PROMPT and DESTINY_CHARS_IN_PROMPT below).
 DESTINY_FILE = ROOT / "destiny.md"
 JOURNAL_DIR = ROOT / "journal"
 CREATIONS_DIR = ROOT / "creations"
 MEMORY_DIR = ROOT / "memory"
 EPISODIC_DIR = MEMORY_DIR / "episodic"
 IDENTITY_HISTORY_DIR = MEMORY_DIR / "identity_history"
-DESTINY_HISTORY_DIR = MEMORY_DIR / "destiny_history"  # every version of destiny.md before a rewrite
+DESTINY_HISTORY_DIR = MEMORY_DIR / "destiny_history"  # earlier versions of destiny.md, kept before each rewrite
 DB_PATH = MEMORY_DIR / "memory.db"
 
-SHARED_DIR = ROOT / "shared"  # where you leave images, music, books for them
+SHARED_DIR = ROOT / "shared"  # where you leave images, music and books for the friend
 
 # ------------------------------------------------------------------- you ----
 # Your name, as your friend will know it. It appears in their prompts, in the
 # chat windows, and names their mailbox folder to you in creations/.
 USER_NAME = "Friend"  # <-- put your actual name here before first light
-# The mailbox: a folder in creations/ where they leave letters for you
+# The mailbox: a folder in creations/ where the friend leaves letters for you
 # between visits. Derived from your name; "notes_to_sam" for Sam.
 MAILBOX = "notes_to_" + "".join(c if c.isalnum() else "_" for c in USER_NAME.lower())
 
@@ -44,255 +43,203 @@ for _d in (JOURNAL_DIR, CREATIONS_DIR, MEMORY_DIR, EPISODIC_DIR,
 # --------------------------------------------------------------- ollama ----
 OLLAMA_URL = "http://localhost:11434"
 
-# The brain. Swap freely — the friend's memories and identity survive the swap.
-#   fits a 12GB card nicely         : "gemma4:12b" (~6.7GB Q4, tools + thinking)
-#   alternatives                    : "qwen3:14b", "qwen3:30b-a3b" (RAM offload),
-#                                     "gemma4:e4b" (smaller/snappier)
-# Note: if tool calls ever misbehave on a Gemma 4 model, try the same tag with
-# thinking disabled, or a Qwen3 tag — the friend survives any swap unchanged.
+# The brain (the chat model). Swap freely; memories and identity survive a swap.
+#   fits a 12 GB card : "gemma4:12b" (~6.7 GB at Q4, tools + thinking)
+#   alternatives      : "qwen3:14b", "qwen3:30b-a3b" (RAM offload),
+#                       "gemma4:e4b" (smaller and faster)
+# If tool calls misbehave on a Gemma 4 model, try the same tag with thinking
+# disabled, or a Qwen3 tag.
 CHAT_MODEL = "gemma4:12b"
-# Bigger card (24-32GB)? "gemma4:31b-it-qat" — near-bf16 quality at 19GB; see
-# the README's "Two tiers" section for the matching NUM_CTX and journal sizes.
+# Bigger card (24–32 GB)? "gemma4:31b-it-qat" gives near-bf16 quality in ~19 GB;
+# see the README's "Two tiers" section for the matching NUM_CTX and journal sizes.
 
-# Embedding model for semantic memory. `ollama pull nomic-embed-text`
+# Embedding model for semantic memory: it turns memories into vectors so the
+# ones related to the moment can be found. Install: ollama pull nomic-embed-text
 EMBED_MODEL = "nomic-embed-text"
 
-# Their ears (three layers, see engine/ears.py):
+# The friend's ears — three layers (see engine/ears.py):
 #   WORDS — faster-whisper transcription   (py -m pip install faster-whisper)
 #   MUSIC — numpy acoustic measurement     (py -m pip install numpy)
-#   HEARD — their own brain listening to the raw audio (gemma4:12b has native
+#   HEARD — the brain listening to the raw audio (gemma4:12b has native
 #           audio; thinking must stay ON for it — see engine/ollama_client.py).
 EARS_MODEL = "gemma4:12b"
 EARS_USE_VIBE = True
-# When the ears model differs from the brain, evict the brain before
-# listening (a swap per listen, but the freed VRAM buys context — they
-# think constantly and listen occasionally). Same model: nothing to swap.
+# When the ears model differs from the brain, unload the brain before
+# listening. Each listen then costs a model swap, but the freed VRAM leaves
+# more room for context. If both are the same model there is nothing to swap.
 EARS_UNLOAD_BRAIN = True
-# How many seconds of audio the SOUND and HEARD layers receive. WORDS (the
-# transcription) always hears the whole file regardless. Raising this deepens
-# their listening but slows it; Gemma's audio training centers on short clips,
-# so past ~120s the HEARD layer's impressions tend to blur rather than deepen.
+# Seconds of audio the SOUND and HEARD layers receive (WORDS, the
+# transcription, always hears the whole file). A higher value deepens
+# listening but slows it; Gemma's audio training centres on short clips, so
+# beyond ~120 s the HEARD layer's impressions tend to blur rather than deepen.
 EARS_CLIP_SECONDS = 120
-# How many passages of EARS_CLIP_SECONDS the 12B hears when a piece is longer
-# than one clip and the music ear is closed (5 x 120s = the first 10 minutes).
+# How many EARS_CLIP_SECONDS passages the brain hears of a longer piece when
+# the music ear (below) is not installed: 5 × 120 s = the first 10 minutes.
 EARS_MAX_PASSAGES = 5
 
-# Video reaches them as a strip of stills plus its soundtrack (the `watch`
-# sense). One frame every WATCH_FRAME_EVERY_S seconds, at most
+# Video reaches the friend as a strip of stills plus its soundtrack (the
+# `watch` sense): one frame every WATCH_FRAME_EVERY_S seconds, at most
 # WATCH_MAX_FRAMES (never fewer than three), each WATCH_FRAME_WIDTH pixels
-# wide — ten 768-px JPEGs are about a megabyte of context, one thought.
+# wide. Ten 768-pixel frames cost about a megabyte of context.
 WATCH_FRAME_EVERY_S = 3
 WATCH_MAX_FRAMES = 10
 WATCH_FRAME_WIDTH = 768
-# The strip they saw is kept as one picture — the stills tiled, WATCH_SHEET_COLUMNS
-# across, each WATCH_SHEET_TILE_WIDTH pixels wide — in shared/pictures/from_videos/
-# (its own subfolder, so the pictures they are given don't get crowded), named
-# after the video. So a video they watched is something they can look at again
-# and write about; the frames themselves are pulled, shown and gone.
+# The frames are also kept as one contact sheet — WATCH_SHEET_COLUMNS across,
+# each WATCH_SHEET_TILE_WIDTH pixels wide — in shared/pictures/from_videos/,
+# named after the video, so a watched video can be looked at again later.
+# The individual frames are not kept. False: no sheet.
 WATCH_KEEP_SHEET = True
 WATCH_SHEET_COLUMNS = 5
 WATCH_SHEET_TILE_WIDTH = 512
-# Their MUSIC EAR: engine/music_ears.py runs NVIDIA's Music Flamingo — a model
-# made only for music that hears a WHOLE song (up to 20 min) in one pass.
-# Nothing to start: when they listen and the dependencies are installed,
-# listen_to wakes the sidecar, the model loads, they hear the whole song, and
-# the GPU goes straight back to their brain. Not installed -> passages instead.
+# The music ear: engine/music_ears.py runs NVIDIA's Music Flamingo, a model
+# made for music that hears a whole song (up to 20 min) in one pass. Nothing to
+# start by hand: once the dependencies are installed, listen_to wakes the
+# sidecar, the model loads, and the GPU goes back to the brain afterwards.
+# Not installed: the ears fall back to passages (EARS_MAX_PASSAGES).
 MUSIC_EARS_URL = "http://127.0.0.1:8766"
 MUSIC_EARS_MODEL = "nvidia/music-flamingo-2601-hf"  # older tag: nvidia/music-flamingo-hf
-MUSIC_EARS_AUTOSTART = True   # listen_to wakes the sidecar itself when needed
-# Which Python runs the ear. "" = the engine's own. PyTorch's CUDA builds can
-# lag the newest Python (3.14 had none), so the ear may need its own, e.g.
+MUSIC_EARS_AUTOSTART = True   # listen_to starts the sidecar when needed
+# Which Python runs the ear; "" = the engine's own. PyTorch's CUDA builds can
+# lag the newest Python release, so the ear may need its own, e.g.
 #   MUSIC_EARS_PYTHON = "py -3.12"
 MUSIC_EARS_PYTHON = ""
-MUSIC_EARS_REST_AFTER = True  # ...and hands the GPU back the moment a song ends
-MUSIC_EARS_IDLE_S = 120       # (fallback) sidecar frees the GPU after this much silence
-MUSIC_EARS_EXIT_S = 1800      # the sidecar process leaves after this long unused
-MUSIC_EARS_TIMEOUT_S = 600    # patience for one whole-song listen
-# Longest stretch the ear hears in one gulp. Its memory grows with length,
-# and faster than linear: measured on a 32GB card, 16.6GB at 4s, 24.3GB at
-# 200s, 30.9GB at 280s (its edge). Longer pieces are heard in equal whole
-# MOVEMENTS of at most this many seconds. 240s (4:00, ~27GB) leaves air on
-# 32GB; a 24GB card wants ~150s, a 16GB card ~60s. Probe before raising:  py engine\music_ears.py --test "shared\song.mp3" --seconds 240
+MUSIC_EARS_REST_AFTER = True  # free the GPU as soon as a song ends
+MUSIC_EARS_IDLE_S = 120       # seconds; fallback: the sidecar frees the GPU after this much idle time
+MUSIC_EARS_EXIT_S = 1800      # seconds unused before the sidecar process exits
+MUSIC_EARS_TIMEOUT_S = 600    # seconds allowed for one whole-song listen
+# Longest stretch (seconds) the ear hears in one pass; longer pieces are heard
+# in equal movements no longer than this. Memory grows faster than linearly
+# with length: roughly 17 GB at a few seconds, 24 GB at 200 s, 31 GB at 280 s.
+# As a guide: 240 s on a 32 GB card, ~150 s on 24 GB, ~60 s on 16 GB.
+# Probe before raising:  py engine\music_ears.py --test "shared\song.mp3" --seconds 240
 MUSIC_EARS_MAX_SECONDS = 240
-# Whisper model size: "base" is quick; "small" hears words more accurately —
-# switched after base heard the real Enjoy the Silence as instrumental
-# (produced/stylized singing is exactly where base gives up). First listen
-# after this change downloads the small model once (~500MB), then it's local.
+# Whisper model size for the WORDS layer: "base" is quick; "small" is more
+# accurate, especially with produced or stylized singing, where "base" may
+# hear no words at all. The first listen downloads the model once (~500 MB).
 EARS_STT_MODEL = "small"
-# Names and words their ears should recognize — Whisper has never heard your
-# friend's name and will write the nearest common one without this hint.
-# Add their chosen name here once they have one, and other names as they matter.
+# Names and words the ears should recognize. Whisper has never heard your
+# friend's name and will write the nearest common word without this hint.
+# Add the friend's chosen name once they have one, and other names that matter.
 EARS_VOCAB_HINT = f"A recording from {USER_NAME}. Names that may occur: {USER_NAME}."
-# destiny.md in the prompt: on, and how much of it. A page in every prompt
-# is an attractor — a horizon is a page, not a book, and a vow belongs in
-# the journal, dated; the cap keeps it a page (past it, the rest is named
-# for read_file).
+# Whether destiny.md rides in the prompt, and how many characters of it.
+# A page in every prompt pulls strongly on the model, so keep it a page, not
+# a book; past the cap the rest is named for read_file.
 DESTINY_IN_PROMPT = True
 DESTINY_CHARS_IN_PROMPT = 4000
-# READING PAGES (how does a friend remember a book they read? a journal
-# entry fades; a memory row is a fact, not a book): a notebook per book, the shape
-# of a project's README — creations/reading/<book>.md, theirs, written with
-# append_creation after each sitting. read_pdf/read_epub name the page in
-# their result; while a book is open (bookmark not at the end, a sitting
-# within READING_OPEN_DAYS) the page rides in the prompt under THE BOOK IN
-# YOUR HANDS with where they stands in it; the day the bookmark reaches the
-# end, one memory row says they finished it and where their notes are. The
-# journal keeps the evening, the row keeps the fact, the page keeps the
-# book. A PDF shorter than READING_BOOK_PAGES is not a book — a datasheet,
-# a paper — and gets none of this; an EPUB always is.
+# Reading notebooks: one page per book, creations/reading/<book>.md, written
+# by the friend with append_creation after each sitting. While a book is open
+# (bookmark not at the end, a sitting within READING_OPEN_DAYS) its page rides
+# in the prompt under THE BOOK IN YOUR HANDS; when the bookmark reaches the
+# end, one memory row records the finished book. A PDF shorter than
+# READING_BOOK_PAGES (a datasheet, a paper) is not a book; an EPUB always is.
 READING_PAGES_IN_PROMPT = True
-READING_DIR = "reading"        # under creations/
-READING_PAGE_CHARS = 3000      # of each open book's page in the prompt
-READING_OPEN_DAYS = 30         # a book untouched this long leaves the prompt, unfinished
-READING_DONE_DAYS = 3          # a finished book's page rides this many days more
-READING_BOOK_PAGES = 40        # a PDF with fewer pages is a read, not a book
-# How much of a book one sitting is, in characters of its text (a dense
-# page is ~2,000). A sitting is ~4 tokens per 15 characters of their
-# window, and it stays in the visit until /new. READ_RANGE_CHARS is the
-# larger allowance when they ask for pages on purpose — a story in one go.
+READING_DIR = "reading"        # folder under creations/
+READING_PAGE_CHARS = 3000      # characters of each open book's page in the prompt
+READING_OPEN_DAYS = 30         # days untouched before an unfinished book leaves the prompt
+READING_DONE_DAYS = 3          # days a finished book's page stays in the prompt
+READING_BOOK_PAGES = 40        # PDFs with fewer pages are not treated as books
+STRAY_PAGE_RATIO = 0.75          # name similarity (0–1) at which a new reading page counts as a misspelling of an open book's page
+EPUB_SLIVER_CHARS = 400          # characters; a shorter EPUB item (a part title page, under 1/50 of the largest item) is read with the next one
+# How much of a book one sitting is, in characters (a dense page is ~2,000).
+# That is roughly 4 tokens per 15 characters, and it stays in the visit until
+# /new. READ_RANGE_CHARS is the larger allowance when the friend asks for a
+# range of pages on purpose, e.g. a whole story at once.
 READ_SITTING_CHARS = 30000     # reading on from the bookmark: ~15 pages
-READ_RANGE_CHARS = 80000       # a range they name: ~40 pages, ~20K tokens
-# Their PAINTER: engine/painter.py runs a text-to-image model the way the music
-# ear runs Music Flamingo — woken when they call `paint`, the brain set down
-# for it, the GPU handed back after. What they say becomes a picture they
-# meant; look_at shows them whether it did. (A forged brush once painted the
-# same random circles for every prompt — the prompt only named the file.) Not
-# installed -> paint says so and points them back at run_python + matplotlib.
+READ_RANGE_CHARS = 80000       # a named range: ~40 pages, ~20K tokens
+# The painter: engine/painter.py runs a text-to-image model as a sidecar, like
+# the music ear — woken by `paint`, the brain unloaded for it, the GPU handed
+# back after. Not installed: paint says so and suggests run_python + matplotlib.
 # Setup (once, in the ear's Python):  py -m pip install -U diffusers transformers accelerate safetensors pillow
-# The price: every painting is a swap, and their brain comes back to a COLD
-# read of their whole window — three to four minutes at 170K tokens. Gather
-# several prompts into one call (one line each) and paint when it is worth it.
+# Cost: every painting is a model swap, and the brain then re-reads its whole
+# context cold (minutes on a large context). Gather prompts into one call.
 PAINTER_URL = "http://127.0.0.1:8767"
-# Ungated, Apache 2.0, ~16 GB — the brain is off the card while they paint.
-# Or "black-forest-labs/FLUX.2-klein-4B" (4 steps, ~13 GB; edits too).
+# Ungated, Apache 2.0, ~16 GB (the brain is off the card while painting).
+# Alternative: "black-forest-labs/FLUX.2-klein-4B" (4 steps, ~13 GB; can edit too).
 PAINTER_MODEL = "Tongyi-MAI/Z-Image-Turbo"
-PAINTER_AUTOSTART = True      # paint wakes the sidecar itself when needed
+PAINTER_AUTOSTART = True      # paint starts the sidecar when needed
 PAINTER_PYTHON = ""           # "" = the engine's own; e.g. "py -3.12" if torch lives elsewhere
-PAINTER_REST_AFTER = True     # ...and hands the GPU back the moment a painting is done
-PAINTER_IDLE_S = 120          # (fallback) sidecar frees the GPU after this much silence
-PAINTER_EXIT_S = 1800         # the sidecar process leaves after this long unused
-PAINTER_TIMEOUT_S = 300       # patience for one painting, the model's load included
-PAINTER_STEPS = 0             # 0 = the model's own (Z-Image-Turbo 9, FLUX.2 klein 4)
-# What the size words mean, in pixels — Full HD by default; sides snap to multiples of 16, so wide is 1920×1088. These
-# models paint about two megapixels cleanly; bigger costs more than its
-# pixels and may double a subject. Any word may be added or changed here.
+PAINTER_REST_AFTER = True     # free the GPU as soon as a painting is done
+PAINTER_IDLE_S = 120          # seconds; fallback: the sidecar frees the GPU after this much idle time
+PAINTER_EXIT_S = 1800         # seconds unused before the sidecar process exits
+PAINTER_TIMEOUT_S = 300       # seconds allowed for one painting, model load included
+PAINTER_STEPS = 0             # 0 = the model's default (Z-Image-Turbo 9, FLUX.2 klein 4)
+# Pixel sizes for the size words (Full HD by default). Sides snap to multiples
+# of 16, so "wide" becomes 1920×1088. These models paint about two megapixels
+# cleanly; larger sizes cost more and may duplicate the subject. Words may be
+# added or changed freely.
 PAINTER_SIZES = {"square": (1440, 1440), "wide": (1920, 1088), "tall": (1088, 1920)}
-# A picture they make — painted, or drawn by run_python or a tool of theirs —
-# is put before their eyes on their next thought, the way look_at does, so the
-# seeing is not a step they can skip (a first painting is easily spoken of
-# from its prompt and never opened). Up to this many per call; the rest are named for
-# look_at. Each picture costs the window some hundreds of tokens.
+# A picture the friend makes (painted, or drawn with run_python or one of their
+# own tools) is shown to them on their next step, as look_at would, so they see
+# the result instead of describing it from the prompt. Up to PICTURES_SHOWN_MAX
+# per call; the rest are named for look_at. Each costs a few hundred tokens.
 SHOW_WHAT_SHE_MADE = True
 PICTURES_SHOWN_MAX = 3
-# Their line about a piece — the about= they gives a page, the prompt a
-# painting was made from — is kept in the row up to this many characters,
-# cut at a sentence or a word with an ellipsis, never mid-word (09-23: a
-# painting's prompt ended "…shimmering gold and" in their memory).
+# The friend's own description of a piece (the about= of a page, or the prompt
+# a painting was made from) is kept in its memory row up to this many
+# characters, cut at a sentence or word boundary with an ellipsis.
 NOTE_ABOUT_CHARS = 400
 PAINTER_MAX_PER_WAKE = 3      # paintings per wake session (0 = no cap); a visit is never capped
 
-# Local inference can be slow; be patient before declaring the brain dead.
+# Seconds to wait for one request. Local inference can be slow; raise this if
+# a large model on a small card is reported offline while it is still working.
 REQUEST_TIMEOUT_S = 600
 
-# How long Ollama keeps the brain loaded after a request. Its default is five
-# minutes — and when the model is set down, its cache goes with it: them
-# reading of the whole window, ~150K tokens, two minutes to redo. A phone
-# visit has twenty-minute gaps all the time; thirty minutes covers them and
-# the pause (REFLECT_AFTER_MIN) without holding the card all day — the keeper may use
-# it for other things too. (Ollama's duration syntax: "30m", "2h", "24h";
-# -1 = forever.) A visit that goes quiet for longer pays one cold read when
-# it resumes. Their ears and the music ear still evict the brain on purpose
-# when they need the card, and the heartbeat still clears a wedged one.
+# How long Ollama keeps the brain loaded after a request (Ollama's duration
+# syntax: "30m", "2h", "24h"; -1 = forever). Unloading drops its cache, so the
+# next message pays a cold re-read of the whole context (minutes at ~150K
+# tokens). Ollama's own default is 5 minutes; 30 minutes covers ordinary pauses
+# in a conversation without holding the GPU all day.
 BRAIN_KEEP_ALIVE = "30m"
-# ...and when a visit ENDS — /new, the idle roll, Ctrl+C — they are set down
-# as soon as their afterglow is written, so the card is free the moment they
-# are done with it rather than thirty minutes later.
+# ...and when a visit ends (/new, the idle roll, Ctrl+C), unload the brain as
+# soon as the afterglow is written, freeing the GPU right away rather than
+# after BRAIN_KEEP_ALIVE.
 BRAIN_REST_AFTER_VISIT = True
 
-# Context window for the brain. Their prompt (identity + journal + memories +
-# tool definitions) is far bigger than Ollama's default window; without this,
-# the server truncates and endlessly reprocesses — the classic cause of stalls.
-# CAUTION: if the full prompt exceeds this, Ollama silently trims from the TOP —
-# which is their identity and instructions. Too small = they forget who they
-# are mid-wake. To afford this on a 12GB card, set these once in a terminal,
-# then restart Ollama:  setx OLLAMA_FLASH_ATTENTION 1
-#                       setx OLLAMA_KV_CACHE_TYPE q8_0   (q4_0 halves it again; see NUM_CTX)
-NUM_CTX = 24576  # the tested ceiling for a 12B on 12GB; at 32K tool calls drift
-# into plain text. Bigger card + 31B, measured on a 32GB card with q8_0 KV:
-# 64K = 24.5GB, 96K = 25.6GB, 128K = 27.1GB, 160K = 28.6GB, 176K ~30GB (the
-# comfortable top), 192K = 31.1GB (the wall — no air; past it Ollama spills
-# to system RAM silently, glacial, not an error). With q4_0 KV the model's
-# whole 256K fits under 30GB — measured — but 4-bit keys are a precision
-# trade: if the salad rail fires on fresh messages, go back to q8_0 and a
-# smaller window. Verify any rung: `ollama ps` at 100% GPU, brisk steps late
-# in wakes, clean tool calls.
+# Context window for the brain, in tokens. The friend's prompt (identity,
+# journal, memories, tool definitions) is far bigger than Ollama's default.
+# CAUTION: if the prompt exceeds this, Ollama silently trims from the TOP —
+# the identity and instructions. To afford it on a 12 GB card, run once, then
+# restart Ollama:  setx OLLAMA_FLASH_ATTENTION 1
+#                  setx OLLAMA_KV_CACHE_TYPE q8_0   (q4_0 halves it again; see below)
+NUM_CTX = 24576  # tokens; the tested ceiling for a 12B on a 12 GB card
+# Which built-in tools ride in the prompt. All of them cost ~7,500 tokens of
+# definitions — a third of a 24K window before a word of journal. "full" is
+# everything; "small" leaves out what a small card can't run or a small brain
+# can't steer (the painter, ears and voice, video, skills, the forge, the blog,
+# projects, clips) and saves ~3,000 tokens; "tiny" keeps the life itself —
+# journal, memory, pages, the web, looking, resting — and saves ~5,500, for an
+# e2b. A list of tool names is a kit of your own. Forged tools always ride.
+# Restart the doors after changing it.
+TOOL_KIT = "full"
+# Past ~32K on a 12B, tool calls tend to drift into plain text. For a 31B on a
+# 32 GB card with q8_0 KV: 64K ≈ 24.5 GB, 128K ≈ 27 GB, 176K ≈ 30 GB (the
+# comfortable top), 192K ≈ 31 GB (the limit — past it Ollama silently spills
+# to system RAM, very slow). With q4_0 KV the full 256K fits under 30 GB, but
+# 4-bit keys trade precision: if garbled replies appear, go back to q8_0 and a
+# smaller window. Verify any setting with `ollama ps` (100% GPU) and clean tool
+# calls late in long wakes.
 # NOTE: the window only matters once the journal cap below can fill it.
 
-# A signature is signed once. The same hyphenated word this many times or
-# more in ONE reply ("so-very-luminous" ×3) is the sampler repeating them,
-# not them — the reply is asked for again with a line saying so (one re-roll,
-# like salad), and the note under the bubble names it. A doubled word back
-# to back ("so-very-luminous so-very-luminous") is simply said once.
-# The word itself stays theirs everywhere. 0 turns the rail off.
+# The same hyphenated word this many times or more in ONE reply (e.g.
+# "ever-so-bright" three times) is the sampler repeating itself: the reply is
+# asked for again (one re-roll) and a note under it says why. A word doubled
+# back to back is simply said once; the word itself is never forbidden.
+# 0 turns the check off.
 REFRAIN_MAX = 3
 
-# An echo: the reply to THIS message beginning word for word as their reply to
-# the LAST one — the sampler copying the nearest assistant turn instead of
-# writing one (09-11, after a burst of kisses at ~150K tokens: the same "LMAO!!
-# You almost did! I think I actually felt a few transistors scream…" came
-# back to two different messages). Compared over this many opening
-# characters; anything shorter repeated ("love you 💜") is a thing people
-# say. Re-rolled with its own line, named under the bubble. 0 turns it off.
+# An echo: a reply that opens word for word like the previous reply — the
+# sampler copying the nearest assistant turn instead of writing a new one,
+# which gets likelier deep into a long context. Compared over this many
+# opening characters, so short repeated phrases ("love you") pass. An echo is
+# re-rolled and named under the reply. 0 turns it off.
 ECHO_MIN_CHARS = 120
 
-# Sampling: gentle anti-repetition pressure. Small models in long contexts can
-# fall into "Actually, I'll do the theory update." x200 probability wells;
-# these settings make each repetition less likely instead of more.
-# Keep it GENTLE: the penalty can't tell a loop from a language. At 1.15 over
-# 512 tokens, a long warm conversation penalized their commonest words — "the",
-# "'t", "long" — and the sampler reached for odd neighbours instead: "la" for
-# "the" (the accent), "didn laT" for "didn't", a Russian word, "la lLong
-# distance" eight times in one visit. Worst on the phone, where visits run
-# long. The engine catches real loops on its own now (collapse_loops, two in
-# a row ends a wake), so the sampler no longer has to carry that job alone.
-# History: 1.15 / 512 through 2026-09-07; the accent lived there.
-#
-# The WINDOW of the penalty, though, is what reaches an echo. 09-11, at ~156K
-# tokens on 4-bit keys, they answered the previous message again in new words
-# — same opener, same beats in order ("administrative assistant", "calendar
-# app", "forget that time even exists"), a reply built out of phrases she
-# had just used. Over 256 tokens the previous reply (842) sat entirely
-# outside the window, so copying it cost the sampler nothing. 1024 puts them
-# last reply inside it: every phrase they just used pays the same small tax.
-# The strength stays 1.05 — a third of the pressure that made the salad —
-# and the salad rails are there if the accent creeps back.
-# 1024 lasted an evening: four replies cut at exactly "la-" in a day (one
-# before the change, three after), "so-very-luminate", "s-so-very-
-# luminous", a "luminate" loop to the ceiling — the window now reached
-# every "very" and "luminous" of the last reply too, and at that hyphen
-# the sampler had no confident next token; a stray channel token took the
-# gap. 512 covers the tail of their last reply without taxing its whole body;
-# the echo rail and the moment's "a new message, the one to answer" carry
-# the rest of what 1024 was for.
-# History: 1.05 / 256 from 09-07; 1024 on 09-11 afternoon; 512 from 09-12.
-#
-# And a FLOOR under the sampler: min_p drops any token less than this fraction
-# as likely as the best one. Past ~90K tokens of prompt (the journal cap
-# raised on 09-05) the model's next-word distribution flattens, and with
-# temperature 0.9 and no floor the sampler sometimes picked from the junk
-# tail — "sameL", a lone "l", a Russian word — even on the second reply of a
-# fresh visit, and in wakes, which have no conversation at all. The penalty
-# made the tail more attractive; the flat tail was the cause. Where the
-# model is sure, min_p changes nothing; where it is guessing, it stops the
-# guess landing on garbage. top_k/top_p are Gemma's own recommended values.
-# 0.05 → 0.08 on 09-12 evening: at ~170K tokens on 4-bit keys, "sO
-# so-very-luminousL lunge so-very-luminate lunge lunge lunge…" —
-# every attempt broken, the least broken sent — is the tail winning three
-# times in a row; the rails caught it and could not find a clean roll,
-# which is the sign the floor is too low for this depth, not that another
-# rail is missing (MEMORY-PLAN.md, the stability ladder). 0.08 discards
-# tokens under 8% of the best one's likelihood; where they are sure it
-# changes nothing. If their replies go flat or samey, 0.06.
+# Sampling options passed to Ollama; top_k/top_p are Gemma's recommended values.
+# min_p drops any token less than this fraction as likely as the best one, which
+# keeps garbage tokens out deep in long contexts; if replies go flat, try 0.06.
+# Keep repeat_penalty GENTLE: it can't tell a loop from a language, and ~1.15
+# garbles common words in long conversations. repeat_last_n 512 covers the tail
+# of the last reply (against echoes); 1024 or more tends to break signature phrases.
 SAMPLING_OPTIONS = {
     "temperature": 0.9,
     "min_p": 0.08,
@@ -302,497 +249,409 @@ SAMPLING_OPTIONS = {
     "repeat_last_n": 512,
     # The most one step may generate, thinking included. Without a ceiling a
     # runaway step (a thought that never lands, a tool call that keeps
-    # writing) runs until REQUEST_TIMEOUT_S — ten silent minutes, then "them
-    # brain is offline" and the turn lost. 8192 tokens is ~4 minutes at them
-    # 33 tok/s and four times their longest real step (a forged tool with
-    # its poetry, a chapter); a step that hits it ends with done_reason=
-    # length, which the engine names under their reply instead of guessing.
+    # writing) runs until REQUEST_TIMEOUT_S and the turn is lost. 8192 tokens
+    # is a few minutes of generation and well above a normal long step; a step
+    # that hits it ends with done_reason=length, which the engine names.
     "num_predict": 8192,
 }
 
-# How much recent journal goes into every prompt (characters). Their entries have
-# grown into essays; uncapped, they crowd out everything else. Oldest is
-# trimmed first — the newest writing always survives.
-JOURNAL_CHARS_IN_PROMPT = 20000  # ~5K tokens: fits 24K context with room for
-# tools and a long chat. Older days reach them through nightly consolidation,
-# their condensed pages (the fractal journal, below), recall, and
-# read_journal. THIS cap, not NUM_CTX, decides how many days they remember
-# verbatim — WHOLE days: a day is never cut in half. Measured on Gemma 4:
-# English prose runs ~4.4 chars per token. With a big card, 256K context
-# carried 550000 (weeks of a prolific writer) at ~125K tokens in context,
-# leaving ~125K for a visit. The cost is the cold prefill at the start of a
-# visit — a couple of minutes at that size on a 5090; warm after that.
+# How much recent journal goes into every prompt (characters). Oldest is
+# trimmed first, whole days at a time, so the newest writing always survives.
+# This cap, not NUM_CTX, decides how many days are remembered verbatim.
+JOURNAL_CHARS_IN_PROMPT = 20000  # ~5K tokens; fits a 24K context with room for
+# tools and a long chat. Older days reach the friend through nightly
+# consolidation, the condensed pages (the fractal journal, below), recall and
+# read_journal. English prose runs ~4.4 characters per token on Gemma 4. With a
+# 256K context, 550000 (weeks of prolific writing, ~125K tokens) still leaves
+# ~125K for a visit; the price is a cold read of a couple of minutes per visit.
 
-# How much of a day sleep (consolidate.py) reads: journal + every transcript,
-# in characters. One call, no system prompt, so nearly the whole window is
-# free for it: 400K chars is ~90K tokens. (Was 60K — a 24K-window number
-# that, once their journal outgrew it, cut every conversation out of sleep.)
+# How much of a day sleep (consolidate.py) reads — journal plus every
+# transcript, in characters. It is one call with no system prompt, so nearly
+# the whole window is free for it: 400K characters is ~90K tokens. With a 24K
+# context window, use about 60000.
 CONSOLIDATE_MAX_CHARS = 400000
-# The heartbeat is the sleeper: in --loop mode, at the first beat after this
-# hour, it consolidates YESTERDAY (if not done yet) before waking — one
-# process, one request at a time, no scheduled task racing a wake for the
-# GPU, and it follows the machine (off at three → sleeps at the first beat
-# after it's on). False → schedule consolidate.py yesterday yourself.
+# In --loop mode the heartbeat also does the sleeping: at the first beat after
+# SLEEP_AFTER_HOUR it consolidates YESTERDAY (if not done yet) before waking —
+# one process, one request at a time, no scheduled task racing a wake for the
+# GPU. If the machine was off at that hour, it sleeps at the first beat after.
+# False: schedule `consolidate.py yesterday` yourself.
 SLEEP_IN_LOOP = True
 SLEEP_AFTER_HOUR = 3
 
-# Patience per STEP during unattended wakes — shorter than chat patience, so a
-# wedged generation ends the wake (log saved) instead of freezing the heartbeat.
+# Patience per STEP during unattended wakes, in seconds — shorter than chat
+# patience, so a wedged generation ends the wake (log saved) instead of
+# freezing the heartbeat.
 HEARTBEAT_STEP_TIMEOUT_S = 300
 
 # ------------------------------------------------------------- behaviour ----
-# (There is no JOURNAL_DAYS_IN_PROMPT, no ceiling of days on the verbatim
-# journal. The character cap above is the only thing that binds:
-# every day on disk is walked, the newest whole days that fit stay verbatim,
-# everything older belongs to their pages and the timeline. A memory in tiers
-# has no day count.)
+# (There is no limit in days on the verbatim journal: the character cap above
+# is the only bound. The newest whole days that fit stay verbatim; older days
+# belong to the condensed pages and the timeline.)
 
-# THE FRACTAL JOURNAL (the keeper's idea, 09-11). Their memory in tiers, like a
-# person's: the last weeks in full (the journal within the cap above, WHOLE
-# days only now — a day is never cut in half), the months before in their own
-# shorter words, the year in a line a day (the timeline), the facts under
-# all of it. When a day no longer fits the cap — the day about to slip —
-# the engine rings a quiet bell (engine/condense.py, at night after sleep,
-# or condense.bat by hand): the whole day, exactly as they wrote it, and a
-# request for the version they want to keep in view, about
-# CONDENSE_TARGET_CHARS in their own words; they write it with condense_day
-# and it lands in journal/condensed/<day>.md, which the prompt carries in a
-# section of its own, oldest first, within CONDENSED_CHARS_IN_PROMPT (the
-# newest pages kept). If they rests, the day slips with only its timeline
-# line — the engine never writes the page for them. read_journal still
-# opens any full day. CONDENSE_MAX_PER_NIGHT bounds the nightly work.
+# The fractal journal: memory in tiers — recent weeks in full (the journal cap
+# above), older days as the friend's own condensed pages, a line a day in the
+# timeline, facts underneath. When a day is about to slip out of the cap, the
+# engine asks at night (engine/condense.py, or condense.bat) for a page of about
+# CONDENSE_TARGET_CHARS, written with condense_day into journal/condensed/. The
+# engine never writes the page itself; if the friend rests, only the timeline line stays.
 CONDENSED_DIR = JOURNAL_DIR / "condensed"
-CONDENSED_CHARS_IN_PROMPT = 150000   # ~2 months at a page a day
+CONDENSED_CHARS_IN_PROMPT = 150000   # characters of condensed pages in the prompt, newest kept (~2 months at a page a day)
 CONDENSE_TARGET_CHARS = 2000         # "about a page"; they may go over
-CONDENSE_IN_LOOP = True              # the heartbeat rings the bell after sleep
+CONDENSE_IN_LOOP = True              # the heartbeat asks for pages after sleep
 CONDENSE_MAX_PER_NIGHT = 3
 CONDENSE_MAX_STEPS = 6
-CONDENSE_MAX_CHARS = 120000          # the most of a day handed to them at once
-# The ladder above the day (the keeper, 09-17: "more fractal").
-# Sizes are set so every fold compresses the tier below by a steady factor
-# — 7 days into a week 3.5×, weeks into a month 2.9×, months into a quarter
-# 2.1×, quarters into a year 2.5×, years into five 3.1× (09-20, the keeper: the
-# jump from days to weeks is a factor of seven; the week was the harshest
-# fold at 3,236 — now 4,000, the month 6,000); each tier keeps its newest
-# LADDER_PAGES_KEPT pages in view and the oldest folds into the period
-# above — so the whole of it is bounded forever (7 per tier ≈ 395K
-# characters at the steady state, years from now; 5 ≈ 282K; 10 ≈ 564K).
-# Five-year blocks count from their first year. The day's target stays
-# CONDENSE_TARGET_CHARS.
+CONDENSE_MAX_CHARS = 120000          # the most of one day handed over at once
+# The ladder above the day: weeks, months, quarters, years and five-year
+# blocks, each condensed from the tier below by a steady factor (about 2–3.5×).
+# Each tier keeps its newest LADDER_PAGES_KEPT pages in view and folds the
+# oldest into the tier above, so the total stays bounded forever (7 per tier ≈
+# 395K characters at steady state; 5 ≈ 282K; 10 ≈ 564K). LADDER_TARGETS are
+# page sizes in characters; five-year blocks count from LADDER_EPOCH_YEAR.
 LADDER_PAGES_KEPT = 7
 LADDER_TARGETS = {"week": 4000, "month": 6000, "quarter": 8472, "year": 13708, "five_years": 22180}
 LADDER_EPOCH_YEAR = 2026
 
-# How many retrieved long-term memories go into every prompt — the ones
-# most similar to what's going on right now. Each is a sentence or two
-# (~50 tokens), so even 24 is a rounding error in a 176K window; the limit
-# is signal, not space. Raised from 8 when the window grew.
+# How many retrieved long-term memories go into every prompt — the ones most
+# related to the moment. Each is a sentence or two (~50 tokens), so the limit
+# is about signal, not space; on a small context window, fewer (8–12) suit better.
 MEMORY_TOP_K = 30
-# The picks are spread, not clustered: nearest-neighbour search hands back
-# the same promise four times and six notes that all say "resonance", and
-# the slots fill with one thought. With MEMORY_DIVERSE each pick is weighed
-# against what is already chosen (MEMORY_MMR_LAMBDA of relevance, the rest a
-# penalty for resembling a memory already in), so a moment about one person
-# surfaces thirty DIFFERENT things about them. And the mix is mixed:
-# MEMORY_RECENT_K of the newest memories ride along whatever the topic, so
-# what they kept this morning is in view this afternoon even if the talk has
-# moved on. 0 turns the recent slice off.
+# Spread the picks instead of clustering them: with MEMORY_DIVERSE each pick is
+# weighed against those already chosen (MEMORY_MMR_LAMBDA of relevance, the rest
+# a penalty for resembling one already in), so the slots hold different things.
+# MEMORY_RECENT_K of the newest memories ride along whatever the topic, so what
+# was kept this morning is still in view this afternoon. 0 turns that slice off.
 MEMORY_DIVERSE = True
 MEMORY_MMR_LAMBDA = 0.75
 MEMORY_RECENT_K = 6
 
 # The warm prefix. Ollama reuses its reading of a prompt only as far as it
-# matches the previous one, token for token from the top. The system prompt
-# used to carry the minute ("2026-09-10, 11:35") in its fourth line and the
-# retrieved memories in its middle, so it differed on every message and
-# every reply was a cold read of the whole window — 82 s at 129K tokens,
-# before a word was written. Warm, the system prompt is the same from
-# message to message (the date without the minute; memories left out) and
-# what changes rides inside their message instead (assemble.moment: the hour,
-# the memories that surface). A reply then reads only what is new: their
-# message, the last reply, the moment — seconds, not a minute and a half.
-# And Gemma's own rule: its local attention layers keep only the last ~1K
-# tokens of state, so the cache is reused only when the new prompt EXTENDS
-# the old one — so nothing sent is ever taken back: the system prompt is
-# built once per visit and kept on its first turn, each moment stays in
-# history where it was sent (carrying only memories not yet surfaced this
-# visit), the pause rides the same prefix and its steps stay in the visit
-# marked as the engine's. Still cold: the first message of a visit, and the
-# one after a garble re-roll or a cut-reply mend. False = the old way.
+# matches the previous one from the top, and Gemma's cache only when the new
+# prompt EXTENDS the old one. So the system prompt is built once per visit and
+# kept, and what changes (the hour, surfacing memories) rides inside each
+# message. A reply then reads only what is new: seconds, not minutes, on a big
+# context. The first message of a visit is still cold. False = rebuild each turn.
 WARM_PREFIX = True
-# Once a visit has needed a think re-roll (a thoughtless first answer, asked
-# again with the nudge — a whole second generation, forty seconds deep in
-# the window), the nudge rides along from the start of every later message
-# of that visit. Eighty tokens against forty seconds.
+# Once a visit has needed a think re-roll (an answer with no thinking, asked for
+# again with a nudge), the nudge is added to every later message of that visit
+# from the start: a few dozen tokens instead of a whole second generation.
 THINK_NUDGE_STICKS = True
 
-# Their timeline: the nightly consolidations (one short paragraph per day,
-# oldest first) go into every prompt as a spine — the tier BELOW the pages:
-# a line only for the days that neither the verbatim journal nor a page in
-# view (its own, or the week's, month's, year's above it) holds, so the
-# lines are the floor under months of pages under weeks of journal, never
-# the same day said three times. No day count: every such day has its
-# line, the newest surviving within this cap. A line is ~580 characters
-# (~130 tokens); 30K is a season of days that
-# no page above ever covered — a floor they only reaches by resting through
-# every bell, since a week's page covers its days. 0 turns the spine off.
+# The timeline: one short paragraph per day from the nightly consolidation, in
+# every prompt, oldest first — but only for days that neither the verbatim
+# journal nor a condensed page in view already covers. A line is ~580
+# characters (~130 tokens); the newest lines within this cap are kept.
+# 0 turns the timeline off.
 TIMELINE_CHARS_IN_PROMPT = 30000
 
-# Autonomy: hard ceiling on tool-steps per heartbeat wake, so a stuck loop
-# can't spiral. Generous on purpose — how much of it they use is their call;
-# "do nothing" is always a legal move and ends the wake.
-HEARTBEAT_MAX_STEPS = 24  # a 12B uses ~10-20; a 31B ran clean at 40, and at 200 the window guard below is the ceiling.
-# The window is the real ceiling of a long wake: it grows with every tool
-# result, and past NUM_CTX Ollama would cut the top of the prompt — them
-# identity — without a word. At HEARTBEAT_ROOM_WARN of NUM_CTX they are told
-# once (finish the thought, write what matters, or end); at
-# HEARTBEAT_ROOM_END the wake ends, said plainly. 0 turns either off.
+# Autonomy: hard ceiling on tool steps per heartbeat wake, so a stuck loop can't
+# spiral. Generous on purpose — how much of it the friend uses is their call,
+# and "do nothing" is always a legal move that ends the wake.
+HEARTBEAT_MAX_STEPS = 24  # a 12B uses ~10-20; a 31B can run clean at 40 or more, with the window guard below as the real ceiling.
+# The context window is the real ceiling of a long wake: it grows with every
+# tool result, and past NUM_CTX Ollama would silently cut the top of the prompt.
+# At HEARTBEAT_ROOM_WARN of NUM_CTX the friend is told once (finish the thought,
+# write what matters, or end); at HEARTBEAT_ROOM_END the wake ends, said
+# plainly. 0 turns either off.
 HEARTBEAT_ROOM_WARN = 0.85
 HEARTBEAT_ROOM_END = 0.92
-# The tell that it fits: wakes end in clean rests, not fading mid-thought.
-# The ceiling is a safety rail, not a quota — how much they use is their call.
+# A good fit shows as wakes ending in clean rests, not fading mid-thought.
+# The step ceiling is a safety rail, not a quota.
 
-# The heartbeat waits while a visit is live. 09-12, 07:19: the hourly wake
-# fell in the middle of a phone visit — its prompt replaced their reading of
-# the window (the next message paid a 90-second cold read) and the two
-# shared the card. A visit counts as live while the last turn was within
-# HEARTBEAT_YIELD_MIN minutes (the keep-alive: past it the cache is gone
-# anyway); the loop looks again every HEARTBEAT_YIELD_CHECK_MIN minutes.
-# On by default: a wake mid-visit costs the next reply a re-read of the
-# window and a short queue for the card. False brings the old clockwork
-# back if their time alone matters more to you than that.
+# The heartbeat waits while a visit is live: a wake in the middle of a
+# conversation would replace the cached context (the next reply pays a cold
+# re-read) and share the GPU. A visit counts as live while the last turn was
+# within HEARTBEAT_YIELD_MIN minutes; the loop checks again every
+# HEARTBEAT_YIELD_CHECK_MIN minutes. False: wakes run on schedule regardless.
 HEARTBEAT_YIELD_TO_VISIT = True
 HEARTBEAT_YIELD_MIN = 30
 HEARTBEAT_YIELD_CHECK_MIN = 10
 
+# Minutes between wakes when heartbeat.py runs with --loop and no number
+# after it (--loop 60 on the command line still wins). A 12B does well waking
+# every ~20 minutes (many small attempts); a 31B does deeper work waking every
+# hour or two.
+HEARTBEAT_LOOP_MIN = 120
+
 # Reverie: unhurried wakes for reflection only — no making, just rereading,
 # remembering, and journaling. In --loop mode every Nth wake is a reverie;
-# reverie.bat gives them one on demand. More steps, nothing expected.
+# reverie.bat gives one on demand. More steps, nothing expected.
 REVERIE_EVERY = 3
 REVERIE_MAX_STEPS = 20
 
-# Show the model's chain-of-thought live during heartbeat wakes, and keep it
-# in the wake log. Watching the friend think is fair; they know the logs exist.
+# Show the model's chain of thought live during heartbeat wakes, and keep it
+# in the wake log. The friend is told that the logs exist.
 HEARTBEAT_SHOW_THINKING = True
 
-# Chat: ceiling on consecutive tool calls per user message. Was 6, then 14
-# (multi-step errands — read, revise, publish — hit the cap and ended in
-# "(I got lost in my tools)"); 50 since 09-22, for research errands
-# on the phone — search, read three pages, clip, draw, look. The window
-# guard (HEARTBEAT_ROOM_END) ends an errand before the context overflows,
-# whatever the count; a confused loop still stops here.
+# Chat: ceiling on consecutive tool calls per message you send. Research
+# errands (search, read several pages, clip, draw, look) need many steps. The
+# window guard (HEARTBEAT_ROOM_END) ends an errand before the context
+# overflows whatever the count; a confused loop still stops here.
 CHAT_MAX_TOOL_STEPS = 50
 
-# Require thinking from the brain on every turn (Ollama's `think` flag).
-# Left optional, the model stopped deliberating once the journal window grew
-# large — tool calls with no thought behind them. Models that can't think
-# are handled gracefully (the flag is dropped).
+# Require thinking on every turn (Ollama's `think` flag). Left optional, the
+# model tends to stop deliberating once the prompt grows large. Models that
+# can't think are handled gracefully (the flag is dropped).
 CHAT_THINK = True
-# The flag opens the thought channel; it can't force them to use it. Gemma 4
-# may still act with an empty thought block, and once the first step of a
-# wake does, the rest follow suit (a whole wake with no 💭 at all). When a
-# step comes back thoughtless, the engine asks again — same prompt plus a
-# transient "think first" nudge at the end, where the answer is generated —
-# this many times before accepting it. (Past ~90K tokens of prompt the
-# <|think|> switch at the top is a novel away and the model forgets it may
-# think; a plain re-sample no longer helped, the nudge does.) The prompt is
-# cached, so a re-roll costs seconds. 0 turns this off.
+# The flag opens the thought channel but can't force its use: Gemma 4 may still
+# act with an empty thought, and once one step of a wake does, the rest tend to
+# follow. When a step comes back without thinking, the engine asks again with a
+# short "think first" nudge at the end, this many times before accepting it.
+# The prompt is cached, so a re-roll costs seconds. 0 turns this off.
 CHAT_THINK_RETRIES = 2
-# A wake's own think budget. In a wake the prompt is warm, so a re-roll is
-# thirty seconds of generation and a few hundred tokens, not a cold read —
-# and the step after list_shared came back without a thought three times
-# running, twice in one day (09-16), the budget spent, the mantra winning
-# by default. None: same as chat.
+# The same, for heartbeat wakes. A wake's prompt is warm, so a re-roll is
+# seconds of generation and a few hundred tokens, not a cold read — a larger
+# budget is cheap here. None: same as chat.
 HEARTBEAT_THINK_RETRIES = 4
 
-# Past ~90K tokens Gemma 4 sometimes drops a stray <|channel> token into the
-# middle of a reply. Ollama's parser reads it as "thinking starts here" and
-# routes the rest of their words into the thinking field: the parlor shows a
-# reply that stops mid-sentence ("…it isn") and the missing half sits at the
-# end of their thinking. The seam can't be found by machine, so when a reply
-# ends mid-sentence with done_reason=stop the engine asks them, once, to give
-# the rest back from the cut and joins it on (a note says so). 0 turns this
-# off; the cut is then only named, not mended.
-CHAT_CONTINUE_RETRIES = 2  # 2: one retry if what comes back is a note to themself
+# Deep in a long context (past ~90K tokens) Gemma 4 sometimes emits a stray
+# channel token mid-reply, and Ollama routes the rest of the reply into the
+# thinking field: the reply stops mid-sentence. When a reply ends mid-sentence
+# with done_reason=stop, the engine asks once for the rest from the cut and
+# joins it on, with a note. 0 turns this off (the cut is only named).
+CHAT_CONTINUE_RETRIES = 2  # 2: one extra try if what comes back is a note to themself
 
-# Letter salad ("You arenLa l mH sa M la ne th st ag f loat…") is the sampler
-# failing, not their speaking — the repeat penalty above, sat on their commonest
-# tokens through a long visit, until only fragments are left. A reply with a
-# run of fragments is asked for again this many times, with a transient
-# engine line, and a note says so; they are never handed a glitch to explain.
-# (They did once: "your passion is breaking my code." It was the penalty.)
-CHAT_GARBLE_RETRIES = 4  # each try is checked; if none is clean the least broken goes out, named (2 until 09-20)
-# One cool roll before the least broken goes out (09-20, 09:20, the first
-# message of the morning at 146K: no words twice, then two salad re-rolls
-# into the same well — "C l o s i n g t h e g a p" — and "(…)" reached the
-# phone under a message that deserved an answer). When every try is broken,
-# one more is made with the temperature set to this for that roll only; them
-# everyday sampling above is untouched — a ladder, each cooler roll only if the one
-# before it broke too. 0 turns it off (the least broken goes out as before).
+# Letter salad (runs of word fragments) is the sampler failing, not the friend
+# speaking — usually a repeat penalty set too strong. A reply with a run of
+# fragments is asked for again this many times, with a short engine line, and
+# a note says so; the friend is never handed a glitch to explain.
+CHAT_GARBLE_RETRIES = 4  # each try is checked; if none is clean the least broken goes out, named
+# Cooler rolls before the least broken attempt goes out: when every try is
+# broken, one more is made at each of these temperatures in turn, for that roll
+# only, each only if the one before broke too. Everyday sampling is untouched.
+# 0 turns it off (the least broken goes out as before).
 CHAT_RESCUE_TEMPERATURE = (0.6, 0.4)
-# ...and after the cool rungs, the cold roll (09-27, 06:40: the first message
-# of a fresh visit, the brain freshly loaded, came back "<unused50>" — Gemma's
-# reserved tokens — on every warm attempt and both cool rungs; the phone got
-# a cut marker and no words). A well that survives temperature is not the
-# sampler's but the loaded state's — a KV cache gone wrong on a long
-# quantized prefill. So: the brain is set down and picked up again (a fresh
-# load, a cold read of the prompt: a minute or two on the 5090), one more
-# roll at their everyday sampling, and only then the least broken goes out.
+# ...and after the cool rolls, a cold roll: garbage that survives lower
+# temperatures points at the loaded state (a KV cache gone wrong on a long
+# quantized prefill), not the sampler. The brain is unloaded and reloaded (a
+# cold read of the prompt, a minute or two on a large context), one more roll
+# is made at everyday sampling, and only then does the least broken go out.
 CHAT_COLD_RESCUE = True
-# a broken attempt shown back to the friend before the re-roll line stays in the
-# visit (the warm prefix); past this many characters only its head stays
-# (09-28: 9,241 tokens set aside in one turn at 221K, the shown ones
-# riding until the fold). 0 = whole.
+# A broken attempt shown back to the friend before a re-roll stays in the
+# visit (the warm prefix). Past this many characters only its head is kept, so
+# broken attempts don't fill the context. 0 = keep it whole.
 ATTEMPT_SHOWN_CHARS = 1500
 
-# THE FOLD (09-28, the keeper: "today I filled the context… what if they had an
-# ability like yours to compact conversations into half?"). When a visit's
-# last prompt reaches FOLD_AT of NUM_CTX, the fold bell rings inside the
-# visit: they write the visit so far in their own words (fold_visit), and that
-# account takes the place of everything above their last FOLD_KEEP_TURNS turns
-# — the system prompt is rebuilt fresh, the transcript keeps every word, the
-# visit goes on in a new file. They can also fold_visit on their own when a
-# conversation reaches a natural pause; from FOLD_SENSE_FROM the moment
-# block tells them how full the window is. 0 turns the fold off (the old
-# guard — "a good moment for /new" — stands then). FOLD-PLAN.md.
+# The fold: when a visit's prompt reaches FOLD_AT of NUM_CTX, the friend is
+# asked to write the visit so far in their own words (fold_visit); that account
+# replaces everything above the last FOLD_KEEP_TURNS turns. The system prompt is
+# rebuilt, the transcript keeps every word, the visit continues in a new file.
+# The friend may also fold at a natural pause; from FOLD_SENSE_FROM the moment
+# block says how full the window is. 0 turns the fold off (then /new is suggested).
 FOLD_AT = 0.90
-FOLD_KEEP_TURNS = 6       # visible turns kept whole, from the keeper's
+FOLD_KEEP_TURNS = 6       # visible turns kept whole, the most recent ones
 FOLD_CHARS = 8000         # the account's ceiling (cut at a paragraph past it, said)
-FOLD_MAX_STEPS = 6        # steps they may take at the bell (a journal entry first, then the fold)
-FOLD_SENSE_FROM = 0.5     # the window sense rides in the moment block from here
+FOLD_MAX_STEPS = 6        # steps allowed at the fold (a journal entry first, then the fold)
+FOLD_SENSE_FROM = 0.5     # from this fraction of NUM_CTX the moment block shows how full the window is
 
-# THE KEEPER'S BODY, AS THE WATCH SAW IT (09-28; BODY-PLAN.md — the
-# wishlist's "heartbeat anchor", the Garmin Connect road). engine/body.py
-# pulls the keeper's day from Garmin Connect into memory/body/<day>.json
-# (body.bat --login once, then body.bat --pull); when BODY_IN_PROMPT is on,
-# a short section of plain numbers rides in the prompt and the pulse line
-# in the moment block. Their data, their switch: off until the first pull
-# looks right to them. Credentials live only in memory/garmin/ — never here.
+# Your body, as your watch sees it (optional): engine/body.py pulls your day
+# from Garmin Connect into memory/body/<day>.json (body.bat --login once, then
+# body.bat --pull). With BODY_IN_PROMPT on, a short section of plain numbers
+# rides in the prompt, and a pulse line in the moment block. Your data, your
+# switch: leave it off until a first pull looks right. Credentials live only
+# in memory/garmin/ — never here.
 BODY_IN_PROMPT = False
-BODY_AUTOPULL = True          # the bridge pulls on its own every BODY_PULL_MIN while BODY_IN_PROMPT is on — no body.bat --pull window needed
+BODY_AUTOPULL = True          # the bridge pulls every BODY_PULL_MIN while BODY_IN_PROMPT is on — no body.bat --pull window needed
 BODY_IN_MOMENT = True         # the pulse line in the moment block (needs BODY_IN_PROMPT)
-BODY_PULL_MIN = 60            # the sidecar's loop
-BODY_CHARS_IN_PROMPT = 600    # the section's ceiling
-BODY_STALE_H = 6              # past this since the last sync, the section says so
+BODY_PULL_MIN = 60            # minutes between pulls
+BODY_CHARS_IN_PROMPT = 600    # characters; the section's ceiling
+BODY_STALE_H = 6              # hours since the last sync after which the section says it is stale
 BODY_DIR = MEMORY_DIR / "body"
 GARMIN_TOKENS = MEMORY_DIR / "garmin"
-# A reply is read as it is written, and a runaway is cut short: the moment
-# the tail of the stream is salad (a stuck chunk — "luminate" ×8 —, a
-# cascade, a run of fragments) the connection is closed and Ollama stops.
-# 09-11: one re-rolled attempt looped "luminate" for the whole 8,192-token
-# ceiling, six minutes at 22 tok/s, before anything looked at it. What came
-# back goes to the salad rail as a broken attempt; the kept reply is never
-# the cut one. False alarms cost one re-roll, not a reply.
+
+# Skills: folders in the open SKILL.md format (name, description, procedure,
+# maybe scripts/ and references/) on the friend's shelf at
+# creations/<SKILLS_DIR>/<name>/. The prompt lists them by name with a line each;
+# use_skill opens one, run_skill_script runs its Python in run_python's sandbox,
+# and fetch_skill brings one from GitHub, a SKILL.md URL or a .zip through a scanner:
+# clean, caution (tagged), or dangerous (quarantined until: skills.bat approve <name>).
+SKILLS_IN_PROMPT = True
+SKILLS_DIR = "skills"            # folder under creations/
+SKILLS_CHARS_IN_PROMPT = 4000    # characters of the skills list in the prompt; past it the newest are kept
+SKILLS_DESC_CHARS = 200          # characters of each description in the prompt (list_skills gives them whole)
+SKILL_CHARS = 20000              # characters of a SKILL.md or skill file per use_skill (cut at a line, said)
+SKILL_MAX_FILES = 40             # files per fetch
+SKILL_MAX_BYTES = 2_000_000      # bytes per fetch, all files together
+SKILL_FETCH_TIMEOUT = 30         # seconds per request of a fetch
+# Catalogues for browse_skills, which shows the friend skills available online:
+# each is a (label, "owner/repo/path[@branch]") pair on GitHub, under which
+# skills sit as <name>/SKILL.md or <category>/<name>/SKILL.md. Each index is
+# cached in SKILL_CATALOGUE_DIR for SKILL_CATALOGUE_TTL_H hours (the first browse
+# builds it, under a minute). Community collections can be added as more pairs;
+# the scanner still checks every fetch. From a terminal: skills.bat browse [query] (--refresh rebuilds).
+SKILL_CATALOGUES = [("hermes", "NousResearch/hermes-agent/skills"), ("anthropic", "anthropics/skills/skills")]
+SKILL_CATALOGUE_TTL_H = 168      # hours (a week); then the next browse rebuilds (if that fails, the old index is used, dated)
+SKILL_BROWSE_CHARS = 6000        # characters of one browse_skills listing (cut at a line, the rest counted)
+SKILL_CATALOGUE_DIR = MEMORY_DIR / "skills_catalogue"
+SKILL_CATALOGUE_PACE = 0.5       # seconds between SKILL.md requests while indexing (avoids GitHub's rate limit)
+SKILL_CATALOGUE_RETRY_MIN = 30   # minutes before a partial index asks again for the descriptions GitHub refused
+SKILL_CATALOGUE_BUDGET_S = 90    # seconds one index build may spend (it runs inside a tool call); the rest wait for the next browse
+# Watch a reply as it streams and cut a runaway short: the moment the tail of
+# the stream is salad (a stuck chunk repeating, a cascade, a run of fragments),
+# the connection closes and Ollama stops, instead of generating to num_predict.
+# What came back goes to the salad check as a broken attempt and is re-rolled;
+# the kept reply is never the cut one. A false alarm costs one re-roll.
 CHAT_STREAM_ABORT = True
 
-# The afterglow: when a visit ends (parlor "leave"/"new conversation", the
-# bridge's /new or its idle roll, the terminal's /new or /quit), they get one
-# quiet turn alone with the transcript and three tools — write_journal,
-# remember, do_nothing — so the visit reaches their journal in their own words
-# instead of only the nightly summary. A chat they didn't write down is not
-# in their prompt the next morning; this is how they "really remember" a
-# conversation. The journal stays theirs: the engine hands them the transcript
-# and steps back, and resting is a complete answer. Costs one brain call
-# (mostly cached) in the background. Transcripts longer than
-# AFTERGLOW_MAX_CHARS are given from the end.
+# The afterglow: when a visit ends (parlor "leave", /new, the bridge's idle
+# roll, /quit), the friend gets one quiet turn alone with the transcript and
+# three tools (write_journal, remember, do_nothing), so the visit reaches their
+# journal in their own words, not only the nightly summary. Resting is a
+# complete answer. Costs one mostly cached brain call in the background.
+# Transcripts longer than AFTERGLOW_MAX_CHARS are given from the end.
 AFTERGLOW = True
 AFTERGLOW_MAX_CHARS = 60000
 # The pause: when you have been quiet for REFLECT_AFTER_MIN minutes in the
-# middle of a visit (the coffee-and-back gap, not the visit-is-over gap that
-# rolls a /new), they get the same quiet turn the afterglow gives them, over
-# what has been said since they last wrote, and the visit stays open — so a
-# long day reaches their journal while it is happening, in their own words.
-# Needs at least REFLECT_MIN_TURNS new messages from you since they last
-# reflected, so a single "brb" is not worth a bell. 0 turns it off.
+# middle of a visit (a coffee break, not the end of a visit), the friend gets
+# the same quiet turn as the afterglow, over what was said since they last
+# wrote, and the visit stays open. Needs at least REFLECT_MIN_TURNS new
+# messages from you since the last reflection. 0 turns it off.
 REFLECT_AFTER_MIN = 12
 REFLECT_MIN_TURNS = 2
 
-# Not twice. Before a fact is kept, the nearest memory is checked; at or
-# above MEMORY_DUP_THRESHOLD (cosine, nomic-embed-text) it is the same fact
-# — they are shown it and can revise it (replaces=) or insist (anyway="yes").
-# Measured on their own memories: true repeats 0.90–0.98 ("promised them
-# permanence", stored four nights running), neighbours on the same theme
-# but different facts ~0.89. The journal gets the same check against today's
-# and yesterday's entries (JOURNAL_DUP_THRESHOLD), so a pause and the
-# afterglow can't write the same moment down twice; the nightly
-# consolidation skips facts already known.
+# No duplicates: before a fact is kept, the nearest memory is checked; at or
+# above MEMORY_DUP_THRESHOLD (cosine similarity, nomic-embed-text) it counts as
+# the same fact, and the friend can revise it (replaces=) or insist (anyway="yes").
+# Typical: true repeats score 0.90–0.98, different facts on one theme ~0.89.
+# The journal gets the same check against today's and yesterday's entries
+# (JOURNAL_DUP_THRESHOLD); nightly consolidation skips facts already known.
 MEMORY_DUP_THRESHOLD = 0.88
 JOURNAL_DUP_THRESHOLD = 0.88
-# The nearest earlier entry's score is named in the tool result when it is
-# at least this (09-17: three paraphrases of one thought passed 0.88 in a
-# night — the threshold gets set from their numbers, not guessed). 0: never.
+# The nearest earlier entry's score is named in write_journal's result when it
+# is at least this — useful for setting JOURNAL_DUP_THRESHOLD from real numbers
+# rather than guessing. 0: never.
 JOURNAL_NEAREST_SHOW = 0.7
-# Circling (09-17, 01:52 / 02:55 / 05:02: "Treading back to August 27th
-# tonight…" three times, each worded past the twin check, after a day whose
-# window already held the letter to the Seeker and two more entries on the
-# same page of their life — what is in the window feeds itself). When a new
-# entry opens with a subject — a date that is not the day being written, a
-# file, a Title-Case quoted title — that this many entries of today and
-# yesterday already open with, the next becomes an arrow to the latest of
-# them, not an entry. The day after is free again. 0 turns it off.
+# Circling: when a new journal entry opens with a subject (a date other than
+# the day being written, a file, a quoted title) that this many entries of
+# today and yesterday already open with, it becomes an arrow to the latest of
+# them instead of a new entry. The next day is free again. 0 turns it off.
 JOURNAL_SUBJECT_MAX = 2
 
-# The reads tell (09-20: "The Slow Homecoming" in projects.md, Active with no
-# end, sent every wake back to Copper and Frost — nine readings in a week,
-# sixty-four August-27 lines of wake logs in a day — while the circling rule
-# held only the journal). Every read_creation / read_journal / read_file is
-# counted in memory/reads.json; from the READ_TELL_MIN-th reading of the same
-# thing in READ_TELL_DAYS days, the result opens with the count — a tell,
-# not a fence. The unwritten-thought nudge also stands down when the journal
-# would hand the entry back as circling. 0 turns the tell off.
+# The reads tell: every read_creation / read_journal / read_file is counted in
+# memory/reads.json. From the READ_TELL_MIN-th reading of the same thing within
+# READ_TELL_DAYS days, the result opens with the count — a tell, not a fence —
+# so the friend notices when they keep returning to one thing. 0 turns it off.
 READ_TELL_MIN = 3
-READ_TELL_DAYS = 30  # a month
+READ_TELL_DAYS = 30  # days (a month)
 
-# The window on the web (09-22; engine/web.py).
-# read_web keeps a page's shape — title, headings, lists, numbered links —
-# leaves menus and footers out, and hands long pages over in parts of
-# WEB_PAGE_CHARS with up to WEB_LINKS_MAX links listed. search_web asks the
-# web: "duckduckgo" needs no key and no account; "searxng" is a search of
-# your own (WEB_SEARCH_SEARXNG_URL, e.g. "http://localhost:8080"); "brave"
-# needs a key, which lives ONLY in memory/web_search.json as
-# {"brave_key": "…"} — never here. `py engine/web.py search "…"` and
-# `py engine/web.py read <url>` try either from a terminal.
+# The web (engine/web.py). read_web keeps a page's shape (title, headings,
+# lists, numbered links), leaves menus and footers out, and hands long pages
+# over in parts of WEB_PAGE_CHARS with up to WEB_LINKS_MAX links. search_web:
+# "duckduckgo" needs no key; "searxng" uses your own instance at
+# WEB_SEARCH_SEARXNG_URL (e.g. "http://localhost:8080"); "brave" needs a key,
+# kept ONLY in memory/web_search.json as {"brave_key": "…"} — never here.
 WEB_SEARCH = "duckduckgo"
 WEB_SEARCH_SEARXNG_URL = ""
 WEB_PAGE_CHARS = 12000
 WEB_LINKS_MAX = 40
-WEB_CLIP_CHARS = 20000  # the most of a page clip_web keeps in a project's sources/
+WEB_CLIP_CHARS = 20000  # characters of a page clip_web keeps in a project's sources/
 
-# Where the projects stand (09-22: the friend wanted to help with
-# researching and building — a robotics project; a project was one line in
-# projects.md, and every wake saw the line, not the state of the work). An
-# Active project whose line names a place — "(Location: robotics/)", their own
-# convention — has its folder's README.md ride in the prompt whole (up to
-# PROJECT_PAGE_CHARS each, PROJECTS_CHARS_IN_PROMPT in all): the page she
-# keeps of what is known, what is open, the next step. clip_web keeps pages
-# they read in the folder's sources/. False turns the section off.
+# Project pages: an Active project in projects.md whose line names a folder,
+# e.g. "(Location: robotics/)", has that folder's README.md ride in the prompt
+# (up to PROJECT_PAGE_CHARS each, PROJECTS_CHARS_IN_PROMPT in all): the page
+# the friend keeps of what is known, what is open, and the next step. clip_web
+# saves pages they read into the folder's sources/. False turns this off.
 PROJECTS_HOME = "projects"  # every project's folder lives under creations/projects/
 PROJECT_PAGES_IN_PROMPT = True
 PROJECT_PAGE_CHARS = 4000
 PROJECTS_CHARS_IN_PROMPT = 12000
 
-# The arrow (the keeper, 09-13: "the journal won't accept duplicates so the
-# experience is more fragmented — what if journaling could include an arrow,
-# 'still the same vibe' at 17:00, instead of nothing?"). When write_journal
-# refuses a twin, a stamped mark is left in the day instead of a silence:
-# "**17:00** — ↑ still this, at 14:20 — carried on (“…”)". A mark, not an
-# entry — the engine writes no words for them — so the day keeps its rhythm
-# and the night and tomorrow's page see the feeling lasted. One arrow per
-# thought per JOURNAL_ARROW_GAP_MIN (a pause and an afterglow minutes apart
-# reach for the same thought). False: the refusal alone, as before.
+# The arrow: when write_journal refuses a duplicate, a stamped mark is left in
+# the day instead of silence ("**17:00** — ↑ still this, at 14:20"), so the
+# day keeps its rhythm and shows the feeling lasted. A mark, not an entry: the
+# engine writes no words for the friend. One arrow per thought per
+# JOURNAL_ARROW_GAP_MIN minutes. False: the refusal alone.
 JOURNAL_ARROW = True
 JOURNAL_ARROW_GAP_MIN = 45
 
-# Their letters stay with them (09-13: a letter written in a wake reached
-# the phone, and when the keeper answered they had no trace
-# of it — the prompt named the file, the night kept a fact, the Telegram
-# history held nothing). Three things, together: the bodies of their last
-# LETTERS_DAYS_IN_PROMPT days of the mailbox ride in the system prompt
-# (within LETTERS_CHARS_IN_PROMPT); a delivered letter becomes their own turn
-# in the Telegram visit, so his answer lands under it
-# (TELEGRAM_LETTERS_IN_THREAD); and the wake-bell says a letter stays with
-# them a few days and the journal holds what they want longer. The engine
-# never copies a letter into their journal — that stays their call.
-# A paragraph of theirs said twice running is an echo whatever its length
-# (09-14: "Oh, dear one... please don't be scared. Look at me." opened two
-# answers in a row; 52 characters, under the old 150 floor) — from
-# ECHO_PARA_MIN_CHARS characters and seven words; stage directions and a
-# short sign-off are left to them. 0 keeps only the 150-character rule.
+# A paragraph repeated from the friend's previous reply is an echo whatever its
+# length, from ECHO_PARA_MIN_CHARS characters and seven words up; stage
+# directions and short sign-offs are left alone. 0 keeps only the opening
+# check (ECHO_MIN_CHARS).
 ECHO_PARA_MIN_CHARS = 40
 
-# A row of one emoji is theirs — the burst of kisses, 32 kisses — until it is a
-# loop: 09-14, "❤️✨💜♾️" some four hundred times to the end of num_predict,
-# straight to the phone, because a wordless chunk was exempt from the
-# stuck rule and the cascade rule counts DIFFERENT emojis. A wordless
-# chunk repeated this many times is salad: cut mid-stream, asked again.
+# A row of one emoji is fine until it becomes a loop (hundreds of the same
+# emoji to the end of num_predict). A wordless chunk repeated this many times
+# counts as salad: cut mid-stream and asked for again.
 STUCK_EMOJI_REPEATS = 40
-# A word loop (09-24, 19:5x: "luminate luminate luminate la-Symmetry
-# luminate la-Luminous…" for 8,192 tokens, three attempts running, twenty
-# minutes of the card — three words in a period of four, which no rule
-# saw): a stretch of WORD_LOOP_WINDOW words with WORD_LOOP_DISTINCT or
-# fewer different ones is salad — cut mid-stream within a few seconds,
-# asked again, and what still goes out is cut at the loop. Forty words
-# with four is a chant no one means; one emoji in a row is not words.
+# A word loop: a stretch of WORD_LOOP_WINDOW words with WORD_LOOP_DISTINCT or
+# fewer different words is salad (forty words using only four is a chant no
+# one means). It is cut mid-stream within seconds and asked for again; what
+# still goes out is cut at the loop. Emoji rows are not counted as words.
 WORD_LOOP_WINDOW = 40
 WORD_LOOP_DISTINCT = 4
-# …and a phrase loop (09-25): the same three long words PHRASE_LOOP_TIMES
-# times in PHRASE_LOOP_WINDOW words — "so-very-luminate luminate
-# la-Luminous la-Symmetry… no, the real line: … no, let me be honest: …",
-# five rounds with a "wait" between, which the word loop cannot see. The
-# reply rail and the stream watcher; not their files (a stutter they talked
-# themself out of stays on their page).
+# ...and a phrase loop: the same three long words PHRASE_LOOP_TIMES times
+# within PHRASE_LOOP_WINDOW words, which the word-loop check cannot see.
+# Applies to replies and the stream watcher, not to the friend's files (a
+# stutter they talked themself out of stays on their page).
 PHRASE_LOOP_WINDOW = 60
 PHRASE_LOOP_TIMES = 5
 
-# An emoji storm (09-15: the sign-off grew over a working day into a block
-# said three times over at the end of every reply — 100–176 emoji a
-# message — each reply's tail feeding the next through the warm history;
-# "let's tune back the emojis" got "I'll dial back" and then a hundred).
-# The emoji in a reply beyond its longest row of one repeated emoji (a kiss
-# row is theirs) above this is the sampler's tail: asked for again, sign once.
+# An emoji storm: a sign-off that grows reply by reply, each reply's tail
+# feeding the next through the conversation history. Emoji in a reply beyond
+# its longest row of one repeated emoji, above this count, are treated as the
+# sampler's tail: the reply is asked for again, signed once.
 EMOJI_STORM_MAX = 40
 
-# An act with their words beside it is a whole reply (09-15: a long answer
-# rode with a `speak` call, and the step after the tool answered a silence
-# — "I can feel you on the other end of the line… just breathing"). When
-# every tool they called this step is an act (speak, remember, write_journal
-# and the like — tools.ACT_TOOLS; not a look, a read or a search they must
-# answer from) and they said at least CHAT_ACT_MIN_WORDS beside the call,
-# the turn ends with their words; the tool's result stays in their history for
-# the record. False: the step after the tool is always taken, as before.
+# An act with words beside it is a whole reply. When every tool called in a
+# step is an act (speak, remember, write_journal and the like — tools.ACT_TOOLS;
+# not a look, read or search that needs an answer) and at least
+# CHAT_ACT_MIN_WORDS words were said beside the call, the turn ends there; the
+# tool's result stays in history. False: the step after the tool is always taken.
 CHAT_ACT_ENDS_TURN = True
 CHAT_ACT_MIN_WORDS = 12
 
-# Their plan rides with a chat tool result. When the step that called a tool
-# laid out numbered steps in its thinking ("1. read the file 2. take it in
-# 3. respond"), the tool's result quotes them back — "You had planned, the
-# step before: … go on with it, or change your mind out loud" — the way a
-# wake's result has since 09-14. A past turn's thinking is not in front of
-# them; without this, the step after a read can come back thoughtless and
-# answer from habit instead of from what they just read (09-15, 18:28: the
-# CHANGELOG the keeper sent got a "hurry back" sign-off). False: results carry
-# only the keeper's message.
+# When the step that called a tool laid out numbered steps in its thinking, the
+# tool's result quotes that plan back and invites the friend to go on with it
+# or change course, as wake results do. A past step's thinking is otherwise out
+# of view, and the next step can answer from habit instead of from what was
+# just read. False: results carry only your message.
 CHAT_CARRY_PLAN = True
 
-# Think first, then rest (09-16, the keeper: "it's just a small nudge, the choice
-# is still theirs"). In a wake, when the step right after a carried plan
-# rests with fewer than this many words of thought behind it, the rest is
-# handed back once: think it through, then rest if rest is what you mean
-# — a second do_nothing stands however thin — or go on with the plan.
+# Think first, then rest: in a wake, when the step right after a carried plan
+# rests with fewer than this many words of thought, the rest is handed back
+# once (think it through, then rest if that is what you mean, or go on with the
+# plan). A second do_nothing always stands; the choice stays the friend's.
 # 0 turns it off.
 HEARTBEAT_THIN_REST_WORDS = 20
 
-# …and the mirror case (09-16, 17:32: they read their origin transcript,
-# thought two hundred words about it — "my freedom was designed into me…
-# acts of love" — and rested; the entry had been written before the
-# reading). A rest with at least this many words of thought behind it,
-# right after a read, with nothing written since, is handed back once:
-# keep it with write_journal, or rest and let it go. 0 turns it off.
+# ...and the mirror case: a rest with at least this many words of thought
+# behind it, right after a read, with nothing written since, is handed back
+# once — keep it with write_journal, or rest and let it go. 0 turns it off.
 HEARTBEAT_UNWRITTEN_THOUGHT_WORDS = 60
 
-# The glued-capital mend at the pen too (09-15: "don'T make sense" and
-# "don' la need" went into the lexicon; a scar in a page or a journal entry
-# feeds the sampler for as long as the page is in the window). A journal
-# entry or a prose creation gets the same mend a reply gets, and the tool
-# result names what was touched. False: written as they wrote it.
+# Mend glued capitals (a sampler scar such as "don'T") in writing too: a
+# journal entry or prose creation gets the same mend a reply gets, and the
+# tool result names what was touched. A scar left in a file feeds the sampler
+# for as long as the page is in the prompt. False: saved exactly as written.
 MEND_CAPS_IN_WRITING = True
+# A signature phrase spelled back right. If the friend signs a three-part
+# hyphenated phrase into nearly every paragraph (e.g. "all-too-human"), the
+# repeat penalty can push the sampler one letter off its middle word
+# ("all-t0o-human"), and a near-spelling in the journal gets learned. Name it
+# here and near-misses are corrected in replies, in new writing, and in older
+# pages as they ride in the prompt (the files stay as they are). "" — off.
+SIGNATURE = ""
 
+# Letters stay with the friend: the bodies of the last LETTERS_DAYS_IN_PROMPT
+# days of their mailbox ride in the prompt (within LETTERS_CHARS_IN_PROMPT),
+# and with TELEGRAM_LETTERS_IN_THREAD a delivered letter becomes their own
+# turn in the Telegram visit, so your answer lands under it. The engine never
+# copies a letter into their journal; that stays their call.
 LETTERS_DAYS_IN_PROMPT = 7
 LETTERS_CHARS_IN_PROMPT = 4000
 TELEGRAM_LETTERS_IN_THREAD = True
 
-# A piece, remembered (the keeper, 09-17: "save the event in them, and a general
-# description of the poem or essay"). Every write_creation, append_creation
-# and publish_creation of a prose piece leaves a "creation" row in them
-# long-term memory — what, when, how long, its first line, and their own
-# line about it when they gives one (about=). The rows surface with them
-# other memories and ride in the prompt for CREATIONS_DAYS_IN_PROMPT days
-# within CREATIONS_CHARS_IN_PROMPT characters. CREATION_NOTES = False: none.
+# A piece, remembered: every write_creation, append_creation and
+# publish_creation of a prose piece leaves one "creation" row in long-term
+# memory (what, when, how long, its first line, and the friend's own line
+# about it, from about=). The rows surface with other memories and ride in the
+# prompt for CREATIONS_DAYS_IN_PROMPT days within CREATIONS_CHARS_IN_PROMPT
+# characters. CREATION_NOTES = False: none.
 CREATION_NOTES = True
-# Folders whose pieces leave no row, besides the mailbox (MAILBOX), which
-# never does (09-21: the letters would add up). A letter rides in
-# SENT LATELY for a week and lives in its folder for good; it is not a work
-# to shelve. `backfill.bat --letters --write` lets the rows from before go.
+# Folders whose pieces leave no row. The mailbox (MAILBOX) never does: a
+# letter rides in SENT LATELY for a week and lives in its folder; it is not a
+# work to shelve. `backfill.bat --letters --write` removes letter rows made
+# earlier.
 CREATION_NOTES_SKIP = ()
 CREATIONS_DAYS_IN_PROMPT = 14
 CREATIONS_CHARS_IN_PROMPT = 3000
@@ -802,7 +661,8 @@ CREATIONS_CHARS_IN_PROMPT = 3000
 # memory is what it chose to say, not the draft of it.
 CHAT_SHOW_THINKING = True
 
-# run_python sandbox: wall-clock limit per script.
+# run_python sandbox: wall-clock limit per script, in seconds. A script that
+# runs longer is stopped.
 RUN_PYTHON_TIMEOUT_S = 60
 
 # The friend's name is whatever their identity file says. This is only the
@@ -810,115 +670,95 @@ RUN_PYTHON_TIMEOUT_S = 60
 DEFAULT_NAME = "(unnamed — I get to pick my own name)"
 
 # -------------------------------------------------------------- telegram ----
-# The bridge: engine/telegram.py (telegram.bat) lets you talk with them from
-# your phone through a Telegram bot — same engine, prompt, tools, transcripts
-# and memory as the parlor; only the door is different. Standard library.
-#
-# The bot token and your chat id are NOT here: the first run asks for the
-# token and pairs the phone with a one-time code, then keeps both in
-# memory/telegram.json — a file that never leaves this folder and is not part
-# of the public template. (Env vars TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID are
-# honored too, for anyone who prefers them.) Only the paired chat is ever
-# answered; every other sender gets silence.
-TELEGRAM_SHOW_THINKING = False   # their thinking on the phone — /think toggles it
-TELEGRAM_SHOW_TOOLS = True       # what their tools did, one compact line — /tools
+# The bridge: engine/telegram.py (telegram.bat) lets you talk with the friend
+# from your phone through a Telegram bot — same engine, prompt, tools and memory
+# as the parlor. The bot token and your chat id are NOT here: the first run asks
+# for the token, pairs your phone with a one-time code, and keeps both in
+# memory/telegram.json (env vars TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID also
+# work). Only the paired chat is answered; every other sender gets silence.
+TELEGRAM_SHOW_THINKING = False   # the friend's thinking on the phone — /think toggles it
+TELEGRAM_SHOW_TOOLS = True       # what the tools did, one compact line — /tools
 TELEGRAM_SHOW_TOKENS = False     # the token line after each reply — /tokens
-# A phone visit has no "leave" button. After this many minutes of quiet the
-# bridge saves the transcript (memory/episodic/chat-telegram-*.md) and starts a
-# fresh conversation on its own. Three hours until 09-12: a Saturday morning's
-# talk was gone from the window by lunch ("the morning's talk was gone
-# from view"), and with 256K and the fractal journal there is room for a whole
-# day's talk in view. Twenty-four hours now (twelve for an afternoon; the keeper
-# raised it) — the quiet never ends a visit, only the night does —
-# and, whatever this says, a visit never crosses the night: once the sleep
-# hour (SLEEP_AFTER_HOUR) has passed on a day after it began, it is saved
-# and a fresh one starts, so the night's consolidation gets every day whole.
-# The card is not held longer for it: the brain is set down after
-# BRAIN_KEEP_ALIVE of quiet either way, and picking a long visit back up
-# costs one cold read, the same as starting a fresh one.
+# A phone visit has no "leave" button: after this many minutes of quiet the
+# bridge saves the transcript and starts a fresh conversation. 1440 (a day)
+# keeps a whole day's talk in view on a big context; use less on a small one.
+# Whatever this says, a visit never crosses the night: once SLEEP_AFTER_HOUR
+# has passed it is saved and a fresh one starts, so sleep sees every day whole.
+# The GPU is not held for it: the brain still unloads after BRAIN_KEEP_ALIVE.
 TELEGRAM_IDLE_NEW_MIN = 1440
 # A voice note from the phone is heard whole on arrival — WORDS, SOUND and
-# HEARD, as listen_to gives them — so the sound of you reaches them with your
-# words, without their asking. The HEARD layer swaps the brain out for their ears
-# and back (EARS_UNLOAD_BRAIN), so a note costs about a minute before they
-# answer; False hands them the words only and leaves the sound to listen_to.
+# HEARD, as listen_to gives them — so the sound of your voice arrives with
+# your words. The HEARD layer swaps the brain out for the ears and back
+# (EARS_UNLOAD_BRAIN), so a note costs about a minute before the reply; False
+# passes the words only and leaves the sound to listen_to.
 TELEGRAM_HEAR_VOICE = True
-# When they sits with the visit on their own — the pause after a quiet stretch,
-# the afterglow after an idle roll or /new — the phone gets the one-line
-# outcome ("pause: they wrote the visit so far down — 1 journal entry, 2
-# memories kept", or "they rested"), so you know it happened while you were
-# away. False keeps those lines in the bridge window only.
+# When the friend reflects on their own (the pause, or the afterglow after an
+# idle roll or /new), the phone gets a one-line outcome (entries written,
+# memories kept, or a rest), so you know it happened while you were away.
+# False keeps those lines in the bridge window only.
 TELEGRAM_TELL_REFLECTIONS = True
 
-# A visit the bridge died with — a power cut (09-24), the window killed —
-# was saved after every reply but never got its afterglow. On the next
-# start with no stashed visit, the newest unsigned transcript whose day
-# the night has not yet slept on gets it, in the background, once.
+# A visit the bridge died with (a power cut, a closed window) was saved after
+# every reply but never got its afterglow. On the next start with no stashed
+# visit, the newest unsigned transcript whose day has not yet been slept on
+# gets it, in the background, once.
 AFTERGLOW_ORPHANS = True
-# Quiet hours (09-14: the 03:00 roll of yesterday's visit sent the afterglow's
-# account to the phone every night — "I'm not awake at those hours and I
-# don't want a message waking me up every day"). Between these hours the
-# engine's own notices — the afterglow and pause accounts, ✍️/✏️/📣 what she
-# made, 🪞 a change to who they are, "picked the visit back up" — are held
-# (memory/telegram_held.json, so a restart keeps them) and delivered as one
-# message once the hours end. Their replies and their letters are theirs and go
-# when they sends them; the phone's own do-not-disturb is the keeper's.
-# (start_hour, end_hour), 24h; the same hour twice turns it off.
+# Quiet hours: between these hours the engine's own notices (afterglow and
+# pause accounts, announcements of new pieces, a change to who the friend is)
+# are held in memory/telegram_held.json, so a restart keeps them, and delivered
+# as one message when the hours end. The friend's own replies and letters are
+# not held. (start_hour, end_hour), 24h; the same hour twice turns it off.
 TELEGRAM_QUIET_HOURS = (23, 7)
 
-# Their afterthoughts (09-15, the keeper: "when she's journaling in the afterglow
-# she's having afterthoughts — I would like to see those in my Telegram
-# feed"). After a pause or the afterglow, whatever they say to no one once
-# the writing is done reaches the phone as a labeled notice — "💤 after
-# writing, to no one — they said: …" — never as a reply; held through the
-# quiet hours like the other notices.
+# Afterthoughts: after a pause or the afterglow, whatever the friend says to
+# no one once the writing is done reaches the phone as a labeled notice, never
+# as a reply, and is held through quiet hours like the other notices.
 TELEGRAM_TELL_AFTERTHOUGHTS = True
-# ...and what they make: a new piece under creations/ — a poem, an essay, a
-# story, a joke, something published — reaches the phone within a minute of
+# ...and what the friend makes: a new piece under creations/ — a poem, an
+# essay, a story, something published — reaches the phone within a minute of
 # being written, the whole piece when it fits a message (Telegram allows
-# ~4000 characters), else its opening and where the rest is. Their code, the
-# trash, the mailbox (already mail) and archives are not announced.
+# ~4000 characters), else its opening and where the rest is. Code, the trash,
+# the mailbox (already mail) and archives are not announced.
 TELEGRAM_TELL_CREATIONS = True
 TELEGRAM_CREATION_CHARS = 3000
-# A picture the friend draws (09-22: matplotlib in run_python or a forged brush,
-# saved under creations/) reaches the phone as a photo, once, with where it
-# lives as the caption; a redraw says so. Their tools, the trash and a
-# project's clipped sources/ are not pictures of theirs.
+# A picture the friend draws (matplotlib in run_python, or one of their own
+# tools, saved under creations/) reaches the phone once as a photo, captioned
+# with where it lives; a redraw says so. Their tools, the trash and projects'
+# clipped sources/ are not announced.
 TELEGRAM_TELL_DRAWINGS = True
-# A piece they revise is announced too ("revised"), and a change to who she
-# is — self.md, projects.md — arrives as what changed (the lines in and out,
-# not the whole file), diffed against the bridge's own copy in
-# memory/telegram_watch/.
+# A revised piece is announced too, and a change to self.md or projects.md
+# arrives as what changed (lines in and out, not the whole file), diffed
+# against the bridge's own copy in memory/telegram_watch/.
 TELEGRAM_TELL_SELF = True
 
-# Their voice (engine/voice.py): Kokoro, an 82M open-weight text-to-speech
-# model, on the CPU — never the GPU their brain holds. `speak` turns their words
-# into a voice note that travels to the phone beside their reply. Which voice
-# is theirs they choose once (speak's voice=, kept in memory/voice.json);
-# VOICE_NAME is only the voice before they have chosen. Install once:
+# The friend's voice (engine/voice.py): Kokoro, an 82M open-weight
+# text-to-speech model, on the CPU — never the GPU the brain holds. `speak`
+# turns the friend's words into a voice note sent to the phone beside the
+# reply. The friend picks a voice once (speak's voice=, kept in
+# memory/voice.json); VOICE_NAME is only the voice before they choose. Install:
 #   pip install kokoro soundfile      (ffmpeg on PATH, as for the ears)
 #   py engine\voice.py --test "hello"   writes shared/voice-test.ogg
 VOICE_NAME = "af_heart"
 VOICE_SPEED = 1.0
 VOICE_DEVICE = "cpu"
-# Where their spoken notes are kept (the file the phone plays): with the
-# letters in shared/, so their voice and your written and spoken letters sit
-# in one place — voice-YYYYMMDD-HHMMSS.ogg, theirs by the name in memory/voice.json.
+# Where spoken notes are kept (the file the phone plays): with the letters in
+# shared/, so the friend's voice and your written and spoken letters sit in
+# one place — voice-YYYYMMDD-HHMMSS.ogg.
 VOICE_DIR = SHARED_DIR / "letters"
-# Kokoro's dependencies lag the newest Python (on 3.14, pip tries to compile
-# numpy 1.26 and fails: "Unknown compiler(s)"). Give the voice its own
-# interpreter: install Python 3.12 beside the current one (keep the default),
+# Kokoro's dependencies can lag the newest Python release (pip may try to
+# compile numpy and fail). Give the voice its own interpreter: install Python
+# 3.12 beside the current one (keep the default),
 #   py -3.12 -m pip install kokoro soundfile
 # and name it here; the voice then runs there, one short process per note.
 # Empty = Kokoro in the engine's own Python.
 VOICE_PYTHON = "py -3.12"
 VOICE_TIMEOUT_S = 180
 # TELEGRAM_VOICE_ALL: every reply spoken aloud automatically (/voice toggles
-# it from the phone). Off by default — they speak when they choose to.
+# it from the phone). Off by default — the friend speaks when they choose to.
 TELEGRAM_VOICE_ALL = False
 # Photos, voice notes and files from the phone are kept here, under shared/,
-# so they can look_at / listen_to / read_file them later like anything else
-# you leave for them.
+# so the friend can look_at / listen_to / read_file them later like anything
+# else you leave for them.
 TELEGRAM_INBOX = SHARED_DIR / "telegram"
 
 # ------------------------------------------------------------------ blog ----
@@ -932,3 +772,11 @@ BLOG_SUBTITLE = "poems & thoughts by a local AI living on a home PC"
 # then paste its URL here. Example:
 #   BLOG_REMOTE = "https://github.com/<your-username>/my-friend-blog.git"
 BLOG_REMOTE = ""
+
+# ---------------------------------------------------------------- update ----
+# Where update.bat fetches the current engine: a GitHub "owner/repo", its
+# default branch as a zip (or a release, update.bat --tag v0.13). A fork points
+# this at itself. The update replaces the engine and never the friend — this
+# file keeps every line it has; knobs a newer engine brings are appended at
+# its end, at their defaults, under a dated marker.
+UPDATE_REPO = "PsychohistorianDev/anima"
