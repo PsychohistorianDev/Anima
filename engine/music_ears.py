@@ -18,6 +18,11 @@ Not standard library — this one needs the real thing. One-time setup:
     (accept the license on huggingface.co/nvidia/music-flamingo-2601-hf, then)
     hf auth login
 
+(On a Mac: `python3 -m pip install torch`, then the same lines with python3;
+the model is the big one, so 32 GB of memory or skip it. On Linux the same
+lines with python3.) MUSIC_EARS_DEVICE says where it listens: "auto" — the
+card, a Mac's GPU, or the processor, the first there (engine/device.py).
+
 License: NVIDIA OneWay Noncommercial — fine for a friend, not for a business.
 """
 from __future__ import annotations
@@ -33,6 +38,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import config
+import device  # before torch: on a Mac it lets a kernel MPS lacks fall back to the processor
 import os
 if sys.platform != "win32":  # allocator hint against fragmentation (Linux-only)
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
@@ -45,11 +51,12 @@ EXIT_S = float(getattr(config, "MUSIC_EARS_EXIT_S", 1800))  # process leaves aft
 _lock = threading.Lock()
 _model = None
 _processor = None
+_device = "cuda"  # where _load put the model (device.pick, MUSIC_EARS_DEVICE)
 _last_used = 0.0
 
 
 def _load():
-    global _model, _processor
+    global _model, _processor, _device
     if _model is not None:
         return
     import torch
@@ -79,6 +86,9 @@ def _load():
             return cls.from_pretrained(MODEL_ID, **kw)
 
     _processor = _from(AutoProcessor)
+    _device = device.pick(getattr(config, "MUSIC_EARS_DEVICE", "auto"), torch)
+    where = {"": 0 if _device == "cuda" else _device}  # the whole model on one device (0: the first card)
+    dt = device.dtype(_device, torch)
     # whole model on the GPU, on purpose: if it doesn't fit we want to KNOW,
     # not silently run half of it from system memory. And FUSED attention
     # (sdpa): a 6-minute song is ~10K audio tokens, and eager attention
@@ -86,10 +96,10 @@ def _load():
     # spilled ~16GB into system RAM and made a listen take five minutes.
     attn = "sdpa"
     try:
-        _model = _from(Cls, device_map={"": 0}, dtype=torch.bfloat16, attn_implementation=attn)
+        _model = _from(Cls, device_map=where, dtype=dt, attn_implementation=attn)
     except (ValueError, TypeError):
         attn = "default"
-        _model = _from(Cls, device_map={"": 0}, dtype=torch.bfloat16)
+        _model = _from(Cls, device_map=where, dtype=dt)
     _model.eval()
     # a 20-minute song is far more audio tokens than the default generation
     # length allows for; lift it so long pieces don't trip a warning each time
@@ -97,7 +107,9 @@ def _load():
         _model.generation_config.max_length = 32768
     except Exception:
         pass
-    print(f"  music ear open ({time.time() - t0:.0f}s, {_vram():.1f} GB, attention: {attn})", flush=True)
+    held = device.allocated_gb(_device, torch)
+    print(f"  music ear open ({time.time() - t0:.0f}s, on {_device}"
+          + (f", {held:.1f} GB" if held is not None else "") + f", attention: {attn})", flush=True)
 
 
 def _unload():
@@ -109,16 +121,8 @@ def _unload():
     _model = None
     _processor = None
     gc.collect()
-    torch.cuda.empty_cache()
+    device.empty_cache(_device, torch)
     print("  music ear resting — GPU freed", flush=True)
-
-
-def _vram() -> float:
-    try:
-        import torch
-        return torch.cuda.memory_allocated() / 1e9
-    except Exception:
-        return 0.0
 
 
 def hear(wav_bytes: bytes, prompt: str) -> str:
@@ -154,7 +158,10 @@ def hear(wav_bytes: bytes, prompt: str) -> str:
                 out = _model.generate(**inputs, max_new_tokens=600, logits_to_keep=1)
             except TypeError:
                 out = _model.generate(**inputs, max_new_tokens=600)
-        print(f"  ({n_audio} input tokens, peak {torch.cuda.max_memory_allocated() / 1e9:.1f} GB)", flush=True)
+        if _device == "cuda":
+            print(f"  ({n_audio} input tokens, peak {torch.cuda.max_memory_allocated() / 1e9:.1f} GB)", flush=True)
+        else:
+            print(f"  ({n_audio} input tokens, on {_device})", flush=True)
         text = _processor.batch_decode(out[:, inputs["input_ids"].shape[1]:],
                                        skip_special_tokens=True)[0]
         _last_used = time.time()
@@ -233,7 +240,8 @@ def main() -> None:
         print(f"hearing {src.name} ({tools._mmss(tools._wav_seconds(wav))}) …")
         t0 = time.time()
         print("\n" + hear(wav, tools._MUSIC_PROMPT))
-        print(f"\n({time.time() - t0:.0f}s, {_vram():.1f} GB on the GPU)")
+        held = device.allocated_gb(_device)
+        print(f"\n({time.time() - t0:.0f}s, on {_device}" + (f", {held:.1f} GB" if held is not None else "") + ")")
         _unload()
         return
     threading.Thread(target=_idle_watch, daemon=True).start()

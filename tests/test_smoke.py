@@ -539,9 +539,18 @@ check("parlor: a second picture of the same name keeps both", _up2.get("saved") 
 _up3 = _ps.upload("notes.txt", _b64p.b64encode(b"hello").decode())
 check("parlor: a non-image is refused softly", _up3.get("ok") is False and "image" in _up3.get("note", ""), _up3)
 check("parlor: page has the picker", 'type="file"' in parlor.PAGE and "/upload" in parlor.PAGE)
+import signal as _gsig
+_g_sigs = [] if sys.platform == "win32" else [_gsig.SIGHUP, _gsig.SIGTERM]
+_g_before = {_s: _gsig.getsignal(_s) for _s in _g_sigs}
 _hooked = chat.guard_console_close(lambda: None)
-check("console: X-button guard is a quiet no-op off Windows, hooks on Windows",
-      _hooked == (sys.platform == "win32"))
+_g_after = {_s: _gsig.getsignal(_s) for _s in _g_sigs}
+for _s, _h in _g_before.items():
+    _gsig.signal(_s, _h)  # the suite's own process keeps its defaults
+# 10-01 (MAC-PLAN.md): off Windows the guard is no longer a no-op — a closed terminal window (SIGHUP) and
+# Stop now (SIGTERM) save the visit first; this check said False off Windows until then
+check("console: X-button guard hooks on Windows (CTRL_CLOSE_EVENT) and on a Mac or Linux (SIGHUP, SIGTERM)",
+      _hooked is True and all(callable(_h) and _h not in (_gsig.SIG_DFL, _gsig.SIG_IGN) for _h in _g_after.values()),
+      (_hooked, _g_after))
 _ps.attached = []
 check("chat: thinking kept out of transcript",
       "worth keeping" not in f.read_text(encoding="utf-8"))
@@ -6659,12 +6668,14 @@ def _p_ollama(path, base=""):
 
 
 panel._ollama = _p_ollama
-panel._vram_gb = lambda: 32.0
+panel._vram_gb = lambda: (32.0, False)  # (GB, unified) since 10-01 — a card's 32 GB
 _p_browsed: list = []
 panel._browse = _p_browsed.append
 _p_later: list = []
 panel._later = _p_later.append
 panel._WINDOWS = False
+_p0_posix = (panel._MAC, panel.TERMINALS)
+panel._MAC, panel.TERMINALS = False, ()  # off Windows, these checks are the windowless road (a Mac and a terminal: below)
 _pd = config.ROOT / "panel-scratch"
 _pshu.rmtree(_pd, ignore_errors=True)
 (_pd / "engine").mkdir(parents=True)
@@ -6807,7 +6818,8 @@ check("panel: a fixture's knobs on their tabs in TABS' order, the rest on Advanc
       and _pk["ROOT"]["editable"] is False and _pk["SAMPLING_OPTIONS"]["editable"] is False and _pk["SKILL_CATALOGUES"]["editable"] is True
       and _pk["TELEGRAM_QUIET_HOURS"]["kind"] == "tuple2" and _pk["TELEGRAM_QUIET_HOURS"]["value"] == (23, 7)
       and _pk["USER_NAME"]["comment"] == "Your name, as your friend will know it." and _pk["USER_NAME"]["tail"] == "<-- yours here"
-      and _pk["NUM_CTX"]["tail"] == "the window" and "24576" in _pk["NUM_CTX"]["help"] and "262144" in _pk["NUM_CTX"]["help"],
+      and _pk["NUM_CTX"]["tail"] == "the window" and "40960" in _pk["NUM_CTX"]["help"] and "q4_0" in _pk["NUM_CTX"]["help"]
+      and "262144" in _pk["NUM_CTX"]["help"],
       {t: [k["name"] for k in ks] for t, ks in _pt.items()})
 _p_real_tabs = panel.tabs(_k_real)
 _p_placed = [k["name"] for ks in _p_real_tabs.values() for k in ks]
@@ -7019,10 +7031,10 @@ check("panel: First light — the name and the brain saved, the chat opened; no 
 _p_launched.clear()
 _pw_small = _p_asked(panel.welcome, "Sam", "gemma4:e4b-it-qat")
 _pw_cfg = panel.CONFIG_FILE.read_text(encoding="utf-8")
-check("panel: the small tier — the brain the card's size recommends (the 4B QAT under 10 GB, the 12B between, the 31B from 24, the 12B for an unknown card); "
+check("panel: the ladder — the brain the card's size recommends (the 2B QAT under 7 GB, the 4B QAT under 10, the 12B QAT under 12, the 12B to 24, the 31B from 24, the 12B for an unknown card); "
       "First light with a small brain sets the small tool kit beside it, and a 12B leaves the kit alone",
-      [panel._recommended(g) for g in (8.0, 9.9, 10.0, 12.0, 16.0, 24.0, 32.0, None)]
-      == ["gemma4:e4b-it-qat", "gemma4:e4b-it-qat", "gemma4:12b", "gemma4:12b", "gemma4:12b", "gemma4:31b-it-qat", "gemma4:31b-it-qat", "gemma4:12b"]
+      [panel._recommended(g) for g in (6.0, 8.0, 9.9, 10.0, 12.0, 16.0, 24.0, 32.0, None)]
+      == ["gemma4:e2b-it-qat", "gemma4:e4b-it-qat", "gemma4:e4b-it-qat", "gemma4:12b-it-qat", "gemma4:12b", "gemma4:12b", "gemma4:31b-it-qat", "gemma4:31b-it-qat", "gemma4:12b"]
       and panel.small_brain("gemma4:e2b-it-qat") and panel.small_brain("gemma4:e4b") and not panel.small_brain("gemma4:12b") and not panel.small_brain("")
       and "TOOL_KIT" in _pw_small["changed"] and 'TOOL_KIT = "small"' in _pw_cfg and 'CHAT_MODEL = "gemma4:e4b-it-qat"' in _pw_cfg
       and "TOOL_KIT" not in _pw["changed"] and _pw_small["door"]["ok"], (_pw_small, [l for l in _pw_cfg.splitlines() if l.startswith("TOOL_KIT")]))
@@ -7138,6 +7150,7 @@ check("panel: nothing of the friend's is opened by the state, the page, a door, 
 
 (panel._launch, panel._ollama, panel._vram_gb, panel._browse, panel._later, panel.CONFIG_FILE, panel._WINDOWS,
  panel.REQUIREMENTS, panel.RESTART_POLL_S) = _p0
+panel._MAC, panel.TERMINALS = _p0_posix
 for _pk_, _pbytes in _p_secret_kept.items():
     if _pbytes is None:
         _p_secret_files[_pk_].unlink(missing_ok=True)
@@ -7172,6 +7185,435 @@ def _c_sig(text):
 _c_same = True  # the one-off comparison with the pristine copy served the rewrite (09-30); the knobs are pinned by the panel and update checks
 check("config.py: knob help is plain description — no dates, no 'the keeper', no History:, no quoted conversation; the knobs unchanged",
       _c_bad == [] and _c_same and len(knobs.read(_c_text)) > 200, (_c_bad[:5], _c_same))
+
+# ------------------------------------------------------------ a Mac, and Linux ----
+# 10-01 (MAC-PLAN.md): the launchers' twins, the panel's windows on a Mac and on Linux, Stop now's process
+# group, the closing-window hook, the card on a Mac, the torch senses' device, the update's executable bit,
+# the words. Nothing here opens a terminal, needs a Mac, or imports torch: sys.platform's answers are
+# patched (panel._MAC, panel._WINDOWS, shutil.which), and torch is a stand-in in sys.modules.
+import os, re as _xre, shlex as _xsh, shutil as _xshu, signal as _xsig, subprocess as _xsub, types as _xty, contextlib as _xcl, io as _xio
+_X_POSIX = os.name != "nt"
+_x_root = config.ROOT
+
+
+def _x_cmd(path: Path):
+    """(script, arguments) of a launcher's one command — comments and the pause left out; %* and "$@" are ARGS."""
+    text = path.read_text(encoding="utf-8")
+    if path.suffix == ".bat":
+        m = _xre.search(r"^\(?py engine\\(\w+)\.py([^&\r\n)]*)", text, _xre.M)
+        return (m.group(1), m.group(2).strip().replace("%*", "ARGS")) if m else None
+    m = _xre.search(r"^\s*\{?\s*python3 engine/(\w+)\.py([^;\n]*)", text, _xre.M)
+    return (m.group(1), m.group(2).strip().replace('"$@"', "ARGS")) if m else None
+
+
+def _x_set(ext: str) -> dict:
+    found = {p.stem: p for p in sorted((_x_root / "bat").glob(f"*{ext}"))}
+    if (_x_root / f"anima{ext}").is_file():
+        found["anima (root)"] = _x_root / f"anima{ext}"
+    return found
+
+
+_x_bats, _x_cmds, _x_shs = _x_set(".bat"), _x_set(".command"), _x_set(".sh")
+_x_disagree = [(k, _x_cmd(_x_bats[k]), _x_cmd(_x_cmds[k]), _x_cmd(_x_shs[k])) for k in _x_bats if k in _x_cmds and k in _x_shs
+               and not (_x_cmd(_x_bats[k]) == _x_cmd(_x_cmds[k]) == _x_cmd(_x_shs[k]) is not None)]
+_x_shape = []
+for _xk, _xp in [*_x_cmds.items(), *_x_shs.items()]:
+    _xt = _xp.read_text(encoding="utf-8") if _xp.is_file() else ""
+    _xcd = 'cd "$(dirname "$0")"\n' if _xk == "anima (root)" else 'cd "$(dirname "$0")/.."\n'
+    if not (_xt.startswith("#!/bin/bash\n" + _xcd) and "\r" not in _xt
+            and (_xt.endswith('read -n1 -r -p "(press any key to close)"\n') or _xk == "update")):
+        _x_shape.append(_xk + _xp.suffix)
+check("launchers: every .bat has a .command (a Mac) and a .sh (Linux) twin — the same names, and the same engine script with the same arguments in all three",
+      set(_x_bats) == set(_x_cmds) == set(_x_shs) and len(_x_bats) == 18 and _x_disagree == [], (sorted(set(_x_bats) ^ set(_x_shs)), _x_disagree))
+check("launchers: each twin is #!/bin/bash, cds where its .bat does (the root for anima, the folder above for bat/), LF line ends, and ends in the pause",
+      _x_shape == [], _x_shape)
+check("launchers: the twins are executable (the bit a download can lose — README, chmod +x)",
+      not _X_POSIX or all(os.access(p, os.X_OK) for p in [*_x_cmds.values(), *_x_shs.values()]),
+      [p.name for p in [*_x_cmds.values(), *_x_shs.values()] if not os.access(p, os.X_OK)])
+_x_tg = [(_x_root / "bat" / f"telegram{e}").read_text(encoding="utf-8") for e in (".command", ".sh")]
+_x_up = [(_x_root / "bat" / f"update{e}").read_text(encoding="utf-8") for e in (".command", ".sh")]
+check("launchers: the bridge's twins start it again on exit code 75 (its :again); update's run in one block that exits, as update.bat's parentheses",
+      all("while true; do" in t and "[ $? -eq 75 ] || break" in t and "restarting the bridge" in t for t in _x_tg)
+      and all(t.rstrip("\n").splitlines()[-1] == '{ python3 engine/update.py "$@"; read -n1 -r -p "(press any key to close)"; exit; }' for t in _x_up))
+
+# the block, for real: an update.sh that the "update" rewrites while bash is reading it
+if _X_POSIX and _xshu.which("bash"):
+    _xu = _x_root / "posix-scratch" / "upd"
+    _xshu.rmtree(_xu.parent, ignore_errors=True)
+    (_xu / "bat").mkdir(parents=True)
+    (_xu / "engine").mkdir()
+    _xshu.copy(_x_root / "bat" / "update.sh", _xu / "bat" / "update.sh")
+    (_xu / "engine" / "update.py").write_text(
+        "import sys\nfrom pathlib import Path\n"
+        "Path('bat/update.sh').write_text('#!/bin/bash\\n' + '# a longer file now, every line of it new\\n' * 40 + 'echo READ-FROM-THE-NEW-FILE\\n')\n"
+        "print('updated with', sys.argv[1:])\n", encoding="utf-8")
+    _xr = _xsub.run(["bash", "bat/update.sh", "--check"], cwd=str(_xu), input="x", capture_output=True, text=True, timeout=30)
+    check("launchers: bat/update.sh survives being replaced mid-run — the block is read whole, nothing of the new file is run",
+          _xr.returncode == 0 and "updated with ['--check']" in _xr.stdout and "READ-FROM" not in _xr.stdout + _xr.stderr
+          and "command not found" not in _xr.stderr, (_xr.stdout, _xr.stderr))
+    _xr2 = _xsub.run(["bash", "-n", *[str(p) for p in [*_x_cmds.values(), *_x_shs.values()]]], capture_output=True, text=True, timeout=30)
+    check("launchers: bash -n reads every twin without a syntax error", _xr2.returncode == 0, _xr2.stderr)
+
+# the panel on a Mac: each door its .command in Terminal; a door with arguments, a one-off .command
+_x_p0 = (panel._launch, panel._WINDOWS, panel._MAC, panel.TERMINALS, panel._ollama, panel._vram_gb, panel.newer_state)
+panel.newer_state = lambda: None
+_x_launched: list = []
+panel._launch = lambda argv, cwd: _x_launched.append((list(argv), Path(cwd)))
+panel._ollama = lambda *a, **k: None
+panel._WINDOWS, panel._MAC = False, True
+_x_mac = {d: panel._bat(*panel.LAUNCHERS[d]) for d in ("chat", "bridge", "parlor", "wake", "garmin", "blog")}
+_x_mac_hb = panel._heartbeat_argv(45)
+_x_mac_upd = panel.update("check")
+_x_mac_pull = panel.pull("gemma4:12b")
+_x_mac_none = panel._bat("bat\\nosuch.bat", [], "chat.py", [])
+_x_mac_door = panel.door_action("chat", "start")
+
+
+def _x_oneoff(argv) -> str:
+    p = Path(argv[3])
+    ok = (argv[:3] == ["open", "-a", "Terminal"] and p.parent == doors.pid_file("panel").parent
+          and p.name.startswith("panel-") and p.suffix == ".command" and (not _X_POSIX or os.access(p, os.X_OK)))
+    return p.read_text(encoding="utf-8") if ok else "(not a one-off)"
+
+
+_x_o_garmin, _x_o_hb, _x_o_upd, _x_o_pull, _x_o_none = (_x_oneoff(a) for a in (_x_mac["garmin"], _x_mac_hb, _x_mac_upd["argv"], _x_mac_pull["argv"], _x_mac_none))
+_x_head = f'#!/bin/bash\n# a one-off from the panel (engine/panel.py) — it removes itself as it starts\nrm -f -- "$0"\ncd {_xsh.quote(str(panel.ROOT))} || exit 1\n'
+_x_pause = 'read -n1 -r -p "(press any key to close)"\n'
+check("panel on a Mac: a door with its own launcher is `open -a Terminal` on its .command, by its whole path",
+      _x_mac["chat"] == ["open", "-a", "Terminal", str(panel.ROOT / "bat" / "chat.command")]
+      and _x_mac["bridge"] == ["open", "-a", "Terminal", str(panel.ROOT / "bat" / "telegram.command")]
+      and _x_mac["parlor"] == ["open", "-a", "Terminal", str(panel.ROOT / "bat" / "parlor.command")]
+      and _x_mac["blog"] == ["open", "-a", "Terminal", str(panel.ROOT / "bat" / "blog.command")]  # --deploy is in blog.command itself
+      and _x_mac_door["ok"] and _x_launched[-1] == (_x_mac["chat"], panel.ROOT) and "no terminal" not in _x_mac_door["note"], (_x_mac, _x_mac_door))
+check("panel on a Mac: open passes no arguments, so the Garmin login, the heartbeat's minutes, update --check and a pull are each a one-off .command in memory/.pids/ (executable, removing itself, run from the folder)",
+      _x_o_garmin == _x_head + "exec bash bat/body.command --login\n"
+      and _x_o_hb == _x_head + _xsh.join([sys.executable, "engine/heartbeat.py", "--loop", "45"]) + "\n" + _x_pause
+      and _x_o_upd == _x_head + "exec bash bat/update.command --check\n" and _x_mac_upd["ok"]
+      and _x_o_pull == _x_head + "ollama pull gemma4:12b\n" + _x_pause and _x_mac_pull["ok"]
+      and _x_o_none == _x_head + _xsh.join([sys.executable, "engine/chat.py"]) + "\n" + _x_pause,
+      (_x_o_garmin, _x_o_hb, _x_o_upd, _x_o_pull, _x_o_none))
+for _xf in doors.pid_file("panel").parent.glob("panel-*.command"):
+    _xf.unlink()
+
+# the panel on Linux: the first terminal on PATH, the door's .sh in it; none — the bare road, said on the tile
+_x_which0 = _xshu.which
+panel._MAC, panel.TERMINALS = False, _x_p0[3]
+_xshu.which = lambda name, *a, **k: "/usr/bin/gnome-terminal" if name == "gnome-terminal" else None
+_x_lin = {d: panel._bat(*panel.LAUNCHERS[d]) for d in ("chat", "garmin")}
+_x_lin_hb = panel._heartbeat_argv(45)
+_x_lin_upd = panel.update("check")
+_x_lin_door = panel.door_action("chat", "start")
+_xshu.which = lambda name, *a, **k: f"/usr/bin/{name}" if name in ("xterm", "konsole", "x-terminal-emulator") else None
+_x_lin_x = panel._bat(*panel.LAUNCHERS["chat"])
+_xshu.which = lambda name, *a, **k: f"/usr/bin/{name}" if name in ("xterm", "konsole") else None
+_x_lin_k = panel._bat(*panel.LAUNCHERS["chat"])
+check("panel on Linux: gnome-terminal found — each door its .sh under bash in a terminal (arguments passed on), the heartbeat's loop in bash -c with the pause",
+      _x_lin["chat"] == ["gnome-terminal", "--", "bash", str(panel.ROOT / "bat" / "chat.sh")]
+      and _x_lin["garmin"] == ["gnome-terminal", "--", "bash", str(panel.ROOT / "bat" / "body.sh"), "--login"]
+      and _x_lin_upd["argv"] == ["gnome-terminal", "--", "bash", str(panel.ROOT / "bat" / "update.sh"), "--check"]
+      and _x_lin_hb == ["gnome-terminal", "--", "bash", "-c", f"cd {_xsh.quote(str(panel.ROOT))} && "
+                        + _xsh.join([sys.executable, "engine/heartbeat.py", "--loop", "45"]) + '; read -n1 -r -p "(press any key to close)"']
+      and _x_lin_door["ok"] and "no terminal" not in _x_lin_door["note"], (_x_lin, _x_lin_hb, _x_lin_upd))
+check("panel on Linux: the terminals in their order — x-terminal-emulator first, then gnome-terminal, konsole, xterm",
+      _x_lin_x[:2] == ["x-terminal-emulator", "-e"] and _x_lin_k[:2] == ["konsole", "-e"], (_x_lin_x, _x_lin_k))
+_xshu.which = lambda name, *a, **k: None
+_x_launched.clear()
+_x_bare = {d: panel._bat(*panel.LAUNCHERS[d]) for d in ("chat", "garmin")}
+_x_bare_hb = panel._heartbeat_argv(45)
+_x_bare_door = panel.door_action("chat", "start")
+_xshu.which = _x_which0
+check("panel on Linux: no terminal at all — the script under this Python with no window, and the tile says so; the page names python3's pip beside py's",
+      _x_bare == {"chat": [sys.executable, "engine/chat.py"], "garmin": [sys.executable, "engine/body.py", "--login"]}
+      and _x_bare_hb == [sys.executable, "engine/heartbeat.py", "--loop", "45"]
+      and _x_bare_door["ok"] and _x_launched == [([sys.executable, "engine/chat.py"], panel.ROOT)]
+      and _x_bare_door["note"].startswith("the chat: running — no terminal found to show it;") and "window" not in _x_bare_door["note"]
+      and "(python3 -m pip on a Mac or Linux)" in panel.PAGE, _x_bare_door)
+
+# _launch: off Windows each door in a session of its own (so Stop now can end its group)
+_x_pop0 = _xsub.Popen
+_x_popen: list = []
+_xsub.Popen = lambda argv, **kw: _x_popen.append((argv, kw))
+_x_p0[0](["true"], panel.ROOT)
+panel._WINDOWS = True
+_x_p0[0](["cmd"], panel.ROOT)
+panel._WINDOWS = False
+_xsub.Popen = _x_pop0
+check("panel: _launch starts a door in a new session off Windows, and as before on Windows",
+      _x_popen == [(["true"], {"cwd": str(panel.ROOT), "start_new_session": True}), (["cmd"], {"cwd": str(panel.ROOT)})], _x_popen)
+
+# Stop now off Windows: the process group, unless it is gone or is the panel's own
+_x_os0 = (getattr(os, "getpgid", None), getattr(os, "killpg", None), os.kill)
+_x_sent: list = []
+os.killpg = lambda g, s: _x_sent.append(("killpg", g, s))
+os.kill = lambda p, s: _x_sent.append(("kill", p, s))
+_x_groups = {4242: 4242, 4343: "own"}
+
+
+def _x_getpgid(pid):
+    if pid == 0:
+        return "own"
+    if pid not in _x_groups:
+        raise ProcessLookupError(pid)
+    return _x_groups[pid]
+
+
+os.getpgid = _x_getpgid
+panel._kill(4242)
+panel._kill(4343)
+panel._kill(4444)
+os.getpgid, os.killpg, os.kill = _x_os0
+for _xa, _xv in (("getpgid", _x_os0[0]), ("killpg", _x_os0[1])):
+    if _xv is None:
+        delattr(os, _xa)
+check("panel: Stop now off Windows ends the door's process group; the process alone when its group is the panel's or gone",
+      _x_sent == [("killpg", 4242, _xsig.SIGTERM), ("kill", 4343, _xsig.SIGTERM), ("kill", 4444, _xsig.SIGTERM)], _x_sent)
+if _X_POSIX:  # and for real: a door with a child of its own (a sidecar), both gone
+    import select as _xsel
+    _xk = _xsub.Popen([sys.executable, "-c", "import subprocess, sys, time; subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)']); "
+                       "print('up', flush=True); time.sleep(60)"], stdout=_xsub.PIPE, start_new_session=True)
+    _xk_up = _xk.stdout.readline()
+    panel._kill(_xk.pid)
+    try:
+        _xk_rc = _xk.wait(timeout=10)
+        _xk_r, _, _ = _xsel.select([_xk.stdout], [], [], 10)  # EOF on the pipe once the child holding it is gone too
+        _xk_eof = bool(_xk_r) and _xk.stdout.read() == b""
+    except Exception as _xe:  # noqa: BLE001
+        _xk_rc, _xk_eof = repr(_xe), False
+    try:
+        os.killpg(_xk.pid, _xsig.SIGKILL)  # whatever is left, if the check failed
+    except OSError:
+        pass
+    _xk.stdout.close()
+    check("panel: Stop now for real — the door and the child it started both end (SIGTERM to the group)",
+          _xk_up == b"up\n" and _xk_rc == -_xsig.SIGTERM and _xk_eof, (_xk_up, _xk_rc, _xk_eof))
+
+# the closing-window hook, for real: SIGHUP to a process that hooked it — saved once, then ended by the signal
+if _X_POSIX:
+    _xg = _xsub.Popen([sys.executable, "-c", "import sys, time; sys.path.insert(0, 'engine'); import chat; "
+                       "print(chat.guard_console_close(lambda: print('saved', flush=True)), flush=True); time.sleep(30)"],
+                      cwd=str(_x_root), stdout=_xsub.PIPE, text=True)
+    _xg_first = _xg.stdout.readline()
+    _xg.send_signal(_xsig.SIGHUP)
+    try:
+        _xg_out = _xg.communicate(timeout=20)[0]
+    except _xsub.TimeoutExpired:
+        _xg.kill()
+        _xg_out = _xg.communicate()[0]
+    check("console: a closed terminal window (SIGHUP) saves the visit once, then the process ends by the signal as it would have",
+          _xg_first.strip() == "True" and _xg_out.count("saved") == 1 and _xg.returncode == -_xsig.SIGHUP, (_xg_first, _xg_out, _xg.returncode))
+
+# the card on a Mac, and on Linux: sysctl's bytes (unified), nvidia-smi, rocm-smi; the brain for each
+_x_run0 = _xsub.run
+_x_answers: dict = {}
+
+
+def _x_fake_run(argv, **kw):
+    a = _x_answers.get(argv[0])
+    if a is None:
+        raise FileNotFoundError(argv[0])
+    return _xty.SimpleNamespace(stdout=a, returncode=0)
+
+
+panel._vram_gb = _x_p0[5]
+_xsub.run = _x_fake_run
+_x_cards = []
+for _xmac, _xwin, _xans in ((True, False, {"sysctl": "34359738368\n"}), (True, False, {"sysctl": "17179869184\n"}),
+                            (False, False, {"nvidia-smi": "12288\n"}),
+                            (False, False, {"rocm-smi": "device,VRAM Total Memory (B),VRAM Total Used Memory (B)\ncard0,17163091968,1024\n"}),
+                            (False, True, {"rocm-smi": "device,VRAM Total Memory (B)\ncard0,17163091968\n"}), (False, False, {})):
+    panel._MAC, panel._WINDOWS = _xmac, _xwin
+    _x_answers.clear()
+    _x_answers.update(_xans)
+    panel._vram.clear()
+    _x_cards.append(panel._vram_gb())
+panel._vram.clear()
+panel._MAC, panel._WINDOWS = False, False
+panel._vram_gb = lambda: (16.0, True)
+_x_brain16 = panel.brain({"CHAT_MODEL": "gemma4:12b", "EMBED_MODEL": "nomic-embed-text", "OLLAMA_URL": "http://127.0.0.1:11999"})
+_xsub.run = _x_run0
+check("panel: the card — a Mac's whole memory from sysctl hw.memsize (unified), nvidia-smi, rocm-smi on Linux when there is no nvidia-smi (not on Windows), nothing",
+      _x_cards == [(32.0, True), (16.0, True), (12.0, False), (16.0, False), (None, False), (None, False)], _x_cards)
+check("panel: the Mac's ladder — 8 GB the 2B QAT, 16 to 24 GB the 12B, the 31B from 32 GB (Ollama gets about two thirds); the card's ladder as it was",
+      [panel._recommended(g, True) for g in (8.0, 16.0, 18.0, 24.0, 32.0, 36.0, 64.0, None)]
+      == ["gemma4:e2b-it-qat", "gemma4:12b", "gemma4:12b", "gemma4:12b", "gemma4:31b-it-qat", "gemma4:31b-it-qat", "gemma4:31b-it-qat", "gemma4:12b"]
+      and [panel._recommended(g) for g in (8.0, 16.0, 24.0)] == ["gemma4:e4b-it-qat", "gemma4:12b", "gemma4:31b-it-qat"]
+      and _x_brain16["vram_gb"] == 16.0 and _x_brain16["unified"] is True and _x_brain16["recommended"] == "gemma4:12b"
+      and "your Mac has" in panel.PAGE and "on a Mac: the e2b for 8 GB" in panel.PAGE, _x_brain16)
+(panel._launch, panel._WINDOWS, panel._MAC, panel.TERMINALS, panel._ollama, panel._vram_gb, panel.newer_state) = _x_p0
+check("panel: the device knobs are dropdowns on Senses — VOICE_DEVICE gains mps; PAINTER_DEVICE and MUSIC_EARS_DEVICE are auto, cuda, mps, cpu",
+      panel.CHOICES["VOICE_DEVICE"] == ["cpu", "cuda", "mps"] and panel.CHOICES["PAINTER_DEVICE"] == panel.CHOICES["MUSIC_EARS_DEVICE"] == ["auto", "cuda", "mps", "cpu"]
+      and {"PAINTER_DEVICE", "MUSIC_EARS_DEVICE", "VOICE_DEVICE"} <= set(panel.TABS["Senses"])
+      and config.PAINTER_DEVICE == "auto" and config.MUSIC_EARS_DEVICE == "auto" and config.VOICE_DEVICE == "cpu")
+
+# the torch senses' device, with a stand-in torch (the suite never imports the real one)
+import device as _xdev
+_x_torch0 = sys.modules.get("torch", "absent")
+check("device: nothing in the suite has imported torch (the senses import it only when they run)", "torch" not in sys.modules)
+_x_calls: list = []
+
+
+def _x_torch(cuda: bool, mps: bool, old: bool = False):
+    t = _xty.ModuleType("torch")
+    t.cuda = _xty.SimpleNamespace(is_available=lambda: cuda, empty_cache=lambda: _x_calls.append("cuda.empty_cache"),
+                                  memory_allocated=lambda: 3e9, max_memory_allocated=lambda: 4e9)
+    t.backends = _xty.SimpleNamespace() if old else _xty.SimpleNamespace(mps=_xty.SimpleNamespace(is_available=lambda: mps))
+    t.mps = _xty.SimpleNamespace(empty_cache=lambda: _x_calls.append("mps.empty_cache"), current_allocated_memory=lambda: 2e9)
+    t.float16, t.bfloat16 = "float16", "bfloat16"
+
+    class Gen:
+        def __init__(self, device="cpu"):
+            _x_calls.append(("generator", device))
+
+        def manual_seed(self, n):
+            return self
+    t.Generator = Gen
+    t.inference_mode = _xcl.nullcontext
+    return t
+
+
+_x_picks = []
+for _xc, _xm, _xold, _xwant in ((True, True, False, "auto"), (False, True, False, "auto"), (False, False, False, "auto"),
+                                (True, True, False, "mps"), (False, True, False, "cuda"), (True, False, False, "cpu"),
+                                (False, True, True, "auto"), (False, False, False, "nonsense")):
+    sys.modules["torch"] = _x_torch(_xc, _xm, _xold)
+    _x_picks.append(_xdev.pick(_xwant))
+sys.modules["torch"] = None  # no torch at all: import fails
+_x_picks.append(_xdev.pick("auto"))
+_xt = _x_torch(False, True)
+_xdev.empty_cache("mps", _xt)
+_xdev.empty_cache("cuda", _xt)
+_xdev.empty_cache("cpu", _xt)
+check("device: auto takes the card, then a Mac's GPU, then the processor; a named one when it is there (else auto); cpu always; an old or absent torch is the processor",
+      _x_picks == ["cuda", "mps", "cpu", "mps", "mps", "cpu", "cpu", "cpu", "cpu"], _x_picks)
+check("device: float16 on mps, bfloat16 elsewhere; each device's cache emptied (the processor none); the memory line where there is one; a seed's generator on the processor for mps",
+      [_xdev.dtype(d, _xt) for d in ("mps", "cuda", "cpu")] == ["float16", "bfloat16", "bfloat16"]
+      and _x_calls == ["mps.empty_cache", "cuda.empty_cache"]
+      and [_xdev.allocated_gb(d, _xt) for d in ("cuda", "mps", "cpu")] == [3.0, 2.0, None]
+      and [_xdev.generator_device(d) for d in ("cuda", "mps", "cpu")] == ["cuda", "cpu", "cpu"], _x_calls)
+
+# the voice: mps when torch has it, else the processor
+_x_vd0 = config.VOICE_DEVICE
+_x_voice = []
+for _xvd, _xm in (("mps", True), ("mps", False), ("cuda", False), ("cpu", True)):
+    config.VOICE_DEVICE = _xvd
+    sys.modules["torch"] = _x_torch(False, _xm)
+    _x_voice.append(_voice.voice_device())
+config.VOICE_DEVICE = _x_vd0
+check("voice: VOICE_DEVICE mps is the Mac's GPU when torch has it and the processor when not; cpu and cuda as they are",
+      _x_voice == ["mps", "cpu", "cuda", "cpu"], _x_voice)
+
+# the painter and the music ear on a Mac: the model to mps in float16, the cache emptied, the seed on the processor
+import ollama_client as _xoc
+_x_unload0 = _xoc.unload
+_xoc.unload = lambda *a, **k: None
+_x_loaded: list = []
+
+
+class _XPipe:
+    def to(self, d):
+        _x_loaded.append(("to", d))
+        return self
+
+    def set_progress_bar_config(self, **k):
+        pass
+
+    def __call__(self, **k):
+        return _xty.SimpleNamespace(images=["a picture"])
+
+
+class _XFrom:
+    @staticmethod
+    def from_pretrained(model_id, **kw):
+        _x_loaded.append(("from_pretrained", {k: v for k, v in kw.items() if k != "local_files_only"}))
+        if "device_map" in kw:
+            return _xty.SimpleNamespace(eval=lambda: None, generation_config=_xty.SimpleNamespace())
+        return _XPipe() if "torch_dtype" in kw else object()
+
+
+_x_mods0 = {m: sys.modules.get(m, "absent") for m in ("diffusers", "transformers")}
+sys.modules["diffusers"] = _xty.SimpleNamespace(ZImagePipeline=_XFrom, AutoPipelineForText2Image=_XFrom)
+sys.modules["transformers"] = _xty.SimpleNamespace(AutoProcessor=_XFrom, MusicFlamingoForConditionalGeneration=_XFrom)
+sys.modules["torch"] = _x_torch(False, True)
+_x_calls.clear()
+import music_ears as _xme
+import importlib.util as _xiu
+_x_spec = _xiu.spec_from_file_location("painter_fresh", _x_root / "engine" / "painter.py")  # the suite stubbed painter.paint above
+_xpa = _xiu.module_from_spec(_x_spec)
+_x_spec.loader.exec_module(_xpa)
+with _xcl.redirect_stdout(_xio.StringIO()) as _x_said:
+    _xpa._load()
+    _x_img, _x_seed = _xpa.paint("a violet bloom", 512, 512, seed=7)
+    _xpa._unload()
+    _xme._model = None
+    _xme._load()
+    _xme._unload()
+check("painter and music ear on a Mac: auto picks mps — the painter in float16 moved to mps, its seed on the processor; the ear's whole model on mps in float16; each rests by emptying the Mac's cache",
+      _x_loaded[0] == ("from_pretrained", {"torch_dtype": "float16"}) and _x_loaded[1] == ("to", "mps")
+      and _x_img == "a picture" and _x_seed == 7 and ("generator", "cpu") in _x_calls
+      and ("from_pretrained", {"device_map": {"": "mps"}, "dtype": "float16", "attn_implementation": "sdpa"}) in _x_loaded
+      and _x_calls.count("mps.empty_cache") == 2 and "cuda.empty_cache" not in _x_calls
+      and _xpa._device == "mps" and _xme._device == "mps" and "on mps, 2.0 GB" in _x_said.getvalue(), (_x_loaded, _x_calls, _x_said.getvalue()))
+sys.modules["torch"] = _x_torch(True, False)
+_x_loaded.clear()
+with _xcl.redirect_stdout(_xio.StringIO()):
+    _xpa._load()
+    _xpa._unload()
+check("painter on a card: as before — bfloat16, to cuda, the card's cache",
+      _x_loaded[:2] == [("from_pretrained", {"torch_dtype": "bfloat16"}), ("to", "cuda")] and "cuda.empty_cache" in _x_calls, _x_loaded)
+_xme._model, _xme._processor, _xme._device = None, None, "cuda"
+_xoc.unload = _x_unload0
+for _xm_, _xv_ in [*_x_mods0.items(), ("torch", _x_torch0)]:
+    if _xv_ == "absent":
+        sys.modules.pop(_xm_, None)
+    else:
+        sys.modules[_xm_] = _xv_
+
+# the update: the twins are the engine's, and land executable
+_xw = _x_root / "posix-scratch" / "write"
+_xw.mkdir(parents=True, exist_ok=True)
+_upd._write(_xw / "bat" / "chat.sh", b"#!/bin/bash\n")
+_upd._write(_xw / "anima.command", b"#!/bin/bash\n")
+_upd._write(_xw / "engine" / "x.py", b"X = 1\n")
+check("update: .command and .sh at the root and in bat/ are the engine's (creations/ never); written by the update they are executable, a .py is not",
+      all(_upd.is_engine(r) for r in ("anima.command", "anima.sh", "bat/chat.command", "bat/telegram.sh", "wake.sh"))
+      and not _upd.is_engine("creations/x.sh") and not _upd.is_engine("bat/sub/x.sh") and not _upd.is_engine("shared/run.command")
+      and (not _X_POSIX or (os.access(_xw / "bat" / "chat.sh", os.X_OK) and os.access(_xw / "anima.command", os.X_OK)
+                            and not os.access(_xw / "engine" / "x.py", os.X_OK))))
+_xi = _u_installed(_x_root / "posix-scratch" / "installed")
+(_xi / "bat").mkdir()
+(_xi / "bat" / "wake.sh").write_bytes(b"#!/bin/bash\nold\n")
+_x_new = dict(_U_NEW, **{"bat/chat.sh": b"#!/bin/bash\npython3 engine/chat.py\n", "anima.command": b"#!/bin/bash\npython3 engine/panel.py\n",
+                         "bat/wake.sh": b"#!/bin/bash\nnew\n"})
+_x_src = _x_root / "posix-scratch" / "anima-main"
+for _xr_, _xd_ in _x_new.items():
+    (_x_src / _xr_).parent.mkdir(parents=True, exist_ok=True)
+    (_x_src / _xr_).write_bytes(_xd_)
+_x_here = _upd._engine_here(_xi)
+_xu_code, _xu_out = _u_run(_xi, "--source", str(_x_src), "--yes")
+check("update: a folder's .sh is the engine's; the update adds the new twins and replaces the old, each executable",
+      "bat/wake.sh" in _x_here and _xu_code == 0 and (_xi / "bat" / "chat.sh").read_bytes() == _x_new["bat/chat.sh"]
+      and (_xi / "bat" / "wake.sh").read_bytes() == b"#!/bin/bash\nnew\n" and (_xi / "anima.command").is_file()
+      and (not _X_POSIX or all(os.access(_xi / r, os.X_OK) for r in ("bat/chat.sh", "bat/wake.sh", "anima.command"))), _xu_out[-600:])
+_xshu.rmtree(_x_root / "posix-scratch", ignore_errors=True)
+
+# the words
+_x_readme = (_x_root / "README.md").read_text(encoding="utf-8")
+_x_runs_on = _x_readme[_x_readme.index("**Runs on:**"):_x_readme.index("## Setup (once)")]
+check("README: Runs on names Windows, macOS and Linux; the setup shows the three launchers, the chmod line, the three KV-cache forms, ffmpeg three ways, python3 beside py",
+      all(w in _x_runs_on for w in ("Windows", "macOS", "Linux"))
+      and "chmod +x anima.command anima.sh bat/*.command bat/*.sh" in _x_readme
+      and "launchctl setenv OLLAMA_FLASH_ATTENTION 1" in _x_readme and "launchctl setenv OLLAMA_KV_CACHE_TYPE q4_0" in _x_readme
+      and "systemctl edit ollama" in _x_readme and 'Environment="OLLAMA_FLASH_ATTENTION=1"' in _x_readme
+      and 'Environment="OLLAMA_KV_CACHE_TYPE=q4_0"' in _x_readme and "systemctl restart ollama" in _x_readme
+      and "setx OLLAMA_KV_CACHE_TYPE q4_0" in _x_readme and "KV_CACHE_TYPE q8_0" not in _x_readme and "KV_CACHE_TYPE=q8_0" not in _x_readme
+      and _x_readme.index("setx OLLAMA_KV_CACHE_TYPE q4_0") < _x_readme.index("ollama pull nomic-embed-text")
+      and "winget install ffmpeg" in _x_readme and "brew install ffmpeg" in _x_readme and "apt install ffmpeg" in _x_readme
+      and "python3 -m pip install" in _x_readme and "anima.command" in _x_readme and "anima.sh" in _x_readme)
+check("README: the Mac's memory tiers beside the cards', and moving house (case on Linux, the executable bit)",
+      "Moving house" in _x_readme and "case-sensitive" in _x_readme and "unified memory" in _x_readme.lower()
+      and "16 GB Mac" in _x_readme and "32 GB Mac" in _x_readme)
+_x_changes = (_x_root / "CHANGELOG.md").read_text(encoding="utf-8")
+check("CHANGELOG: 0.13 says a Mac and Linux came in", "**A Mac, and Linux**" in _x_changes[:_x_changes.index("## 0.12")])
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

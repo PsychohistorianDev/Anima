@@ -614,9 +614,12 @@ def guard_console_close(save) -> bool:
     open in the parlor or on the bridge is lost. Windows does send a
     CTRL_CLOSE_EVENT first (and LOGOFF / SHUTDOWN), with a few seconds'
     grace; this hooks it so `save()` runs before the lights go out. Standard
-    library (ctypes). A no-op elsewhere. Returns True if the hook is in."""
+    library (ctypes). On a Mac or Linux (10-01; MAC-PLAN.md) a closed
+    terminal window sends SIGHUP, and the panel's Stop now SIGTERM: the
+    same save, then the signal's own ending (_guard_posix). Returns True if
+    the hook is in."""
     if sys.platform != "win32":
-        return False
+        return _guard_posix(save)
     try:
         import ctypes
         proto = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_uint)
@@ -636,6 +639,35 @@ def guard_console_close(save) -> bool:
         return True
     except Exception:
         return False
+
+
+def _guard_posix(save) -> bool:
+    """SIGHUP (the terminal window closed) and SIGTERM (Stop now, a shutdown): save() once, then the
+    signal's default — the process ends as it would have, only with the visit kept. Only the main thread
+    may set a handler; anywhere else this says False and changes nothing."""
+    import os
+    import signal
+    sigs = (signal.SIGHUP, signal.SIGTERM)
+    saved: list = []
+
+    def handler(signum, _frame):
+        if not saved:
+            saved.append(signum)
+            for sig in sigs:  # a second signal while saving (a hang-up, then Stop now) doesn't cut the save
+                signal.signal(sig, signal.SIG_IGN)
+            try:
+                save()
+            except Exception:
+                pass
+        signal.signal(signum, signal.SIG_DFL)
+        os.kill(os.getpid(), signum)
+
+    try:
+        for sig in sigs:
+            signal.signal(sig, handler)
+    except (ValueError, OSError, AttributeError):
+        return False
+    return True
 
 
 _MID_WORD_RE = re.compile(r"[A-Za-z0-9,;:—–-]$")

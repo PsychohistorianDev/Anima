@@ -1,2 +1,4 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# The launchers for a Mac and Linux keep LF line ends on every checkout, Windows included:
+# bash reads a carriage return as part of the command, and a folder moves house by copying.
+*.sh      text eol=lf
+*.command text eol=lf

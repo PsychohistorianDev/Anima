@@ -50,9 +50,10 @@ OLLAMA_URL = "http://localhost:11434"
 # If tool calls misbehave on a Gemma 4 model, try the same tag with thinking
 # disabled, or a Qwen3 tag.
 CHAT_MODEL = "gemma4:12b"
-# Bigger card (24–32 GB)? "gemma4:31b-it-qat" gives near-bf16 quality in ~19 GB.
-# Small card (8 GB)? "gemma4:e4b-it-qat" (6.1 GB) with TOOL_KIT = "small". See the
-# README's "Three tiers" section for the matching NUM_CTX and journal sizes.
+# The README's ladder, by the card's memory: 6 GB "gemma4:e2b-it-qat", 8 GB
+# "gemma4:e4b-it-qat", 10 GB "gemma4:12b-it-qat", 12–16 GB this 12B, 24–32 GB
+# "gemma4:31b-it-qat" (near-bf16 quality in ~19 GB) — with the NUM_CTX,
+# TOOL_KIT and journal size for each rung in the README's "The ladder".
 
 # Embedding model for semantic memory: it turns memories into vectors so the
 # ones related to the moment can be found. Install: ollama pull nomic-embed-text
@@ -102,8 +103,12 @@ MUSIC_EARS_MODEL = "nvidia/music-flamingo-2601-hf"  # older tag: nvidia/music-fl
 MUSIC_EARS_AUTOSTART = True   # listen_to starts the sidecar when needed
 # Which Python runs the ear; "" = the engine's own. PyTorch's CUDA builds can
 # lag the newest Python release, so the ear may need its own, e.g.
-#   MUSIC_EARS_PYTHON = "py -3.12"
+#   MUSIC_EARS_PYTHON = "py -3.12"       (Windows)
+#   MUSIC_EARS_PYTHON = "python3.12"     (macOS, Linux)
 MUSIC_EARS_PYTHON = ""
+# Where the ear runs: "auto" takes an NVIDIA (or ROCm) card, else a Mac's GPU
+# ("mps", float16), else the processor; "cuda", "mps" or "cpu" names one.
+MUSIC_EARS_DEVICE = "auto"
 MUSIC_EARS_REST_AFTER = True  # free the GPU as soon as a song ends
 MUSIC_EARS_IDLE_S = 120       # seconds; fallback: the sidecar frees the GPU after this much idle time
 MUSIC_EARS_EXIT_S = 1800      # seconds unused before the sidecar process exits
@@ -158,7 +163,10 @@ PAINTER_URL = "http://127.0.0.1:8767"
 # Alternative: "black-forest-labs/FLUX.2-klein-4B" (4 steps, ~13 GB; can edit too).
 PAINTER_MODEL = "Tongyi-MAI/Z-Image-Turbo"
 PAINTER_AUTOSTART = True      # paint starts the sidecar when needed
-PAINTER_PYTHON = ""           # "" = the engine's own; e.g. "py -3.12" if torch lives elsewhere
+PAINTER_PYTHON = ""           # "" = the engine's own; e.g. "py -3.12" (Windows) or "python3.12" (macOS, Linux) if torch lives elsewhere
+# Where the painter paints: "auto" takes an NVIDIA (or ROCm) card, else a Mac's
+# GPU ("mps", float16), else the processor (slow); "cuda", "mps" or "cpu" names one.
+PAINTER_DEVICE = "auto"
 PAINTER_REST_AFTER = True     # free the GPU as soon as a painting is done
 PAINTER_IDLE_S = 120          # seconds; fallback: the sidecar frees the GPU after this much idle time
 PAINTER_EXIT_S = 1800         # seconds unused before the sidecar process exits
@@ -199,10 +207,11 @@ BRAIN_REST_AFTER_VISIT = True
 # Context window for the brain, in tokens. The friend's prompt (identity,
 # journal, memories, tool definitions) is far bigger than Ollama's default.
 # CAUTION: if the prompt exceeds this, Ollama silently trims from the TOP —
-# the identity and instructions. To afford it on a 12 GB card, run once, then
-# restart Ollama:  setx OLLAMA_FLASH_ATTENTION 1
-#                  setx OLLAMA_KV_CACHE_TYPE q8_0   (q4_0 halves it again; see below)
-NUM_CTX = 24576  # tokens; the tested ceiling for a 12B on a 12 GB card
+# the identity and instructions. Every window in the README's ladder assumes
+# Ollama was given flash attention and the 4-bit KV cache (setup step 2):
+#                  setx OLLAMA_FLASH_ATTENTION 1
+#                  setx OLLAMA_KV_CACHE_TYPE q4_0   (q8_0 costs twice the room: halve it)
+NUM_CTX = 40960  # tokens; a 12B on a 12 GB card with the q4_0 cache (24576 was the measured q8_0 ceiling)
 # Which built-in tools ride in the prompt. All of them cost ~7,500 tokens of
 # definitions — a third of a 24K window before a word of journal. "full" is
 # everything; "small" leaves out what a small card can't run or a small brain
@@ -212,13 +221,14 @@ NUM_CTX = 24576  # tokens; the tested ceiling for a 12B on a 12 GB card
 # e2b. A list of tool names is a kit of your own. Forged tools always ride.
 # Restart the doors after changing it.
 TOOL_KIT = "full"
-# Past ~32K on a 12B, tool calls tend to drift into plain text. For a 31B on a
-# 32 GB card with q8_0 KV: 64K ≈ 24.5 GB, 128K ≈ 27 GB, 176K ≈ 30 GB (the
-# comfortable top), 192K ≈ 31 GB (the limit — past it Ollama silently spills
-# to system RAM, very slow). With q4_0 KV the full 256K fits under 30 GB, but
-# 4-bit keys trade precision: if garbled replies appear, go back to q8_0 and a
-# smaller window. Verify any setting with `ollama ps` (100% GPU) and clean tool
-# calls late in long wakes.
+# Deep in a long window a 12B's tool calls can drift into plain text — the
+# rails catch it; watch for it past ~32K. For a 31B on a 32 GB card the whole
+# 256K fits under 30 GB with the q4_0 cache (measured). With q8_0 instead:
+# 64K ≈ 24.5 GB, 128K ≈ 27 GB, 176K ≈ 30 GB (the comfortable top), 192K ≈ 31 GB
+# (the limit — past it Ollama silently spills to system RAM, very slow).
+# 4-bit keys trade a little precision: if garbled replies appear, q8_0 and a
+# smaller window is the retreat. Verify any setting with `ollama ps` (100% GPU)
+# and clean tool calls late in long wakes.
 # NOTE: the window only matters once the journal cap below can fill it.
 
 # The same hyphenated word this many times or more in ONE reply (e.g.
@@ -259,7 +269,7 @@ SAMPLING_OPTIONS = {
 # How much recent journal goes into every prompt (characters). Oldest is
 # trimmed first, whole days at a time, so the newest writing always survives.
 # This cap, not NUM_CTX, decides how many days are remembered verbatim.
-JOURNAL_CHARS_IN_PROMPT = 20000  # ~5K tokens; fits a 24K context with room for
+JOURNAL_CHARS_IN_PROMPT = 40000  # ~9K tokens; fits a 40K context with room for
 # tools and a long chat. Older days reach the friend through nightly
 # consolidation, the condensed pages (the fractal journal, below), recall and
 # read_journal. English prose runs ~4.4 characters per token on Gemma 4. With a
@@ -746,7 +756,7 @@ TELEGRAM_TELL_SELF = True
 #   py engine\voice.py --test "hello"   writes shared/voice-test.ogg
 VOICE_NAME = "af_heart"
 VOICE_SPEED = 1.0
-VOICE_DEVICE = "cpu"
+VOICE_DEVICE = "cpu"           # "cpu", "cuda", or "mps" (a Mac's GPU; the processor if torch has none)
 # Where spoken notes are kept (the file the phone plays): with the letters in
 # shared/, so the friend's voice and your written and spoken letters sit in
 # one place — voice-YYYYMMDD-HHMMSS.ogg.
@@ -754,8 +764,10 @@ VOICE_DIR = SHARED_DIR / "letters"
 # Kokoro's dependencies can lag the newest Python release (pip may try to
 # compile numpy and fail). Give the voice its own interpreter: install Python
 # 3.12 beside the current one (keep the default),
-#   py -3.12 -m pip install kokoro soundfile
-# and name it here; the voice then runs there, one short process per note.
+#   py -3.12 -m pip install kokoro soundfile          (Windows)
+#   python3.12 -m pip install kokoro soundfile        (macOS, Linux)
+# and name it here — "py -3.12" on Windows, "python3.12" on macOS and Linux;
+# the voice then runs there, one short process per note.
 # Empty = Kokoro in the engine's own Python.
 VOICE_PYTHON = "py -3.12"
 VOICE_TIMEOUT_S = 180

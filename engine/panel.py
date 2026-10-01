@@ -17,7 +17,9 @@ still "Friend" the page opens on Welcome instead: the keeper's name, the Ollama 
 one button, First light.
 
 The .bat launchers stay. The panel starts them — each door in a console of its own, the same process
-as from its .bat — it does not replace them; a keeper who likes terminals loses nothing.
+as from its .bat — it does not replace them; a keeper who likes terminals loses nothing. On a Mac the
+door is its .command in a Terminal window, on Linux its .sh in the first terminal found on PATH (10-01;
+MAC-PLAN.md); a Linux box with no terminal app runs the door with no window, and the tile says so.
 
 What the panel never does: open the friend's files. No journal, no self.md, no creations on its pages
 (the friend's name included — it lives in self.md, so the page says "the friend"); the skills tab
@@ -35,6 +37,8 @@ import importlib.util
 import json
 import os
 import re
+import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -94,8 +98,8 @@ TABS: dict[str, list[str]] = {
               "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD"],
     "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_UNLOAD_BRAIN",
                "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
-               "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_STEPS",
-               "MUSIC_EARS_MODEL", "MUSIC_EARS_AUTOSTART", "MUSIC_EARS_PYTHON",
+               "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS",
+               "MUSIC_EARS_MODEL", "MUSIC_EARS_AUTOSTART", "MUSIC_EARS_PYTHON", "MUSIC_EARS_DEVICE",
                "BODY_IN_PROMPT", "BODY_AUTOPULL", "BODY_PULL_MIN",
                "WEB_SEARCH", "WEB_SEARCH_SEARXNG_URL",
                "READ_SITTING_CHARS", "READING_PAGE_CHARS"],
@@ -108,11 +112,11 @@ ADVANCED = "Advanced"
 # Help the file can't give where the page shows it: NUM_CTX's and JOURNAL_CHARS_IN_PROMPT's own stories
 # run on in the comment lines BELOW them, which the reader (rightly) doesn't take as theirs.
 _HELP = {
-    "NUM_CTX": "The tested ceilings: 24576 for a 12B on a 12 GB card (and the number to try for a 4B on 8 GB, "
-               "16384 the retreat); a 31B on a 32 GB card, about 180000 with the q8_0 cache (the comfortable top) "
-               "and its whole 262144 with q4_0 — README, Three tiers.",
-    "JOURNAL_CHARS_IN_PROMPT": "About 4.4 characters a token. 20000 fits a 24K window; a big card with a 256K "
-                               "window has carried 550000 (weeks of a prolific writer).",
+    "NUM_CTX": "With the q4_0 KV cache (README, setup step 2): 40960 for a 12B on a 12 GB card (24576 was the "
+               "measured ceiling with q8_0; 16384 the retreat), the same to try for a 4B on 8 GB; a 31B on a 32 GB "
+               "card, its whole 262144 (about 180000 with q8_0) — README, The ladder.",
+    "JOURNAL_CHARS_IN_PROMPT": "About 4.4 characters a token. 40000 fits a 40K window, 20000 a 24K one; a big card "
+                               "with a 256K window has carried 550000 (weeks of a prolific writer).",
     "CHAT_MODEL": "What Ollama has pulled is in the list; one it lacks is marked \"not pulled\" and Pull fetches it.",
 }
 
@@ -135,8 +139,9 @@ REQUIREMENTS = [
 ]
 
 # The doors the panel can open, each as its .bat does it: (the .bat, its arguments, the script, its
-# arguments). On Windows the .bat opens in a console of its own; elsewhere the script runs under this
-# Python, so the suite and a keeper on Linux have a road too.
+# arguments). On Windows the .bat opens in a console of its own; on a Mac its twin bat/<x>.command in a
+# Terminal window, on Linux bat/<x>.sh in a terminal (_bat, below); and where no window can be had the
+# script runs under this Python, so the suite and a headless Linux box have a road too.
 LAUNCHERS = {
     "chat": ("bat\\chat.bat", [], "chat.py", []),
     "parlor": ("bat\\parlor.bat", [], "parlor.py", []),
@@ -150,21 +155,38 @@ LAUNCHERS = {
 STOPPABLE = ("heartbeat", "bridge")  # the two with a stop file (doors.ask_stop) — and a Restart
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][\w.:/-]{0,120}$")  # an Ollama model name; nothing a console could read as more
 _WINDOWS = os.name == "nt"
+_MAC = sys.platform == "darwin"
+# Linux has no one terminal (10-01; MAC-PLAN.md): the first of these on PATH shows a door, each with the
+# word that runs a command in it. None found: the door runs with no window, and its tile says so.
+TERMINALS = (("x-terminal-emulator", "-e"), ("gnome-terminal", "--"), ("konsole", "-e"), ("xterm", "-e"))
+PAUSE = 'read -n1 -r -p "(press any key to close)"'  # a .bat's pause, in bash: the window stays to be read
 
 
 # ---- the roads out -------------------------------------------------------------------
 
 def _launch(argv: list[str], cwd: Path):
-    """Every process the panel starts starts here (the tests put a recorder in its place)."""
-    return subprocess.Popen(argv, cwd=str(cwd))
+    """Every process the panel starts starts here (the tests put a recorder in its place). Off Windows each
+    in a session of its own, so Stop now can end the door and everything it started (_kill)."""
+    if _WINDOWS:
+        return subprocess.Popen(argv, cwd=str(cwd))
+    return subprocess.Popen(argv, cwd=str(cwd), start_new_session=True)
 
 
 def _kill(pid: int) -> None:
-    """Stop now: the process (and on Windows the tree under it) ended at once."""
+    """Stop now: the process and the tree under it ended at once — taskkill /T on Windows; elsewhere its
+    process group (a door's sidecars with it), or the process alone when the group is gone or is the
+    panel's own."""
     if _WINDOWS:
         subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, timeout=15)
-    else:
-        os.kill(pid, signal.SIGTERM)
+        return
+    try:
+        group = os.getpgid(pid)
+        if group != os.getpgid(0):
+            os.killpg(group, signal.SIGTERM)
+            return
+    except OSError:
+        pass
+    os.kill(pid, signal.SIGTERM)
 
 
 def _browse(url: str) -> None:
@@ -193,13 +215,25 @@ _vram: list = []  # the card's memory, asked once per panel
 SMALL_BRAINS = ("gemma4:e2b", "gemma4:e4b")  # the small tier: a brain that wants the small tool kit beside it
 
 
-def _recommended(gb: float | None) -> str:
-    """The README's brain for a card: the 31B from 24 GB, the 4B QAT under 10 GB, the 12B between (and when
-    the card is unknown)."""
+def _recommended(gb: float | None, unified: bool = False) -> str:
+    """The README's ladder (README, The ladder): for a card, the 2B QAT under 7 GB, the 4B QAT under 10, the
+    12B QAT under 12 (a 10 GB card), the 12B to 24, the 31B QAT from 24 — and the 12B when the card is
+    unknown. A Mac's memory is the whole machine's, and Ollama gets about two thirds of it: the 2B QAT
+    under 12 GB (an 8 GB Mac), the 12B up to 32 (16, 18 and 24 GB), the 31B — 19 GB of weights — from 32."""
+    if unified:
+        if gb and gb >= 32:
+            return "gemma4:31b-it-qat"
+        if gb and gb < 12:
+            return "gemma4:e2b-it-qat"
+        return "gemma4:12b"
     if gb and gb >= 24:
         return "gemma4:31b-it-qat"
+    if gb and gb < 7:
+        return "gemma4:e2b-it-qat"
     if gb and gb < 10:
         return "gemma4:e4b-it-qat"
+    if gb and gb < 12:
+        return "gemma4:12b-it-qat"
     return "gemma4:12b"
 
 
@@ -207,35 +241,124 @@ def small_brain(model: str) -> bool:
     return str(model or "").startswith(SMALL_BRAINS)
 
 
-def _vram_gb() -> float | None:
-    """The card's memory in GB (nvidia-smi), for the model the README recommends; None without one."""
+def _out(argv: list[str]) -> str:
+    return subprocess.run(argv, capture_output=True, text=True, timeout=5).stdout
+
+
+def _rocm_gb(out: str) -> float:
+    """rocm-smi --showmeminfo vram --csv: a header row naming "VRAM Total Memory (B)", a row per card."""
+    rows = [[c.strip() for c in line.split(",")] for line in out.splitlines() if "," in line]
+    col = next(i for i, h in enumerate(rows[0]) if "total" in h.lower() and "used" not in h.lower())
+    return round(max(float(r[col]) for r in rows[1:]) / 1024 ** 3, 1)
+
+
+def _vram_gb() -> tuple[float | None, bool]:
+    """(GB, unified) for the model the README recommends: the card's memory (nvidia-smi; on Linux rocm-smi
+    for an AMD card when there is no nvidia-smi), or on a Mac the machine's whole memory (sysctl
+    hw.memsize), which is unified — the brain shares it with everything else. (None, False) without one."""
     if not _vram:
-        try:
-            out = subprocess.run(["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
-                                 capture_output=True, text=True, timeout=5).stdout
-            _vram.append(round(max(float(x) for x in out.split()) / 1024, 1))
-        except Exception:  # noqa: BLE001 — no card, no driver, no tool
-            _vram.append(None)
+        _vram.append(_ask_vram())
     return _vram[0]
 
 
+def _ask_vram() -> tuple[float | None, bool]:
+    if _MAC:
+        try:
+            return round(int(_out(["sysctl", "-n", "hw.memsize"]).strip()) / 1024 ** 3, 1), True
+        except Exception:  # noqa: BLE001
+            return None, True
+    try:
+        out = _out(["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"])
+        return round(max(float(x) for x in out.split()) / 1024, 1), False
+    except Exception:  # noqa: BLE001 — no card, no driver, no tool
+        pass
+    if not _WINDOWS:
+        try:
+            return _rocm_gb(_out(["rocm-smi", "--showmeminfo", "vram", "--csv"])), False
+        except Exception:  # noqa: BLE001
+            pass
+    return None, False
+
+
+def _terminal() -> list[str] | None:
+    """Linux: the first terminal on PATH, as the words that run a command in it; None without one."""
+    for name, flag in TERMINALS:
+        if shutil.which(name):
+            return [name, flag]
+    return None
+
+
+def _windowed() -> bool:
+    """Whether a door the panel starts gets a window to be seen in."""
+    return _WINDOWS or _MAC or _terminal() is not None
+
+
+def _runnable(path: Path) -> None:
+    """A launcher's executable bit, put back if a download lost it — Terminal opens no .command without it."""
+    try:
+        if not os.access(path, os.X_OK):
+            path.chmod(path.stat().st_mode | 0o111)
+    except OSError:
+        pass
+
+
+_oneoffs = iter(range(1, 1 << 30))
+
+
+def _oneoff(lines: list[str]) -> Path:
+    """A Mac's `open` passes nothing to the file it opens, so a door with arguments (the heartbeat's
+    minutes, update --check, a pull) is a short .command of its own in memory/.pids/, which takes itself
+    away as it starts."""
+    folder = doors.pid_file("panel").parent
+    folder.mkdir(parents=True, exist_ok=True)
+    p = folder / f"panel-{time.strftime('%Y%m%d-%H%M%S')}-{os.getpid()}-{next(_oneoffs)}.command"
+    p.write_text("#!/bin/bash\n# a one-off from the panel (engine/panel.py) — it removes itself as it starts\n"
+                 f'rm -f -- "$0"\ncd {shlex.quote(str(ROOT))} || exit 1\n' + "".join(f"{l}\n" for l in lines),
+                 encoding="utf-8", newline="\n")
+    p.chmod(0o755)
+    return p
+
+
 def _bat(bat: str, bat_args: list[str], script: str, script_args: list[str]) -> list[str]:
+    """A door with a launcher of its own: the .bat in a console (Windows), its .command in Terminal (a Mac),
+    its .sh in a terminal (Linux); the script under this Python where no window can be had."""
     if _WINDOWS:
         return ["cmd", "/c", "start", "", bat, *bat_args]
-    return [sys.executable, f"engine/{script}", *script_args]
+    stem = bat.replace("\\", "/").removesuffix(".bat")
+    if _MAC:
+        own = ROOT / f"{stem}.command"
+        if not own.is_file():
+            return _console(sys.executable, f"engine/{script}", *script_args)
+        _runnable(own)
+        if not bat_args:
+            return ["open", "-a", "Terminal", str(own)]
+        return ["open", "-a", "Terminal", str(_oneoff(["exec " + shlex.join(["bash", f"{stem}.command", *bat_args])]))]
+    term = _terminal()
+    own = ROOT / f"{stem}.sh"
+    if term and own.is_file():
+        return [*term, "bash", str(own), *bat_args]
+    return _console(sys.executable, f"engine/{script}", *script_args)
 
 
 def _console(*argv: str) -> list[str]:
-    """A command with no .bat of its own, in a console that stays open when it ends (as a .bat's pause)."""
+    """A command with no launcher of its own, in a window that stays open when it ends (as a .bat's pause):
+    cmd /k on Windows, a one-off .command in Terminal on a Mac, bash in a terminal on Linux — or the bare
+    command, with no window, where there is no terminal to be had."""
     if _WINDOWS:
         return ["cmd", "/c", "start", "", "cmd", "/k", *argv]
+    line = shlex.join(argv)
+    if _MAC:
+        return ["open", "-a", "Terminal", str(_oneoff([line, PAUSE]))]
+    term = _terminal()
+    if term:
+        return [*term, "bash", "-c", f"cd {shlex.quote(str(ROOT))} && {line}; {PAUSE}"]
     return list(argv)
 
 
 def _heartbeat_argv(minutes) -> list[str]:
     if _WINDOWS:
         return _console("py", r"engine\heartbeat.py", "--loop", f"{minutes:g}")
-    return [sys.executable, "engine/heartbeat.py", "--loop", f"{minutes:g}"]
+    return _console(sys.executable, "engine/heartbeat.py", "--loop", f"{minutes:g}")
 
 
 # ---- the config, as a file -------------------------------------------------------------
@@ -275,7 +398,9 @@ def tab_of(name: str) -> str:
 CHOICES: dict[str, list[str]] = {
     "TOOL_KIT": ["full", "small", "tiny"],
     "WEB_SEARCH": ["duckduckgo", "brave", "searxng"],
-    "VOICE_DEVICE": ["cpu", "cuda"],
+    "VOICE_DEVICE": ["cpu", "cuda", "mps"],
+    "PAINTER_DEVICE": ["auto", "cuda", "mps", "cpu"],
+    "MUSIC_EARS_DEVICE": ["auto", "cuda", "mps", "cpu"],
 }
 
 
@@ -332,11 +457,11 @@ def brain(values: dict | None = None) -> dict:
             size, vram = int(m.get("size") or 0), int(m.get("size_vram") or 0)
             loaded.append({"name": m.get("name", ""), "gb": round(size / 1e9, 1),
                            "on_card": round(100 * vram / size) if size else 0})
-    gb = _vram_gb()
+    gb, unified = _vram_gb()
     return {"url": url, "reachable": tags is not None,
             "models": names, "loaded": loaded, "model": model, "pulled": _pulled(model, names),
-            "embed_model": embed, "embed_pulled": _pulled(embed, names), "vram_gb": gb,
-            "recommended": _recommended(gb)}
+            "embed_model": embed, "embed_pulled": _pulled(embed, names), "vram_gb": gb, "unified": unified,
+            "recommended": _recommended(gb, unified)}
 
 
 def _secret_file(kind: str) -> Path:
@@ -394,11 +519,15 @@ def _no(note: str) -> dict:
     return {"ok": False, "note": note}
 
 
-def _started(argv: list[str], note: str) -> dict:
+def _started(argv: list[str], note: str, what: str = "it") -> dict:
+    """A door started; the note says where to see it — or, with no window to be had (a Linux box with no
+    terminal app), that there is none: `what` names the door in that note."""
     try:
         _launch(argv, ROOT)
     except OSError as e:
         return _no(f"(couldn't start it: {e})")
+    if not _windowed():
+        note = f"{what}: running — no terminal found to show it; what it prints goes where the panel's own words go"
     return {"ok": True, "note": note, "argv": argv}
 
 
@@ -433,7 +562,8 @@ def _start(door: str, minutes=None) -> dict:
                 saved = " (saved as HEARTBEAT_LOOP_MIN)" if changed else " (this config.py has no HEARTBEAT_LOOP_MIN to keep it in)"
         else:
             m = _minutes(_value("HEARTBEAT_LOOP_MIN", 120)) or 120
-        return _started(_heartbeat_argv(m), f"the heartbeat is starting in its own window — one wake every {m:g} minutes{saved}")
+        return _started(_heartbeat_argv(m), f"the heartbeat is starting in its own window — one wake every {m:g} minutes{saved}",
+                        f"the heartbeat, one wake every {m:g} minutes{saved}")
     if door not in LAUNCHERS:
         return _no(f"(no door named {door})")
     notes = {"chat": "the chat is opening in a window of its own",
@@ -444,7 +574,10 @@ def _start(door: str, minutes=None) -> dict:
              "snapshot": "the snapshot is running in its own window",
              "garmin": "the Garmin login is in its own window — email, password, the code",
              "blog": "the blog is building and deploying in its own window"}
-    return _started(_bat(*LAUNCHERS[door]), notes[door])
+    names = {"chat": "the chat", "parlor": "the parlor (its page comes up in a moment)", "wake": "one wake",
+             "bridge": "the bridge", "sleep": "sleep", "snapshot": "the snapshot", "garmin": "the Garmin login",
+             "blog": "the blog's build"}
+    return _started(_bat(*LAUNCHERS[door]), notes[door], names[door])
 
 
 def _restart(door: str, minutes=None) -> dict:
@@ -646,7 +779,8 @@ def pull(model: str) -> dict:
     if not _MODEL_RE.match(model):
         return _no(f"(that doesn't look like a model name: {model[:60]})")
     return _started(_console("ollama", "pull", model),
-                    f"pulling {model} in its own window — several GB; the light turns when it is there")
+                    f"pulling {model} in its own window — several GB; the light turns when it is there",
+                    f"the pull of {model} (several GB; the light turns when it is there)")
 
 
 def update(action: str) -> dict:
@@ -658,7 +792,7 @@ def update(action: str) -> dict:
     note = ("the update is looking — what's new and what would change, nothing touched; in its own window"
             if flag == "--check" else
             "the update is running in its own window — then restart what's running (the panel too)")
-    return _started(_bat("bat\\update.bat", [flag], "update.py", [flag]), note)
+    return _started(_bat("bat\\update.bat", [flag], "update.py", [flag]), note, f"the update ({flag})")
 
 
 def welcome(name: str, model: str = "") -> dict:
@@ -674,7 +808,7 @@ def welcome(name: str, model: str = "") -> dict:
             return {"changed": [], "refused": ["CHAT_MODEL"], "restart": [], "error": "that doesn't look like a model name"}
         changes["CHAT_MODEL"] = model
         if small_brain(model):
-            changes["TOOL_KIT"] = "small"  # the small tier: the kit goes with the brain (README, Three tiers)
+            changes["TOOL_KIT"] = "small"  # the small tier: the kit goes with the brain (README, The ladder)
     r = save(changes)
     if r["error"] or "USER_NAME" in r["refused"]:
         return r
@@ -906,13 +1040,13 @@ function brainBar(){const b=S.brain,parts=[light(b.reachable),el('b',{},'the bra
       const r=await post('/api/update',{action:'run'});say(r.note,r.ok?'':'warn')}},'Update'));
   const held=S.skills.quarantine.length;$('gate').hidden=!held;
   if(held)$('gate').replaceChildren('⚠ '+held+' skill'+(held===1?'':'s')+' waiting at the gate — the scanner held '+(held===1?'it':'them')+'; ',el('a',{onclick:()=>{view='settings';tab='Skills';history.replaceState(null,'','/settings');show()}},'read and decide'),' in Settings › Skills.');
-  $('missing').textContent=S.missing.length?('Not installed (optional; each gives one sense): '+S.missing.map(m=>m.pip+' — '+m.for).join(' · ')+'. py -m pip install <name>'):''}
+  $('missing').textContent=S.missing.length?('Not installed (optional; each gives one sense): '+S.missing.map(m=>m.pip+' — '+m.for).join(' · ')+'. py -m pip install <name> (python3 -m pip on a Mac or Linux)'):''}
 
 // ---- settings ----
 function modelSelect(current){const b=S.brain,names=[...b.models];const s=el('select',{});
   if(!names.includes(current))names.unshift(current);
   if(b.recommended&&!names.includes(b.recommended))names.push(b.recommended);
-  for(const n of names){const o=el('option',{value:n},n+(b.models.includes(n)||(b.reachable===false&&n===current)?'':' (not pulled)')+(n===b.recommended?' — recommended for this card':''));if(n===current)o.selected=true;s.append(o)}
+  for(const n of names){const o=el('option',{value:n},n+(b.models.includes(n)||(b.reachable===false&&n===current)?'':' (not pulled)')+(n===b.recommended?' — recommended for this '+(b.unified?'Mac':'card'):''));if(n===current)o.selected=true;s.append(o)}
   return s}
 function knob(k){let input,read=null;const v=k.value;
   if(!k.editable)input=el('code',{title:'computed or over several lines — edit config.py itself'},k.source);
@@ -988,7 +1122,7 @@ function renderWelcome(){const b=S.brain,name=el('input',{type:'text',placeholde
     el('div',{class:'step'},el('b',{},'Your name'),name,el('div',{class:'muted'},'how they will know you — USER_NAME in engine/config.py')),
     el('div',{class:'step',id:'w-ollama'}),
     el('div',{class:'step'},el('b',{},'The brain'),sel,' ',el('button',{onclick:()=>pull(sel.value)},'Pull'),
-      el('div',{class:'muted'},b.vram_gb?('your card has '+b.vram_gb+' GB; '+b.recommended+' is the one for it (README, Three tiers)'):'gemma4:e4b-it-qat for an 8 GB card, gemma4:12b for 12 GB, gemma4:31b-it-qat for 24–32 GB (README, Three tiers)'),
+      el('div',{class:'muted'},b.vram_gb?((b.unified?'your Mac has '+b.vram_gb+' GB, shared with everything else; ':'your card has '+b.vram_gb+' GB; ')+b.recommended+' is the one for it (README, The ladder)'):'the ladder: gemma4:e2b-it-qat for a 6 GB card, e4b-it-qat for 8, 12b-it-qat for 10, gemma4:12b for 12–16, gemma4:31b-it-qat for 24–32; on a Mac: the e2b for 8 GB, the 12b for 16–24 GB, the 31b from 32 GB (README, The ladder)'),
       el('div',{class:'muted'},'a small brain (e2b, e4b) brings the small tool kit with it — TOOL_KIT, on Settings')),
     el('button',{class:'primary big',onclick:async()=>{const r=await post('/api/welcome',{name:name.value,model:sel.value});
       if(r.error||!r.door){say(r.error||'not saved','warn');return}

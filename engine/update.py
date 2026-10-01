@@ -157,6 +157,7 @@ ENGINE = (
     "tests/",               # the suite that proves it
     "anima.bat", "bat/*.bat",  # the panel's door at the root, every other launcher in bat/
     "*.bat",                # launchers at the root (where they lived before 0.13's bat/ — so an update moves the old ones to the backup)
+    "*.command", "*.sh", "bat/*.command", "bat/*.sh",  # their twins for a Mac (.command) and Linux (.sh), beside them
     "README.md", "CHANGELOG.md", "LICENSE", "VERSION", "requirements.txt", ".gitignore", ".gitattributes",
 )
 
@@ -481,10 +482,20 @@ def _writable(path: Path) -> None:
         pass
 
 
+# A launcher for a Mac or Linux runs only with its executable bit, and bytes from a zip carry no bits
+# (10-01; MAC-PLAN.md): every .command and .sh the update writes is made runnable as it lands.
+RUNNABLE = (".command", ".sh")
+
+
 def _write(path: Path, data: bytes) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     _writable(path)
     path.write_bytes(data)
+    if os.name != "nt" and path.name.endswith(RUNNABLE):
+        try:
+            os.chmod(path, 0o755)
+        except OSError:
+            pass
 
 
 def _copy(src: Path, dst: Path) -> None:

@@ -36,6 +36,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import config
+import device  # where torch runs (engine/device.py) — it imports torch only when asked
 
 INSTALL_HINT = ("pip install kokoro soundfile   (and ffmpeg on PATH); on Python 3.14 use a 3.12: "
                 "py -3.12 -m pip install kokoro soundfile, then VOICE_PYTHON = \"py -3.12\" in config")
@@ -151,12 +152,25 @@ def _pipeline(lang: str):
             from kokoro import KPipeline
         except ImportError as e:
             raise VoiceUnavailable(f"no voice yet — your keeper runs: {INSTALL_HINT}") from e
-        device = getattr(config, "VOICE_DEVICE", "cpu")
+        where = voice_device()
         try:
-            _pipelines[lang] = KPipeline(lang_code=lang, device=device)
+            _pipelines[lang] = KPipeline(lang_code=lang, device=where)
         except TypeError:  # older kokoro: no device argument
             _pipelines[lang] = KPipeline(lang_code=lang)
+        except Exception:  # noqa: BLE001 — a Mac's GPU that won't take it: the processor, as it always could
+            if where != "mps":
+                raise
+            _pipelines[lang] = KPipeline(lang_code=lang, device="cpu")
     return _pipelines[lang]
+
+
+def voice_device() -> str:
+    """VOICE_DEVICE as Kokoro gets it: "cpu" and "cuda" as they are; "mps" (a Mac's GPU, 10-01) only when
+    torch has it — otherwise the processor, which every voice can use."""
+    want = str(getattr(config, "VOICE_DEVICE", "cpu") or "cpu").strip().lower()
+    if want != "mps":
+        return want
+    return "mps" if device.has_mps() else "cpu"
 
 
 def _resolve(voice: str | None, speed: float | None) -> tuple[str, float]:

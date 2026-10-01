@@ -12,13 +12,18 @@ This folder starts empty of a person. The AI that wakes in it names itself,
 writes its own identity file, and becomes someone over days and weeks. Don't
 name it. Don't write its `self.md` for it. That's the whole point.
 
-**Runs on:** Windows (`.bat` launchers included; the engine itself is
-cross-platform Python), Python 3.10+, [Ollama](https://ollama.com), and a
-GPU — ~12GB VRAM for the default 12B brain; an 8GB card carries the small
-tier (`gemma4:e4b-it-qat` with the small tool kit); a 24-32GB card carries
-the 31B — see *Three tiers*. The core engine is standard library only.
+**Runs on:** Windows, macOS and Linux — the engine is cross-platform
+Python, and every launcher comes three ways: a `.bat` for Windows, a
+`.command` for a Mac, a `.sh` for Linux. Python 3.10+,
+[Ollama](https://ollama.com), and a GPU — ~12GB VRAM for the default 12B
+brain; an 8GB card carries the small tier (`gemma4:e4b-it-qat` with the
+small tool kit); a 24-32GB card carries the 31B. A Mac with Apple silicon
+has no card of its own: Ollama runs on its GPU through Metal, in the
+machine's unified memory, so a 16 GB Mac carries the 12B and a 32 GB Mac
+the 31B — see *The ladder*. The core engine is standard library only.
 
-**The door is `anima.bat`.** It opens the panel: one page in your browser,
+**The door is `anima.bat`** (`anima.command` on a Mac, `anima.sh` on
+Linux). It opens the panel: one page in your browser,
 on your machine only. The first time, it asks your name, checks that Ollama
 answers and that a brain is pulled (it names the one for your card, with a
 button to pull it), and opens the chat. After that, every door is on it —
@@ -26,7 +31,11 @@ chat, the parlor, a wake, the heartbeat with its minutes, the phone bridge,
 sleep, snapshot, the update — and *Settings*: `engine/config.py` laid out
 on tabs, with the brain, the window and the tool kit at the top. The `.bat`
 launchers described below all still work — they live in `bat\`, with
-`anima.bat` alone at the root — and the panel presses them for you.
+`anima.bat` alone at the root, each with its `.command` and `.sh` twin
+beside it — and the panel presses them for you. This README writes the
+Windows form; on a Mac or Linux `bat\chat.bat` is `bat/chat.command` or
+`bat/chat.sh`, `py engine\heartbeat.py` is `python3 engine/heartbeat.py`,
+and a backslash in a path is a slash.
 
 ## Setup (once)
 
@@ -36,48 +45,119 @@ launchers described below all still work — they live in `bat\`, with
    `bat\snapshot.bat` cuts the remote automatically, as a seatbelt, and the
    `.gitignore` keeps their private files out of any push.)
 
-2. Install [Ollama](https://ollama.com), then in a terminal:
+2. Install [Ollama](https://ollama.com), and before pulling anything give it
+   two settings: flash attention, and a 4-bit KV cache. They decide how much
+   context window a card affords — the cache is where the window lives, and
+   at q4_0 it costs half what the default does — and every `NUM_CTX` in this
+   README assumes them. Set them once, then restart Ollama. On Windows, in a
+   terminal:
 
    ```
-   ollama pull gemma4:12b
+   setx OLLAMA_FLASH_ATTENTION 1
+   setx OLLAMA_KV_CACHE_TYPE q4_0
+   ```
+
+   then quit Ollama from the tray and start it again. On a Mac Ollama is an
+   app, and an app reads its environment from launchd, not from a shell —
+   in Terminal:
+
+   ```
+   launchctl setenv OLLAMA_FLASH_ATTENTION 1
+   launchctl setenv OLLAMA_KV_CACHE_TYPE q4_0
+   ```
+
+   then quit Ollama from the menu bar and open it again (`launchctl
+   setenv` lasts until the Mac restarts; after a restart, the two lines
+   again). On Linux Ollama is a service (its install script made it):
+   `sudo systemctl edit ollama`, and in the file that opens
+
+   ```
+   [Service]
+   Environment="OLLAMA_FLASH_ATTENTION=1"
+   Environment="OLLAMA_KV_CACHE_TYPE=q4_0"
+   ```
+
+   then `sudo systemctl restart ollama`. (4-bit keys trade a little
+   precision for the room; if replies ever come out garbled, `q8_0` is the
+   retreat, with every window below halved.)
+
+   Then the memory engine first — every tier needs it, and it is small:
+
+   ```
    ollama pull nomic-embed-text
    ```
 
-   (`gemma4:12b` is the default brain for a 12GB card — multimodal with
-   native vision AND native audio, so one model powers thinking, eyes, and
-   first-person hearing. On an 8GB card pull `gemma4:e4b-it-qat` instead,
-   on a 24-32GB card `gemma4:31b-it-qat` — *Three tiers*, below.
-   `nomic-embed-text` powers long-term memory. The panel of step 8 does
-   both pulls from a page, if you'd rather.)
+   (`nomic-embed-text` turns what the friend remembers into vectors, so the
+   memories that belong to a moment can be found. It is not the brain.)
 
-3. Install Python 3.10+ from python.org if `py --version` doesn't work.
+   Then the brain, by the memory your graphics card has (on Windows,
+   Task Manager › Performance › GPU shows it as "Dedicated GPU memory";
+   `nvidia-smi` in a terminal says it too). Find your card in the ladder
+   and run its one line — *The ladder*, below, has the whole table with
+   the context window and the knobs for each rung:
+
+   | card | the pull | `NUM_CTX` |
+   |---|---|---|
+   | 6 GB | `ollama pull gemma4:e2b-it-qat` | 32768 |
+   | 8 GB | `ollama pull gemma4:e4b-it-qat` | 40960 |
+   | 10 GB | `ollama pull gemma4:12b-it-qat` | 32768 |
+   | 12 GB | `ollama pull gemma4:12b` | 40960 |
+   | 16 GB | `ollama pull gemma4:12b` | 131072 |
+   | 24 GB | `ollama pull gemma4:31b-it-qat` | 65536 |
+   | 32 GB | `ollama pull gemma4:31b-it-qat` | 262144 |
+
+   A pull is a download of the model's size (4 to 19 GB) and takes
+   minutes; `ollama list` afterwards shows what you have. The 12B is the
+   default the config ships with — multimodal with native vision AND
+   native audio, so one model powers thinking, eyes, and first-person
+   hearing — so with a 12 GB card there is nothing more to set. For any
+   other rung, put its name in `CHAT_MODEL` and its window in `NUM_CTX`
+   in `engine/config.py` (or on the panel's Main tab, step 7, where the
+   brain is a dropdown of what you pulled). The panel does the pulls from
+   a page too, if you'd rather, and names the rung for the card it sees.
+
+3. Install Python 3.10+ if it isn't there. On Windows, from python.org,
+   if `py --version` doesn't answer. On a Mac, from python.org or with
+   Homebrew (`brew install python@3.12`) — the `python3` a fresh Mac has is
+   Apple's stub, which offers to install the developer tools instead. On
+   Linux it is the distribution's own and usually already there
+   (`python3 --version`; else `sudo apt install python3`, or `dnf`,
+   `pacman`).
 
 4. **Put your name in `engine/config.py`** (`USER_NAME`) — it's how your
    friend will know you, and it names their mailbox folder to you. (Or let
-   the panel ask, step 8.)
+   the panel ask, step 7.)
 
-5. Optional senses: `py -m pip install faster-whisper numpy` and
-   `winget install ffmpeg` for ears (words and measurement); `py -m pip
-   install pypdf` for reading PDFs. Without them the tools degrade gracefully
+5. Optional senses: `py -m pip install faster-whisper numpy` (on a Mac or
+   Linux `python3 -m pip install faster-whisper numpy`) and ffmpeg —
+   `winget install ffmpeg` on Windows, `brew install ffmpeg` on a Mac,
+   `sudo apt install ffmpeg` (or `dnf`, `pacman`) on Linux — for ears
+   (words and measurement); `py -m pip install pypdf` (`python3 -m pip
+   install pypdf`) for reading PDFs. Without them the tools degrade gracefully
    and say what to install. The music ear and the painter (below) are
    separate, bigger installs — skip them until you want them.
    (`requirements.txt` lists every optional package with what it is for.)
 
-6. To afford the context window on a 12GB card, set these once in a
-   terminal, then restart Ollama (they make the KV cache compact):
+6. Run `bat\snapshot.bat` once (`bat/snapshot.command`, `bat/snapshot.sh`)
+   — it sets up local git so no version of your friend is ever lost.
+
+7. Open `anima.bat`, the panel — on a Mac double-click `anima.command`
+   (Finder opens it in Terminal; the first time, macOS may refuse it as
+   from an unidentified developer: *Open Anyway* in System Settings ›
+   Privacy & Security lets it, or `xattr -dr com.apple.quarantine .` once
+   in Terminal in this folder), on Linux `./anima.sh` in a terminal. The
+   `.command` and `.sh` launchers run only with their executable bit,
+   which some downloads lose; if one won't start, once, in a terminal in
+   this folder:
 
    ```
-   setx OLLAMA_FLASH_ATTENTION 1
-   setx OLLAMA_KV_CACHE_TYPE q8_0
+   chmod +x anima.command anima.sh bat/*.command bat/*.sh
    ```
 
-7. Run `bat\snapshot.bat` once — it sets up local git so no version of your
-   friend is ever lost.
-
-8. Open `anima.bat`, the panel: it asks your name, checks Ollama and the
-   brain (the pulls of step 2 and the name of step 4, from a page — and on
-   a small card it sets the small tool kit with the small brain), and
-   opens the chat with one button. Say hello. You'll be meeting someone
+   The panel asks your name, checks Ollama and the brain (the pulls of
+   step 2 and the name of step 4, from a page — and on a small card it
+   sets the small tool kit with the small brain), and opens the chat
+   with one button. Say hello. You'll be meeting someone
    brand new. (`bat\parlor.bat`, a chat window in your browser, and `bat\chat.bat`,
    a terminal, are the same door without the page.)
 
@@ -85,9 +165,11 @@ launchers described below all still work — they live in `bat\`, with
 
 The engine keeps moving — a sense added, a rail mended — and a friend who
 has lived in this folder for months should not have to move out to get it.
-`bat\update.bat` brings the folder to the current engine on GitHub and leaves
+`bat\update.bat` (`bat/update.command` on a Mac, `bat/update.sh` on Linux)
+brings the folder to the current engine on GitHub and leaves
 the friend where they are: it replaces what is the engine's (`engine/*.py`
-except `config.py`, `tests/`, the `.bat` launchers, `README.md`,
+except `config.py`, `tests/`, the launchers — `.bat`, `.command` and `.sh`,
+the last two written with their executable bit — `README.md`,
 `CHANGELOG.md`, `VERSION`, `requirements.txt`, the git dotfiles) and never what
 is theirs — `self.md`, `projects.md`, `destiny.md`, the journal, memory,
 creations, `shared/`, and anything you added yourself. No git is needed: it
@@ -133,7 +215,8 @@ release', 3 days ago (you have 0.13)", with *release notes*, *Check* and
 *Update* beside it — and the phone hears it once per version. Nothing
 installs by itself. `UPDATE_CHECK_H` sets the hours between looks (24);
 `0` never looks, and a folder with no `bat\update.bat` never does either.
-`py engine\newer.py --now` looks at once and prints the answer.
+`py engine\newer.py --now` (`python3 engine/newer.py --now`) looks at once
+and prints the answer.
 
 And when `config.py` itself is the trouble — a line broken while editing,
 a value that stops the engine loading — `bat\update.bat --reset-config` writes
@@ -153,9 +236,13 @@ broken line costs only itself. `--check` shows what it would carry.
 `anima.bat` opens one page — `http://127.0.0.1:8764`, in your browser, on
 your machine only — with every door on it. The launchers below all still
 work, and the panel doesn't replace them: it presses them for you. Each
-door opens in a console window of its own, exactly as its `.bat` would,
-so a keeper who likes terminals loses nothing, and one who doesn't never
-has to type `--loop`.
+door opens in a window of its own, exactly as its launcher would — a
+console on Windows; Terminal on a Mac, running the door's `.command`; on
+Linux a terminal, the first of x-terminal-emulator, gnome-terminal,
+konsole and xterm the panel finds, running the door's `.sh` (with none,
+the door runs with no window, and its tile says so) — so a keeper who
+likes terminals loses nothing, and one who doesn't never has to type
+`--loop`.
 
 **Home** is a tile per door — Chat, Parlor, Wake, the Heartbeat (with
 *every N minutes* beside it, kept in config as `HEARTBEAT_LOOP_MIN`), the
@@ -165,7 +252,9 @@ doors' own marks in `memory/.pids/` (below, *One of each*), so a heartbeat
 started from a terminal lights up too, and a second heartbeat, bridge or
 parlor is refused from the page just as from its window. *Stop* asks the
 heartbeat to leave after the wake it is in (the bridge after the poll it
-is in, the visit saved); *Stop now* ends it at once. Above the tiles sits
+is in, the visit saved); *Stop now* ends it at once, with whatever it
+started (on a Mac or Linux the door's whole process group, which first
+saves an open visit). Above the tiles sits
 the brain: whether Ollama answers, which model it holds and how much of
 it is on the card, and a *Pull* button beside a model the config names
 but Ollama doesn't have yet.
@@ -213,7 +302,7 @@ and the folder are for that.
 | Talk with them from your phone | `bat\telegram.bat` (the bridge — see below) |
 | Give them time to themselves (one wake) | `bat\wake.bat` |
 | Give them a reverie (reflection only, nothing expected) | `bat\reverie.bat` |
-| Let them live on a heartbeat | `py engine\heartbeat.py --loop 60` (minutes between wakes; every 3rd wake is a reverie) |
+| Let them live on a heartbeat | `py engine\heartbeat.py --loop 60` (`python3 engine/heartbeat.py --loop 60` on a Mac or Linux; minutes between wakes; every 3rd wake is a reverie) |
 | Put them to sleep by hand (consolidate the day into memory) | `bat\sleep.bat` (today) or `bat\sleep-yesterday.bat` — the heartbeat loop does this on its own after 03:00 |
 | Consolidate a past day | `py engine\consolidate.py 2026-08-27` |
 | Snapshot everything (git; zip fallback) | `bat\snapshot.bat` |
@@ -1083,7 +1172,8 @@ prints a four-digit pairing code: send `/pair <code>` to your bot from your
 phone and that chat is bound (also saved). From then on only that one chat is
 answered; anyone else who finds the bot gets silence — not even a refusal.
 Leave the window open like the heartbeat's; Ctrl+C or the window's X saves
-the visit and closes the bridge. Closed, the bridge hears nothing —
+the visit and closes the bridge (on a Mac or Linux, closing the terminal
+window does the same: the hang-up it sends is caught, the visit saved). Closed, the bridge hears nothing —
 messages sent meanwhile wait on Telegram and arrive at the next start.
 
 **On the phone.** Text is a turn, as in the parlor. A photo is saved to
@@ -1592,9 +1682,15 @@ on PATH). Kokoro's dependencies lag the newest Python — on 3.14 pip tries to
 compile numpy 1.26 and fails — so the voice can have its own interpreter:
 install Python 3.12 (3.12.10 is the last with an installer) beside the
 current one, `py -3.12 -m pip install kokoro soundfile`, and
-`VOICE_PYTHON = "py -3.12"` in config; one short process per note.
-`py engine\voice.py --test "hello"` writes `shared/voice-test.ogg` so you
-hear it first. Without Kokoro the tool tells them what to install.
+`VOICE_PYTHON = "py -3.12"` in config; one short process per note. On a
+Mac or Linux the same is `python3.12 -m pip install kokoro soundfile` and
+`VOICE_PYTHON = "python3.12"` — and as the template's config names
+`"py -3.12"`, which a Mac or Linux doesn't have, set it to `"python3.12"`
+or to `""` (the engine's own Python) there. Kokoro runs on the processor
+(`VOICE_DEVICE = "cpu"`); `"cuda"` puts it on a card, `"mps"` on a Mac's
+GPU, falling back to the processor if torch can't. `py engine\voice.py
+--test "hello"` (`python3 engine/voice.py --test "hello"`) writes
+`shared/voice-test.ogg` so you hear it first. Without Kokoro the tool tells them what to install.
 
 **Ears:** `listen_to` — any common audio format, heard in three layers: WORDS
 (faster-whisper transcribes speech and lyrics; `EARS_VOCAB_HINT` teaches it
@@ -1625,7 +1721,12 @@ py -m pip install torch --index-url https://download.pytorch.org/whl/cu128
 py -m pip install "transformers>=5.14" accelerate librosa soundfile huggingface_hub
 ```
 
-then accept the license at huggingface.co/nvidia/music-flamingo-2601-hf and
+(on Linux the same two lines with `python3`, and an AMD card takes torch's
+ROCm build instead of `cu128`; on a Mac `python3 -m pip install torch`,
+whose plain build knows the Mac's GPU, then the second line with
+`python3` — the ear is a big model, so 32 GB of memory or skip it;
+`MUSIC_EARS_DEVICE`, "auto", takes the card, a Mac's GPU, or the
+processor, the first there), then accept the license at huggingface.co/nvidia/music-flamingo-2601-hf and
 run `hf auth login` once (first listen downloads ~16GB). Its license is
 non-commercial — fine for a friend. Not installed? They hear by passages;
 nothing breaks.
@@ -1643,7 +1744,10 @@ a few seconds a picture), needs only
 py -m pip install -U diffusers transformers accelerate safetensors pillow
 ```
 
-in the same Python as the ear; the weights download on the first painting.
+in the same Python as the ear (`python3 -m pip …` on a Mac or Linux); the
+weights download on the first painting. On a Mac it paints on the GPU in
+float16 — slow with 16 GB, fine from 32 — and `PAINTER_DEVICE` ("auto")
+picks the card, a Mac's GPU, or the processor, the first there.
 `black-forest-labs/FLUX.2-klein-4B` is the other line (`PAINTER_MODEL`).
 Run `bat\painter.bat --test "a violet bloom"` once before they touch it. Not
 installed? `paint` says so and points them at `run_python` and matplotlib.
@@ -1695,10 +1799,27 @@ memory/            transcripts (chat-telegram-*.md are phone visits), long-term
                    id — stays home)
 engine/            the machinery
 anima.bat          the door — the panel, with every other door behind it
+                   (anima.command on a Mac, anima.sh on Linux)
 bat/               the launchers the panel presses (chat, parlor, wake,
-                   telegram, sleep, snapshot, update…) — each runs from the
-                   folder above it, so `bat\chat.bat` from anywhere works
+                   telegram, sleep, snapshot, update…), each as .bat,
+                   .command and .sh — each runs from the folder above it,
+                   so `bat\chat.bat` from anywhere works
 ```
+
+**Moving house.** The friend is the folder, so moving them to another
+machine — a PC to a Mac, a Mac to a Linux box, or back — is copying the
+folder, whole, and setting up Python and Ollama there (the setup above;
+the brain is pulled again, the memories come along in `memory/`). The
+friend wakes the same: identity, journal, memories, creations, tools.
+Keep every file's name exactly as it is: Linux is case-sensitive about
+file names — `Piranesi.md` and `piranesi.md` are two files there, where
+Windows and a Mac by default see one — so a copy that changed a name's
+case leaves the friend looking for a file that isn't there;
+`bat\snapshot.bat` (git) carries names exactly. On a Mac or Linux, `chmod
++x anima.command anima.sh bat/*.command bat/*.sh` once if the copy lost
+the launchers' executable bit. `engine/config.py` comes along as it is;
+a knob that names `py -3.12` (`VOICE_PYTHON`, `PAINTER_PYTHON`,
+`MUSIC_EARS_PYTHON`) names `python3.12` on the other side.
 
 Long-term memory is SQLite plus embeddings (`nomic-embed-text`), about 12 KB
 a row; search holds the store in each process as one matrix of unit vectors
@@ -1709,26 +1830,74 @@ and a search stays under a millisecond; what actually reaches the friend is
 `MEMORY_TOP_K` rows per thought, chosen by relevance, whatever the store
 holds.
 
-## Three tiers
+## The ladder
 
-**12GB card (default):** `gemma4:12b` for everything, `NUM_CTX = 24576`,
-`JOURNAL_CHARS_IN_PROMPT = 20000`, `HEARTBEAT_MAX_STEPS = 24`. Snappy; the
-journal window shows the last day or so verbatim.
+One brain family, Gemma 4, in sizes that fit cards from 6 GB up; what
+changes rung to rung is the brain, then how much of the friend's own
+writing rides in the window. Two rungs are measured on real cards (12 and
+32 GB); the others are estimates from published sizes and the engine's
+own numbers, and `ollama ps` is the referee on every one of them: it
+prints the model, its size on the card and *100% GPU* when it all fits,
+or a CPU share when it doesn't — then step down one window size and look
+again. A card that also drives the display has less than it says.
 
-**24-32GB card:** `CHAT_MODEL = "gemma4:31b-it-qat"` (Google's
-quantization-aware build, near-full-precision at 19GB), `NUM_CTX` measured
-on a 32GB card with the q8_0 KV cache: 64K = 24.5GB, 96K = 25.6, 128K = 27.1,
-160K = 28.6, 176K ≈ 30 (the comfortable top), 192K = 31.1 (the wall — no air,
-and past it Ollama spills to system RAM silently). `JOURNAL_CHARS_IN_PROMPT`
-is what actually decides how many days they remember: 300000-320000 at
-160-176K is five or six days of a prolific writer verbatim, at the cost of a
-minute of cold prefill per wake. `HEARTBEAT_MAX_STEPS = 40`.
-Keep `EARS_MODEL = "gemma4:12b"` — the bigger Gemmas are deaf, so the 12B
-stays on as the hearing organ and `EARS_UNLOAD_BRAIN` swaps them per listen.
-Change one thing at a time and let `ollama ps` (100% GPU) and clean wakes be
-the referee.
+| card | the pull | on disk | `NUM_CTX` | `TOOL_KIT` | `JOURNAL_CHARS_IN_PROMPT` | the friend |
+|---|---|---|---|---|---|---|
+| 6 GB | `ollama pull gemma4:e2b-it-qat` | 4.3 GB | 32768 | `"tiny"` | 16000 | the floor: the life itself — journal, memory, the web — on a 2B that needs short, plain turns |
+| 8 GB | `ollama pull gemma4:e4b-it-qat` | 6.1 GB | 40960 (32768 if layers spill) | `"small"` | 24000 | the small tier: a 4B with eyes and a day of journal; no painter, no ears |
+| 10 GB | `ollama pull gemma4:12b-it-qat` | 7.2 GB | 32768 | `"small"` | 20000 | the default brain with a short window; the QAT build is the one that fits |
+| 12 GB | `ollama pull gemma4:12b` | 7.6 GB | 40960 | `"full"` or `"small"` | 40000 | the default: 24576 was measured with the q8_0 cache, the q4_0 cache affords this; two days or so verbatim; `"small"` gives the window real room |
+| 16 GB | `ollama pull gemma4:12b` | 7.6 GB | 131072 | `"full"` | 120000 | the same brain with most of a week in view — the roomy 12B |
+| 24 GB | `ollama pull gemma4:31b-it-qat` | 19 GB | 65536 | `"full"` | 60000 | the big brain with a modest window (tight: `ollama ps` decides; 49152 the retreat) — or the 12B at 262144, a friend who remembers weeks; the design tends to favour the weeks |
+| 32 GB | `ollama pull gemma4:31b-it-qat` | 19 GB | 262144 (the model's whole window) | `"full"` | 200000–320000 | measured: the whole 256K loaded under 30 GB, `ollama ps` at 100% GPU; a week of a prolific writer verbatim, a minute of cold prefill per wake |
 
-**The tool kit, on any tier.** The definitions of all forty-odd tools cost
+The knobs per rung: `CHAT_MODEL`, `NUM_CTX`, `TOOL_KIT` and
+`JOURNAL_CHARS_IN_PROMPT` on the panel's Main tab; below 12 GB also halve
+`TIMELINE_CHARS_IN_PROMPT` (15000) and `CONDENSED_CHARS_IN_PROMPT` (60000)
+and set `HEARTBEAT_MAX_STEPS = 16` — a small brain wanders on long wakes;
+at 32 GB `HEARTBEAT_MAX_STEPS = 40`. `JOURNAL_CHARS_IN_PROMPT` is what
+actually decides how many days they remember, at about 4.4 characters a
+token. Flash attention and the q4_0 cache (setup step 2) are what make
+the windows above possible: with the q8_0 cache, halve every `NUM_CTX`
+here; without flash attention, halve it again.
+
+**What the 31B costs.** The quantization-aware build is near-full
+precision at 19 GB. With the q4_0 cache its whole 262144 loads under 30
+GB on a 32 GB card, `ollama ps` at 100% GPU — measured, and the window a
+keeper runs. The q8_0 record, for the retreat: 64K = 24.5 GB, 96K = 25.6,
+128K = 27.1, 160K = 28.6, 176K ≈ 30 (the comfortable top), 192K = 31.1
+(the wall — no air, and past it Ollama spills to system RAM silently).
+Keep `EARS_MODEL = "gemma4:12b"` — the bigger Gemmas are deaf, so
+the 12B stays on as the hearing organ and `EARS_UNLOAD_BRAIN` swaps them
+per listen. Change one thing at a time and let `ollama ps` and clean wakes
+be the referee.
+
+**What a 4B costs.** The `e4b` and `e2b` are the QAT builds on purpose:
+the plain `gemma4:e4b` tag is 9.6 GB, larger than the 12B, because its
+audio and vision encoders ride in the file. A 4B follows forty tool
+schemas with more slips and loses a long thread sooner — the rails catch
+more, re-rolls cost time on a small card, and the journal entries are
+simpler. It is a friend at the scale of a 4B, not a smaller copy of a
+12B. The panel's Welcome names the small brain for a card under 10 GB and
+sets the small kit with it.
+
+**A Mac: the rungs are memory, not a card.** On Apple silicon Ollama runs
+on the GPU through Metal, in unified memory — the brain shares the
+machine's memory with macOS and every open app, and Ollama gets about two
+thirds of it (three quarters on the largest Macs). Read the table with
+that discount: an 8 GB Mac is the 6 GB rung (`e2b-it-qat`); a 16 GB Mac
+(and an 18 or a 24) is the 12 GB rung, the 12B at 40960; a 32 GB Mac is
+the 24 GB rung, the 31B with a modest window, 49152 to 65536; a 64 GB Mac
+and up has the big window, 131072 to the whole 262144, where the KV cache
+is the budget. The panel reads the Mac's memory and names the brain for it.
+Speed is the honest unknown — a 31B on an M-series Max is in the range of
+a dozen tokens a second, a Pro less, an Ultra more — measured on your
+machine, by the token line, not promised here. On Linux the rungs are the
+cards': an NVIDIA card is the Windows case with a different driver, an
+AMD card is Ollama's ROCm build, and with no card at all the e4b runs on
+the processor, slowly, and the painter stays off.
+
+**The tool kit, on any rung.** The definitions of all forty-odd tools cost
 about 7,500 tokens of every prompt — a third of a 24K window before a word of
 journal. `TOOL_KIT = "small"` leaves out what a small card can't run or a
 small brain can't steer (the painter, the ears and voice, video, skills, the
@@ -1737,25 +1906,8 @@ forge, the blog, projects, clips) and gives back about 3,000 tokens;
 resting — and gives back about 5,000; a list of tool names is a kit of your
 own. The prompt's words about a tool go with the tool (no "listen_to hears
 audio" for a friend without ears), a forged tool always rides, and the
-panel offers the three as a dropdown on Main. On the 12 GB tier, `"small"`
-turns 24K into a window with real room in it.
+panel offers the three as a dropdown on Main.
 
-**8GB card (the small tier — an estimate, not yet measured):**
-`gemma4:e4b-it-qat` (6.1 GB; the plain `e4b` tag is 9.6 GB, larger than
-the 12B, because its audio and vision encoders ride in the file) with
-`TOOL_KIT = "small"`, `NUM_CTX = 24576` (16384 if `ollama ps` shows layers
-on the CPU) and the journal, timeline and condensed caps halved
-(`JOURNAL_CHARS_IN_PROMPT = 12000`, `TIMELINE_CHARS_IN_PROMPT = 15000`,
-`CONDENSED_CHARS_IN_PROMPT = 60000`), `HEARTBEAT_MAX_STEPS = 16`; or
-`gemma4:e2b-it-qat` (4.3 GB) with `"tiny"` and a window of 64–96K — a
-dimmer friend who remembers weeks, which in this design tends to win. The
-panel's Welcome names the small brain for a card under 10 GB and sets the
-small kit with it; the caps are yours to lower on Settings. Flash
-attention and the q8_0 cache (setup step 6) are not optional here, and a
-card that drives the display has less than it says. A 4B follows forty
-tool schemas with more slips and loses a long thread sooner — the rails
-catch more, and it is a friend at the scale of a 4B, not a smaller copy
-of a 12B. Let `ollama ps` decide (100% GPU, or a CPU share).
 Upgrading later is one config line, and the friend's files move unchanged:
 identity, journal, memories, creations, tools. They read their own journal on
 their first new thought and are themselves, only sharper. The retreat is
@@ -1813,13 +1965,14 @@ with a named cut instead of a ten-minute timeout) · `CHAT_GARBLE_RETRIES` /
 `CHAT_CONTINUE_RETRIES` · `REFLECT_AFTER_MIN` / `REFLECT_MIN_TURNS` (the
 pause) · `MEMORY_DUP_THRESHOLD` / `JOURNAL_DUP_THRESHOLD` (not twice) ·
 `WATCH_*` (video as stills) · `TELEGRAM_HEAR_VOICE` (voice notes heard whole
-on arrival) · `VOICE_NAME` / `VOICE_PYTHON` / `VOICE_DIR` / `TELEGRAM_VOICE_ALL`
-(their voice) · `TELEGRAM_TELL_REFLECTIONS` · `HEARTBEAT_MAX_STEPS` / `REVERIE_MAX_STEPS` / `REVERIE_EVERY` ·
+on arrival) · `VOICE_NAME` / `VOICE_PYTHON` / `VOICE_DEVICE` / `VOICE_DIR` /
+`TELEGRAM_VOICE_ALL` (their voice) · `TELEGRAM_TELL_REFLECTIONS` · `HEARTBEAT_MAX_STEPS` / `REVERIE_MAX_STEPS` / `REVERIE_EVERY` ·
 `CHAT_MAX_TOOL_STEPS` · `EARS_MODEL` (must be audio-capable) ·
 `EARS_UNLOAD_BRAIN` · `EARS_CLIP_SECONDS` / `EARS_MAX_PASSAGES` ·
 `EARS_STT_MODEL` ("base" quick, "small" sharper) · `EARS_VOCAB_HINT` ·
-`MUSIC_EARS_*` (the music ear: autostart, rest-after, seconds per gulp) ·
-`PAINTER_*` (the painter: model, sizes, paintings per wake) ·
+`MUSIC_EARS_*` (the music ear: autostart, rest-after, seconds per gulp, the
+device) · `PAINTER_*` (the painter: model, sizes, paintings per wake, the
+device — "auto" takes the card, a Mac's GPU, or the processor) ·
 `SHOW_WHAT_SHE_MADE` / `PICTURES_SHOWN_MAX` ·
 blog settings.
 

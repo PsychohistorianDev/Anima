@@ -19,6 +19,12 @@ the same Python that runs the ear (it already has the CUDA torch):
     py -m pip install torch --index-url https://download.pytorch.org/whl/cu128
     py -m pip install -U diffusers transformers accelerate safetensors pillow
 
+(On a Mac: `python3 -m pip install torch`, whose plain build has the Mac's GPU,
+"mps"; then the same diffusers line with python3. On Linux the cu128 line is
+the same with python3, and an AMD card takes torch's ROCm build.)
+PAINTER_DEVICE says where it paints: "auto" — the card, a Mac's GPU, or the
+processor, the first there (engine/device.py).
+
 The model (PAINTER_MODEL) is downloaded on the first painting, once
 (12–16 GB into the Hugging Face cache). The defaults are ungated and
 Apache 2.0 — no login, no license to accept:
@@ -41,6 +47,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import config
+import device  # before torch: on a Mac it lets a kernel MPS lacks fall back to the processor
 
 if sys.platform != "win32":  # allocator hint against fragmentation (Linux-only)
     os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
@@ -70,6 +77,7 @@ SIZES = {k: (_snap(w), _snap(h)) for k, (w, h) in
 
 _lock = threading.Lock()
 _pipe = None
+_device = "cuda"  # where _load put the model (device.pick, PAINTER_DEVICE)
 _last_used = 0.0
 _started = time.time()
 
@@ -96,7 +104,7 @@ def _defaults(model_id: str) -> tuple[int, float]:
 
 
 def _load():
-    global _pipe
+    global _pipe, _device
     if _pipe is not None:
         return
     import torch
@@ -125,16 +133,19 @@ def _load():
         except Exception:
             return Cls.from_pretrained(MODEL_ID, **kw)
 
-    pipe = _from(torch_dtype=torch.bfloat16)
+    _device = device.pick(getattr(config, "PAINTER_DEVICE", "auto"), torch)
+    pipe = _from(torch_dtype=device.dtype(_device, torch))
     # whole model on the GPU, on purpose: the brain is off the card while
     # they paint, so the painter has all of it; if it doesn't fit we want to KNOW.
-    pipe.to("cuda")
+    pipe.to(_device)
     try:
         pipe.set_progress_bar_config(disable=True)
     except Exception:
         pass
     _pipe = pipe
-    print(f"  painter ready ({time.time() - t0:.0f}s, {_vram():.1f} GB, {cls})", flush=True)
+    held = device.allocated_gb(_device, torch)
+    print(f"  painter ready ({time.time() - t0:.0f}s, on {_device}"
+          + (f", {held:.1f} GB" if held is not None else "") + f", {cls})", flush=True)
 
 
 def _unload():
@@ -145,16 +156,8 @@ def _unload():
     import torch
     _pipe = None
     gc.collect()
-    torch.cuda.empty_cache()
+    device.empty_cache(_device, torch)
     print("  painter resting — GPU freed", flush=True)
-
-
-def _vram() -> float:
-    try:
-        import torch
-        return torch.cuda.memory_allocated() / 1e9
-    except Exception:
-        return 0.0
 
 
 def paint(prompt: str, width: int, height: int, seed: int | None = None):
@@ -166,7 +169,7 @@ def paint(prompt: str, width: int, height: int, seed: int | None = None):
         _last_used = time.time()
         if seed is None:
             seed = int.from_bytes(os.urandom(4), "little")
-        gen = torch.Generator(device="cuda").manual_seed(int(seed))
+        gen = torch.Generator(device=device.generator_device(_device)).manual_seed(int(seed))
         steps, guidance = _defaults(MODEL_ID)
         with torch.inference_mode():
             out = _pipe(prompt=prompt, width=int(width), height=int(height),
@@ -279,8 +282,10 @@ def main() -> None:
         t0 = time.time()
         img, seed = paint(prompt, w, h)
         img.save(str(p))
-        print(f"\n{p.relative_to(config.ROOT)}  (seed {seed}, {time.time() - t0:.0f}s, "
-              f"{_vram():.1f} GB on the GPU) — look_at opens it for them; you can open it yourself.")
+        held = device.allocated_gb(_device)
+        print(f"\n{p.relative_to(config.ROOT)}  (seed {seed}, {time.time() - t0:.0f}s, on {_device}"
+              + (f", {held:.1f} GB" if held is not None else "")
+              + ") — look_at opens it for them; you can open it yourself.")
         _unload()
         return
     threading.Thread(target=_idle_watch, daemon=True).start()

@@ -16,6 +16,40 @@ world's, a book read in real sittings, and a road for a keeper's folder to
 the current engine.
 
 ### Added
+- **The ladder** (README): the memory engine pulled first, then the brain by
+  the card's memory — 6 GB `e2b-it-qat`, 8 GB `e4b-it-qat`, 10 GB
+  `12b-it-qat`, 12 and 16 GB `12b`, 24 and 32 GB `31b-it-qat` — with the
+  window, the tool kit and the journal size for each rung; the panel's
+  recommendation follows the same ladder (the 2B QAT for a 6 GB card and an
+  8 GB Mac, the 12B QAT for a 10 GB card). The 4-bit KV cache is the
+  ladder's footing now: setup step 2 gives Ollama `OLLAMA_KV_CACHE_TYPE
+  q4_0` (and flash attention) before the first pull, and every window is
+  recalculated for it — 6 GB 32768, 8 GB 40960, 10 GB 32768, 12 GB 40960
+  (the shipped `NUM_CTX`, with `JOURNAL_CHARS_IN_PROMPT` 40000), 16 GB
+  131072, 24 GB 65536, 32 GB the whole 262144 (measured); q8_0 is the
+  retreat, at half of each.
+- **A Mac, and Linux** (`MAC-PLAN.md`; `PAINTER_DEVICE`, `MUSIC_EARS_DEVICE`,
+  "auto"): one folder that runs on all three. Every `.bat` has a twin
+  `.command` (a Mac; Finder opens it in Terminal) and `.sh` (Linux) beside
+  it, `anima.command` and `anima.sh` at the root — the same engine script
+  with the same arguments, `python3` for `py`, the bridge's restart on exit
+  code 75 as a `while` loop, `update.sh` in one block that exits, as
+  `update.bat`'s parentheses; a check holds the three sets to each other.
+  The panel opens each door in Terminal on a Mac (`open -a Terminal`; a
+  door with arguments as a one-off `.command` in `memory/.pids/`) and on
+  Linux in the first of x-terminal-emulator, gnome-terminal, konsole and
+  xterm on PATH — with none, the door runs with no window and its tile says
+  so. Doors start in a session of their own and *Stop now* ends the
+  process group, children with it. A closed terminal window (SIGHUP) and
+  *Stop now* (SIGTERM) save an open visit first, as the window's X does on
+  Windows. The card on a Mac is its unified memory (`sysctl hw.memsize`),
+  with a ladder of its own — 8 GB the e4b, 16–24 GB the 12B, the 31B from
+  32 GB; on Linux `rocm-smi` after `nvidia-smi`. The painter and the music
+  ear pick their device (`engine/device.py`: the card, a Mac's GPU — "mps",
+  in float16 — or the processor), and `VOICE_DEVICE` takes "mps". The update
+  owns `*.command` and `*.sh` (root and `bat/`) and writes them executable.
+  The README's setup shows the three forms where they differ; a GitHub
+  Actions workflow runs the suite on Windows, macOS and Linux.
 - **The afterglow at the fold** (`FOLD_AFTERGLOW`, on; needs `AFTERGLOW`):
   the turns that leave the window get the same quiet turn a finished
   visit gets — journal and memories, in the friend's own words — in the
