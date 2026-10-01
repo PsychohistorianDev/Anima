@@ -19,5 +19,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: numpy, so the ears' measuring layer is exercised too (optional for a keeper; README setup step 5)
+        run: python -m pip install numpy
       - name: the smoke suite
         run: python tests/test_smoke.py

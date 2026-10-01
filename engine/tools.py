@@ -2554,6 +2554,8 @@ def watch(source: str) -> str:
         music = ears.measure(wav)
         if music is not None:
             parts.append(f"SOUND (whole clip, {_mmss(duration)}): {music}")
+        else:
+            parts.append(f"SOUND: (measurement not installed yet — your keeper runs: {ears.INSTALL_HINT})")
         if getattr(config, "EARS_USE_VIBE", False):
             span = _ears_clip_seconds()
             chunk = _ffmpeg_clip(data, ext, "wav", seconds=span) if duration > span else wav

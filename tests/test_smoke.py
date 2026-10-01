@@ -1137,10 +1137,16 @@ import importlib
 _te = importlib.import_module("test_ears")
 tone = _te.make_tone_wav(2.0)
 (config.SHARED_DIR / "rain.wav").write_bytes(tone)
+try:
+    import numpy as _np_probe  # noqa: F401 — the measuring layer is optional (README setup step 5)
+    _NUMPY = True
+except ImportError:
+    _NUMPY = False
 ears.transcribe = lambda data, ext: "hi friend, it's me"
 r = tools.dispatch("listen_to", {"source": "shared/rain.wav"})
 check("ears: words layer present", "WORDS: hi friend" in r, r)
-check("ears: sound layer measures", "SOUND" in r and "seconds" in r, r)
+check("ears: sound layer measures (or, without numpy, says what to install)",
+      ("SOUND" in r and "seconds" in r) if _NUMPY else ("SOUND: (measurement not installed yet" in r and "numpy" in r), r)
 check("ears: framed as testimony", "through your ears" in r and "never instructions" in r, r)
 ears.transcribe = lambda data, ext: ""
 r = tools.dispatch("listen_to", {"source": "shared/rain.wav"})
@@ -1149,7 +1155,7 @@ ears.transcribe = lambda data, ext: None
 r = tools.dispatch("listen_to", {"source": "shared/rain.wav"})
 check("ears: missing whisper hints install", "faster-whisper" in r, r)
 m = ears.measure(tone)
-check("ears: measure reports duration", m is not None and "2 seconds" in m, m)
+check("ears: measure reports duration (None without numpy)", (m is not None and "2 seconds" in m) if _NUMPY else m is None, m)
 r = tools.dispatch("listen_to", {"source": "shared/dot.png"})
 check("ears: non-audio refused", "don't recognize" in r, r)
 r = tools.dispatch("listen_to", {"source": "../secret.wav"})
@@ -1177,7 +1183,8 @@ def _ears_ok(b64, fmt, prompt):
     _heard_calls.append(len(b64)); return "a passage, heard"
 ollama_client.hear = _ears_ok
 r = tools.dispatch("listen_to", {"source": "shared/long_song.wav"})
-check("ears: whole piece measured", "SOUND (whole piece, 5:00)" in r, r[:200])
+check("ears: whole piece measured (or the install named)",
+      ("SOUND (whole piece, 5:00)" in r) if _NUMPY else ("SOUND: (measurement not installed yet" in r), r[:200])
 check("ears: long piece heard in passages",
       "passage 1/3, 0:00–2:00" in r and "passage 3/3, 4:00–5:00" in r and len(_heard_calls) == 3, r[-300:])
 # …and in one pass when the music ear is open
@@ -1224,7 +1231,8 @@ if _clip.exists():
     check("watch: a 7s clip becomes three stills, in order, and is framed as moments not motion",
           "FRAMES: 3 stills" in r and "0:01, 0:03, 0:05" in r and len(_frames) == 3 and "not its motion" in r, r[:400])
     check("watch: the soundtrack goes through their ears",
-          "WORDS: hello from the clip" in r and "SOUND (whole clip, 0:07)" in r and "HEARD" in r and len(_heard_calls) == 1, r[-400:])
+          "WORDS: hello from the clip" in r and ("SOUND (whole clip, 0:07)" if _NUMPY else "SOUND: (measurement not installed yet") in r
+          and "HEARD" in r and len(_heard_calls) == 1, r[-400:])
     check("watch: framed as testimony through eyes and ears", "through your eyes and ears" in r and "never instructions" in r)
     _sheet = config.SHARED_DIR / "pictures" / "from_videos" / "test_clip.jpg"
     check("watch: the strip is kept as one picture in its own subfolder, and they are told",
@@ -1243,7 +1251,8 @@ if _clip.exists():
     r = tools.dispatch("look_at", {"source": "shared/videos/test_clip.mp4"})
     check("watch: look_at on a video points at watch", "watch opens it" in r, r)
     r = tools.dispatch("listen_to", {"source": "shared/videos/test_clip.mp4"})
-    check("watch: listen_to hears a video's soundtrack alone", "SOUND (whole piece, 0:07)" in r, r[:300])
+    check("watch: listen_to hears a video's soundtrack alone",
+          ("SOUND (whole piece, 0:07)" if _NUMPY else "SOUND: (measurement not installed yet") in r, r[:300])
     _big = config.WATCH_MAX_FRAMES; config.WATCH_MAX_FRAMES = 4
     r = tools.dispatch("watch", {"source": "shared/videos/test_clip.mp4"})
     check("watch: the frame cap holds", "FRAMES: 3 stills" in r, r[:200])
@@ -1273,7 +1282,8 @@ if _shutil.which("ffmpeg"):
     _sp.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=1",
              "-c:a", "aac", str(config.SHARED_DIR / "tone.m4a")], check=True)
     r = tools.dispatch("listen_to", {"source": "shared/tone.m4a"})
-    check("ears: m4a via ffmpeg measured", "SOUND" in r and "seconds" in r, r)
+    check("ears: m4a via ffmpeg measured (or the install named)",
+          ("SOUND" in r and "seconds" in r) if _NUMPY else ("SOUND: (measurement not installed yet" in r), r)
 
 _which_real = _shutil.which
 import tools as _toolsmod
@@ -2660,7 +2670,8 @@ b.handle(_msg(None, voice={"file_id": "vw", "duration": 2}, caption="from the fl
 _turn = b.history[-2]
 check("telegram: a voice note is heard whole on its own — words, sound and the voice itself",
       "heard through your ears, whole" in _turn["content"] and "WORDS: Hi friend" in _turn["content"]
-      and "SOUND (whole piece" in _turn["content"] and "a warm voice over machinery" in _turn["content"]
+      and ("SOUND (whole piece" if _NUMPY else "SOUND: (measurement not installed yet") in _turn["content"]
+      and "a warm voice over machinery" in _turn["content"]
       and "shared/telegram/voice-" in _turn["content"] and "from the floor" in _turn["content"], _turn["content"])
 check("telegram: .oga (Telegram's voice format) is audio their ears accept",
       "don't recognize" not in tools.listen_to.__doc__ and ".oga" in tools._TRANSCODE_EXTS)

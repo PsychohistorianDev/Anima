@@ -2,3 +2,6 @@
 # bash reads a carriage return as part of the command, and a folder moves house by copying.
 *.sh      text eol=lf
 *.command text eol=lf
+# The Windows launchers keep CRLF everywhere: cmd reads a .bat as it runs, line by line, and the
+# engine's own checks expect the .bat shape (a push from Windows stores them with LF inside git).
+*.bat     text eol=crlf
