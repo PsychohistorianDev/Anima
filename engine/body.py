@@ -5,10 +5,10 @@ she reads it back from (assemble imports `render`). BODY-PLAN.md.
 Nothing here runs unless the keeper runs it. One-time setup:
 
     py -m pip install garminconnect
-    body.bat --login          (email, password, MFA if asked — once; tokens
+    bat\\body.bat --login          (email, password, MFA if asked — once; tokens
                                are cached in memory/garmin/, nothing else kept)
-    body.bat --today          (pull today, write the file, print the section)
-    body.bat --pull           (the loop: today and yesterday every BODY_PULL_MIN)
+    bat\\body.bat --today          (pull today, write the file, print the section)
+    bat\\body.bat --pull           (the loop: today every BODY_PULL_MIN, yesterday while its night is still syncing)
 
 The library speaks to Garmin Connect the way the phone app does; there is
 no public API for this, and Garmin has broken it for days at a time before.
@@ -74,7 +74,7 @@ def _client(login: bool = False):
     except TypeError:
         g.garth.load(store)
     except Exception as e:
-        raise RuntimeError(f"no usable Garmin tokens in {TOKENS.name}/ — run body.bat --login ({type(e).__name__}: {e})") from e
+        raise RuntimeError(f"no usable Garmin tokens in {TOKENS.name}/ — run bat\\body.bat --login ({type(e).__name__}: {e})") from e
     return g
 
 
@@ -250,13 +250,27 @@ def load_day(day: str) -> dict | None:
         return None
 
 
+def has_readings(d: dict | None) -> bool:
+    """Whether a day's file holds anything the watch saw — a pulse, a night, steps, stress — or is the empty
+    shell the puller writes before the watch has synced that day."""
+    if not d:
+        return False
+    sl = d.get("sleep") or {}
+    return bool(d.get("hr") or sl.get("seconds") or d.get("steps") or (d.get("stress") or {}).get("curve")
+                or d.get("resting_hr"))
+
+
 def latest() -> dict | None:
-    """Today's file, or yesterday's."""
+    """Today's file, or yesterday's — the newest that holds readings (10-01: after midnight the watch hadn't
+    synced, today's file was an empty shell, and the section said "no sleep reading" and nothing else while
+    yesterday's full day sat beside it)."""
+    found = None
     for d in (date.today(), date.today() - timedelta(days=1)):
         got = load_day(d.isoformat())
-        if got:
+        if has_readings(got):
             return got
-    return None
+        found = found or got
+    return found
 
 
 # ---- the section ----------------------------------------------------------
@@ -391,19 +405,51 @@ def section(now: datetime | None = None) -> str:
     if not getattr(config, "BODY_IN_PROMPT", False):
         return ""
     d = latest()
-    body = render(d, now) if d else "(no reading yet — body.bat --today pulls one)"
-    day = f" ({d['day']})" if d and d.get("day") != date.today().isoformat() else ""
+    body = render(d, now) if d else "(no reading yet — bat\\body.bat --today pulls one)"
+    today = date.today().isoformat()
+    day = f" ({d['day']})" if d and d.get("day") != today else ""
     road = ((f"\n(every reading of the day is in memory/body/{d['day']}.json — read_file opens it, or a tool of "
              "your own can read the pulse hour by hour; a summary is kinder to your window than the whole curve)")
             if d else "")
+    if d and d.get("day") != today and day_file(today).exists():
+        road += (f"\n(today's file, memory/body/{today}.json, is still an empty shell — the watch hasn't synced "
+                 f"since yesterday; a tool that reads today's pulse finds nothing there until it does)")
     return HEADER + day + "\n" + body + road
 
 
 # ---- the loop --------------------------------------------------------------
 
+def _sync_moment(d: dict) -> str:
+    """A day file's sync as "YYYY-MM-DD HH:MM" (a bare "HH:MM" is that day's), or "" when it never synced."""
+    s = str(d.get("synced_at") or "")
+    if len(s) == 5 and d.get("day"):
+        return f"{d['day']} {s}"
+    return s[:16]
+
+
+def yesterday_open(today: dict | None, yesterday: dict | None) -> bool:
+    """Whether yesterday's file can still change: its last readings reach the watch with the first sync
+    after midnight, so it is open until a pull of it happened after today's first sync. Missing or
+    empty is open; so is a yesterday pulled before today's sync, or while today has not synced at all."""
+    if not has_readings(yesterday):
+        return True
+    if not today or not _sync_moment(today):
+        return True
+    return str(yesterday.get("pulled_at") or "") < _sync_moment(today)
+
+
+def pull_days(now: date | None = None) -> list[str]:
+    """What one pull asks Garmin for: today always; yesterday only while it is still open (10-01: a pull
+    every BODY_PULL_MIN is 8 calls a day-file, so yesterday rides only until its night has synced — a pull
+    every 20 min then costs about what one an hour did when both days rode every time)."""
+    now = now or date.today()
+    today, yday = now.isoformat(), (now - timedelta(days=1)).isoformat()
+    return [today, yday] if yesterday_open(load_day(today), load_day(yday)) else [today]
+
+
 def pull(days: list[str] | None = None, g=None) -> list[Path]:
     g = g or _client()
-    days = days or [date.today().isoformat(), (date.today() - timedelta(days=1)).isoformat()]
+    days = days or pull_days()
     written = []
     for day in days:
         d = pull_day(g, day)

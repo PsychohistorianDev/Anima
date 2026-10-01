@@ -93,7 +93,7 @@ def _material_line(day: str) -> str:
 def consolidate(day: str, force: bool = False, say=print) -> str:
     """Sleep on one day. `say` receives the night as it happens — what they are
     reading, their deliberation over it, what they kept and what it cost —
-    so the window (sleep.bat's, or the heartbeat's) shows the sleep rather
+    so the window (bat\\sleep.bat's, or the heartbeat's) shows the sleep rather
     than a count at the end. The return is the short report."""
     say = say or (lambda *_: None)
     if already_done(day) and not force:

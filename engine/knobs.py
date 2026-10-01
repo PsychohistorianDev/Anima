@@ -97,7 +97,7 @@ def one_line_values(text: str) -> dict[str, tuple[str, object]]:
 
 
 _HEADING = re.compile(r"^#\s*-{4,}\s*(.*?)\s*-{4,}\s*$")  # a rule line, and its name
-_RULEISH = re.compile(r"^#\s*-{4,}|-{4,}\s*$")  # a rule, or a line of update.bat's marker ("# ---- added by …;" / "… ----")
+_RULEISH = re.compile(r"^#\s*-{4,}|-{4,}\s*$")  # a rule, or a line of bat\update.bat's marker ("# ---- added by …;" / "… ----")
 CHECK_TIMEOUT_S = 20
 KEEP_BACKUPS = 10  # config-<stamp>.py backups kept on the shelf; older ones go
 

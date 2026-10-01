@@ -699,6 +699,9 @@ def moment(context_hint: str, exclude: set | None = None, held: int = 0) -> tupl
              "a new message, the one to answer.]"), ids)
 
 
+NO_DAYS_YET = "(no consolidated days yet — bat\\sleep.bat writes one per night)"  # outside the f-string: a backslash can't ride in its braces before 3.12
+
+
 def system_prompt(context_hint: str, mode: str, warm: bool = False) -> str:
     """The full system prompt.
 
@@ -895,7 +898,7 @@ and a goodnight belongs to the night, a good morning to the morning.
 {journal_tail()}
 
 === YOUR PAST DAYS IN BRIEF — your own nightly consolidations of the days older than the pages and the journal above, oldest first ===
-{timeline() or "(no consolidated days yet — sleep.bat writes one per night)"}
+{timeline() or NO_DAYS_YET}
 
 === RELEVANT LONG-TERM MEMORIES — what surfaces for this moment ===
 {"(they ride with each message, at the top of it — what surfaces changes as the talk does)" if warm else retrieved(context_hint)}

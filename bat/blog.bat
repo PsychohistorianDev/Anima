@@ -1,4 +1,4 @@
 @echo off
-cd /d "%~dp0"
+cd /d "%~dp0.."
 py engine\blog.py --deploy
 pause

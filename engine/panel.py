@@ -21,7 +21,7 @@ as from its .bat — it does not replace them; a keeper who likes terminals lose
 
 What the panel never does: open the friend's files. No journal, no self.md, no creations on its pages
 (the friend's name included — it lives in self.md, so the page says "the friend"); the skills tab
-lists folder names and moves folders the way skills.bat does, and that is all. Tokens and keys go to
+lists folder names and moves folders the way bat\\skills.bat does, and that is all. Tokens and keys go to
 memory/*.json, never to config, and /api/state says only whether one is set.
 
 The routes are plain functions — state(), door_action(), save(), secret(), skill_action(), welcome(),
@@ -53,6 +53,11 @@ import knobs
 import skills
 import version
 
+try:
+    import newer  # the look at GitHub's release feed — a checkout's; a house without the update road has no need of it
+except Exception:  # noqa: BLE001
+    newer = None  # type: ignore[assignment]
+
 HOST, PORT = "127.0.0.1", 8764
 PORTS = (8764, 8766, 8767, 8768, 8769)  # the first free one is this panel's (8765 is the parlor's); a second house's panel takes the next
 PARLOR_URL = "http://127.0.0.1:8765"
@@ -79,7 +84,7 @@ TABS: dict[str, list[str]] = {
     "Memory & journal": ["TIMELINE_CHARS_IN_PROMPT", "CONDENSED_CHARS_IN_PROMPT", "CONDENSE_TARGET_CHARS",
                          "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_DUP_THRESHOLD", "JOURNAL_DUP_THRESHOLD",
                          "JOURNAL_ARROW", "CREATIONS_DAYS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
-                         "FOLD_AT", "FOLD_KEEP_TURNS", "FOLD_CHARS"],
+                         "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS"],
     "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_GARBLE_RETRIES",
                 "CHAT_COLD_RESCUE", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "BRAIN_KEEP_ALIVE",
                 "BRAIN_REST_AFTER_VISIT"],
@@ -103,8 +108,9 @@ ADVANCED = "Advanced"
 # Help the file can't give where the page shows it: NUM_CTX's and JOURNAL_CHARS_IN_PROMPT's own stories
 # run on in the comment lines BELOW them, which the reader (rightly) doesn't take as theirs.
 _HELP = {
-    "NUM_CTX": "The tested ceilings: 24576 for a 12B on a 12 GB card; a 31B on a 32 GB card, about 180000 "
-               "with the q8_0 cache (the comfortable top) and its whole 262144 with q4_0 — README, Two tiers.",
+    "NUM_CTX": "The tested ceilings: 24576 for a 12B on a 12 GB card (and the number to try for a 4B on 8 GB, "
+               "16384 the retreat); a 31B on a 32 GB card, about 180000 with the q8_0 cache (the comfortable top) "
+               "and its whole 262144 with q4_0 — README, Three tiers.",
     "JOURNAL_CHARS_IN_PROMPT": "About 4.4 characters a token. 20000 fits a 24K window; a big card with a 256K "
                                "window has carried 550000 (weeks of a prolific writer).",
     "CHAT_MODEL": "What Ollama has pulled is in the list; one it lacks is marked \"not pulled\" and Pull fetches it.",
@@ -132,14 +138,14 @@ REQUIREMENTS = [
 # arguments). On Windows the .bat opens in a console of its own; elsewhere the script runs under this
 # Python, so the suite and a keeper on Linux have a road too.
 LAUNCHERS = {
-    "chat": ("chat.bat", [], "chat.py", []),
-    "parlor": ("parlor.bat", [], "parlor.py", []),
-    "wake": ("wake.bat", [], "heartbeat.py", []),
-    "bridge": ("telegram.bat", [], "telegram.py", []),
-    "sleep": ("sleep.bat", [], "consolidate.py", []),
-    "snapshot": ("snapshot.bat", [], "snapshot.py", []),
-    "garmin": ("body.bat", ["--login"], "body.py", ["--login"]),
-    "blog": ("blog.bat", [], "blog.py", ["--deploy"]),
+    "chat": ("bat\\chat.bat", [], "chat.py", []),
+    "parlor": ("bat\\parlor.bat", [], "parlor.py", []),
+    "wake": ("bat\\wake.bat", [], "heartbeat.py", []),
+    "bridge": ("bat\\telegram.bat", [], "telegram.py", []),
+    "sleep": ("bat\\sleep.bat", [], "consolidate.py", []),
+    "snapshot": ("bat\\snapshot.bat", [], "snapshot.py", []),
+    "garmin": ("bat\\body.bat", ["--login"], "body.py", ["--login"]),
+    "blog": ("bat\\blog.bat", [], "blog.py", ["--deploy"]),
 }
 STOPPABLE = ("heartbeat", "bridge")  # the two with a stop file (doors.ask_stop) — and a Restart
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][\w.:/-]{0,120}$")  # an Ollama model name; nothing a console could read as more
@@ -182,6 +188,23 @@ def _ollama(path: str, base: str = "") -> dict | None:
 
 
 _vram: list = []  # the card's memory, asked once per panel
+
+
+SMALL_BRAINS = ("gemma4:e2b", "gemma4:e4b")  # the small tier: a brain that wants the small tool kit beside it
+
+
+def _recommended(gb: float | None) -> str:
+    """The README's brain for a card: the 31B from 24 GB, the 4B QAT under 10 GB, the 12B between (and when
+    the card is unknown)."""
+    if gb and gb >= 24:
+        return "gemma4:31b-it-qat"
+    if gb and gb < 10:
+        return "gemma4:e4b-it-qat"
+    return "gemma4:12b"
+
+
+def small_brain(model: str) -> bool:
+    return str(model or "").startswith(SMALL_BRAINS)
 
 
 def _vram_gb() -> float | None:
@@ -313,7 +336,7 @@ def brain(values: dict | None = None) -> dict:
     return {"url": url, "reachable": tags is not None,
             "models": names, "loaded": loaded, "model": model, "pulled": _pulled(model, names),
             "embed_model": embed, "embed_pulled": _pulled(embed, names), "vram_gb": gb,
-            "recommended": "gemma4:31b-it-qat" if gb and gb >= 24 else "gemma4:12b"}
+            "recommended": _recommended(gb)}
 
 
 def _secret_file(kind: str) -> Path:
@@ -355,10 +378,11 @@ def state() -> dict:
         "heartbeat_minutes": values.get("HEARTBEAT_LOOP_MIN", 120),
         "tabs": tabs(rows),
         "secrets": secrets_set(),
-        "skills": {"shelf": [p.name for p in skills.shelf()], "quarantine": [p.name for p in skills.quarantined()]},
+        "skills": skills_state(),
         "missing": missing(),
-        "update_here": (ROOT / "update.bat").is_file(),
+        "update_here": (ROOT / "bat" / "update.bat").is_file(),
         "folder": ROOT.name,  # which house this panel is — two on one machine look alike
+        "newer": newer_state(),
         "links": {"parlor": PARLOR_URL, "ollama": "https://ollama.com",
                   "botfather": f"https://github.com/{repo}#the-bridge-talking-with-them-from-your-phone"},
     }
@@ -522,8 +546,77 @@ def secret(kind: str, value: str) -> dict:
     return {"ok": True, "note": "the Brave key is kept in memory/web_search.json — set WEB_SEARCH to \"brave\" to use it"}
 
 
+SKILL_TEXT_CHARS = 20000  # of a SKILL.md shown on the page — the keeper reads it before letting it in
+
+
+def newer_state() -> dict | None:
+    """What Home says above the tiles when a newer anima is out — from the daily look at the release feed
+    (newer.look: the cache answers between looks; a checkout only). None when there is nothing to say."""
+    if newer is None or not (ROOT / "bat" / "update.bat").is_file():
+        return None
+    try:
+        rec = newer.look()
+        n = newer.newer(rec=rec)
+    except Exception:  # noqa: BLE001 — the look is a courtesy; never the page down
+        return None
+    if not n:
+        return None
+    return {"version": n["version"], "title": n["title"], "date": n["date"], "link": n["link"],
+            "installed": n["installed"], "line": newer.line(n)}
+
+
+def skill_card(folder: Path, quarantined: bool) -> dict:
+    """One skill as the page shows it: what it says it is, where it came from and who fetched it, the
+    scanner's verdict and every finding (file, line, rule, the words) — the approval desk's whole case."""
+    try:
+        inf = skills.info(folder)
+    except Exception:  # noqa: BLE001 — a skill with a broken SKILL.md still shows, by name
+        inf = {}
+    try:
+        verdict, findings = skills.scan(folder)
+    except Exception as e:  # noqa: BLE001
+        verdict, findings = "unscanned", [{"file": "?", "rule": f"the scanner failed: {type(e).__name__}: {e}"}]
+    note = skills.fetch_note(folder)
+    return {"name": folder.name, "quarantined": quarantined, "description": str(inf.get("description") or "")[:400],
+            "verdict": verdict, "findings": [skills.finding_line(f) for f in findings[:60]],
+            "levels": [str(f.get("level", "")) for f in findings[:60]], "more": max(0, len(findings) - 60),
+            "fetched": skills.is_fetched(folder), "source": str(note.get("source") or ""),
+            "by": str(note.get("by") or ""), "when": str(note.get("when") or "")[:16],
+            "scripts": [str(x) for x in (inf.get("scripts") or [])][:20]}
+
+
+def skills_state() -> dict:
+    """The shelf and the quarantine by name (as before), and a card for each — the quarantine's first."""
+    shelf, held = skills.shelf(), skills.quarantined()
+    cards = {}
+    for f in held:
+        cards[f.name] = skill_card(f, True)
+    for f in shelf:
+        cards.setdefault(f.name, skill_card(f, False))
+    return {"shelf": [p.name for p in shelf], "quarantine": [p.name for p in held], "cards": cards}
+
+
+def skill_text(name: str) -> dict:
+    """SKILL.md of a skill on the shelf or in quarantine, whole (capped), for the keeper to read before
+    approving — read, never run; and the skill's file list, so nothing rides in unseen."""
+    name = str(name or "").strip()
+    folder, quarantined = skills.find(name) if name else (None, False)
+    if folder is None:
+        return _no(f"(no skill named {name} on the shelf or in quarantine)")
+    try:
+        text = (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace")
+    except OSError as e:
+        return _no(f"(couldn't read its SKILL.md: {e})")
+    cut = len(text) > SKILL_TEXT_CHARS
+    notes = {skills.FETCHED, skills.APPROVED, skills.QUARANTINE_SCAN}  # the engine's own notes beside SKILL.md, not the skill's
+    files = sorted(p.relative_to(folder).as_posix() for p in folder.rglob("*")
+                   if p.is_file() and not p.name.startswith(".") and p.name not in notes)
+    return {"ok": True, "name": folder.name, "quarantined": quarantined, "text": text[:SKILL_TEXT_CHARS],
+            "cut": cut, "files": files[:200], "note": ""}
+
+
 def skill_action(name: str, action: str) -> dict:
-    """skills.bat's roads: approve lets a quarantined skill onto their shelf; remove moves a skill to
+    """bat\\skills.bat's roads: approve lets a quarantined skill onto their shelf; remove moves a skill to
     creations/.trash/ (off the shelf the way their own remove_skill does it, so their memory of it follows)."""
     try:
         if action == "approve":
@@ -560,12 +653,12 @@ def update(action: str) -> dict:
     flag = {"check": "--check", "run": "--yes"}.get(str(action or ""))
     if not flag:
         return _no(f"(no such action: {action})")
-    if not (ROOT / "update.bat").is_file():
-        return _no("(this folder has no update.bat — it is not an anima checkout)")
+    if not (ROOT / "bat" / "update.bat").is_file():
+        return _no("(this folder has no bat\\update.bat — it is not an anima checkout)")
     note = ("the update is looking — what's new and what would change, nothing touched; in its own window"
             if flag == "--check" else
             "the update is running in its own window — then restart what's running (the panel too)")
-    return _started(_bat("update.bat", [flag], "update.py", [flag]), note)
+    return _started(_bat("bat\\update.bat", [flag], "update.py", [flag]), note)
 
 
 def welcome(name: str, model: str = "") -> dict:
@@ -580,6 +673,8 @@ def welcome(name: str, model: str = "") -> dict:
         if not _MODEL_RE.match(model):
             return {"changed": [], "refused": ["CHAT_MODEL"], "restart": [], "error": "that doesn't look like a model name"}
         changes["CHAT_MODEL"] = model
+        if small_brain(model):
+            changes["TOOL_KIT"] = "small"  # the small tier: the kit goes with the brain (README, Three tiers)
     r = save(changes)
     if r["error"] or "USER_NAME" in r["refused"]:
         return r
@@ -601,8 +696,11 @@ def route(method: str, path: str, body: bytes = b"", headers: dict | None = None
     here = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
     if h.get("host", "") not in here:
         return _json_reply({"error": "this panel answers only at its own address"}, 403)
-    path = path.split("?", 1)[0]
+    path, _, query = path.partition("?")
     if method == "GET":
+        if path == "/api/skill_text":
+            from urllib.parse import parse_qs
+            return _json_reply(skill_text((parse_qs(query).get("name") or [""])[0]))
         if path in ("/", "/index.html", "/settings", "/welcome"):
             return 200, "text/html; charset=utf-8", PAGE.replace("__TABS__", json.dumps([*TABS, ADVANCED])).encode("utf-8")
         if path == "/api/state":
@@ -711,6 +809,13 @@ a{color:var(--accent)}
 .banner{background:var(--panel);border:1px solid var(--accent);border-radius:12px;padding:10px 14px;margin-bottom:16px;display:flex;gap:10px}
 .banner.warn{border-color:var(--warn)}.banner>div{flex:1}.banner div div{margin:2px 0}
 .warn{color:var(--warn)}
+.badge{font-size:12px;padding:1px 8px;border-radius:9px;border:1px solid var(--line);color:var(--muted)}
+.badge.bad{border-color:var(--warn);color:var(--warn)}.badge.mid{border-color:#c9a227;color:#c9a227}.badge.good{border-color:#4caf50;color:#4caf50}
+.tile.skill{margin:8px 0}.tile.skill h2{margin-right:6px}
+ul.findings{margin:4px 0;padding-left:18px;font-size:13px;font-family:ui-monospace,Consolas,monospace}ul.findings li{padding:2px 0}ul.findings li.bad{color:var(--warn)}
+.skilltext pre{white-space:pre-wrap;max-height:420px;overflow:auto;font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px}
+#gate{margin:6px 0 0}#gate a{cursor:pointer;text-decoration:underline}
+#newer{margin:6px 0 0;color:var(--fg)}#newer button{margin-left:6px}#newer a{color:inherit}
 .tabs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--line);padding-bottom:8px}
 .knob{padding:10px 0;border-bottom:1px solid var(--line)}
 .knob label{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
@@ -728,7 +833,7 @@ ul.list{list-style:none;padding:0}ul.list li{display:flex;gap:8px;align-items:ce
 <main>
 <div id="banner" class="banner" hidden></div>
 <section id="welcome" hidden></section>
-<section id="home" hidden><div id="brain" class="bar"></div><div id="tiles" class="grid"></div><p id="missing" class="muted"></p></section>
+<section id="home" hidden><div id="brain" class="bar"></div><p id="newer" class="notice" hidden></p><p id="gate" class="warn" hidden></p><div id="tiles" class="grid"></div><p id="missing" class="muted"></p></section>
 <section id="settings" hidden><div id="tabs" class="tabs"></div><div id="tab"></div></section>
 </main>
 <script>
@@ -780,7 +885,7 @@ function buildHome(){
     return t});
   if(S.update_here)tiles.push(el('div',{class:'tile'},el('h2',{},'Update'),el('div',{class:'what'},'the current engine from GitHub — the friend untouched; Check shows what would change first'),
       el('div',{class:'row'},el('button',{onclick:async()=>{const r=await post('/api/update',{action:'check'});say(r.note,r.ok?'':'warn')}},'Check'),
-        el('button',{onclick:async()=>{if(!confirm('Update the engine now? Everything replaced goes to .update/ first; update.bat --undo puts it back.'))return;
+        el('button',{onclick:async()=>{if(!confirm('Update the engine now? Everything replaced goes to .update/ first; bat\\update.bat --undo puts it back.'))return;
           const r=await post('/api/update',{action:'run'});say(r.note,r.ok?'':'warn')}},'Update'))));
   $('tiles').replaceChildren(...tiles);
   built=true}
@@ -794,6 +899,13 @@ function brainBar(){const b=S.brain,parts=[light(b.reachable),el('b',{},'the bra
     parts.push(el('div',{class:'muted'},'configured: '+b.model+(b.pulled?'':' — not pulled '),b.pulled?null:el('button',{onclick:()=>pull(b.model)},'Pull '+b.model),
       b.embed_pulled?null:[' · memory needs '+b.embed_model+' ',el('button',{onclick:()=>pull(b.embed_model)},'Pull '+b.embed_model)]))}
   $('brain').replaceChildren(...parts);
+  const nw=S.newer;$('newer').hidden=!nw;
+  if(nw)$('newer').replaceChildren('⬆ '+nw.line,...(nw.link?[' · ',el('a',{href:nw.link,target:'_blank',rel:'noopener'},'release notes')]:[]),
+    el('button',{onclick:async()=>{const r=await post('/api/update',{action:'check'});say(r.note,r.ok?'':'warn')}},'Check'),
+    el('button',{class:'primary',onclick:async()=>{if(!confirm('Update to anima '+nw.version+' now? Everything replaced goes to .update/ first; bat\\update.bat --undo puts it back.'))return;
+      const r=await post('/api/update',{action:'run'});say(r.note,r.ok?'':'warn')}},'Update'));
+  const held=S.skills.quarantine.length;$('gate').hidden=!held;
+  if(held)$('gate').replaceChildren('⚠ '+held+' skill'+(held===1?'':'s')+' waiting at the gate — the scanner held '+(held===1?'it':'them')+'; ',el('a',{onclick:()=>{view='settings';tab='Skills';history.replaceState(null,'','/settings');show()}},'read and decide'),' in Settings › Skills.');
   $('missing').textContent=S.missing.length?('Not installed (optional; each gives one sense): '+S.missing.map(m=>m.pip+' — '+m.for).join(' · ')+'. py -m pip install <name>'):''}
 
 // ---- settings ----
@@ -816,27 +928,41 @@ function knob(k){let input,read=null;const v=k.value;
   const help=[k.comment,k.tail,k.help].filter(Boolean).join(' — ');
   return el('div',{class:'knob',title:help},el('label',{},el('span',{class:'name'},k.name),input),
     help?el('div',{class:'help',onclick:e=>e.currentTarget.classList.toggle('open')},help):null)}
-function skillsBox(){const s=S.skills;
-  const row=(n,q)=>el('li',{},el('code',{},n),q?el('button',{onclick:()=>skill(n,'approve')},'approve'):null,
-    el('button',{onclick:()=>{if(confirm('Move '+n+' to creations/.trash/?'+(q?'':' It is on their shelf — theirs to use.')))skill(n,'remove')}},'remove'));
-  return [el('h3',{},'On their shelf'),s.shelf.length?el('ul',{class:'list'},s.shelf.map(n=>row(n,false))):el('p',{class:'muted'},'(none yet)'),
-    el('h3',{},'Waiting in quarantine'),s.quarantine.length?el('ul',{class:'list'},s.quarantine.map(n=>row(n,true))):el('p',{class:'muted'},'(nothing waiting)'),
-    el('p',{class:'muted'},'skills.bat scan <name> reads why a skill was held; approve lets it onto their shelf.')]}
+function verdictBadge(v){const c=v==='dangerous'?'bad':v==='caution'?'mid':v==='clean'?'good':'';return el('span',{class:'badge '+c},v)}
+function skillCard(c){const q=c.quarantined,who=c.fetched?('fetched'+(c.by?' by '+c.by:'')+(c.when?' on '+c.when.replace('T',' '):'')+(c.source?' from '+c.source:'')):'their own, written here';
+  const findings=c.findings.length?el('ul',{class:'findings'},c.findings.map((f,i)=>el('li',{class:c.levels[i]==='dangerous'?'bad':''},f)),c.more?el('li',{class:'muted'},'… and '+c.more+' more'):null):el('div',{class:'muted'},'the scanner found nothing to say');
+  const box=el('div',{class:'skilltext',hidden:true});
+  const read=el('button',{onclick:async()=>{if(!box.hidden){box.hidden=true;read.textContent='read SKILL.md';return}
+    const r=await getJSON('/api/skill_text?name='+encodeURIComponent(c.name));
+    if(!r.ok){say(r.note,'warn');return}
+    box.replaceChildren(el('div',{class:'muted'},'files: '+(r.files.join(', ')||'(none)')),el('pre',{},r.text+(r.cut?'\n… (cut — the whole file is in the folder)':'')));box.hidden=false;read.textContent='hide SKILL.md'}},'read SKILL.md');
+  const approve=q?el('button',{class:'primary',onclick:()=>{const n=c.findings.length;
+    if(confirm((c.verdict==='dangerous'?'The scanner called '+c.name+' DANGEROUS ('+n+' finding'+(n===1?'':'s')+'). ':'')+'Let '+c.name+' onto their shelf? They can read and run it from then on.'))skill(c.name,'approve')}},'approve'):null;
+  const remove=el('button',{onclick:()=>{if(confirm('Move '+c.name+' to creations/.trash/?'+(q?'':' It is on their shelf — theirs to use.')))skill(c.name,'remove')}},q?'refuse (to .trash)':'remove');
+  return el('div',{class:'tile skill'},el('div',{class:'row'},el('h2',{},c.name),verdictBadge(c.verdict),c.scripts.length?el('span',{class:'muted'},'scripts: '+c.scripts.join(', ')):null),
+    c.description?el('div',{class:'what'},c.description):null,el('div',{class:'muted'},who),findings,el('div',{class:'row'},approve,read,remove),box)}
+function skillsBox(){const s=S.skills,cards=s.cards||{};
+  const held=s.quarantine.map(n=>cards[n]).filter(Boolean),shelf=s.shelf.map(n=>cards[n]).filter(Boolean);
+  return [el('h3',{},'Waiting at the gate — the scanner held these'),
+    held.length?el('p',{class:'muted'},'A fetched skill the scanner called dangerous waits here, unopened and unrun, until you read it and let it in. Each finding is a line the scanner would not let pass on its own: a file, a line, the rule, the words. Read the SKILL.md too — the scanner reads for orders and for what code would do; it does not read for sense.'):el('p',{class:'muted'},'(nothing waiting)'),
+    ...held.map(skillCard),
+    el('h3',{},'On their shelf'),...(shelf.length?shelf.map(skillCard):[el('p',{class:'muted'},'(none yet)')]),
+    el('p',{class:'muted'},'bat\\skills.bat scan <name> prints the same case in a terminal.')]}
+async function getJSON(u){const r=await fetch(u,{cache:'no-store'});return r.json()}
 async function skill(name,action){const r=await post('/api/skill',{name,action});say(r.note,r.ok?'':'warn');await getState();renderTab()}
 function extras(t){
   if(t==='Phone')return[el('h3',{},'The bot'),secretField('telegram','bot token',S.secrets.telegram,'kept in memory/telegram.json, never in config.py')];
   if(t==='Senses')return[el('h3',{},'Keys and logins'),secretField('brave','Brave key',S.secrets.brave,'for WEB_SEARCH = "brave" — kept in memory/web_search.json'),
-    el('div',{class:'knob'},el('button',{onclick:()=>door('garmin','start')},'Garmin login'),' ',el('span',{class:'muted'},'body.bat --login, in its own window: email, password, the code'))];
-  if(t==='Skills')return skillsBox();
-  if(t==='Blog')return[el('div',{class:'knob'},el('button',{onclick:()=>door('blog','start')},'Deploy the blog'),' ',el('span',{class:'muted'},'blog.bat, in its own window (the title is on Main)'))];
+    el('div',{class:'knob'},el('button',{onclick:()=>door('garmin','start')},'Garmin login'),' ',el('span',{class:'muted'},'bat\\body.bat --login, in its own window: email, password, the code'))];
+  if(t==='Blog')return[el('div',{class:'knob'},el('button',{onclick:()=>door('blog','start')},'Deploy the blog'),' ',el('span',{class:'muted'},'bat\\blog.bat, in its own window (the title is on Main)'))];
   return[]}
 function renderTabs(){$('tabs').replaceChildren(...TABS.map(t=>el('button',{class:'tab'+(t===tab?' cur':''),onclick:()=>{tab=t;renderTabs();renderTab()}},t)))}
 function renderTab(){fields={};const ks=S.tabs[tab]||[],parts=[];
   if(tab==='Advanced'){parts.push(el('p',{class:'muted'},'Everything else in engine/config.py, under the headings the file has. A list or a dict is its text: edit it as Python.'));
     const groups={};for(const k of ks)(groups[k.heading]=groups[k.heading]||[]).push(k);
     for(const[hd,list]of Object.entries(groups))parts.push(el('details',{class:'group'},el('summary',{},hd+' · '+list.length),list.map(knob)))}
-  else parts.push(...ks.map(knob));
-  parts.push(...extras(tab));
+  else{if(tab==='Skills')parts.push(...skillsBox(),el('h3',{},'The knobs'));parts.push(...ks.map(knob))}
+  if(tab!=='Skills')parts.push(...extras(tab));
   if(Object.keys(fields).length)parts.push(el('div',{class:'actions'},el('button',{class:'primary',onclick:saveTab},'Save '+tab)));
   $('tab').replaceChildren(...parts)}
 async function saveTab(){const changes={},raw={};
@@ -862,7 +988,8 @@ function renderWelcome(){const b=S.brain,name=el('input',{type:'text',placeholde
     el('div',{class:'step'},el('b',{},'Your name'),name,el('div',{class:'muted'},'how they will know you — USER_NAME in engine/config.py')),
     el('div',{class:'step',id:'w-ollama'}),
     el('div',{class:'step'},el('b',{},'The brain'),sel,' ',el('button',{onclick:()=>pull(sel.value)},'Pull'),
-      el('div',{class:'muted'},b.vram_gb?('your card has '+b.vram_gb+' GB; '+b.recommended+' is the one for it (README, Two tiers)'):'gemma4:12b for a 12 GB card, gemma4:31b-it-qat for 24–32 GB (README, Two tiers)')),
+      el('div',{class:'muted'},b.vram_gb?('your card has '+b.vram_gb+' GB; '+b.recommended+' is the one for it (README, Three tiers)'):'gemma4:e4b-it-qat for an 8 GB card, gemma4:12b for 12 GB, gemma4:31b-it-qat for 24–32 GB (README, Three tiers)'),
+      el('div',{class:'muted'},'a small brain (e2b, e4b) brings the small tool kit with it — TOOL_KIT, on Settings')),
     el('button',{class:'primary big',onclick:async()=>{const r=await post('/api/welcome',{name:name.value,model:sel.value});
       if(r.error||!r.door){say(r.error||'not saved','warn');return}
       await getState();view='home';show();say(r.door.note+(r.door.ok?' — say hello. You\'ll be meeting someone brand new.':''),r.door.ok?'':'warn')}},'First light'));

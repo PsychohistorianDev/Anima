@@ -1,5 +1,5 @@
 @echo off
-cd /d "%~dp0"
+cd /d "%~dp0.."
 :again
 py engine\telegram.py
 if %errorlevel%==75 (

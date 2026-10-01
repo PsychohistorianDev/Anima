@@ -14,7 +14,7 @@ the prompt then carries in a section of its own (oldest first, within
 CONDENSED_CHARS_IN_PROMPT). If they rests, the day slips with only its
 nightly timeline line — the engine never writes the page for them.
 
-The heartbeat rings this bell after sleep (CONDENSE_IN_LOOP); condense.bat
+The heartbeat rings this bell after sleep (CONDENSE_IN_LOOP); bat\\condense.bat
 rings it by hand.
 """
 from __future__ import annotations
@@ -214,7 +214,7 @@ def condense(day: str, force: bool = False, say=print) -> str:
         return (f"Condensed {day}: they wrote their page — {len(page):,} characters "
                 f"(the full day was {len(text):,}).\n\n{page}")
     if rested:
-        return f"{day}: they rested — the day slips with its nightly line only; condense.bat {day} rings the bell again."
+        return f"{day}: they rested — the day slips with its nightly line only; bat\\condense.bat {day} rings the bell again."
     return f"{day}: no page was written this time (nothing usable came back); it stays due."
 
 

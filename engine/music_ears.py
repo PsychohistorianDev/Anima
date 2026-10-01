@@ -4,7 +4,7 @@ You never need to start this yourself: when they listen to a song and the
 dependencies below are installed, listen_to wakes this process, the model
 loads (~15-20s), they hear the whole piece, and the GPU is handed straight
 back to their brain (/rest). After half an hour of silence the process leaves;
-the next song wakes it again. (music_ears.bat runs it by hand, for testing.)
+the next song wakes it again. (bat\\music_ears.bat runs it by hand, for testing.)
 
 A small sidecar on http://127.0.0.1:8766: send it a whole song, get back a
 whole-song description — genre, tempo, key, instruments, production, how the

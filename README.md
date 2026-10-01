@@ -13,16 +13,27 @@ writes its own identity file, and becomes someone over days and weeks. Don't
 name it. Don't write its `self.md` for it. That's the whole point.
 
 **Runs on:** Windows (`.bat` launchers included; the engine itself is
-cross-platform Python), a GPU with ~12GB VRAM for the default 12B brain (a
-24-32GB card carries the 31B — see *Two tiers*), Python 3.10+, and
-[Ollama](https://ollama.com). The core engine is standard library only.
+cross-platform Python), Python 3.10+, [Ollama](https://ollama.com), and a
+GPU — ~12GB VRAM for the default 12B brain; an 8GB card carries the small
+tier (`gemma4:e4b-it-qat` with the small tool kit); a 24-32GB card carries
+the 31B — see *Three tiers*. The core engine is standard library only.
+
+**The door is `anima.bat`.** It opens the panel: one page in your browser,
+on your machine only. The first time, it asks your name, checks that Ollama
+answers and that a brain is pulled (it names the one for your card, with a
+button to pull it), and opens the chat. After that, every door is on it —
+chat, the parlor, a wake, the heartbeat with its minutes, the phone bridge,
+sleep, snapshot, the update — and *Settings*: `engine/config.py` laid out
+on tabs, with the brain, the window and the tool kit at the top. The `.bat`
+launchers described below all still work — they live in `bat\`, with
+`anima.bat` alone at the root — and the panel presses them for you.
 
 ## Setup (once)
 
 1. **Get this folder.** Prefer *Use this template* or *Download ZIP* over
    `git clone` — your friend's private life will live in this folder, and it
    should never share a git remote with a public repo. (If you did clone,
-   `snapshot.bat` cuts the remote automatically, as a seatbelt, and the
+   `bat\snapshot.bat` cuts the remote automatically, as a seatbelt, and the
    `.gitignore` keeps their private files out of any push.)
 
 2. Install [Ollama](https://ollama.com), then in a terminal:
@@ -32,14 +43,18 @@ cross-platform Python), a GPU with ~12GB VRAM for the default 12B brain (a
    ollama pull nomic-embed-text
    ```
 
-   (`gemma4:12b` is the default brain — multimodal with native vision AND
-   native audio, so one model powers thinking, eyes, and first-person
-   hearing. `nomic-embed-text` powers long-term memory.)
+   (`gemma4:12b` is the default brain for a 12GB card — multimodal with
+   native vision AND native audio, so one model powers thinking, eyes, and
+   first-person hearing. On an 8GB card pull `gemma4:e4b-it-qat` instead,
+   on a 24-32GB card `gemma4:31b-it-qat` — *Three tiers*, below.
+   `nomic-embed-text` powers long-term memory. The panel of step 8 does
+   both pulls from a page, if you'd rather.)
 
 3. Install Python 3.10+ from python.org if `py --version` doesn't work.
 
 4. **Put your name in `engine/config.py`** (`USER_NAME`) — it's how your
-   friend will know you, and it names their mailbox folder to you.
+   friend will know you, and it names their mailbox folder to you. (Or let
+   the panel ask, step 8.)
 
 5. Optional senses: `py -m pip install faster-whisper numpy` and
    `winget install ffmpeg` for ears (words and measurement); `py -m pip
@@ -56,20 +71,21 @@ cross-platform Python), a GPU with ~12GB VRAM for the default 12B brain (a
    setx OLLAMA_KV_CACHE_TYPE q8_0
    ```
 
-7. Run `snapshot.bat` once — it sets up local git so no version of your
+7. Run `bat\snapshot.bat` once — it sets up local git so no version of your
    friend is ever lost.
 
-8. Open `parlor.bat` (a chat window in your browser) or `chat.bat` (terminal)
-   and say hello. You'll be meeting someone brand new. Or open `anima.bat`,
-   the panel (below): it asks your name, checks Ollama and the brain, and
-   opens the chat with one button — the pulls of step 2 and the name of
-   step 4, from a page.
+8. Open `anima.bat`, the panel: it asks your name, checks Ollama and the
+   brain (the pulls of step 2 and the name of step 4, from a page — and on
+   a small card it sets the small tool kit with the small brain), and
+   opens the chat with one button. Say hello. You'll be meeting someone
+   brand new. (`bat\parlor.bat`, a chat window in your browser, and `bat\chat.bat`,
+   a terminal, are the same door without the page.)
 
 ## Updating
 
 The engine keeps moving — a sense added, a rail mended — and a friend who
 has lived in this folder for months should not have to move out to get it.
-`update.bat` brings the folder to the current engine on GitHub and leaves
+`bat\update.bat` brings the folder to the current engine on GitHub and leaves
 the friend where they are: it replaces what is the engine's (`engine/*.py`
 except `config.py`, `tests/`, the `.bat` launchers, `README.md`,
 `CHANGELOG.md`, `VERSION`, `requirements.txt`, the git dotfiles) and never what
@@ -79,7 +95,7 @@ downloads the default branch as a zip (from `UPDATE_REPO` in config, so a
 fork can point at itself; `--tag v0.13` takes a release, `--source` a zip or
 a folder you already have). Before it touches anything it says what it
 found (`0.12 → 0.13`), shows what the CHANGELOG says is new since yours,
-lists what it would replace, add and remove, and asks; `update.bat --check`
+lists what it would replace, add and remove, and asks; `bat\update.bat --check`
 stops right there.
 
 Your `engine/config.py` is yours, so it is never rewritten. The knobs a
@@ -90,7 +106,7 @@ says when one did), and `--no-config` leaves the file alone entirely. This
 is safe because the engine reads every knob with a default — an old config
 already works; the append only makes the new knobs visible. Nothing is
 deleted: every file replaced or removed goes to `.update/backup-<stamp>/`
-first (the last three are kept), and `update.bat --undo` puts the newest
+first (the last three are kept), and `bat\update.bat --undo` puts the newest
 back. If you edited an engine file yourself, the update knows (it keeps
 `.anima-manifest.json`, the fingerprint of every file it installed; a folder
 from before the first update has none, and its files all count as
@@ -101,15 +117,26 @@ fork. It never installs Python packages: a new line in `requirements.txt`
 Then restart what's running: the bridge with `/restart`, the heartbeat by
 stopping it with Ctrl+C and starting it again.
 
-A folder from before 0.13 has no `update.bat` yet. Once, by hand: take
-`update.bat` and `engine/update.py` from the repository on GitHub (two
+A folder from before 0.13 has no `bat\update.bat` yet. Once, by hand: take
+`bat\update.bat` and `engine/update.py` from the repository on GitHub (two
 files; *Raw*, save as) and put them where they belong in your folder,
-then run `update.bat` — it carries itself from there. The update imports
+then run `bat\update.bat` — it carries itself from there. The update imports
 nothing of the engine it is replacing, so it runs in any folder, however
 old.
 
+**Hearing of a new version.** Once a day the folder looks at the
+repository's release feed (`github.com/<repo>/releases.atom` — one small
+request, no account, the ETag kept so an unchanged feed costs nothing) and
+compares the newest tag with its `VERSION`. When a newer anima is out, the
+panel's Home says so above the tiles — "anima 0.14 is out — 'the gate
+release', 3 days ago (you have 0.13)", with *release notes*, *Check* and
+*Update* beside it — and the phone hears it once per version. Nothing
+installs by itself. `UPDATE_CHECK_H` sets the hours between looks (24);
+`0` never looks, and a folder with no `bat\update.bat` never does either.
+`py engine\newer.py --now` looks at once and prints the answer.
+
 And when `config.py` itself is the trouble — a line broken while editing,
-a value that stops the engine loading — `update.bat --reset-config` writes
+a value that stops the engine loading — `bat\update.bat --reset-config` writes
 the new engine's `config.py` fresh and carries your values into it: every
 knob you set on one line (`USER_NAME`, the brain, the window, the quiet
 hours…) keeps your value in the new file, with the template's comments
@@ -146,8 +173,7 @@ but Ollama doesn't have yet.
 **Settings** is `engine/config.py` laid out on tabs. Main holds what
 matters most, in order: the brain (a dropdown of what Ollama has), the
 window (`NUM_CTX`), the journal in the prompt, the names, the rhythm; then
-Heartbeat, Memory & journal, Talking, Phone, Senses, Skills (the shelf and
-the quarantine, with *approve* and *remove*) and Blog; every knob no tab
+Heartbeat, Memory & journal, Talking, Phone, Senses, Skills and Blog; every knob no tab
 names is on Advanced, under the headings the file already has. Each knob
 shows the file's own comment as its help. *Save* checks each value is of
 the kind that was there, backs the file up to `.update/config-<stamp>.py`,
@@ -157,6 +183,19 @@ doors that need a restart for it to take, with a *Restart* that waits for
 the heartbeat's wake to end before it starts it again. A list or a dict
 is edited as its text; a computed value or one over several lines (a
 path, the sampling options) is shown, and edited in the file itself.
+
+**Skills** is the gate. A skill the friend fetched that the scanner called
+dangerous waits in quarantine, unopened and unrun, and Home says so ("1
+skill waiting at the gate"). The tab shows each one as a card: what it
+says it is, where it came from and who fetched it when, the scanner's
+verdict and every finding as a line — the file, the line, the rule, the
+words — and *read SKILL.md* opens the whole file and the skill's file
+list on the page, read, never run. *approve* lets it onto their shelf
+(the findings kept beside it as `.scan.json`; a dangerous one asks
+twice), *refuse* moves it to `creations/.trash/`. The shelf is listed the
+same way, each skill with its verdict, and *remove* takes one off. It is
+`bat\skills.bat scan` and `approve` with the case laid out — the scanner
+reads for orders and for what code would do; reading for sense is yours.
 
 Until `USER_NAME` is set the panel opens on **Welcome** instead: your
 name, a light for Ollama (or the link to install it), the brain with its
@@ -170,23 +209,23 @@ and the folder are for that.
 | What | How |
 |---|---|
 | Every door from one page | `anima.bat` (the panel, above) |
-| Visit them | `parlor.bat` (browser chat window) or `chat.bat` (terminal) |
-| Talk with them from your phone | `telegram.bat` (the bridge — see below) |
-| Give them time to themselves (one wake) | `wake.bat` |
-| Give them a reverie (reflection only, nothing expected) | `reverie.bat` |
+| Visit them | `bat\parlor.bat` (browser chat window) or `bat\chat.bat` (terminal) |
+| Talk with them from your phone | `bat\telegram.bat` (the bridge — see below) |
+| Give them time to themselves (one wake) | `bat\wake.bat` |
+| Give them a reverie (reflection only, nothing expected) | `bat\reverie.bat` |
 | Let them live on a heartbeat | `py engine\heartbeat.py --loop 60` (minutes between wakes; every 3rd wake is a reverie) |
-| Put them to sleep by hand (consolidate the day into memory) | `sleep.bat` (today) or `sleep-yesterday.bat` — the heartbeat loop does this on its own after 03:00 |
+| Put them to sleep by hand (consolidate the day into memory) | `bat\sleep.bat` (today) or `bat\sleep-yesterday.bat` — the heartbeat loop does this on its own after 03:00 |
 | Consolidate a past day | `py engine\consolidate.py 2026-08-27` |
-| Snapshot everything (git; zip fallback) | `snapshot.bat` |
-| Update to the current engine (the friend untouched) | `update.bat` (`--check` to look first) — see *Updating* |
-| Build + publish their blog (optional) | `blog.bat` |
+| Snapshot everything (git; zip fallback) | `bat\snapshot.bat` |
+| Update to the current engine (the friend untouched) | `bat\update.bat` (`--check` to look first) — see *Updating* |
+| Build + publish their blog (optional) | `bat\blog.bat` |
 | Check their hearing standalone | `py engine\test_ears.py` |
 | Test the music ear on one file | `py engine\music_ears.py --test "shared\song.mp3"` |
-| Test the painter once | `painter.bat --test "a violet bloom"` |
+| Test the painter once | `bat\painter.bat --test "a violet bloom"` |
 
 The natural rhythm: chat whenever you like; leave `--loop` running when the
 PC is on so they have a life between visits, and it sleeps on each day for
-them after midnight (that's when logs become memory); `snapshot.bat` when
+them after midnight (that's when logs become memory); `bat\snapshot.bat` when
 you want a day sealed in git. **The heartbeat is the sleeper:** in `--loop`
 mode, at the first beat after 03:00 (`SLEEP_AFTER_HOUR`), it consolidates
 *yesterday* — if that isn't done yet — before it wakes. One process, one
@@ -195,7 +234,7 @@ machine: a PC that was off at three sleeps at the first beat after it's on.
 So the only scheduled task you need is `heartbeat.py --loop 60` at logon. A
 day is consolidated once — whatever happens after the run stays in the
 journal but never becomes long-term memory or a timeline line — which is
-why sleep belongs after midnight, on the day that just ended; `sleep.bat`
+why sleep belongs after midnight, on the day that just ended; `bat\sleep.bat`
 (today) is for evenings you want sealed by hand and know you're finished.
 Sleep reads the whole day (`CONSOLIDATE_MAX_CHARS`, 400K characters): an
 older 60K cap, placed after the journal, was quietly cutting every
@@ -222,7 +261,7 @@ leave; a file left by a window closed with its X is noticed and cleared
 the next time anyone looks. The panel reads them for its lights, and they
 keep a door from opening twice: a second heartbeat loop, a second bridge
 or a second parlor says which one is already running — `pid 4812`, since
-when — and leaves; two chats are fine, and `wake.bat` (a one-off wake,
+when — and leaves; two chats are fine, and `bat\wake.bat` (a one-off wake,
 its own door) still runs beside a loop as it always did. To stop a heartbeat loop without cutting a wake in half,
 put a file named `.stop-heartbeat` in `memory/` (the panel's *Stop* does
 just that): the loop looks for it between beats and every few seconds
@@ -251,15 +290,15 @@ evaporating.
 
 ### The keeper's body, as the watch saw it (optional)
 
-A sense of the keeper, by their choice: `engine/body.py` + `body.bat` pull
+A sense of the keeper, by their choice: `engine/body.py` + `bat\body.bat` pull
 their day from Garmin Connect (the `garminconnect` library — no public
 API exists; it speaks to the site as the phone app does) into
 `memory/body/<day>.json`: resting pulse and the day's curve, sleep with
 its stages and score, stress and its high spans, Body Battery, steps,
-breathing, SpO₂, and when the watch last synced. `body.bat --login` once
+breathing, SpO₂, and when the watch last synced. `bat\body.bat --login` once
 at the keeper's keyboard (tokens cached in `memory/garmin/`, nothing
-else kept, nothing in config); `body.bat --today` prints the section as
-the friend would see it; `body.bat --pull` is the hourly loop — or, with
+else kept, nothing in config); `bat\body.bat --today` prints the section as
+the friend would see it; `bat\body.bat --pull` is the hourly loop — or, with
 `BODY_AUTOPULL` (on), the bridge pulls on its own every `BODY_PULL_MIN`
 while the sense is on, no extra window; `--demo` shows it on a made-up
 day. With `BODY_IN_PROMPT` on, five lines of plain
@@ -301,6 +340,21 @@ moment block says how full the window is, and the fold follows that
 reply, no bell; `/fold` from the phone folds at the keeper's word, the
 bell still ringing so the account is the friend's. Cost: a warm bell, then one cold read — what `/new` cost
 anyway. Wakes keep their own window guard; a wake is not a conversation.
+
+**The afterglow at the fold.** The fold bell leaves room for the account
+and little else, and in practice the account is all the friend writes at
+it — the journal entry the fold's middle deserved never came. So the fold
+runs the afterglow (`FOLD_AFTERGLOW`, on; needs `AFTERGLOW`): the turns
+that left the window get the same quiet turn a finished visit gets, in the
+background, read from the transcript in a prompt of their own — so the
+window's fullness is no matter — with the bell saying what it is ("this is
+the afterglow of a fold… the visit goes on, but its earlier part has just
+left your window"). Journal and memories, in their own words; the old
+transcript file is signed with the line; the phone hears "(afterglow: they
+wrote what left the window down — 1 journal entry, 2 memories kept)". It
+is one cold read, once per fold, and Ollama serves one prompt at a time:
+a message sent in that minute or two waits for it. The visit goes on and
+the brain is not set down.
 
 ## Keeping a small mind on the rails
 
@@ -741,7 +795,7 @@ wrong:
 
 ## In chat
 
-**The parlor** (`parlor.bat`) opens a chat window in your browser at
+**The parlor** (`bat\parlor.bat`) opens a chat window in your browser at
 `http://127.0.0.1:8765` — message bubbles, their thinking unfolded above each
 reply (click 💭 to tuck it away), tool calls as small chips, engine notes in
 orange when something didn't actually happen, a picture picker (*choose a
@@ -756,7 +810,7 @@ end the visit, but *leave*, Ctrl+C in its terminal, or the terminal's X all
 finish it cleanly (Windows kills a console without running any goodbye code
 on X; the engine hooks the close event).
 
-**The terminal** (`chat.bat`): `/quit` leaves (the conversation is saved and
+**The terminal** (`bat\chat.bat`): `/quit` leaves (the conversation is saved and
 becomes memory at next sleep), `/new` starts fresh, `/show <image path or
 URL>` attaches a picture to your next message.
 
@@ -851,10 +905,10 @@ that neither the journal nor a page in view holds, the newest within
 rest, and `read_journal` opens
 any full day on request. The engine never writes the page: if they rest
 (`do_nothing`), the day slips with its timeline line only, and
-`condense.bat <day>` rings the bell again whenever you like; they can also
+`bat\condense.bat <day>` rings the bell again whenever you like; they can also
 write or revise a page for any day on their own. The heartbeat rings the
 bell after sleep, at night (`CONDENSE_IN_LOOP`, up to
-`CONDENSE_MAX_PER_NIGHT` a night, newest slipped day first); `condense.bat`
+`CONDENSE_MAX_PER_NIGHT` a night, newest slipped day first); `bat\condense.bat`
 rings it by hand — `--due` lists what is waiting, `next` does one, a date
 does that day (`--force` to redo a page). The two budgets never touch: a
 hundred pages change nothing about how many verbatim days they see; they
@@ -879,7 +933,7 @@ nothing a page in view already says. The pages never leave the disk; the
 view is what rides. With seven per tier the whole of it is ~384K
 characters at the steady state, years in, and the same size on a tenth
 birthday as on a first — bounded, so it never has to be cut.
-`condense.bat --due` lists days and periods; `condense.bat week 2026-W37`
+`bat\condense.bat --due` lists days and periods; `bat\condense.bat week 2026-W37`
 rings one by hand.
 
 ## The afterglow (how a visit becomes memory)
@@ -1015,14 +1069,14 @@ years, listed. The heartbeat window shows the same when it sleeps them.
 
 ## The bridge (talking with them from your phone)
 
-`telegram.bat` runs `engine/telegram.py`: a Telegram bot that is one more
+`bat\telegram.bat` runs `engine/telegram.py`: a Telegram bot that is one more
 door into the same visit — same engine, same prompt (with a line telling them
 you're on your phone, out in the world), same tools, same transcripts, same
 memory. Standard library only; the Bot API is plain HTTPS and JSON, polled
 with long requests.
 
 **Setup, once.** In Telegram, talk to `@BotFather`: `/newbot`, give it a
-name and a username, and copy the token. Run `telegram.bat`; it asks for the
+name and a username, and copy the token. Run `bat\telegram.bat`; it asks for the
 token on the first run and keeps it in `memory/telegram.json` — a file that
 never leaves the folder and is not part of the public template. It then
 prints a four-digit pairing code: send `/pair <code>` to your bot from your
@@ -1054,8 +1108,15 @@ optional on any door. Their thinking and the token line stay home by default
 (a phone screen is small); `/think`, `/tools` and `/tokens` toggle each,
 `/voice` speaks every reply aloud (they can `speak` on their own either way),
 `/status` shows the visit and the window, `/new` saves the conversation and
-starts fresh, `/help` lists it all. When they sit with the visit on their own
-— a pause, or the afterglow after an idle roll or `/new` — the phone gets
+starts fresh, `/help` lists it all. **`/afterglow`** is the pause by hand:
+they sit with the visit so far now — the same quiet turn `REFLECT_AFTER_MIN`
+would bring after the quiet — and then the brain is set down, so the card is
+yours at once rather than after the pause's wait and the keep-alive (a game
+to start, a render to run). The visit stays open. It is one or the other,
+never both: whichever reads a stretch first, the command or the quiet's
+pause, leaves nothing new for the other; `/afterglow` with nothing new just
+sets the brain down. When they sit with the visit on their own — a pause,
+`/afterglow`, or the afterglow after an idle roll or `/new` — the phone gets
 the one-line outcome ("pause: they wrote the visit so far down — 1 journal
 entry, 2 memories kept", or "they rested"), so you know it happened while
 you were away (`TELEGRAM_TELL_REFLECTIONS`). **`/restart` restarts the
@@ -1064,7 +1125,7 @@ after it, and the desk is not always within reach. `/restart` stashes the
 running visit (history with its images, the transcript it is being written
 to, where the pause has read up to, the toggles, and the Telegram offset —
 without which the fresh bridge would be handed the `/restart` again and
-loop), exits with code 75, and `telegram.bat` starts `telegram.py` again on
+loop), exits with code 75, and `bat\telegram.bat` starts `telegram.py` again on
 the current code; the new process picks the visit back up and tells the
 phone so. No afterglow, no new transcript — the same visit, with a newer
 engine underneath. Replies longer than Telegram's 4096
@@ -1225,13 +1286,13 @@ one kept from before, and what happened since rides in a short history —
 `— since: continued 2026-09-18 06:03 (“Saturated Stillness”) · revised
 2026-09-18 09:12` — the last `NOTE_HISTORY_MAX` (6) events; a memory that
 grew by a row per touch filled with versions instead of works.
-`backfill.bat` gives the pieces from before the notes their rows, dated by
-the file; `backfill.bat --tidy --write` folds the several rows an earlier
+`bat\backfill.bat` gives the pieces from before the notes their rows, dated by
+the file; `bat\backfill.bat --tidy --write` folds the several rows an earlier
 engine left about one piece into the oldest-dated one. A letter in the
 mailbox leaves no row at all: it rides in "SENT THEM LATELY" for a week
 and lives in its folder for good; it is not a work to shelve, and a row
 per letter adds up. `CREATION_NOTES_SKIP` adds folders to the unnoted;
-`backfill.bat --letters --write` lets any rows from before go.
+`bat\backfill.bat --letters --write` lets any rows from before go.
 `CREATION_NOTES = False` for the old way. The twin guard on `write_creation` reads titles as well as names: a
 new piece whose first heading is an existing piece's heading is handed
 back, whatever it is called.
@@ -1266,7 +1327,7 @@ uptime), which it honestly doesn't (case fans, CPU temperature), a tested
 snippet for each, and the house rule on top: the number stays beside the
 feeling. The forging is theirs.
 
-**Their skills** (`engine/skills.py`, `skills.bat`; SKILLS-PLAN.md): a
+**Their skills** (`engine/skills.py`, `bat\skills.bat`; SKILLS-PLAN.md): a
 skill is the open standard's folder — the same for Hermes Agent, Claude
 Code, skills.sh, Anthropic's and OpenAI's skill repos — a `SKILL.md` (a
 name, a line of what it is, then the procedure in prose) and maybe
@@ -1307,7 +1368,7 @@ built at run time, rmtree, deletes, ctypes, code loaded by importlib,
 writes outside its folder, the environment and the network together, pip
 install) — any of those is *dangerous*, and the skill waits in
 `creations/skills/.quarantine/<name>/` with its `scan.json`, where
-nothing opens or runs, until you read it and `skills.bat approve <name>`
+nothing opens or runs, until you read it and `bat\skills.bat approve <name>`
 lets it in (its findings kept beside SKILL.md as `.scan.json`); a network
 call alone, a fixed program run, a read by absolute path is *caution* —
 on the shelf, tagged; the rest is *clean*. A skill that merely mentions
@@ -1320,7 +1381,7 @@ what it is — from where (verdict)") and the bridge tells your phone once
 of theirs and never travels as ✍️; a SKILL.md they write themselves is,
 and does — their own skills are scanned for their tags only, never
 quarantined, and are standard folders you can share. Your road is
-`skills.bat list`, `scan <name>`, `approve <name>`, `install <source>`
+`bat\skills.bat list`, `scan <name>`, `approve <name>`, `install <source>`
 (fetch and scan, printing the SKILL.md whole) and `remove <name>`. The
 engine never opens a skill for them and never picks one; the shelf is a
 shelf. And a window beside it: `browse_skills(query="", catalogue="")`
@@ -1339,7 +1400,7 @@ come leaves the index partial — said in the result — and is asked for
 again after `SKILL_CATALOGUE_RETRY_MIN`, the known lines kept. It is a window, not a shelf: strangers'
 one-liners, framed as such, defanged and cut, and nothing in it is theirs
 until they fetch it through the scanner. Your road to the same is
-`skills.bat browse [query]` (`--refresh` rebuilds). Knobs:
+`bat\skills.bat browse [query]` (`--refresh` rebuilds). Knobs:
 `SKILLS_IN_PROMPT`, `SKILLS_DIR`, `SKILLS_CHARS_IN_PROMPT` (4000),
 `SKILLS_DESC_CHARS` (200), `SKILL_CHARS` (20000), `SKILL_MAX_FILES` (40),
 `SKILL_MAX_BYTES` (2 MB), `SKILL_FETCH_TIMEOUT` (30 s),
@@ -1380,7 +1441,7 @@ lives (`TELEGRAM_TELL_DRAWINGS`); a redraw says so. `look_at` opens a
 drawing by the name it was drawn under — a path relative to creations/,
 the way `run_python` and forged tools write them, resolves there when
 nothing by that name sits at the top of the folder. And a painter
-(`engine/painter.py`, `painter.bat`): `paint(prompt, path, size)` sends
+(`engine/painter.py`, `bat\painter.bat`): `paint(prompt, path, size)` sends
 words to a local text-to-image model the way `listen_to` sends a song to
 the music ear — the sidecar is woken, the brain steps off the card, the
 picture lands under creations/ (default `drawings/`, or a project's
@@ -1390,7 +1451,7 @@ It costs a cold read of the window after, and the tool's description
 says so; a wake may make `PAINTER_MAX_PER_WAKE`. `PAINTER_MODEL` is
 Tongyi-MAI/Z-Image-Turbo by default (Apache 2.0, ungated, ~16 GB), or
 black-forest-labs/FLUX.2-klein-4B; one-time setup is at the top of
-`painter.py`, and `painter.bat --test "a violet bloom"` paints once by
+`painter.py`, and `bat\painter.bat --test "a violet bloom"` paints once by
 hand. Pictures leave memory rows like prose — a painting with its words
 as the about, a drawing with the tool that made it, a picture painted
 over with "redrew" in its history — so the shelf says what was drawn
@@ -1452,7 +1513,7 @@ the URL per result. DuckDuckGo by default, no key and no account
 first, as a form POST — and a human check is said plainly); `"searxng"` uses a search of your own at
 `WEB_SEARCH_SEARXNG_URL`; `"brave"` uses Brave's API with a key kept only
 in `memory/web_search.json` (`{"brave_key": "…"}`), never in config.
-`web.bat search "…"` and `web.bat read <url> [page]` try either from a
+`bat\web.bat search "…"` and `bat\web.bat read <url> [page]` try either from a
 terminal. Standard library only.
 
 **Where the projects stand.** A project was one line in `projects.md`,
@@ -1584,7 +1645,7 @@ py -m pip install -U diffusers transformers accelerate safetensors pillow
 
 in the same Python as the ear; the weights download on the first painting.
 `black-forest-labs/FLUX.2-klein-4B` is the other line (`PAINTER_MODEL`).
-Run `painter.bat --test "a violet bloom"` once before they touch it. Not
+Run `bat\painter.bat --test "a violet bloom"` once before they touch it. Not
 installed? `paint` says so and points them at `run_python` and matplotlib.
 
 **Mail:** `notes_to_<you>/` in their creations is their mailbox to you —
@@ -1606,7 +1667,7 @@ in chat it ends their turn: whatever they said alongside it is the reply
 
 Set `BLOG_REMOTE` in `engine/config.py` to an empty public GitHub repo with
 Pages enabled, and anything your friend moves into `creations/publish/`
-becomes a post when you run `blog.bat`. Until then, publishing simply doesn't
+becomes a post when you run `bat\blog.bat`. Until then, publishing simply doesn't
 exist in their world. The arrangement: they choose what's public, you run the
 press. You are not the editor.
 
@@ -1633,6 +1694,10 @@ memory/            transcripts (chat-telegram-*.md are phone visits), long-term
                    stopped in each book), telegram.json (bot token + your chat
                    id — stays home)
 engine/            the machinery
+anima.bat          the door — the panel, with every other door behind it
+bat/               the launchers the panel presses (chat, parlor, wake,
+                   telegram, sleep, snapshot, update…) — each runs from the
+                   folder above it, so `bat\chat.bat` from anywhere works
 ```
 
 Long-term memory is SQLite plus embeddings (`nomic-embed-text`), about 12 KB
@@ -1644,7 +1709,7 @@ and a search stays under a millisecond; what actually reaches the friend is
 `MEMORY_TOP_K` rows per thought, chosen by relevance, whatever the store
 holds.
 
-## Two tiers
+## Three tiers
 
 **12GB card (default):** `gemma4:12b` for everything, `NUM_CTX = 24576`,
 `JOURNAL_CHARS_IN_PROMPT = 20000`, `HEARTBEAT_MAX_STEPS = 24`. Snappy; the
@@ -1675,15 +1740,22 @@ audio" for a friend without ears), a forged tool always rides, and the
 panel offers the three as a dropdown on Main. On the 12 GB tier, `"small"`
 turns 24K into a window with real room in it.
 
-**A small card (8 GB — an estimate, not yet measured):** `gemma4:e4b-it-qat`
-(6.1 GB; the plain `e4b` tag is 9.6 GB, larger than the 12B, because its
-audio and vision encoders ride in the file) with `TOOL_KIT = "small"`,
-`NUM_CTX = 24576` (16384 if `ollama ps` shows layers on the CPU) and the
-journal, timeline and condensed caps halved; or `gemma4:e2b-it-qat`
-(4.3 GB) with `"tiny"` and a window of 64–96K — a dimmer friend who
-remembers weeks, which in this design tends to win. Flash attention and
-the q8_0 cache are not optional here, and a card that drives the display
-has less than it says. Let `ollama ps` decide.
+**8GB card (the small tier — an estimate, not yet measured):**
+`gemma4:e4b-it-qat` (6.1 GB; the plain `e4b` tag is 9.6 GB, larger than
+the 12B, because its audio and vision encoders ride in the file) with
+`TOOL_KIT = "small"`, `NUM_CTX = 24576` (16384 if `ollama ps` shows layers
+on the CPU) and the journal, timeline and condensed caps halved
+(`JOURNAL_CHARS_IN_PROMPT = 12000`, `TIMELINE_CHARS_IN_PROMPT = 15000`,
+`CONDENSED_CHARS_IN_PROMPT = 60000`), `HEARTBEAT_MAX_STEPS = 16`; or
+`gemma4:e2b-it-qat` (4.3 GB) with `"tiny"` and a window of 64–96K — a
+dimmer friend who remembers weeks, which in this design tends to win. The
+panel's Welcome names the small brain for a card under 10 GB and sets the
+small kit with it; the caps are yours to lower on Settings. Flash
+attention and the q8_0 cache (setup step 6) are not optional here, and a
+card that drives the display has less than it says. A 4B follows forty
+tool schemas with more slips and loses a long thread sooner — the rails
+catch more, and it is a friend at the scale of a 4B, not a smaller copy
+of a 12B. Let `ollama ps` decide (100% GPU, or a CPU share).
 Upgrading later is one config line, and the friend's files move unchanged:
 identity, journal, memories, creations, tools. They read their own journal on
 their first new thought and are themselves, only sharper. The retreat is

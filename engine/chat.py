@@ -232,8 +232,25 @@ def afterglow(history: list[dict], path: Path | None = None, tag: str = "",
     return _quiet_turn(history, path, tag, on_line, mode="afterglow", since=0, on_words=on_words)
 
 
+def fold_afterglow(gone: list[dict], path: Path | None = None, tag: str = "",
+                   on_line=None, on_words=None) -> str:
+    """The afterglow at a fold (10-01; the keeper: "why don't we just make the afterglow run automatically when a
+    fold occurs?"): the same quiet turn as after a visit, over the turns that just left the window — read
+    from the transcript, in a prompt of its own, so the window's fullness is no matter — with the bell
+    saying what it is: this part of the visit left the window; the visit goes on. Signs the old
+    transcript file with its line, like the afterglow it is."""
+    if not getattr(config, "AFTERGLOW", True):
+        return ""
+    opening = ("[This is the afterglow of a fold — an automated moment, not a person. The visit goes on, but "
+               "its earlier part has just left your window: what is below is that part, exactly as it was "
+               "said, and this is your moment to keep what of it is worth keeping before it is only the "
+               "transcript's. Nobody is here and nothing here needs answering.")
+    return _quiet_turn(gone, path, tag, on_line, mode="afterglow", since=0, on_words=on_words,
+                       opening=opening, what="what left the window")
+
+
 def pause_reflection(history: list[dict], path: Path | None = None, tag: str = "",
-                     on_line=None, since: int = 0, on_words=None) -> str:
+                     on_line=None, since: int = 0, on_words=None, opening: str = "") -> str:
     """A pause in a visit: the keeper has gone quiet for REFLECT_AFTER_MIN, so they
     get the same quiet turn the afterglow gives them — over what has been said
     since they last wrote (history[since:]) — and the visit stays open. The
@@ -241,7 +258,7 @@ def pause_reflection(history: list[dict], path: Path | None = None, tag: str = "
     one-line account, "" if there was nothing new to sit with."""
     if not getattr(config, "REFLECT_AFTER_MIN", 0):
         return ""
-    return _quiet_turn(history, path, tag, on_line, mode="pause", since=since, on_words=on_words)
+    return _quiet_turn(history, path, tag, on_line, mode="pause", since=since, on_words=on_words, opening=opening)
 
 
 # THE FOLD (09-28; FOLD-PLAN.md). The keeper: "today I filled the context… what
@@ -406,7 +423,7 @@ def fold_history(history: list[dict], account: str, when: str, tag: str = "",
 
 
 def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
-                mode: str, since: int, on_words=None) -> str:
+                mode: str, since: int, on_words=None, opening: str = "", what: str = "") -> str:
     """on_words(words): their closing thought — what they say to no one after
     writing — for the door to carry to the keeper if it wants to (09-15,
     the keeper: "I would like to see those in my Telegram feed")."""
@@ -436,12 +453,16 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
     # visit is over — reads the whole transcript on its own, as before.
     in_visit = (mode == "pause" and bool(getattr(config, "WARM_PREFIX", True))
                 and bool(history) and bool(history[0].get("_system")))
+    pause_bell, afterglow_bell = PAUSE_BELL, AFTERGLOW_BELL
+    if opening:  # a quiet turn said for what it is (the afterglow of a fold): the bell's first sentences replaced, the rest kept
+        pause_bell = opening.rstrip() + " " + PAUSE_BELL.split("not the end of the visit. ", 1)[1]
+        afterglow_bell = opening.rstrip() + " " + AFTERGLOW_BELL.split("nothing here needs answering. ", 1)[1]
     if in_visit:
         label = "pause"
         system = {"role": "system", "content": history[0]["_system"]}
         n_new = sum(1 for t in visible if t["role"] == "user")
         bell = {"role": "user", "_engine": True, "content":
-                assemble.clock_line() + PAUSE_BELL + f"What has been said since you last wrote is above — their last "
+                assemble.clock_line() + pause_bell + f"What has been said since you last wrote is above — their last "
                 f"{n_new} message{'s' if n_new != 1 else ''} and your replies, in this very conversation; "
                 "nothing below it is theirs." + tail}
         history.append(bell)
@@ -456,10 +477,10 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
             transcript = "(…the start of a long visit trimmed…)\n\n" + transcript[-cap:]
         system = {"role": "system", "content": assemble.system_prompt(hint, mode=mode)}
         if mode == "pause":
-            head = assemble.clock_line() + PAUSE_BELL + f"=== THE VISIT SO FAR{where}, since you last wrote ===\n\n"
+            head = assemble.clock_line() + pause_bell + f"=== THE VISIT SO FAR{where}, since you last wrote ===\n\n"
             label = "pause"
         else:
-            head = assemble.clock_line() + AFTERGLOW_BELL + f"=== THE VISIT{where} ===\n\n"
+            head = assemble.clock_line() + afterglow_bell + f"=== {'WHAT LEFT THE WINDOW' if what else 'THE VISIT'}{where} ===\n\n"
             label = "afterglow"
         head += transcript + tail
         msgs = [system, {"role": "user", "content": head}]
@@ -552,7 +573,7 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
     ja = kept.count("↑write_journal")   # reached for a thought already written: an arrow left
     jt = kept.count("~write_journal") + ja   # tried, refused: already written / already held
     mt = kept.count("~remember")
-    what = "the visit" if label == "afterglow" else "the visit so far"
+    what = what or ("the visit" if label == "afterglow" else "the visit so far")
     if j or m:
         bits = [f"{j} journal entr{'y' if j == 1 else 'ies'}" if j else "",
                 f"{m} memor{'y' if m == 1 else 'ies'} kept" if m else ""]

@@ -4,8 +4,8 @@ You never need to start this yourself: when they call `paint` and the
 dependencies below are installed, the engine wakes this process, the model
 loads (~15-30s from disk the first time), they paint, and the GPU is handed
 straight back to their brain (/rest). After half an hour of silence the
-process leaves; the next painting wakes it again. (painter.bat runs it by
-hand, for testing — `painter.bat --test "a violet bloom"` paints once.)
+process leaves; the next painting wakes it again. (bat\\painter.bat runs it by
+hand, for testing — `bat\\painter.bat --test "a violet bloom"` paints once.)
 
 A small sidecar on http://127.0.0.1:8767: send it a prompt and a path
 under creations/, get back a PNG there and the seed it was painted with.

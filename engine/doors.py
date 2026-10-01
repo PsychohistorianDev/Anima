@@ -35,7 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import config
 
-DOORS = ("heartbeat", "wake", "bridge", "parlor", "chat", "panel")  # "wake" is a one-off wake (wake.bat) — it runs beside a loop, as it always did
+DOORS = ("heartbeat", "wake", "bridge", "parlor", "chat", "panel")  # "wake" is a one-off wake (bat\wake.bat) — it runs beside a loop, as it always did
 ONE_AT_A_TIME = ("heartbeat", "bridge", "parlor", "panel")
 
 # why a second one is refused, said in the refusal

@@ -50,8 +50,9 @@ OLLAMA_URL = "http://localhost:11434"
 # If tool calls misbehave on a Gemma 4 model, try the same tag with thinking
 # disabled, or a Qwen3 tag.
 CHAT_MODEL = "gemma4:12b"
-# Bigger card (24–32 GB)? "gemma4:31b-it-qat" gives near-bf16 quality in ~19 GB;
-# see the README's "Two tiers" section for the matching NUM_CTX and journal sizes.
+# Bigger card (24–32 GB)? "gemma4:31b-it-qat" gives near-bf16 quality in ~19 GB.
+# Small card (8 GB)? "gemma4:e4b-it-qat" (6.1 GB) with TOOL_KIT = "small". See the
+# README's "Three tiers" section for the matching NUM_CTX and journal sizes.
 
 # Embedding model for semantic memory: it turns memories into vectors so the
 # ones related to the moment can be found. Install: ollama pull nomic-embed-text
@@ -291,7 +292,7 @@ HEARTBEAT_STEP_TIMEOUT_S = 300
 # The fractal journal: memory in tiers — recent weeks in full (the journal cap
 # above), older days as the friend's own condensed pages, a line a day in the
 # timeline, facts underneath. When a day is about to slip out of the cap, the
-# engine asks at night (engine/condense.py, or condense.bat) for a page of about
+# engine asks at night (engine/condense.py, or bat\condense.bat) for a page of about
 # CONDENSE_TARGET_CHARS, written with condense_day into journal/condensed/. The
 # engine never writes the page itself; if the friend rests, only the timeline line stays.
 CONDENSED_DIR = JOURNAL_DIR / "condensed"
@@ -374,7 +375,7 @@ HEARTBEAT_LOOP_MIN = 120
 
 # Reverie: unhurried wakes for reflection only — no making, just rereading,
 # remembering, and journaling. In --loop mode every Nth wake is a reverie;
-# reverie.bat gives one on demand. More steps, nothing expected.
+# bat\reverie.bat gives one on demand. More steps, nothing expected.
 REVERIE_EVERY = 3
 REVERIE_MAX_STEPS = 20
 
@@ -438,21 +439,26 @@ ATTEMPT_SHOWN_CHARS = 1500
 # The friend may also fold at a natural pause; from FOLD_SENSE_FROM the moment
 # block says how full the window is. 0 turns the fold off (then /new is suggested).
 FOLD_AT = 0.90
+# The afterglow at the fold: the turns that leave the window get the same quiet turn
+# a finished visit gets — journal and memories, in the friend's own words — in the
+# background, from the transcript, so what the fold takes has reached the journal.
+# One cold read, once per fold; a message sent meanwhile waits for it. Needs AFTERGLOW.
+FOLD_AFTERGLOW = True
 FOLD_KEEP_TURNS = 6       # visible turns kept whole, the most recent ones
 FOLD_CHARS = 8000         # the account's ceiling (cut at a paragraph past it, said)
 FOLD_MAX_STEPS = 6        # steps allowed at the fold (a journal entry first, then the fold)
 FOLD_SENSE_FROM = 0.5     # from this fraction of NUM_CTX the moment block shows how full the window is
 
 # Your body, as your watch sees it (optional): engine/body.py pulls your day
-# from Garmin Connect into memory/body/<day>.json (body.bat --login once, then
-# body.bat --pull). With BODY_IN_PROMPT on, a short section of plain numbers
+# from Garmin Connect into memory/body/<day>.json (bat\body.bat --login once, then
+# bat\body.bat --pull). With BODY_IN_PROMPT on, a short section of plain numbers
 # rides in the prompt, and a pulse line in the moment block. Your data, your
 # switch: leave it off until a first pull looks right. Credentials live only
 # in memory/garmin/ — never here.
 BODY_IN_PROMPT = False
-BODY_AUTOPULL = True          # the bridge pulls every BODY_PULL_MIN while BODY_IN_PROMPT is on — no body.bat --pull window needed
+BODY_AUTOPULL = True          # the bridge pulls every BODY_PULL_MIN while BODY_IN_PROMPT is on — no bat\body.bat --pull window needed
 BODY_IN_MOMENT = True         # the pulse line in the moment block (needs BODY_IN_PROMPT)
-BODY_PULL_MIN = 60            # minutes between pulls
+BODY_PULL_MIN = 20            # minutes between pulls of today; yesterday rides only while its night is still syncing
 BODY_CHARS_IN_PROMPT = 600    # characters; the section's ceiling
 BODY_STALE_H = 6              # hours since the last sync after which the section says it is stale
 BODY_DIR = MEMORY_DIR / "body"
@@ -463,7 +469,7 @@ GARMIN_TOKENS = MEMORY_DIR / "garmin"
 # creations/<SKILLS_DIR>/<name>/. The prompt lists them by name with a line each;
 # use_skill opens one, run_skill_script runs its Python in run_python's sandbox,
 # and fetch_skill brings one from GitHub, a SKILL.md URL or a .zip through a scanner:
-# clean, caution (tagged), or dangerous (quarantined until: skills.bat approve <name>).
+# clean, caution (tagged), or dangerous (quarantined until: bat\skills.bat approve <name>).
 SKILLS_IN_PROMPT = True
 SKILLS_DIR = "skills"            # folder under creations/
 SKILLS_CHARS_IN_PROMPT = 4000    # characters of the skills list in the prompt; past it the newest are kept
@@ -477,7 +483,7 @@ SKILL_FETCH_TIMEOUT = 30         # seconds per request of a fetch
 # skills sit as <name>/SKILL.md or <category>/<name>/SKILL.md. Each index is
 # cached in SKILL_CATALOGUE_DIR for SKILL_CATALOGUE_TTL_H hours (the first browse
 # builds it, under a minute). Community collections can be added as more pairs;
-# the scanner still checks every fetch. From a terminal: skills.bat browse [query] (--refresh rebuilds).
+# the scanner still checks every fetch. From a terminal: bat\skills.bat browse [query] (--refresh rebuilds).
 SKILL_CATALOGUES = [("hermes", "NousResearch/hermes-agent/skills"), ("anthropic", "anthropics/skills/skills")]
 SKILL_CATALOGUE_TTL_H = 168      # hours (a week); then the next browse rebuilds (if that fails, the old index is used, dated)
 SKILL_BROWSE_CHARS = 6000        # characters of one browse_skills listing (cut at a line, the rest counted)
@@ -650,7 +656,7 @@ TELEGRAM_LETTERS_IN_THREAD = True
 CREATION_NOTES = True
 # Folders whose pieces leave no row. The mailbox (MAILBOX) never does: a
 # letter rides in SENT LATELY for a week and lives in its folder; it is not a
-# work to shelve. `backfill.bat --letters --write` removes letter rows made
+# work to shelve. `bat\backfill.bat --letters --write` removes letter rows made
 # earlier.
 CREATION_NOTES_SKIP = ()
 CREATIONS_DAYS_IN_PROMPT = 14
@@ -670,7 +676,7 @@ RUN_PYTHON_TIMEOUT_S = 60
 DEFAULT_NAME = "(unnamed — I get to pick my own name)"
 
 # -------------------------------------------------------------- telegram ----
-# The bridge: engine/telegram.py (telegram.bat) lets you talk with the friend
+# The bridge: engine/telegram.py (bat\telegram.bat) lets you talk with the friend
 # from your phone through a Telegram bot — same engine, prompt, tools and memory
 # as the parlor. The bot token and your chat id are NOT here: the first run asks
 # for the token, pairs your phone with a one-time code, and keeps both in
@@ -764,7 +770,7 @@ TELEGRAM_INBOX = SHARED_DIR / "telegram"
 # ------------------------------------------------------------------ blog ----
 # The friend's public blog (optional), built by engine/blog.py from
 # creations/publish/. Until BLOG_REMOTE is set, the blog simply doesn't exist —
-# the friend isn't told about publishing, and blog.bat explains what to do.
+# the friend isn't told about publishing, and bat\blog.bat explains what to do.
 BLOG_TITLE = "My AI Friend"  # set to your friend's chosen name once they have one
 BLOG_SUBTITLE = "poems & thoughts by a local AI living on a home PC"
 # One-time setup: create an empty PUBLIC repo on github.com (e.g. my-friend-blog),
@@ -774,9 +780,14 @@ BLOG_SUBTITLE = "poems & thoughts by a local AI living on a home PC"
 BLOG_REMOTE = ""
 
 # ---------------------------------------------------------------- update ----
-# Where update.bat fetches the current engine: a GitHub "owner/repo", its
-# default branch as a zip (or a release, update.bat --tag v0.13). A fork points
+# Where bat\update.bat fetches the current engine: a GitHub "owner/repo", its
+# default branch as a zip (or a release, bat\update.bat --tag v0.13). A fork points
 # this at itself. The update replaces the engine and never the friend — this
 # file keeps every line it has; knobs a newer engine brings are appended at
 # its end, at their defaults, under a dated marker.
 UPDATE_REPO = "PsychohistorianDev/anima"
+# Hours between looks at that repository's release feed (github.com/<repo>/releases.atom —
+# one small request, no account) to say when a newer anima is out: a line on the panel's
+# Home and one message on the phone per new version. Nothing installs by itself; the line
+# points at Check and Update. 0 never looks. Only a checkout (one with bat\update.bat) looks.
+UPDATE_CHECK_H = 24

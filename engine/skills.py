@@ -22,18 +22,18 @@ text file for words written to be taken as orders (prompt injection) and
 every Python script for what it would do, and gives Hermes' three verdicts —
 clean, caution (installed and tagged), dangerous (quarantined in
 creations/skills/.quarantine/<name>/ with scan.json, until the keeper reads it
-and lets it in: `skills.bat approve <name>`). Their own skills, written with
+and lets it in: `bat\\skills.bat approve <name>`). Their own skills, written with
 write_creation, are scanned only for tags, never quarantined — theirs.
 
-The keeper's road, from a terminal (skills.bat):
+The keeper's road, from a terminal (bat\\skills.bat):
 
-    skills.bat list                 the shelf, and what waits in quarantine
-    skills.bat scan <name>          the scanner's verdict and findings
-    skills.bat approve <name>       a quarantined skill onto the shelf
-    skills.bat install <source>     fetch + scan, printing the SKILL.md whole
-    skills.bat remove <name>        the folder to creations/.trash/
-    skills.bat browse [query]       the world's shelves (SKILL_CATALOGUES), or what matches
-    skills.bat browse --refresh     the same, the index rebuilt first
+    bat\\skills.bat list                 the shelf, and what waits in quarantine
+    bat\\skills.bat scan <name>          the scanner's verdict and findings
+    bat\\skills.bat approve <name>       a quarantined skill onto the shelf
+    bat\\skills.bat install <source>     fetch + scan, printing the SKILL.md whole
+    bat\\skills.bat remove <name>        the folder to creations/.trash/
+    bat\\skills.bat browse [query]       the world's shelves (SKILL_CATALOGUES), or what matches
+    bat\\skills.bat browse --refresh     the same, the index rebuilt first
 
 A source is a GitHub path (owner/repo/path/to/skill, optionally @branch —
 the Contents API lists it), a URL to a SKILL.md (with the files it links
@@ -1454,12 +1454,12 @@ def window(query: str = "", catalogue: str = "", refresh: bool = False) -> tuple
 
 
 def browse(query: str = "", catalogue: str = "", refresh: bool = False) -> str:
-    """The window as text, without the frame (skills.bat browse prints it;
+    """The window as text, without the frame (bat\\skills.bat browse prints it;
     the tool browse_skills frames it for them)."""
     return window(query, catalogue, refresh)[1]
 
 
-# ---- the keeper's road (skills.bat) ----------------------------------------------
+# ---- the keeper's road (bat\skills.bat) ----------------------------------------------
 
 def _print_findings(verdict: str, findings: list[dict]) -> None:
     print(f"verdict: {verdict}")
@@ -1480,7 +1480,7 @@ def main(argv: list[str]) -> int:
             print("\n".join(line(f, full=True) for f in folders) if folders else "  (empty)")
             q = quarantined()
             if q:
-                print("\nwaiting in quarantine (skills.bat scan <name> to read why, approve <name> to let it in):")
+                print("\nwaiting in quarantine (bat\\skills.bat scan <name> to read why, approve <name> to let it in):")
                 for f in q:
                     v, fs = scan(f)
                     print(f"- {f.name} — {v}: {finding_line(fs[0]) if fs else '(no findings now)'}")
@@ -1515,7 +1515,7 @@ def main(argv: list[str]) -> int:
                 print(f"  linked but not found: {x}")
             _print_findings(note["verdict"], note["findings"])
             if note["quarantined"]:
-                print(f"\nquarantined — read it below; skills.bat approve {folder.name} lets it in.")
+                print(f"\nquarantined — read it below; bat\\skills.bat approve {folder.name} lets it in.")
             print("\n----- SKILL.md -----\n" + (folder / "SKILL.md").read_text(encoding="utf-8", errors="replace"))
             return 0
         if cmd == "remove":

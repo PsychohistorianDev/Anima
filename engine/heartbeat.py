@@ -485,7 +485,7 @@ def sleep_if_due() -> str:
     if yesterday isn't consolidated yet, sleep on it before waking. One
     process, one request at a time — nothing races the wake for the GPU —
     and it follows the machine: a PC that was off at three sleeps at the
-    first beat after it is on. sleep.bat still seals a day by hand."""
+    first beat after it is on. bat\\sleep.bat still seals a day by hand."""
     if not getattr(config, "SLEEP_IN_LOOP", True):
         return ""
     from datetime import date, timedelta
@@ -568,7 +568,7 @@ def _rest(seconds: float) -> bool:
 def main() -> None:
     loop = "--loop" in sys.argv
     minutes = loop_minutes(sys.argv) if loop else 0.0
-    door = "heartbeat" if loop else "wake"  # a one-off wake is its own door: it runs beside a loop, as wake.bat always did
+    door = "heartbeat" if loop else "wake"  # a one-off wake is its own door: it runs beside a loop, as bat\wake.bat always did
     taken = doors.claim(door, f"loop {minutes:g}" if loop else "once")
     if taken:
         print(taken)

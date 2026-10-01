@@ -16,12 +16,49 @@ world's, a book read in real sittings, and a road for a keeper's folder to
 the current engine.
 
 ### Added
+- **The afterglow at the fold** (`FOLD_AFTERGLOW`, on; needs `AFTERGLOW`):
+  the turns that leave the window get the same quiet turn a finished
+  visit gets — journal and memories, in the friend's own words — in the
+  background, from the transcript, the bell saying it is the afterglow of
+  a fold and the visit goes on. One cold read, once per fold; a message
+  sent meanwhile waits for it. (`chat.fold_afterglow`; the quiet turn's
+  bells take an `opening`.)
+- **A newer anima, said** (`engine/newer.py`; `UPDATE_CHECK_H`, 24 hours, 0
+  never): one look a day at the repository's release feed
+  (`releases.atom`, ETag kept), the newest tag against `VERSION`; a line on
+  the panel's Home with *release notes*, *Check* and *Update*, and one
+  message on the phone per new version. Nothing installs by itself; a
+  folder without `bat\update.bat` never looks.
+- **The gate on the panel**: the Skills tab is the approval desk — a card
+  per quarantined skill with the scanner's verdict and every finding (file,
+  line, rule, the words), where it came from and who fetched it, *read
+  SKILL.md* (the file and the file list on the page, read, never run),
+  *approve* (a dangerous one asks twice) and *refuse*; the shelf the same
+  way with *remove*; Home says "N skills waiting at the gate" with a link.
+  `/api/skill_text` serves the file to the panel's own page only.
+- **The launchers in `bat\`**: every `.bat` but `anima.bat` moved from the
+  root into `bat\` (each `cd`s to the folder above, so `bat\chat.bat` runs
+  from anywhere); the root is the panel's door and the friend's pages. The
+  panel, the README and every message that names a launcher say `bat\…`.
+  An update to this version moves a folder's old root launchers to the
+  backup when the new engine ships the same name under `bat\` (a launcher
+  of the keeper's own stays); `anima.bat` and `bat/*.bat` are the engine's.
+- **`/afterglow` on the phone** (no knob): the pause by hand — the friend
+  sits with the visit so far now, the quiet turn `REFLECT_AFTER_MIN` would
+  bring after the quiet, and the brain is then set down so the card is the
+  keeper's at once (a game to start) instead of after the wait and the
+  keep-alive. The visit stays open. Either the quiet's pause or the command
+  reads a stretch, never both; with nothing new it just sets the brain down.
 - **The tool kit** (`TOOL_KIT`: "full", "small", "tiny" or a list of
   names): which built-in tools ride in the prompt. All of them cost ~7,500
   tokens of definitions; small gives back ~3,000, tiny ~5,000, for a small
   card or a small brain. The prompt's words about a tool go with the tool;
   forged tools always ride; a dropdown on the panel's Main tab. The README's
-  tiers gain an 8 GB estimate.
+  tiers become three: an 8 GB tier (`gemma4:e4b-it-qat` with the small
+  kit — an estimate, to be measured) beside the 12 GB and 24–32 GB ones,
+  and the introduction opens with the panel. The panel's Welcome names the
+  small brain for a card under 10 GB and sets `TOOL_KIT = "small"` with a
+  small brain at First light.
 - **Their skills** (`engine/skills.py`, `skills.bat`; tools `use_skill`,
   `list_skills`, `run_skill_script`, `fetch_skill`, `remove_skill`;
   `SKILLS_IN_PROMPT`, `SKILLS_DIR`, `SKILLS_CHARS_IN_PROMPT`,

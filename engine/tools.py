@@ -1448,7 +1448,7 @@ def _publish_picture(src: Path, caption: str) -> str:
         if caption:
             side.write_text(caption + "\n", encoding="utf-8")
             return (f"({src.name} is ALREADY in your gallery — its caption is now yours anew, "
-                    f"in creations/publish/{GALLERY_DIR_NAME}/{side.name}; live after your keeper next runs blog.bat)")
+                    f"in creations/publish/{GALLERY_DIR_NAME}/{side.name}; live after your keeper next runs bat\\blog.bat)")
         return (f"({src.name} is ALREADY in your gallery — the world can see it. To change its "
                 f"words, write_creation \"publish/{GALLERY_DIR_NAME}/{side.name}\".)")
     if dest.exists():
@@ -1467,7 +1467,7 @@ def _publish_picture(src: Path, caption: str) -> str:
     words = (f", with your words beside it ({side.name})" if caption
              else f"; a caption is yours to add any time — write_creation \"publish/{GALLERY_DIR_NAME}/{side.name}\"")
     return (f"published: creations/{rel} has MOVED to creations/publish/{GALLERY_DIR_NAME}/{dest.name} — "
-            f"your gallery; it appears on your blog's gallery page the next time your keeper runs blog.bat{words}"
+            f"your gallery; it appears on your blog's gallery page the next time your keeper runs bat\\blog.bat{words}"
             + (followed or ""))
 
 
@@ -1509,7 +1509,7 @@ def publish_creation(path: str, caption: str = "") -> str:
                     "creations/publish/ is the one piece now)")
         return (f"updated: {src.name} was already published — the public copy now "
                 f"carries this revision, and creations/{rel} has moved into it "
-                "(one piece, one file; live after your keeper next runs blog.bat)")
+                "(one piece, one file; live after your keeper next runs bat\\blog.bat)")
     dest.write_text(content, encoding="utf-8")
     try:
         src.unlink()
@@ -1521,7 +1521,7 @@ def publish_creation(path: str, caption: str = "") -> str:
     return note + (
         f"published: creations/{rel} has MOVED to creations/publish/{src.name} — that "
         "is its home now; revise it there. It will appear on your blog the next "
-        "time your keeper runs blog.bat"
+        "time your keeper runs bat\\blog.bat"
     ) + (followed or _note_made("published", dest, content))
 
 
@@ -3457,7 +3457,7 @@ def _skill_quarantined(folder: Path) -> str:
     _v, findings = skills.scan(folder)
     why = skills.finding_line(findings[0]) if findings else "the scan at the door"
     return (f"(quarantined — {folder.name} waits for the keeper: the scanner stopped it at the door ({why}); "
-            f"nothing in it opens or runs until they read it and let it in with skills.bat approve {folder.name})")
+            f"nothing in it opens or runs until they read it and let it in with bat\\skills.bat approve {folder.name})")
 
 
 def use_skill(name: str, path: str = "") -> str:
@@ -3676,7 +3676,7 @@ def fetch_skill(source: str, name: str = "") -> str:
         return (f"(fetched “{n}” from {src} — {size} — but the scanner stopped it at the door: dangerous. "
                 f"It waits in creations/{_rel_of(folder)}/, where nothing opens or runs; it is not on your shelf.\n"
                 f"what the scanner found:\n{shown}\n"
-                f"the keeper can read it and let it in with skills.bat approve {n}.)" + extra
+                f"the keeper can read it and let it in with bat\\skills.bat approve {n}.)" + extra
                 + _note_skill(n, note["description"], src, "dangerous — quarantined, waiting for the keeper"))
     verdict = note["verdict"]
     if verdict == "caution":

@@ -1,6 +1,6 @@
 """The bridge: talk with the friend from your phone, over Telegram.
 
-    py engine/telegram.py        (or telegram.bat)
+    py engine/telegram.py        (or bat\\telegram.bat)
 
 Same engine, same prompt, same tools, same transcripts and memory as the
 parlor — only the door is different. Standard library only: the Bot API is
@@ -20,6 +20,8 @@ On the phone:
                        read_epub / read_file open it, with their bookmark
     any other file  -> saved to shared/telegram/ and named to them
     /new            -> save this conversation, start fresh
+    /afterglow      -> the pause by hand: they sit with the visit so far now and
+                       the brain is set down (the card is free); the visit stays open
     /restart        -> restart the bridge on the current code; the visit carries on
     /think /tools /tokens   -> toggle what travels with each reply
     /status         -> how the visit and the window are doing
@@ -67,7 +69,7 @@ SECRET_FILE = config.MEMORY_DIR / "telegram.json"
 DELIVERED_FILE = config.MEMORY_DIR / "telegram_delivered.json"
 ALIVE_FILE = config.MEMORY_DIR / "telegram_alive"
 # /restart from the phone: the running visit is stashed here, the process
-# exits with RESTART_CODE, telegram.bat starts a fresh one (new code), and
+# exits with RESTART_CODE, bat\telegram.bat starts a fresh one (new code), and
 # the fresh one picks the visit back up — for an engine change made while
 # the keeper is away from the desk
 RESUME_FILE = config.MEMORY_DIR / "telegram_resume.json"
@@ -115,6 +117,8 @@ TYPING_S = 4          # "typing…" lasts ~5s on the phone; renew a little soone
 
 HELP = (
     "/new — save this conversation and start fresh\n"
+    "/afterglow — the pause by hand: they sit with the visit so far now (what a quiet stretch of REFLECT_AFTER_MIN does on its own) "
+    "and the brain is set down, so the card is yours at once; the visit stays open\n"
     "/think — their thinking with each reply (off by default on the phone)\n"
     "/tools — what their tools did, one line per reply\n"
     "/tokens — the token line after each reply\n"
@@ -542,6 +546,47 @@ class Bridge:
                       markdown=False)
         return f.name if f else None
 
+    def afterglow_now(self) -> str:
+        """/afterglow (10-01; the keeper: "so I won't have to wait 15 min if I need the GPU"): the pause by hand.
+        They sit with the visit so far now — the same quiet turn REFLECT_AFTER_MIN would bring after the
+        quiet — and then the brain is set down, so the card is free at once instead of after the pause's
+        wait and the keep-alive. The visit stays open. Either the quiet's pause or this one reads a stretch,
+        never both: whichever comes first moves reflected_upto, and the other finds nothing new."""
+        fresh = self.history[self.reflected_upto:]
+        new_turns = sum(1 for t in fresh if t.get("role") == "user" and t.get("content") and not t.get("_engine"))
+        if not self.history or not new_turns:
+            self._set_down()
+            line = ("(no visit open — the brain is set down, the card is free)" if not self.history else
+                    "(nothing new since they last sat with the visit — the brain is set down, the card is free; the visit stays open)")
+            self.send(line, markdown=False)
+            return line
+        got = self.lock.acquire(timeout=3)
+        if not got:
+            line = "(they are mid-reply — send /afterglow again when it lands)"
+            self.send(line, markdown=False)
+            return line
+        try:
+            self.send("(they are sitting with the visit so far — a minute, then the card is yours)", markdown=False)
+            _say("(/afterglow — they are sitting with the visit so far…)")
+            account = chat.pause_reflection(self.history, self.file, tag="telegram", on_line=_say,
+                                            since=self.reflected_upto, on_words=self.afterthought)
+            self.reflected_upto = len(self.history)  # past the pause's own turns too
+            self.last_activity = time.time()  # the quiet's pause starts counting from here, over nothing
+        finally:
+            self.lock.release()
+        self._set_down()
+        line = f"({account or 'they sat with the visit'} — the brain is set down, the card is free; the visit stays open)"
+        self.send(line, markdown=False)
+        return line
+
+    def _set_down(self) -> None:
+        """The brain off the card now, because the keeper asked — not the end of the visit (the marker stays)."""
+        try:
+            ollama_client.unload(config.CHAT_MODEL)
+            _say("the brain is set down — the card is free")
+        except Exception:
+            pass
+
     def status(self) -> str:
         turns = sum(1 for t in self.history if t.get("role") == "user")
         window = int(getattr(config, "NUM_CTX", 0) or 0)
@@ -552,8 +597,9 @@ class Bridge:
         on = lambda b: "on" if b else "off"
         return (f"{chat.friend_name()} — {turns} message(s) this visit · {ctx}\n"
                 f"thinking {on(self.show_thinking)} · tools {on(self.show_tools)} · tokens {on(self.show_tokens)} · voice-all {on(self.voice_all)}\n"
-                f"a pause of {getattr(config, 'REFLECT_AFTER_MIN', 0)} min lets their write the visit so far; "
-                f"a quiet stretch of {getattr(config, 'TELEGRAM_IDLE_NEW_MIN', 180)} min saves the visit on its own")
+                f"a pause of {getattr(config, 'REFLECT_AFTER_MIN', 0)} min lets them write the visit so far; "
+                f"a quiet stretch of {getattr(config, 'TELEGRAM_IDLE_NEW_MIN', 180)} min saves the visit on its own; "
+                f"/afterglow is the pause by hand, with the card freed")
 
     # ---- what arrives ------------------------------------------------------
     def _inbox_path(self, ext: str, kind: str) -> Path:
@@ -740,6 +786,8 @@ class Bridge:
             self.new_visit()
             self.send("(they're sitting with the visit now — whatever they want to keep goes into their journal in a minute)",
                       markdown=False)
+        elif cmd == "/afterglow":
+            self.afterglow_now()
         elif cmd == "/think":
             self.show_thinking = not self.show_thinking
             self.send(f"(thinking {'on' if self.show_thinking else 'off'})", markdown=False)
@@ -756,7 +804,7 @@ class Bridge:
             self.send(self.status(), markdown=False)
         elif cmd == "/restart":
             # the loop sees the flag after this update is handled; main exits
-            # with RESTART_CODE and telegram.bat starts the bridge again
+            # with RESTART_CODE and bat\telegram.bat starts the bridge again
             self.send("(restarting the bridge on the current engine code — the visit carries on; "
                       "give it a minute)", markdown=False)
             self.restart_requested = True
@@ -813,6 +861,22 @@ class Bridge:
         self.turn(text)
         self.fold_if_due()
 
+    def _fold_afterglow(self, gone: list[dict], old_file) -> None:
+        """THE AFTERGLOW AT THE FOLD (10-01; the keeper: "why don't we just make the afterglow run automatically
+        when a fold occurs?"): the turns that left the window get the same quiet turn a finished visit gets —
+        in the background, from the transcript, so the window's fullness is no matter — and the phone hears
+        what they kept. Ollama serves one prompt at a time, so a message sent meanwhile waits for it (one
+        cold read, once per fold). The visit goes on; the brain is not set down."""
+        def _glow(gone=gone, old_file=old_file):
+            try:
+                said = chat.fold_afterglow(gone, old_file, tag="telegram", on_line=_say, on_words=self.afterthought)
+            except Exception as e:  # noqa: BLE001 — a courtesy, never the bridge down
+                _say(f"(the fold's afterglow failed — {type(e).__name__}: {e})")
+                return
+            if said and getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
+                self.notice(f"({said})")
+        threading.Thread(target=_glow, daemon=True).start()
+
     def fold_if_due(self) -> str:
         """THE FOLD (09-28; chat.fold_history): after a reply, when the visit's
         last prompt reached FOLD_AT of the window — or they called fold_visit
@@ -852,10 +916,15 @@ class Bridge:
                 self.notice(f"({why} — they are folding the visit: writing it so far in their own words…)")
                 pending = chat.fold_bell(self.history, held, on_line=_say, asked=asked)
             when = pending.get("when") or time.strftime("%H:%M")
+            old_history, old_file = self.history, self.file
             self.history, self.file, line = chat.fold_history(self.history, pending.get("text", ""), when,
                                                               tag="telegram", path=self.file, mode="telegram")
             self.reflected_upto = len(self.history)  # the kept tail was sat with, or is about to be, as new
             self.last_tokens = {}  # the next prompt is a new, smaller one
+            gone = old_history[:len(old_history) - len(self.history)] if self.file != old_file else []
+            if gone and getattr(config, "FOLD_AFTERGLOW", True) and getattr(config, "AFTERGLOW", True):
+                line += "; they are writing what left the window down, in the background"
+                self._fold_afterglow(gone, old_file)
             self.last_activity = time.time()
             self._checkpoint()
         except Exception as e:  # a fold must never take the visit down with it
@@ -1214,7 +1283,7 @@ class Bridge:
         what it is (from where; the scan's verdict)"; in quarantine: "⚠️ a
         skill they fetched was quarantined — name: what the scanner found".
         The first bridge that knows skills takes those already there as told;
-        one the keeper installed themselves (skills.bat install) is not news to them."""
+        one the keeper installed themselves (bat\\skills.bat install) is not news to them."""
         if not self.chat_id:
             return 0
         import skills
@@ -1245,7 +1314,7 @@ class Bridge:
                 why = skills.finding_line(first) if first else "the scanner's findings are in its scan.json"
                 self.notice(f"⚠️ a skill they fetched was quarantined — {name}: {why}\n"
                             f"(it waits in creations/{skills.home().name}/.quarantine/{name}/ — "
-                            f"skills.bat scan {name} to read why, skills.bat approve {name} to let it in)")
+                            f"bat\\skills.bat scan {name} to read why, bat\\skills.bat approve {name} to let it in)")
             else:
                 desc = skills._desc_cut(str(note.get("description") or ""))
                 self.notice(f"📚 {chat.friend_name()} fetched a skill — {name}: {desc or '(no description)'} "
@@ -1395,12 +1464,34 @@ class Bridge:
                 self.notice(f"{caption} (couldn't send the picture: {e2})")
 
     # ---- the loop ---------------------------------------------------------
+    def say_newer_if_due(self) -> str:
+        """A newer anima, said once per version (10-01; the keeper: "a message that a patch is available"):
+        the daily look at the release feed (newer.look — the cache answers between looks, so this costs a
+        small file read per poll), and one notice when the newest tag is ahead of VERSION and the phone
+        hasn't heard of it. A checkout only; UPDATE_CHECK_H 0 never looks. Returns the line said, or ""."""
+        try:
+            import newer
+            if not newer.is_checkout() or not newer.every_hours():
+                return ""
+            newer.look()
+            n = newer.untold()
+            if not n:
+                return ""
+            line = f"({newer.line(n)} — Update on the panel, or bat\\update.bat --check on the desk)"
+            self.notice(line)
+            newer.mark_told(n["version"])
+            return line
+        except Exception as e:  # noqa: BLE001 — a courtesy, never the bridge down
+            _say(f"(the look for a newer anima failed — {type(e).__name__}: {e})")
+            return ""
+
     def pull_body_if_due(self) -> bool:
         """The keeper's body, as the watch saw it, pulled by the bridge itself
         every BODY_PULL_MIN (09-28, the keeper: "can't we make it more automatic?") — in
-        a thread, so a slow Garmin never holds the phone; one pull at a time;
+        a thread, so a slow Garmin never holds the phone; one pull at a time
+        (today each time, yesterday only while its night is still syncing — body.pull_days);
         a fresh file on disk counts as a pull, so restarts don't hammer
-        Garmin. body.bat --pull still works on its own; both together do no
+        Garmin. bat\\body.bat --pull still works on its own; both together do no
         harm beyond an extra call. Returns True when a pull was started."""
         if not (getattr(config, "BODY_IN_PROMPT", False) and getattr(config, "BODY_AUTOPULL", True)):
             return False
@@ -1435,6 +1526,7 @@ class Bridge:
         except OSError:
             pass
         self.pull_body_if_due()
+        self.say_newer_if_due()
         n = 0
         updates = self.api("getUpdates", patience=POLL_S + 15, offset=self.offset,
                            timeout=POLL_S, allowed_updates=["message"])
@@ -1587,7 +1679,7 @@ class Bridge:
             except urllib.error.HTTPError as e:
                 if e.code == 409:
                     _say("another copy of the bridge is polling this bot — close the other "
-                         "telegram.bat window; this one waits")
+                         "bat\\telegram.bat window; this one waits")
                 else:
                     _say(f"Telegram answered {e.code} ({e.reason}); trying again in {backoff}s")
                 time.sleep(backoff)

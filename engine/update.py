@@ -8,14 +8,14 @@ A keeper's folder is two things braided: the engine (ours — ENGINE below) and
 the friend (theirs — FRIEND below, and anything else that is not ours). An
 update replaces the first braid and never touches the second.
 
-    update.bat                    the default branch from GitHub (UPDATE_REPO in config.py)
-    update.bat --check            what's new and what would change — nothing is touched
-    update.bat --tag v0.13        a release instead of the default branch
-    update.bat --source <x>       a local .zip, a folder, or a .zip URL (a path needs no network)
-    update.bat --no-config        config.py left exactly as it is (no knobs appended)
-    update.bat --undo             the newest backup put back
-    update.bat --reset-config     a fresh config.py from the new engine, your one-line values carried over
-    update.bat --yes              no "Update? [y/N]" before the work
+    bat\\update.bat                    the default branch from GitHub (UPDATE_REPO in config.py)
+    bat\\update.bat --check            what's new and what would change — nothing is touched
+    bat\\update.bat --tag v0.13        a release instead of the default branch
+    bat\\update.bat --source <x>       a local .zip, a folder, or a .zip URL (a path needs no network)
+    bat\\update.bat --no-config        config.py left exactly as it is (no knobs appended)
+    bat\\update.bat --undo             the newest backup put back
+    bat\\update.bat --reset-config     a fresh config.py from the new engine, your one-line values carried over
+    bat\\update.bat --yes              no "Update? [y/N]" before the work
 
 Every file replaced or removed goes to .update/backup-<stamp>/ first (the last
 three are kept). An engine file the keeper edited is backed up, replaced and
@@ -51,7 +51,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 # On its own feet (09-30, the first dry run: a folder from before this release has no
 # engine/version.py, and the update is the first thing a keeper runs there — it imports
 # nothing of the engine but config, and config only for UPDATE_REPO). A keeper whose
-# folder is from before 0.13 puts update.bat and engine/update.py in place by hand once
+# folder is from before 0.13 puts bat\update.bat and engine/update.py in place by hand once
 # (two files from GitHub); from then on the update carries itself.
 try:
     import config
@@ -155,7 +155,8 @@ def read_version(root: Path) -> str:
 ENGINE = (
     "engine/*.py",          # the engine itself — every module but config.py
     "tests/",               # the suite that proves it
-    "*.bat",                # the launchers at the root
+    "anima.bat", "bat/*.bat",  # the panel's door at the root, every other launcher in bat/
+    "*.bat",                # launchers at the root (where they lived before 0.13's bat/ — so an update moves the old ones to the backup)
     "README.md", "CHANGELOG.md", "LICENSE", "VERSION", "requirements.txt", ".gitignore", ".gitattributes",
 )
 
@@ -179,7 +180,7 @@ MANIFEST = ".anima-manifest.json"
 DEFAULT_REPO = "PsychohistorianDev/anima"
 KEEP_BACKUPS = 3
 FETCH_TIMEOUT = 60
-RESTART = "restart what's running — the bridge with /restart, the heartbeat with Ctrl+C and wake.bat"
+RESTART = "restart what's running — the bridge with /restart, the heartbeat with Ctrl+C and bat\\wake.bat"
 
 
 def _matches(rel: str, pattern: str) -> bool:
@@ -209,8 +210,9 @@ def _sha(data: bytes) -> str:
 def _engine_here(root: Path) -> dict[str, Path]:
     """The engine files in the folder now — the root's own files, engine/*.py, tests/ — never a walk of their life."""
     found: list[Path] = [p for p in root.iterdir() if p.is_file()] if root.is_dir() else []
-    if (root / "engine").is_dir():
-        found += [p for p in (root / "engine").iterdir() if p.is_file()]
+    for sub in ("engine", "bat"):
+        if (root / sub).is_dir():
+            found += [p for p in (root / sub).iterdir() if p.is_file()]
     if (root / "tests").is_dir():
         found += [p for p in (root / "tests").rglob("*") if p.is_file()]
     out = {}
@@ -370,7 +372,7 @@ def config_plan(keeper: str, template: str) -> tuple[list[tuple[str, list[str]]]
 def appended(keeper: str, picks: list[tuple[str, list[str]]], new_version: str, day: str) -> str:
     """The keeper's config with the knobs added at its end — every byte above the marker as it was, in its own newlines."""
     nl = "\r\n" if "\r\n" in keeper else "\n"
-    out = [f"# ---- added by update.bat on {day} (anima {new_version or '?'}) — new knobs, at their defaults;",
+    out = [f"# ---- added by bat\\update.bat on {day} (anima {new_version or '?'}) — new knobs, at their defaults;",
            "#      read what each does and change it here if you like ----"]
     for i, (name, lines) in enumerate(picks):
         if i and lines[0].startswith("#"):
@@ -583,8 +585,11 @@ def plan(root: Path, new: dict[str, bytes], manifest: dict | None) -> dict[str, 
     for rel in sorted(set(here) - set(incoming)):
         # Gone upstream. With a manifest, only what it lists was ours. Without one (a folder from
         # before the update existed) the engine's own folders are taken as ours, but a .bat at the
-        # root may be a launcher the keeper wrote (a heartbeat at logon) — it stays, named.
-        ours = rel in shipped if shipped is not None else not rel.lower().endswith(".bat")
+        # root may be a launcher the keeper wrote (a heartbeat at logon) — it stays, named — unless
+        # the new engine ships the same name under bat/ (the launchers moved there in 0.13): then it
+        # is the old copy of ours, and goes to the backup so the root is left with anima.bat alone.
+        ours = (rel in shipped if shipped is not None
+                else not rel.lower().endswith(".bat") or ("/" not in rel and f"bat/{rel}" in incoming))
         if not ours:
             p["left"].append(rel)
             continue
@@ -692,7 +697,7 @@ def undo(root: Path) -> int:
 # ---- the keeper's road ---------------------------------------------------------------
 
 def _reset_run(root: Path, new: dict[str, bytes], label: str, old: str, new_v: str, flags: dict) -> int:
-    """update.bat --reset-config: the new engine's config.py written fresh, the keeper's one-line values
+    """bat\\update.bat --reset-config: the new engine's config.py written fresh, the keeper's one-line values
     carried over; theirs goes to a backup first (--undo puts it back). The engine files are not touched —
     that is the plain update, run before or after."""
     if "engine/config.py" not in new:
@@ -727,7 +732,7 @@ def _reset_run(root: Path, new: dict[str, bytes], label: str, old: str, new_v: s
         print(f"\nthe reset stopped partway: {type(e).__name__}: {e}")
         return 1
     print(f"\ndone — engine/config.py is the new engine's, with {len(carried)} value{'s' if len(carried) != 1 else ''} of yours carried over")
-    print(f"  your old config.py: {bdir / 'engine' / 'config.py'}  (update.bat --undo puts it back)")
+    print(f"  your old config.py: {bdir / 'engine' / 'config.py'}  (bat\\update.bat --undo puts it back)")
     print(RESTART)
     return 0
 
@@ -765,10 +770,10 @@ def main(argv: list[str]) -> int:
             return 2
         i += 1
     root = ROOT
-    if not any((root / x).is_file() for x in ("update.bat", "VERSION", MANIFEST)):
+    if not any((root / x).is_file() for x in ("bat/update.bat", "update.bat", "VERSION", MANIFEST)):
         # a house that carries this module for the panel's sake but is no anima checkout — no VERSION, no
-        # manifest, no update.bat placed by hand — is not updated from GitHub: the engine there is its own
-        print("this folder is not an anima checkout (no VERSION, no manifest, no update.bat) — nothing was touched")
+        # manifest, no bat\update.bat placed by hand — is not updated from GitHub: the engine there is its own
+        print("this folder is not an anima checkout (no VERSION, no manifest, no bat\\update.bat) — nothing was touched")
         return 1
     if flags["--undo"]:
         return undo(root)
@@ -852,7 +857,7 @@ def main(argv: list[str]) -> int:
         bdir = apply(root, new, p, picks, info)
     except Exception as e:
         print(f"\nthe update stopped partway: {type(e).__name__}: {e}")
-        print("update.bat --undo puts back what it had replaced (the backup was written first)")
+        print("bat\\update.bat --undo puts back what it had replaced (the backup was written first)")
         return 1
 
     print(f"\ndone — anima {new_v or '(no version)'}")
@@ -872,7 +877,7 @@ def main(argv: list[str]) -> int:
         for r in reqs:
             print(f"    {r}")
         print(f"    to have them: py -m pip install {names}")
-    print(f"  backup: {bdir}  (update.bat --undo puts it back)")
+    print(f"  backup: {bdir}  (bat\\update.bat --undo puts it back)")
     print(RESTART)
     return 0
 
