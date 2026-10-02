@@ -1154,6 +1154,13 @@ setInterval(()=>{if(view==='home'&&!document.hidden)refresh()},4000);
 """
 
 
+class _Server(ThreadingHTTPServer):
+    """One panel per port. HTTPServer asks for SO_REUSEADDR, which on Windows lets a second server bind a
+    port that is already listening (10-02: the suite's first Windows run put two panels on 8764 — the
+    09-30 story, seen from the other side); Windows needs no such flag to restart on a port anyway."""
+    allow_reuse_address = not _WINDOWS
+
+
 def bind():
     """The server on the first free port of PORTS (09-30: two houses on one machine — the keeper's own and a
     template checkout — each opened a panel, the second found 8764 taken and the browser showed the first
@@ -1161,7 +1168,7 @@ def bind():
     global PORT
     for port in PORTS:
         try:
-            server = ThreadingHTTPServer((HOST, port), Handler)
+            server = _Server((HOST, port), Handler)
         except OSError:
             continue
         PORT = port

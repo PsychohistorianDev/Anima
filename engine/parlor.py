@@ -361,6 +361,7 @@ def main() -> None:
     if taken:
         print(taken)
         return
+    HTTPServer.allow_reuse_address = sys.platform != "win32"  # on Windows SO_REUSEADDR lets two servers share a port (10-02)
     server = HTTPServer((HOST, PORT), Handler)
     url = f"http://{HOST}:{PORT}"
     print(f"The parlor is open: {url}")

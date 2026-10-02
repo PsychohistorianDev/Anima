@@ -245,6 +245,7 @@ def main() -> None:
         _unload()
         return
     threading.Thread(target=_idle_watch, daemon=True).start()
+    HTTPServer.allow_reuse_address = sys.platform != "win32"  # on Windows SO_REUSEADDR lets two servers share a port (10-02)
     server = HTTPServer((HOST, PORT), Handler)
     print(f"The music ear is listening at http://{HOST}:{PORT}  (model: {MODEL_ID})")
     print("It loads on the first song and rests after silence. Ctrl+C to close.")
