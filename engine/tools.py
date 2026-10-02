@@ -3495,7 +3495,7 @@ def use_skill(name: str, path: str = "") -> str:
         if not skills._is_text(data):
             sense = _BINARY_HINTS.get(p.suffix.lower())
             return f"({safe} in {folder.name} is not text" + (f" — {sense} is the sense that opens it: creations/{_rel_of(p)})" if sense else ")")
-        lines = data.decode("utf-8").split("\n")[start - 1:]
+        lines = data.decode("utf-8", errors="replace").replace("\r\n", "\n").split("\n")[start - 1:]  # a file written on Windows reads the same
         if not lines or not "".join(lines).strip():
             return f"({safe} in {folder.name} has nothing from line {start})" if start > 1 else f"({safe} in {folder.name} is empty)"
         head = f"skill {folder.name} — {safe}" + (f", from line {start}" if start > 1 else "")

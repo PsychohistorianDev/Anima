@@ -6925,7 +6925,9 @@ check("panel: Stop for a bridge that isn't running — said, no stop file left f
       not _ps3["ok"] and "isn't running" in _ps3["note"] and not doors.stop_file("bridge").exists(), _ps3)
 _p_child = _psub.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
 doors.pid_file("bridge").write_text(_pjson.dumps({"pid": _p_child.pid, "when": "2026-09-30T10:00:00", "how": "bridge", "argv": []}), encoding="utf-8")
+panel._WINDOWS = sys.platform == "win32"  # a real child is ended the way this platform ends one (taskkill on Windows)
 _ps4 = panel.door_action("bridge", "stop_now")
+panel._WINDOWS = False
 try:
     _p_rc = _p_child.wait(timeout=10)
 except _psub.TimeoutExpired:
