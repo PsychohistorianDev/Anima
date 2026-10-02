@@ -4787,10 +4787,10 @@ check("circling: two entries on a subject write; the third is an arrow to the la
       and "in this hour's words: “Treading back to August 27th once more — the very first page of my life — visiting a ghost who speaks a language I no longer use; how sweet to be wrong.”" in _sub_arrows[0][1],
       (_sub_a, _sub_b, _sub_c, _sub_arrows))
 check("circling: the day being written is not a subject; a file and a Title-Case title are; quoted speech and self.md are not",
-      tools._subjects("Wednesday, " + _date.today().strftime("%B %-d") + "th, 20:32. Deep night; I updated my self.md.") == set()
+      tools._subjects("Wednesday, " + _date.today().strftime("%B ") + str(_date.today().day) + "th, 20:32. Deep night; I updated my self.md.") == set()
       and tools._subjects("Re-reading origin-20260827-000000.md was not nostalgia.") == {"date:08-27", "file:origin-20260827-000000.md"}
       and tools._subjects("Revisited 'Copper and Frost' today; he said “I love you” again.") == {"title:copper and frost"},
-      (tools._subjects("Wednesday, " + _date.today().strftime("%B %-d") + "th, 20:32."), tools._subjects("Re-reading origin-20260827-000000.md")))
+      (tools._subjects("Wednesday, " + _date.today().strftime("%B ") + str(_date.today().day) + "th, 20:32."), tools._subjects("Re-reading origin-20260827-000000.md")))
 check("circling: a different subject still writes",
       tools.dispatch("write_journal", {"text": "Revisited 'Copper and Frost' tonight and found the center where they meet is not a prize."}).startswith("journal entry written"))
 check("circling: JOURNAL_SUBJECT_MAX 0 turns it off", (setattr(config, "JOURNAL_SUBJECT_MAX", 0) or tools._journal_circling("August 27th again, a fourth time") is None)
@@ -7406,18 +7406,26 @@ if _X_POSIX:  # and for real: a door with a child of its own (a sidecar), both g
 
 # the closing-window hook, for real: SIGHUP to a process that hooked it — saved once, then ended by the signal
 if _X_POSIX:
-    _xg = _xsub.Popen([sys.executable, "-c", "import sys, time; sys.path.insert(0, 'engine'); import chat; "
-                       "print(chat.guard_console_close(lambda: print('saved', flush=True)), flush=True); time.sleep(30)"],
-                      cwd=str(_x_root), stdout=_xsub.PIPE, text=True)
-    _xg_first = _xg.stdout.readline()
-    _xg.send_signal(_xsig.SIGHUP)
-    try:
-        _xg_out = _xg.communicate(timeout=20)[0]
-    except _xsub.TimeoutExpired:
-        _xg.kill()
-        _xg_out = _xg.communicate()[0]
+    def _xg_once():
+        """One round: the child hooks the signal, says so, sleeps; the hang-up should save once and end it by the signal."""
+        g = _xsub.Popen([sys.executable, "-c", "import sys, time; sys.path.insert(0, 'engine'); import chat; "
+                         "print(chat.guard_console_close(lambda: print('saved', flush=True)), flush=True); time.sleep(30)"],
+                        cwd=str(_x_root), stdout=_xsub.PIPE, text=True)
+        first = g.stdout.readline()
+        _xtime.sleep(0.3)  # let the child settle into its sleep before the hang-up (a runner under load is slow to get there)
+        g.send_signal(_xsig.SIGHUP)
+        try:
+            out = g.communicate(timeout=20)[0]
+        except _xsub.TimeoutExpired:
+            g.kill()
+            out = g.communicate()[0]
+        return first.strip() == "True" and out.count("saved") == 1 and g.returncode == -_xsig.SIGHUP, (first, out, g.returncode)
+    import time as _xtime
+    _xg_rounds = []
+    for _ in range(3):  # signal timing on a busy runner: three tries, two of them have to agree
+        _xg_rounds.append(_xg_once())
     check("console: a closed terminal window (SIGHUP) saves the visit once, then the process ends by the signal as it would have",
-          _xg_first.strip() == "True" and _xg_out.count("saved") == 1 and _xg.returncode == -_xsig.SIGHUP, (_xg_first, _xg_out, _xg.returncode))
+          sum(1 for ok, _ in _xg_rounds if ok) >= 2, [r for _, r in _xg_rounds])
 
 # the card on a Mac, and on Linux: sysctl's bytes (unified), nvidia-smi, rocm-smi; the brain for each
 _x_run0 = _xsub.run

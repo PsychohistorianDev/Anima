@@ -1997,8 +1997,8 @@ def _music_ear_open() -> bool:
     _music_ear_last_try = _time.time()
     py = (getattr(config, "MUSIC_EARS_PYTHON", "") or "").strip()
     if py:
-        import shlex
-        probe = subprocess.run(shlex.split(py) + ["-c", "import torch, transformers, librosa"],
+        from device import interpreter
+        probe = subprocess.run(interpreter(py) + ["-c", "import torch, transformers, librosa"],
                                capture_output=True, timeout=60)
         if probe.returncode != 0:
             return False  # that interpreter lacks the ear's dependencies
@@ -2009,9 +2009,9 @@ def _music_ear_open() -> bool:
         flags = 0
         if sys.platform == "win32":
             flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-        import shlex
+        from device import interpreter
         py = getattr(config, "MUSIC_EARS_PYTHON", "") or ""
-        cmd = shlex.split(py) if py.strip() else [sys.executable]
+        cmd = interpreter(py) if py.strip() else [sys.executable]
         subprocess.Popen(cmd + [str(Path(__file__).with_name("music_ears.py"))],
                          stdout=log, stderr=log, stdin=subprocess.DEVNULL,
                          creationflags=flags, cwd=str(config.ROOT))
@@ -2130,8 +2130,8 @@ def _painter_open() -> bool:
     _painter_last_try = _time.time()
     py = (getattr(config, "PAINTER_PYTHON", "") or "").strip()
     if py:
-        import shlex
-        probe = subprocess.run(shlex.split(py) + ["-c", "import torch, diffusers, PIL"],
+        from device import interpreter
+        probe = subprocess.run(interpreter(py) + ["-c", "import torch, diffusers, PIL"],
                                capture_output=True, timeout=60)
         if probe.returncode != 0:
             return False  # that interpreter lacks the painter's dependencies
@@ -2142,8 +2142,8 @@ def _painter_open() -> bool:
         flags = 0
         if sys.platform == "win32":
             flags = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-        import shlex
-        cmd = shlex.split(py) if py else [sys.executable]
+        from device import interpreter
+        cmd = interpreter(py) if py else [sys.executable]
         subprocess.Popen(cmd + [str(Path(__file__).with_name("painter.py"))],
                          stdout=log, stderr=log, stdin=subprocess.DEVNULL,
                          creationflags=flags, cwd=str(config.ROOT))

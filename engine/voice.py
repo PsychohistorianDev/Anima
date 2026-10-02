@@ -192,11 +192,11 @@ def _wav_seconds(wav: bytes) -> float:
 def _synthesize_via(py: str, text: str, voice: str, speed: float) -> tuple[bytes, float]:
     """Kokoro in another interpreter (VOICE_PYTHON): this same file, run with
     --synth, text on stdin, wav to a temp file. One short process per note."""
-    import shlex
     import tempfile
+    from device import interpreter
     with tempfile.TemporaryDirectory() as td:
         out = Path(td) / "out.wav"
-        cmd = shlex.split(py) + [str(Path(__file__).resolve()), "--synth", "--voice", voice,
+        cmd = interpreter(py) + [str(Path(__file__).resolve()), "--synth", "--voice", voice,
                                  "--speed", str(speed), "--out", str(out)]
         try:
             proc = subprocess.run(cmd, input=text.encode("utf-8"), capture_output=True,

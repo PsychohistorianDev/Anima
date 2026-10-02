@@ -95,6 +95,20 @@ def allocated_gb(device: str, torch=None) -> float | None:
     return None
 
 
+def interpreter(py: str) -> list[str]:
+    """A sidecar's Python (VOICE_PYTHON, PAINTER_PYTHON, MUSIC_EARS_PYTHON) as argv: "py -3.12" is two
+    words, "C:\\Python312\\python.exe" one — on Windows the backslashes are a path, not escapes (10-02:
+    the suite's first run on a Windows runner handed its own python.exe over and shlex ate the slashes),
+    so the split there keeps them and only takes the quotes off; elsewhere the shell's own rules."""
+    import shlex
+    py = (py or "").strip()
+    if not py:
+        return []
+    if os.name != "nt":
+        return shlex.split(py)
+    return [w[1:-1] if len(w) > 1 and w[0] == w[-1] and w[0] in "\"'" else w for w in shlex.split(py, posix=False)]
+
+
 def generator_device(device: str) -> str:
     """Where a seeded torch.Generator lives: on the card for cuda; on the processor for mps and cpu (an
     MPS generator is partial, and diffusers seeds from a CPU one there)."""
