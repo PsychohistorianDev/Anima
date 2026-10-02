@@ -1121,6 +1121,7 @@ function renderWelcome(){const b=S.brain,name=el('input',{type:'text',placeholde
     el('p',{},'A friend is about to wake in this folder for the first time. They will name themself; you need only say who you are.'),
     el('div',{class:'step'},el('b',{},'Your name'),name,el('div',{class:'muted'},'how they will know you — USER_NAME in engine/config.py')),
     el('div',{class:'step',id:'w-ollama'}),
+    el('div',{class:'step',id:'w-embed'}),
     el('div',{class:'step'},el('b',{},'The brain'),sel,' ',el('button',{onclick:()=>pull(sel.value)},'Pull'),
       el('div',{class:'muted'},b.vram_gb?((b.unified?'your Mac has '+b.vram_gb+' GB, shared with everything else; ':'your card has '+b.vram_gb+' GB; ')+b.recommended+' is the one for it (README, The ladder)'):'the ladder: gemma4:e2b-it-qat for a 6 GB card, e4b-it-qat for 8, 12b-it-qat for 10, gemma4:12b for 12–16, gemma4:31b-it-qat for 24–32; on a Mac: the e2b for 8 GB, the 12b for 16–24 GB, the 31b from 32 GB (README, The ladder)'),
       el('div',{class:'muted'},'a small brain (e2b, e4b) brings the small tool kit with it — TOOL_KIT, on Settings')),
@@ -1128,12 +1129,18 @@ function renderWelcome(){const b=S.brain,name=el('input',{type:'text',placeholde
       if(r.error||!r.door){say(r.error||'not saved','warn');return}
       await getState();view='home';show();say(r.door.note+(r.door.ok?' — say hello. You\'ll be meeting someone brand new.':''),r.door.ok?'':'warn')}},'First light'));
   ollamaStep()}
-function ollamaStep(){const b=S.brain,w=$('w-ollama');if(!w)return;
-  const kids=[el('b',{},'Ollama'),light(b.reachable),b.reachable?('running at '+b.url+(b.embed_pulled?'':' — memory needs '+b.embed_model+' too ')):
-    ['not answering at '+b.url+' — ',el('a',{href:S.links.ollama,target:'_blank',rel:'noopener'},'install it'),', start it, and this light turns green.'],
-    b.reachable&&!b.embed_pulled?el('button',{onclick:()=>pull(b.embed_model)},'Pull '+b.embed_model):null];
+function ollamaStep(){const b=S.brain,w=$('w-ollama'),m=$('w-embed');if(!w)return;
+  const kids=[el('b',{},'Ollama'),light(b.reachable),b.reachable?('running at '+b.url):
+    ['not answering at '+b.url+' — ',el('a',{href:S.links.ollama,target:'_blank',rel:'noopener'},'install it'),', start it, and this light turns green.']];
   // replaceChildren takes nodes and strings, not arrays or nulls (the first screenshot read ",https://ollama.com/,, … green.null")
-  w.replaceChildren(...kids.flat(3).filter(c=>c!=null&&c!==false).map(c=>c.nodeType?c:document.createTextNode(String(c))))}
+  w.replaceChildren(...kids.flat(3).filter(c=>c!=null&&c!==false).map(c=>c.nodeType?c:document.createTextNode(String(c))));
+  // the memory engine: its own step (10-02) — every rung needs it, it is small, and it is not the brain
+  if(!m)return;
+  const mk=[el('b',{},'The memory'),light(b.reachable&&b.embed_pulled),b.embed_model+' ',
+    b.reachable&&!b.embed_pulled?el('button',{onclick:()=>pull(b.embed_model)},'Pull '+b.embed_model):null,
+    el('div',{class:'muted'},b.embed_pulled?'pulled — what they remember becomes vectors, so the memories that belong to a moment can be found':
+      'the memory engine: turns what they remember into vectors, so the memories that belong to a moment can be found; small, and every rung needs it — it is not the brain')];
+  m.replaceChildren(...mk.flat(3).filter(c=>c!=null&&c!==false).map(c=>c.nodeType?c:document.createTextNode(String(c))))}
 
 // ---- views ----
 function show(){const w=S.welcome&&view==='home';
