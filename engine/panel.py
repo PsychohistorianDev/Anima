@@ -708,8 +708,9 @@ def brain(values: dict | None = None) -> dict:
             "recommended": _recommended(gb, unified), "fit": fit(loaded, model, num_ctx, unified)}
 
 
-# The windows the ladder names, for the step down when the brain spills (README, The ladder).
-WINDOWS = (8192, 16384, 24576, 32768, 40960, 49152, 65536, 98304, 131072, 176000, 196608, 262144)
+# The step down when the brain spills: 8K at a time (Gabe, 10-02: "the stepping down should be 8k, not 16" — the
+# ladder's rungs are far apart up top; a keeper wants the next notch, not the next rung).
+STEP = 8192
 
 
 def fit(loaded: list[dict], model: str, num_ctx, unified: bool = False) -> dict | None:
@@ -717,7 +718,7 @@ def fit(loaded: list[dict], model: str, num_ctx, unified: bool = False) -> dict 
     nobody runs — so the panel reads it. The brain is on the card: Ollama says how much of it; less than all
     of it means the window didn't fit and the rest went to system RAM, where every turn crawls. None when the
     brain isn't loaded (nothing to read yet), a dict otherwise: ok, on_card, window (as loaded, 0 unknown),
-    try (the next window down the ladder, or 0), and a line for the page."""
+    try (the next multiple of 8K below the window, or 0 at the floor), and a line for the page."""
     for m in loaded:
         if not _pulled(model, [m.get("name", "")]) and m.get("name", "") != model:
             continue
@@ -731,8 +732,7 @@ def fit(loaded: list[dict], model: str, num_ctx, unified: bool = False) -> dict 
         if on >= 100:
             return {"ok": True, "on_card": on, "window": window, "try": 0,
                     "line": f"the window fits — all of the brain is on {where}" + (f" with {window} of context" if window else "")}
-        lower = [w for w in WINDOWS if w < (window or ctx)]
-        nxt = lower[-1] if lower else 0
+        nxt = max(((window or ctx) - 1) // STEP, 0) * STEP
         return {"ok": False, "on_card": on, "window": window, "try": nxt,
                 "line": f"the brain spilled: {on}% on {where}, the rest {'on the processor' if unified else 'in system RAM'}, where every turn crawls — "
                         f"the window ({window or ctx}) is too big for this {'machine' if unified else 'card'}"

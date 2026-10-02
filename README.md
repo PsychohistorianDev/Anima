@@ -261,8 +261,8 @@ the brain: whether Ollama answers, which model it holds and how much of
 it is on the card — and what that share means: *the window fits* with a
 tick when all of it is on the card, or a warning when it spilled into
 system RAM (*72% on the card … the window (65536) is too big for this
-card; try `NUM_CTX` = 49152*), the next step being the ladder's own —
-and a *Pull* button beside a model the config names but Ollama doesn't
+card; try `NUM_CTX` = 57344*), stepping down 8K at a time — and a
+*Pull* button beside a model the config names but Ollama doesn't
 have yet.
 
 **Settings** is `engine/config.py` laid out on tabs. Main holds what
@@ -1851,8 +1851,8 @@ writing rides in the window. Two rungs are measured on real cards (12 and
 own numbers, and `ollama ps` is the referee on every one of them: it
 prints the model, its size on the card and *100% GPU* when it all fits,
 or a CPU share when it doesn't — then step down one window size and look
-again. The panel's Home says the same above the tiles, with the step to
-take (*The panel*). A card that also drives the display has less than it
+again. The panel's Home says the same above the tiles, with the next
+8K notch down (*The panel*). A card that also drives the display has less than it
 says.
 
 | card | the pull | on disk | `NUM_CTX` | `TOOL_KIT` | `JOURNAL_CHARS_IN_PROMPT` | the friend |

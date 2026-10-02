@@ -6852,12 +6852,17 @@ _ft_ok = panel.fit([{"name": "gemma4:12b", "on_card": 100, "window": 40960}], "g
 _ft_no = panel.fit([{"name": "gemma4:12b", "on_card": 83, "window": 40960}], "gemma4:12b", 40960)
 _ft_cfg = panel.fit([{"name": "gemma4:12b", "on_card": 83, "window": 0}], "gemma4:12b", 24576)
 _ft_mac = panel.fit([{"name": "gemma4:31b-it-qat", "on_card": 70, "window": 8192}], "gemma4:31b-it-qat", 8192, True)
-check("panel: the fit check — all on the card says so with the window; a spill names the share, the window and the next one down the ladder "
-      "(from the loaded window, else NUM_CTX); the floor has no step down; another model or nothing loaded is None; a Mac says memory",
+_ft_8k = (panel.fit([{"name": "gemma4:12b", "on_card": 90, "window": 65536}], "gemma4:12b", 65536)["try"],
+          panel.fit([{"name": "gemma4:12b", "on_card": 90, "window": 60000}], "gemma4:12b", 60000)["try"],
+          panel.fit([{"name": "gemma4:12b", "on_card": 90, "window": 262144}], "gemma4:12b", 262144)["try"],
+          panel.fit([{"name": "gemma4:12b", "on_card": 90, "window": 4096}], "gemma4:12b", 4096)["try"])
+check("panel: the fit check — all on the card says so with the window; a spill names the share, the window and the next 8K notch down "
+      "(from the loaded window, else NUM_CTX; 65536 → 57344, 60000 → 57344, 262144 → 253952); the floor has no step down; another model or nothing loaded is None; a Mac says memory",
       _ft_ok["ok"] and "fits" in _ft_ok["line"] and "40960" in _ft_ok["line"] and _ft_ok["try"] == 0
       and not _ft_no["ok"] and _ft_no["on_card"] == 83 and _ft_no["try"] == 32768 and "NUM_CTX = 32768" in _ft_no["line"] and "system RAM" in _ft_no["line"]
       and _ft_cfg["try"] == 16384 and "(24576)" in _ft_cfg["line"]
       and _ft_mac["try"] == 0 and "memory" in _ft_mac["line"] and "processor" in _ft_mac["line"] and "NUM_CTX" not in _ft_mac["line"]
+      and _ft_8k == (57344, 57344, 253952, 0) and panel.STEP == 8192
       and panel.fit([{"name": "other:7b", "on_card": 50}], "gemma4:12b", 40960) is None and panel.fit([], "gemma4:12b", 40960) is None
       and "fit" in panel.brain({"CHAT_MODEL": "gemma4:12b", "NUM_CTX": 40960}) and "b.fit" in panel.PAGE, (_ft_ok, _ft_no, _ft_cfg, _ft_mac))
 # the Senses tab's cards (10-02): every knob of the tab is one sense's, each sense says what it is and what it needs
@@ -7694,7 +7699,7 @@ check("README: the Mac's memory tiers beside the cards', and moving house (case 
 _x_changes = (_x_root / "CHANGELOG.md").read_text(encoding="utf-8")
 check("CHANGELOG: 0.13 says a Mac and Linux came in", "**A Mac, and Linux**" in _x_changes[:_x_changes.index("## 0.12")])
 check("README: the tests badge under the tagline; the panel's brain says whether the window fits, and the ladder sends the reader there",
-      "actions/workflows/tests.yml/badge.svg" in _x_readme[:400] and "*the window fits*" in _x_readme and "try `NUM_CTX` = 49152" in _x_readme
+      "actions/workflows/tests.yml/badge.svg" in _x_readme[:400] and "*the window fits*" in _x_readme and "try `NUM_CTX` = 57344" in _x_readme
       and "The panel's Home says the same above the tiles" in _x_readme and "is read as `python3.12` on the other side" in _x_readme)
 check("CHANGELOG: 0.14 opened with the fit check and a line for every knob; 0.13 closed on its date",
       _x_changes.index("## 0.14 — 2026-10-02") < _x_changes.index("## 0.13 — 2026-09-29 → 2026-10-02") < _x_changes.index("## 0.12")

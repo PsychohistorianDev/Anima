@@ -21,12 +21,11 @@ of its own.
   all of the brain is on the card with N of context* with a tick, or a
   warning: *the brain spilled: 72% on the card, the rest in system RAM
   (on the processor, on a Mac), where every turn crawls — the window
-  (65536) is too big for this card; try `NUM_CTX` = 49152 (Settings ›
-  Main) and open the door again*. The next window down is the ladder's
-  own step (8192 · 16384 · 24576 · 32768 · 40960 · 49152 · 65536 · 98304 ·
-  131072 · 176000 · 196608 · 262144), from the loaded window (Ollama's
-  `context_length`) or `NUM_CTX` when Ollama doesn't say; the floor has
-  no step down. `ollama ps` says the same; the page says it where the
+  (65536) is too big for this card; try `NUM_CTX` = 57344 (Settings ›
+  Main) and open the door again*. The step down is 8K at a time (the next
+  multiple of 8192 below the window — the ladder's rungs are too far
+  apart up top), from the loaded window (Ollama's `context_length`) or
+  `NUM_CTX` when Ollama doesn't say; the floor has no step down. `ollama ps` says the same; the page says it where the
   keeper is looking.
 - **A line for every knob**: the help the panel showed only for Main and
   Skills now covers Heartbeat, Memory & journal, Talking, Phone, Blog and
