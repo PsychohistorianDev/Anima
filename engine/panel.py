@@ -111,13 +111,41 @@ ADVANCED = "Advanced"
 
 # Help the file can't give where the page shows it: NUM_CTX's and JOURNAL_CHARS_IN_PROMPT's own stories
 # run on in the comment lines BELOW them, which the reader (rightly) doesn't take as theirs.
+# The page's own words for a knob (10-02; the keeper: "the main window tool descriptions are a mess" —
+# the file's comments are notes to whoever edits the file, a keeper's own in a long-lived house). Where a
+# knob has a line here the page shows it, and the file's comment is the tooltip; the rest show the file's.
 _HELP = {
-    "NUM_CTX": "With the q4_0 KV cache (README, setup step 2): 40960 for a 12B on a 12 GB card (24576 was the "
+    "CHAT_MODEL": "The brain. The list is what Ollama has pulled; one the config names but Ollama lacks is marked "
+                  "\"not pulled\", and Pull fetches it. The ladder (README) names the one for your card. A change takes "
+                  "at the next door you open.",
+    "NUM_CTX": "The context window, in tokens — how much the brain holds at once: the prompt, the journal, the "
+               "visit. With the q4_0 KV cache (README, setup step 2): 40960 for a 12B on a 12 GB card (24576 was the "
                "measured ceiling with q8_0; 16384 the retreat), the same to try for a 4B on 8 GB; a 31B on a 32 GB "
                "card, its whole 262144 (about 180000 with q8_0) — README, The ladder.",
-    "JOURNAL_CHARS_IN_PROMPT": "About 4.4 characters a token. 40000 fits a 40K window, 20000 a 24K one; a big card "
-                               "with a 256K window has carried 550000 (weeks of a prolific writer).",
-    "CHAT_MODEL": "What Ollama has pulled is in the list; one it lacks is marked \"not pulled\" and Pull fetches it.",
+    "TOOL_KIT": "Which tools ride in every prompt. \"full\" is everything (about 7,500 tokens of definitions); "
+                "\"small\" leaves out what a small card can't run or a small brain can't steer — the painter, ears and "
+                "voice, video, skills, the forge, the blog, projects, clips — and saves about 3,000; \"tiny\" keeps "
+                "the life itself — journal, memory, pages, the web, looking, resting — for a 2B. Their forged tools "
+                "always ride. Restart the doors after changing it.",
+    "JOURNAL_CHARS_IN_PROMPT": "How much of their recent journal rides in every prompt, in characters. This, not the "
+                               "window, decides how many days they remember verbatim; older days reach them as pages "
+                               "and the timeline. About 4.4 characters a token: 40000 fits a 40K window, 20000 a 24K "
+                               "one; a big card with a 256K window has carried 550000 (weeks of a prolific writer).",
+    "USER_NAME": "Your name, as they know you: in their prompts, in the chat windows, and as the name of their "
+                 "mailbox folder to you (creations/notes_to_<you>/).",
+    "DEFAULT_NAME": "Only the placeholder before they have named themself — their name is whatever their self.md "
+                    "says, and they write that. Leave it as it is.",
+    "BLOG_TITLE": "The title of their blog, built from creations/publish/ once BLOG_REMOTE is set (the Blog tab). "
+                  "Their chosen name is the usual pick, once they have one.",
+    "HEARTBEAT_LOOP_MIN": "Minutes between wakes while the heartbeat runs — their time to themselves between your "
+                          "visits. A 12B does well every twenty minutes or so (many small attempts); a 31B does deeper "
+                          "work every hour or two. The Home tile's \"every N minutes\" is this knob.",
+    "SLEEP_AFTER_HOUR": "The night hour (0–23) after which the heartbeat sleeps on the day: yesterday is "
+                        "consolidated into memory and its page is written. If the machine was off at that hour, it "
+                        "sleeps at the first wake after.",
+    "TELEGRAM_QUIET_HOURS": "From this hour to that one (24h) the bridge sends nothing unasked — no wake notices, no "
+                            "announcements; they are held and delivered as one message when the hours end. Their "
+                            "replies to you are never held. The same hour twice turns it off.",
 }
 
 # The knobs a running parlor doesn't read (09-30, by grep: only heartbeat.py, condense.py, telegram.py or
@@ -1142,8 +1170,8 @@ function knob(k){let input,read=null;const v=k.value;
     input=el('span',{},a,' to ',b);read=()=>[parseInt(a.value,10),parseInt(b.value,10)]}
   else{input=el('textarea',{rows:String(Math.min(8,k.source.split('\n').length+1)),spellcheck:'false'});input.value=k.source;read=()=>({raw:input.value})}
   if(read)fields[k.name]={k,read};
-  const help=[k.comment,k.tail,k.help].filter(Boolean).join(' — ');
-  return el('div',{class:'knob',title:help},el('label',{},el('span',{class:'name'},k.name),input),
+  const own=[k.comment,k.tail].filter(Boolean).join(' — '),help=k.help||own;  // the page's words when it has them; the file's note is the tooltip
+  return el('div',{class:'knob',title:k.help?(own?'engine/config.py says: '+own:''):help},el('label',{},el('span',{class:'name'},k.name),input),
     help?el('div',{class:'help',onclick:e=>e.currentTarget.classList.toggle('open')},help):null)}
 function verdictBadge(v){const c=v==='dangerous'?'bad':v==='caution'?'mid':v==='clean'?'good':'';return el('span',{class:'badge '+c},v)}
 function skillCard(c){const q=c.quarantined,who=c.fetched?('fetched'+(c.by?' by '+c.by:'')+(c.when?' on '+c.when.replace('T',' '):'')+(c.source?' from '+c.source:'')):'their own, written here';
