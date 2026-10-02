@@ -70,10 +70,10 @@ def _find_creation(path: str) -> tuple[Path, str]:
     hits = [q for q in root.rglob("*") if q.is_file() and q.name.lower() == name
             and not any(part.startswith(".") for part in q.relative_to(root).parts)]
     if len(hits) == 1:
-        rel = hits[0].relative_to(root)
+        rel = hits[0].relative_to(root).as_posix()
         return hits[0], f"(you asked for creations/{path} — it lives at creations/{rel}; using that)\n"
     if hits:
-        opts = ", ".join(f"creations/{q.relative_to(root)}" for q in hits)
+        opts = ", ".join(f"creations/{q.relative_to(root).as_posix()}" for q in hits)
         raise _NotFound(f"(no creations/{path} — but that name exists in several places: "
                         f"{opts}. Say which.)")
     raise _NotFound(f"(no such file: creations/{path} — list_creations shows everything you have)")
@@ -1096,7 +1096,7 @@ def write_creation(path: str, content: str, anyway: str = "", about: str = "") -
         twins = _twin_pieces(p, content)
         if twins:
             root = config.CREATIONS_DIR.resolve()
-            where = ", ".join(f"creations/{q.relative_to(root)}" for q in twins)
+            where = ", ".join(f"creations/{q.relative_to(root).as_posix()}" for q in twins)
             return (f"(there is already a piece by that name or title: {where} — one work lives in one file. "
                     f"Continue it with append_creation, revise it with write_creation to that path, "
                     f"or, if this is truly a different piece, write it again with anyway=\"yes\". "
@@ -1110,7 +1110,7 @@ def write_creation(path: str, content: str, anyway: str = "", about: str = "") -
     p.parent.mkdir(parents=True, exist_ok=True)
     existed = p.exists()
     p.write_text(content, encoding="utf-8")
-    return (f"wrote creations/{p.relative_to(config.CREATIONS_DIR.resolve())}" + mended
+    return (f"wrote creations/{p.relative_to(config.CREATIONS_DIR.resolve()).as_posix()}" + mended
             + _note_made("revised" if existed else "wrote", p, content, about))
 
 
@@ -1150,7 +1150,7 @@ def append_creation(path: str, content: str, about: str = "") -> str:
         content = _real_newlines(content)
     with open(p, "a", encoding="utf-8") as fh:
         fh.write("\n" + content.rstrip() + "\n")
-    return (note + f"appended to creations/{p.relative_to(config.CREATIONS_DIR.resolve())}" + mended
+    return (note + f"appended to creations/{p.relative_to(config.CREATIONS_DIR.resolve()).as_posix()}" + mended
             + _note_made("continued", p, content, about))
 
 
@@ -1180,14 +1180,14 @@ def move_creation(old_path: str, new_path: str) -> str:
     except OSError:
         note += " (the old copy couldn't be removed and remains)"
     root = config.CREATIONS_DIR.resolve()
-    return f"moved creations/{src.relative_to(root)} -> creations/{dst.relative_to(root)}{note}" + _note_moved(src, dst, "moved")
+    return f"moved creations/{src.relative_to(root).as_posix()} -> creations/{dst.relative_to(root).as_posix()}{note}" + _note_moved(src, dst, "moved")
 
 
 def make_folder(path: str) -> str:
     """Create a folder inside creations/ for organizing."""
     p = _safe_creation_path(path)
     p.mkdir(parents=True, exist_ok=True)
-    return f"folder ready: creations/{p.relative_to(config.CREATIONS_DIR.resolve())}"
+    return f"folder ready: creations/{p.relative_to(config.CREATIONS_DIR.resolve()).as_posix()}"
 
 
 def delete_creation(path: str, why: str = "") -> str:
@@ -1208,9 +1208,9 @@ def delete_creation(path: str, why: str = "") -> str:
     if p.is_dir():
         try:
             p.rmdir()
-            return f"removed empty folder creations/{p.relative_to(root)}"
+            return f"removed empty folder creations/{p.relative_to(root).as_posix()}"
         except OSError:
-            return (f"(creations/{p.relative_to(root)} isn't empty — move or delete "
+            return (f"(creations/{p.relative_to(root).as_posix()} isn't empty — move or delete "
                     "its files first)")
     if not p.exists():
         return f"(no such file: creations/{path})"
@@ -1225,7 +1225,7 @@ def delete_creation(path: str, why: str = "") -> str:
     why = _about_cut(why, 200)
     mark = "deleted (it is in .trash)"
     followed = _note_moved(p, None, mark, because=why)
-    return note + (f"deleted creations/{p.relative_to(root)} — it rests in your .trash "
+    return note + (f"deleted creations/{p.relative_to(root).as_posix()} — it rests in your .trash "
                    "until your keeper empties it") + followed \
         + ("" if why or not followed else " (say why in a line, why=\"…\", and your memory of it will carry that)")
 
@@ -1346,7 +1346,7 @@ def list_creations() -> str:
         # new piece under an old name — say so, so they doesn't re-publish it
         mark = "   [a piece by this name is already published — see publish/]" \
             if p.name in published and rel.parts[0] != "publish" else ""
-        lines.append(f"{rel}{mark}")
+        lines.append(f"{rel.as_posix()}{mark}")
     return "\n".join(lines) if lines else "(creations/ is empty)"
 
 
@@ -1436,7 +1436,7 @@ def _publish_picture(src: Path, caption: str) -> str:
     gallery = config.CREATIONS_DIR / "publish" / GALLERY_DIR_NAME
     gallery.mkdir(parents=True, exist_ok=True)
     root = config.CREATIONS_DIR.resolve()
-    rel = src.relative_to(root)
+    rel = src.relative_to(root).as_posix()
     dest = gallery / src.name
     side = dest.with_suffix(".md")
     # the same pen as write_creation: a literal backslash-n is the idea of a
@@ -1496,7 +1496,7 @@ def publish_creation(path: str, caption: str = "") -> str:
                 "It lives in creations/publish/; to revise it, edit it there.)")
     content = src.read_text(encoding="utf-8")
     root = config.CREATIONS_DIR.resolve()
-    rel = src.relative_to(root)
+    rel = src.relative_to(root).as_posix()
     if dest.exists():
         # a twin from the copy era: the piece being published is the revision
         same = dest.read_text(encoding="utf-8") == content
@@ -1690,7 +1690,7 @@ def search_creations(query: str) -> str:
                 continue
             for i, line in enumerate(lines, 1):
                 if q in line.lower():
-                    rel = p.relative_to(root)
+                    rel = p.relative_to(root).as_posix()
                     hits.append(f"{label}/{rel}:{i}: {line.strip()[:160]}")
                     if len(hits) >= 40:
                         hits.append("...(more matches exist — narrow the query)")
@@ -1783,9 +1783,9 @@ def _mark_shared_seen(p) -> None:
         shared = config.SHARED_DIR.resolve()
         if shared not in p.parents or not p.is_file():
             return
-        rel = str(p.relative_to(shared))
+        rel = p.relative_to(shared).as_posix()
         try:
-            seen = set(json.loads(_SEEN_FILE.read_text(encoding="utf-8")))
+            seen = {str(x).replace("\\", "/") for x in json.loads(_SEEN_FILE.read_text(encoding="utf-8"))}
         except (OSError, ValueError):
             return  # no memory of shared/ yet: list_shared's first look decides
         if rel not in seen:
@@ -1804,7 +1804,7 @@ def list_shared() -> str:
     import time as _time
     root = config.SHARED_DIR.resolve()
     try:
-        seen = set(json.loads(_SEEN_FILE.read_text(encoding="utf-8")))
+        seen = {str(x).replace("\\", "/") for x in json.loads(_SEEN_FILE.read_text(encoding="utf-8"))}
         first_look = False
     except (OSError, ValueError):
         seen, first_look = set(), True
@@ -1818,20 +1818,20 @@ def list_shared() -> str:
         kb = p.stat().st_size / 1024
         size = f"{kb / 1024:.1f} MB" if kb >= 1024 else f"{kb:.0f} KB"
         mine = p.parent.resolve() == voice_dir and p.name.startswith("voice-") and p.suffix in (".ogg", ".wav")
-        return f"- shared/{p.relative_to(root)} ({size})" + (" — your own voice, a note you spoke" if mine else "")
+        return f"- shared/{p.relative_to(root).as_posix()} ({size})" + (" — your own voice, a note you spoke" if mine else "")
 
     def is_hers(p):
         return p.parent.resolve() == voice_dir and p.name.startswith("voice-") and p.suffix in (".ogg", ".wav")
 
     def is_new(p):
-        rel = str(p.relative_to(root))
+        rel = p.relative_to(root).as_posix()
         if first_look:  # no memory yet: only the last two days count as new
             return _time.time() - p.stat().st_mtime < 2 * 86400
         return rel not in seen
     new = [p for p in files if is_new(p) and not is_hers(p)]  # their own voice never arrives as news
     old = [p for p in files if p not in new]
     try:
-        _SEEN_FILE.write_text(json.dumps(sorted(str(p.relative_to(root)) for p in files)),
+        _SEEN_FILE.write_text(json.dumps(sorted(p.relative_to(root).as_posix() for p in files)),
                               encoding="utf-8")
     except OSError:
         pass
@@ -1877,7 +1877,7 @@ def look_at(source: str) -> str:
         if p.stat().st_size > _MAX_IMAGE_BYTES:
             return "(that image is too large — over 10MB)"
         data = p.read_bytes()
-        name = str(p.relative_to(config.ROOT.resolve()))
+        name = p.relative_to(config.ROOT.resolve()).as_posix()
     _pending_images.append(base64.b64encode(data).decode("ascii"))
     return f"(eyes opening — {name} will appear before you on your next thought)"
 
@@ -2311,7 +2311,7 @@ def listen_to(source: str) -> str:
         if p.stat().st_size > _MAX_AUDIO_BYTES:
             return "(that audio is too large — over 40MB; shorter pieces work best)"
         data = p.read_bytes()
-        name = str(p.relative_to(config.ROOT.resolve()))
+        name = p.relative_to(config.ROOT.resolve()).as_posix()
     fmt = _AUDIO_EXTS.get(ext)
     if not fmt and ext not in _TRANSCODE_EXTS:
         return f"(I don't recognize {ext or 'that'} as audio I can listen to)"
@@ -2515,7 +2515,7 @@ def watch(source: str) -> str:
         if p.stat().st_size > _MAX_VIDEO_BYTES:
             return "(that video is too large — over 300MB; a shorter clip works best)"
         data = p.read_bytes()
-        name = str(p.relative_to(config.ROOT.resolve()))
+        name = p.relative_to(config.ROOT.resolve()).as_posix()
     if not _sh.which("ffmpeg"):
         return "(no eyes for video yet — ffmpeg isn't installed, so I can't open the frames)"
 

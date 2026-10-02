@@ -11,6 +11,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "engine"))
+# The check names carry arrows and dashes; a Windows console (cp1252) would crash printing them.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):  # a stream that can't be reconfigured keeps its encoding
+        pass
 
 import ollama_client
 

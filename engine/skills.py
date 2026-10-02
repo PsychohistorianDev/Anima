@@ -102,14 +102,18 @@ def find(name: str) -> tuple[Path | None, bool]:
     if not n or n.startswith("."):
         return None, False
     for root, q in ((home(), False), (quarantine(), True)):
+        # the folder's own spelling, not the asker's: on a Mac or Windows the filesystem answers
+        # to any case, and the skill's name is the folder's (its lines, its ledger, its frame)
+        if not root.is_dir():
+            continue
+        shelf = [p for p in root.iterdir() if p.is_dir() and not p.name.startswith(".") and (p / "SKILL.md").is_file()]
         for cand in (n, slug(n)):
-            p = root / cand
-            if cand and p.is_dir() and (p / "SKILL.md").is_file():
-                return p, q
-        if root.is_dir():
-            for p in root.iterdir():
-                if p.is_dir() and not p.name.startswith(".") and p.name.lower() == n.lower() and (p / "SKILL.md").is_file():
+            for p in shelf:
+                if cand and p.name == cand:
                     return p, q
+        for p in shelf:
+            if p.name.lower() == n.lower():
+                return p, q
     return None, False
 
 
