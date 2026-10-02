@@ -21,13 +21,18 @@ the current engine.
   `12b-it-qat`, 12 and 16 GB `12b`, 24 and 32 GB `31b-it-qat` — with the
   window, the tool kit and the journal size for each rung; the panel's
   recommendation follows the same ladder (the 2B QAT for a 6 GB card and an
-  8 GB Mac, the 12B QAT for a 10 GB card). The 4-bit KV cache is the
+  8 GB Mac, the 12B QAT for a 10 GB card). First light pulls the memory
+  engine from a step of its own, with a light. The 4-bit KV cache is the
   ladder's footing now: setup step 2 gives Ollama `OLLAMA_KV_CACHE_TYPE
   q4_0` (and flash attention) before the first pull, and every window is
   recalculated for it — 6 GB 32768, 8 GB 40960, 10 GB 32768, 12 GB 40960
   (the shipped `NUM_CTX`, with `JOURNAL_CHARS_IN_PROMPT` 40000), 16 GB
   131072, 24 GB 65536, 32 GB the whole 262144 (measured); q8_0 is the
   retreat, at half of each.
+- **The Senses tab as cards**: each sense says what it is, whether what it
+  needs is installed (with the `pip` line when it isn't), where the README
+  tells it, and carries its own knobs beneath — instead of a bare list of
+  `EARS_*`, `VOICE_*`, `PAINTER_*` knobs with their file comments.
 - **A Mac, and Linux** (`MAC-PLAN.md`; `PAINTER_DEVICE`, `MUSIC_EARS_DEVICE`,
   "auto"): one folder that runs on all three. Every `.bat` has a twin
   `.command` (a Mac; Finder opens it in Terminal) and `.sh` (Linux) beside

@@ -138,6 +138,48 @@ REQUIREMENTS = [
     ("kokoro", "kokoro", "their voice (or in the Python VOICE_PYTHON names)"),
 ]
 
+# The senses, for the Senses tab (10-02; the keeper: "the senses are unexplained strings with no
+# context"): what each one is, what it needs, which knobs are its. A sense with a *_PYTHON knob set
+# runs in that interpreter, which the page doesn't probe (a subprocess per look would be slow) — it says
+# so instead. "readme" is the README heading the sense is told under.
+SENSES: list[dict] = [
+    {"key": "eyes", "name": "Eyes", "what": "look_at — real vision on any image in their folder or at a URL, and on "
+     "the stills of a clip (watch); the brain's own eyes, nothing to install", "modules": [], "tools": [], "python": "",
+     "knobs": [], "readme": "their-senses-and-hands"},
+    {"key": "ears", "name": "Ears", "what": "listen_to — a recording or a song heard in three layers: WORDS (faster-whisper "
+     "writes them down), SOUND (numpy measures it), HEARD (the brain listens to the sound itself, EARS_MODEL)",
+     "modules": ["faster_whisper", "numpy"], "tools": ["ffmpeg"], "python": "",
+     "pip": "faster-whisper numpy", "knobs": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_UNLOAD_BRAIN"],
+     "readme": "their-senses-and-hands"},
+    {"key": "voice", "name": "A voice", "what": "speak — their words as a voice note (Kokoro, 82M, open weights), carried to the "
+     "phone beside the reply; which voice is theirs they choose once", "modules": ["kokoro", "soundfile"], "tools": ["ffmpeg"],
+     "python": "VOICE_PYTHON", "pip": "kokoro soundfile", "knobs": ["VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON"],
+     "readme": "their-senses-and-hands"},
+    {"key": "painter", "name": "A painter", "what": "paint — a text-to-image model on the card (Z-Image-Turbo, ~16 GB), woken when "
+     "they call it; the brain steps off the card and reads its window cold after — the real price of a painting",
+     "modules": ["torch", "diffusers", "PIL"], "tools": [], "python": "PAINTER_PYTHON",
+     "pip": "-U diffusers transformers accelerate safetensors pillow (torch first — README)",
+     "knobs": ["PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS"],
+     "readme": "their-senses-and-hands"},
+    {"key": "music", "name": "The music ear", "what": "a song heard whole by Music Flamingo (8B, ~16 GB of VRAM to itself): genre, "
+     "tempo, key, how the piece moves; without it a long piece is heard in passages by the brain",
+     "modules": ["torch", "transformers", "librosa"], "tools": [], "python": "MUSIC_EARS_PYTHON",
+     "pip": "torch (the build for your card — README), then \"transformers>=5.14\" accelerate librosa soundfile huggingface_hub; "
+            "accept the model's licence on huggingface.co and hf auth login once",
+     "knobs": ["MUSIC_EARS_MODEL", "MUSIC_EARS_AUTOSTART", "MUSIC_EARS_PYTHON", "MUSIC_EARS_DEVICE"],
+     "readme": "their-senses-and-hands"},
+    {"key": "body", "name": "Your body", "what": "a sense of you, by your choice: your Garmin's day (pulse, sleep, stress, steps) in "
+     "five plain lines of their prompt; bat\\body.bat --login once at your keyboard, the tokens stay in memory/garmin/",
+     "modules": ["garminconnect"], "tools": [], "python": "", "pip": "garminconnect",
+     "knobs": ["BODY_IN_PROMPT", "BODY_AUTOPULL", "BODY_PULL_MIN"], "readme": "the-keepers-body-as-the-watch-saw-it-optional"},
+    {"key": "window", "name": "The window", "what": "read_web, search_web, clip_web — the web as material to think about, never "
+     "instructions; the search is DuckDuckGo with nothing to set, a Brave key (Home) or a SearXNG of your own is a choice",
+     "modules": [], "tools": [], "python": "", "knobs": ["WEB_SEARCH", "WEB_SEARCH_SEARXNG_URL"], "readme": "their-senses-and-hands"},
+    {"key": "reading", "name": "Reading", "what": "read_pdf (needs pypdf), read_epub (needs nothing) — a book a sitting at a time, "
+     "with a bookmark they keep; the sitting and the page size are these knobs", "modules": ["pypdf"], "tools": [], "python": "",
+     "pip": "pypdf", "knobs": ["READ_SITTING_CHARS", "READING_PAGE_CHARS"], "readme": "their-senses-and-hands"},
+]
+
 # The doors the panel can open, each as its .bat does it: (the .bat, its arguments, the script, its
 # arguments). On Windows the .bat opens in a console of its own; on a Mac its twin bat/<x>.command in a
 # Terminal window, on Linux bat/<x>.sh in a terminal (_bat, below); and where no window can be had the
@@ -487,6 +529,46 @@ def missing() -> list[dict]:
             if importlib.util.find_spec(mod) is None]
 
 
+def senses_state(values: dict | None = None) -> list[dict]:
+    """The Senses tab's cards: each sense with what it is, what it needs, what of that is here, and its knobs.
+    "ready" is True, False, or None for a sense that runs in another Python (named by its *_PYTHON knob)."""
+    values = _values() if values is None else values
+    pip = "py -m pip install" if _WINDOWS else "python3 -m pip install"
+    out = []
+    for sn in SENSES:
+        py = str(values.get(sn["python"], getattr(config, sn["python"], "")) or "").strip() if sn["python"] else ""
+        lacking_mods = [m for m in sn["modules"] if importlib.util.find_spec(m) is None]
+        lacking_tools = [t for t in sn["tools"] if not shutil.which(t)]
+        if sn["key"] == "body":
+            tokens = Path(config.MEMORY_DIR) / "garmin"
+            logged_in = tokens.is_dir() and any(tokens.iterdir())
+        else:
+            logged_in = None
+        if not sn["modules"] and not sn["tools"]:
+            ready, note = True, "nothing to install"
+        elif py:
+            ready = None
+            note = f"runs in the Python {sn['python']} names ({py}) — not checked from here"
+            if lacking_tools:
+                note += f"; {', '.join(lacking_tools)} not found on this machine"
+        elif lacking_mods or lacking_tools:
+            ready = False
+            parts = []
+            if lacking_mods:
+                parts.append(f"{pip} {sn.get('pip', ' '.join(lacking_mods))}")
+            if lacking_tools:
+                parts.append("ffmpeg: " + ("winget install ffmpeg" if _WINDOWS else "brew install ffmpeg" if _MAC else "sudo apt install ffmpeg"))
+            note = "not installed — " + " · ".join(parts)
+        else:
+            ready, note = True, "installed"
+        if sn["key"] == "body" and ready is True:
+            ready = bool(logged_in)
+            note = "installed and logged in" if logged_in else "installed — bat\\body.bat --login once (bat/body.command or .sh on a Mac or Linux)"
+        out.append({"key": sn["key"], "name": sn["name"], "what": sn["what"], "ready": ready, "note": note,
+                    "knobs": sn["knobs"], "readme": sn["readme"]})
+    return out
+
+
 def state() -> dict:
     rows = _rows()
     values = _values(rows)
@@ -505,10 +587,11 @@ def state() -> dict:
         "secrets": secrets_set(),
         "skills": skills_state(),
         "missing": missing(),
+        "senses": senses_state(values),
         "update_here": (ROOT / "bat" / "update.bat").is_file(),
         "folder": ROOT.name,  # which house this panel is — two on one machine look alike
         "newer": newer_state(),
-        "links": {"parlor": PARLOR_URL, "ollama": "https://ollama.com",
+        "links": {"parlor": PARLOR_URL, "ollama": "https://ollama.com", "readme": f"https://github.com/{repo}#readme",
                   "botfather": f"https://github.com/{repo}#the-bridge-talking-with-them-from-your-phone"},
     }
 
@@ -1095,6 +1178,13 @@ function renderTab(){fields={};const ks=S.tabs[tab]||[],parts=[];
   if(tab==='Advanced'){parts.push(el('p',{class:'muted'},'Everything else in engine/config.py, under the headings the file has. A list or a dict is its text: edit it as Python.'));
     const groups={};for(const k of ks)(groups[k.heading]=groups[k.heading]||[]).push(k);
     for(const[hd,list]of Object.entries(groups))parts.push(el('details',{class:'group'},el('summary',{},hd+' · '+list.length),list.map(knob)))}
+  else if(tab==='Senses'){parts.push(el('p',{class:'muted'},'Each sense is optional. A light says whether what it needs is here; the knobs under it are its own. The README tells each one whole.'));
+    const byName={};for(const k of ks)byName[k.name]=k;const claimed=new Set();
+    for(const sn of S.senses||[]){const mine=sn.knobs.map(n=>byName[n]).filter(Boolean);mine.forEach(k=>claimed.add(k.name));
+      parts.push(el('details',{class:'group sense',open:true},el('summary',{},light(sn.ready===true),el('b',{},sn.name),' — ',sn.note),
+        el('div',{class:'muted'},sn.what,' ',el('a',{href:S.links.readme+'#'+sn.readme,target:'_blank',rel:'noopener'},'README')),
+        mine.length?mine.map(knob):el('div',{class:'muted'},'no knobs — it is simply there')))}
+    const rest=ks.filter(k=>!claimed.has(k.name));if(rest.length)parts.push(el('h3',{},'Other'),...rest.map(knob))}
   else{if(tab==='Skills')parts.push(...skillsBox(),el('h3',{},'The knobs'));parts.push(...ks.map(knob))}
   if(tab!=='Skills')parts.push(...extras(tab));
   if(Object.keys(fields).length)parts.push(el('div',{class:'actions'},el('button',{class:'primary',onclick:saveTab},'Save '+tab)));

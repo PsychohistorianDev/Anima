@@ -264,7 +264,12 @@ matters most, in order: the brain (a dropdown of what Ollama has), the
 window (`NUM_CTX`), the journal in the prompt, the names, the rhythm; then
 Heartbeat, Memory & journal, Talking, Phone, Senses, Skills and Blog; every knob no tab
 names is on Advanced, under the headings the file already has. Each knob
-shows the file's own comment as its help. *Save* checks each value is of
+shows the file's own comment as its help. Senses is cards rather than a
+list: each sense — eyes, ears, a voice, a painter, the music ear, your
+body, the window, reading — with a line on what it is, a light for
+whether what it needs is installed (and the `pip` line when it isn't, or
+a note that it runs in the Python its `*_PYTHON` knob names), a link to
+its place in this README, and its own knobs beneath. *Save* checks each value is of
 the kind that was there, backs the file up to `.update/config-<stamp>.py`,
 rewrites only the values you changed — your comments and everything else
 stay byte for byte — and proves the file still loads; then it names the

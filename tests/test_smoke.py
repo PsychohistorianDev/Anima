@@ -6805,7 +6805,7 @@ check("telegram: a newer anima is said on the phone once per version — the lin
 _pst = _p_asked(panel.state)
 _pb = _pst.get("brain", {})
 check("panel: state — the version, a light for every door (the panel one of them), the knobs by tab, the secrets as flags, the skills, what is missing, the links",
-      set(_pst) == {"version", "doors", "brain", "user_name", "welcome", "heartbeat_minutes", "tabs", "secrets", "skills", "missing", "links", "update_here", "folder", "newer"}
+      set(_pst) == {"version", "doors", "brain", "user_name", "welcome", "heartbeat_minutes", "tabs", "secrets", "skills", "missing", "links", "update_here", "folder", "newer", "senses"}
       and _pst["update_here"] is True and _pst["folder"] == config.ROOT.name
       and _pst["newer"] and _pst["newer"]["version"] == "0.14" and _pst["newer"]["installed"] == version.read(config.ROOT) and "release notes" in panel.PAGE and 'id="newer"' in panel.PAGE
       and _pst["version"] == version.read(config.ROOT) and list(_pst["doors"]) == list(doors.DOORS) and "panel" in _pst["doors"]
@@ -6839,6 +6839,25 @@ check("panel: a fixture's knobs on their tabs in TABS' order, the rest on Advanc
       and "262144" in _pk["NUM_CTX"]["help"],
       {t: [k["name"] for k in ks] for t, ks in _pt.items()})
 _p_real_tabs = panel.tabs(_k_real)
+# the Senses tab's cards (10-02): every knob of the tab is one sense's, each sense says what it is and what it needs
+_sn_claimed = [k for sn in panel.SENSES for k in sn["knobs"]]
+_sn_find0 = panel.importlib.util.find_spec
+panel.importlib.util.find_spec = lambda name, *a, **k: None if name in ("faster_whisper", "garminconnect") else object()
+_sn_which0 = panel.shutil.which
+panel.shutil.which = lambda name, *a, **k: None if name == "ffmpeg" else f"/usr/bin/{name}"
+_sn = {x["key"]: x for x in panel.senses_state({"VOICE_PYTHON": "py -3.12", "PAINTER_PYTHON": "", "MUSIC_EARS_PYTHON": ""})}
+panel.importlib.util.find_spec, panel.shutil.which = _sn_find0, _sn_which0
+check("panel: the Senses tab is cards — every knob of the tab is one sense's and one only; eyes need nothing; the ears say what to install "
+      "and that ffmpeg is missing; a voice in another Python is not checked here; the body asks for its login; the state carries them",
+      sorted(_sn_claimed) == sorted(panel.TABS["Senses"]) and len(_sn_claimed) == len(set(_sn_claimed))
+      and _sn["eyes"]["ready"] is True and _sn["eyes"]["knobs"] == []
+      and _sn["ears"]["ready"] is False and "faster-whisper" in _sn["ears"]["note"] and "ffmpeg" in _sn["ears"]["note"]
+      and _sn["voice"]["ready"] is None and "py -3.12" in _sn["voice"]["note"]
+      and _sn["body"]["ready"] is False and "garminconnect" in _sn["body"]["note"]
+      and _sn["painter"]["ready"] is True and _sn["reading"]["ready"] is True
+      and all(x["what"] and x["readme"] for x in _sn.values())
+      and [x["key"] for x in panel.state()["senses"]] == [x["key"] for x in panel.SENSES]
+      and "tab==='Senses'" in panel.PAGE and "#readme" in panel.state()["links"]["readme"], {k: (v["ready"], v["note"][:60]) for k, v in _sn.items()})
 _p_placed = [k["name"] for ks in _p_real_tabs.values() for k in ks]
 _p_listed = [n for ns in panel.TABS.values() for n in ns]
 check("panel: every knob of the real config.py on exactly one tab (Advanced counts), and every name TABS lists is in config.py",
