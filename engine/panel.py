@@ -146,6 +146,21 @@ _HELP = {
     "TELEGRAM_QUIET_HOURS": "From this hour to that one (24h) the bridge sends nothing unasked — no wake notices, no "
                             "announcements; they are held and delivered as one message when the hours end. Their "
                             "replies to you are never held. The same hour twice turns it off.",
+    # the Skills tab (10-02; the keeper: his own name twice on the page, quoted in the file's comments)
+    "SKILLS_IN_PROMPT": "Whether their shelf of skills (creations/skills/) is named in every prompt, so they know what "
+                        "they have: one line per skill — use_skill opens one whole, run_skill_script runs its Python in "
+                        "the sandbox, fetch_skill brings one from the web through the scanner and the gate.",
+    "SKILLS_CHARS_IN_PROMPT": "Characters the shelf's list may take in the prompt; past it the newest skills are "
+                              "named and the rest wait for list_skills.",
+    "SKILL_CHARS": "Characters of a SKILL.md, or of one file under a skill, handed back per use_skill; past it the "
+                   "text is cut at a line and says where the rest begins.",
+    "SKILL_MAX_FILES": "How many files one fetch_skill may bring in.",
+    "SKILL_MAX_BYTES": "How many bytes one fetch may bring in, all its files together.",
+    "SKILL_CATALOGUES": "The shop window: the shelves browse_skills shows them, each a (name, GitHub owner/repo/path"
+                        "[@branch]) pair — Hermes' and Anthropic's by default. Another collection is one more pair; "
+                        "the scanner still checks every fetch, and you still approve at the gate.",
+    "SKILL_CATALOGUE_TTL_H": "Hours a shelf's index is kept before the next browse rebuilds it (a week); if the "
+                             "rebuild fails the old index is used, dated.",
 }
 
 # The knobs a running parlor doesn't read (09-30, by grep: only heartbeat.py, condense.py, telegram.py or

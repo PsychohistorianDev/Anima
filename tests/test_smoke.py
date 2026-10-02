@@ -6837,7 +6837,7 @@ check("panel: a fixture's knobs on their tabs in TABS' order, the rest on Advanc
       and _pk["USER_NAME"]["comment"] == "Your name, as your friend will know it." and _pk["USER_NAME"]["tail"] == "<-- yours here"
       and _pk["NUM_CTX"]["tail"] == "the window" and "40960" in _pk["NUM_CTX"]["help"] and "q4_0" in _pk["NUM_CTX"]["help"]
       and "262144" in _pk["NUM_CTX"]["help"]
-      and all(panel._HELP.get(n) for n in panel.TABS["Main"]) and "k.help||own" in panel.PAGE,  # the page's own words on Main (10-02)
+      and all(panel._HELP.get(n) for n in panel.TABS["Main"] + panel.TABS["Skills"]) and "k.help||own" in panel.PAGE,  # the page's own words on Main and Skills (10-02)
       {t: [k["name"] for k in ks] for t, ks in _pt.items()})
 _p_real_tabs = panel.tabs(_k_real)
 # the Senses tab's cards (10-02): every knob of the tab is one sense's, each sense says what it is and what it needs
