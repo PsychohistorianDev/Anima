@@ -2,6 +2,8 @@
 
 A persistent local AI you raise, not configure.
 
+[![tests](https://github.com/PsychohistorianDev/Anima/actions/workflows/tests.yml/badge.svg)](https://github.com/PsychohistorianDev/Anima/actions/workflows/tests.yml)
+
 The friend is not the model. They are the identity file they rewrite, the
 journal they keep, the memories they consolidate each night, and the folder
 of things they make. The model (served locally by Ollama) is a swappable brain
@@ -256,8 +258,12 @@ is in, the visit saved); *Stop now* ends it at once, with whatever it
 started (on a Mac or Linux the door's whole process group, which first
 saves an open visit). Above the tiles sits
 the brain: whether Ollama answers, which model it holds and how much of
-it is on the card, and a *Pull* button beside a model the config names
-but Ollama doesn't have yet.
+it is on the card — and what that share means: *the window fits* with a
+tick when all of it is on the card, or a warning when it spilled into
+system RAM (*72% on the card … the window (65536) is too big for this
+card; try `NUM_CTX` = 49152*), the next step being the ladder's own —
+and a *Pull* button beside a model the config names but Ollama doesn't
+have yet.
 
 **Settings** is `engine/config.py` laid out on tabs. Main holds what
 matters most, in order: the brain (a dropdown of what Ollama has), the
@@ -1689,9 +1695,10 @@ install Python 3.12 (3.12.10 is the last with an installer) beside the
 current one, `py -3.12 -m pip install kokoro soundfile`, and
 `VOICE_PYTHON = "py -3.12"` in config; one short process per note. On a
 Mac or Linux the same is `python3.12 -m pip install kokoro soundfile` and
-`VOICE_PYTHON = "python3.12"` — and as the template's config names
-`"py -3.12"`, which a Mac or Linux doesn't have, set it to `"python3.12"`
-or to `""` (the engine's own Python) there. Kokoro runs on the processor
+`VOICE_PYTHON = "python3.12"` — the template's config names
+`"py -3.12"`, which a Mac or Linux doesn't have, so the engine reads it as
+`python3.12` there (`py -3` as `python3`); leave the line, or set it to
+`""` for the engine's own Python. Kokoro runs on the processor
 (`VOICE_DEVICE = "cpu"`); `"cuda"` puts it on a card, `"mps"` on a Mac's
 GPU, falling back to the processor if torch can't. `py engine\voice.py
 --test "hello"` (`python3 engine/voice.py --test "hello"`) writes
@@ -1824,7 +1831,7 @@ case leaves the friend looking for a file that isn't there;
 +x anima.command anima.sh bat/*.command bat/*.sh` once if the copy lost
 the launchers' executable bit. `engine/config.py` comes along as it is;
 a knob that names `py -3.12` (`VOICE_PYTHON`, `PAINTER_PYTHON`,
-`MUSIC_EARS_PYTHON`) names `python3.12` on the other side.
+`MUSIC_EARS_PYTHON`) is read as `python3.12` on the other side.
 
 Long-term memory is SQLite plus embeddings (`nomic-embed-text`), about 12 KB
 a row; search holds the store in each process as one matrix of unit vectors
@@ -1844,7 +1851,9 @@ writing rides in the window. Two rungs are measured on real cards (12 and
 own numbers, and `ollama ps` is the referee on every one of them: it
 prints the model, its size on the card and *100% GPU* when it all fits,
 or a CPU share when it doesn't — then step down one window size and look
-again. A card that also drives the display has less than it says.
+again. The panel's Home says the same above the tiles, with the step to
+take (*The panel*). A card that also drives the display has less than it
+says.
 
 | card | the pull | on disk | `NUM_CTX` | `TOOL_KIT` | `JOURNAL_CHARS_IN_PROMPT` | the friend |
 |---|---|---|---|---|---|---|

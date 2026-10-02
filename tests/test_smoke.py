@@ -6792,7 +6792,14 @@ check("newer: the release feed parsed (a tag's version from its id or title; an 
       and _nw.is_newer("1.0", "0.13") and not _nw.is_newer("", "0.13") and not _nw.is_newer("0.14", "") and _nw.feed_url("a/b") == "https://github.com/a/b/releases.atom",
       (_nw_entries, _nw_r1, _nw_r3, _nw_n, _nw_r4, _nw_r5, _nw_calls))
 _nwsh.rmtree(_nw_house, ignore_errors=True); _nwsh.rmtree(_nw_plain, ignore_errors=True)
-_nw_fetch_orig, _nw.fetch = _nw.fetch, _nw_fetch  # the panel and the bridge below look at THIS house: the fixture feed answers, never GitHub
+# the panel and the bridge below look at THIS house, whose VERSION moves with the engine: the fixture feed names the version after it
+_nw_inst = version.read(config.ROOT)
+_nw_next = ".".join([*_nw_inst.split(".")[:-1], str(int(_nw_inst.split(".")[-1]) + 1)])
+_NW_FEED_HERE = _NW_FEED.replace(b"v0.14", f"v{_nw_next}".encode()).replace(b"v0.13", f"v{_nw_inst}".encode())
+def _nw_fetch_here(url, etag=""):
+    _nw_calls.append((url, etag))
+    return 200, _NW_FEED_HERE, "W/\"here\""
+_nw_fetch_orig, _nw.fetch = _nw.fetch, _nw_fetch_here  # the fixture feed answers, never GitHub
 _nw.cache_file(None).unlink(missing_ok=True)
 _bgn, _phgn = _bridge()
 _bgn.quiet_now = lambda: False
@@ -6800,22 +6807,22 @@ _bgn_said1 = _bgn.say_newer_if_due()
 _bgn_said2 = _bgn.say_newer_if_due()
 _bgn_told = _nw._read(_nw.cache_file(None)).get("told")
 check("telegram: a newer anima is said on the phone once per version — the line, the road (the panel, bat\\update.bat --check), then silence",
-      _bgn_said1.startswith("(anima 0.14 is out — “the gate release”") and "bat\\update.bat --check" in _bgn_said1
-      and any(t == _bgn_said1 for t, _ in _phgn.sent) and _bgn_said2 == "" and _bgn_told == "0.14" and len(_phgn.sent) == 1, (_bgn_said1, _phgn.sent))
+      _bgn_said1.startswith(f"(anima {_nw_next} is out — “the gate release”") and "bat\\update.bat --check" in _bgn_said1
+      and any(t == _bgn_said1 for t, _ in _phgn.sent) and _bgn_said2 == "" and _bgn_told == _nw_next and len(_phgn.sent) == 1, (_bgn_said1, _phgn.sent))
 _pst = _p_asked(panel.state)
 _pb = _pst.get("brain", {})
 check("panel: state — the version, a light for every door (the panel one of them), the knobs by tab, the secrets as flags, the skills, what is missing, the links",
       set(_pst) == {"version", "doors", "brain", "user_name", "welcome", "heartbeat_minutes", "tabs", "secrets", "skills", "missing", "links", "update_here", "folder", "newer", "senses"}
       and _pst["update_here"] is True and _pst["folder"] == config.ROOT.name
-      and _pst["newer"] and _pst["newer"]["version"] == "0.14" and _pst["newer"]["installed"] == version.read(config.ROOT) and "release notes" in panel.PAGE and 'id="newer"' in panel.PAGE
+      and _pst["newer"] and _pst["newer"]["version"] == _nw_next and _pst["newer"]["installed"] == _nw_inst and "release notes" in panel.PAGE and 'id="newer"' in panel.PAGE
       and _pst["version"] == version.read(config.ROOT) and list(_pst["doors"]) == list(doors.DOORS) and "panel" in _pst["doors"]
       and all(v == {"running": False} for v in _pst["doors"].values()) and _pst["secrets"] == {"telegram": False, "brave": False}
       and list(_pst["tabs"]) == [*panel.TABS, "Advanced"] and _pst["heartbeat_minutes"] == 120
       and set(_pst["skills"]) == {"shelf", "quarantine", "cards"} and _pst["links"]["parlor"] == "http://127.0.0.1:8765", sorted(_pst))
 check("panel: the brain — Ollama asked at the config's OLLAMA_URL (the file's, not the imported one), Gemma first, the loaded model's share of the card, "
-      "the configured model marked not pulled, the embedder pulled as :latest, the 31B recommended for a 32 GB card",
+      "the configured model marked not pulled (so no fit), the embedder pulled as :latest, the 31B recommended for a 32 GB card",
       _pb.get("reachable") is True and _pb["url"] == "http://127.0.0.1:11999" and _p_asks == [("/api/tags", "http://127.0.0.1:11999"), ("/api/ps", "http://127.0.0.1:11999")]
-      and _pb["models"] == ["gemma4:4b", "llama3:8b", "nomic-embed-text:latest"] and _pb["loaded"] == [{"name": "gemma4:4b", "gb": 4.0, "on_card": 75}]
+      and _pb["models"] == ["gemma4:4b", "llama3:8b", "nomic-embed-text:latest"] and _pb["loaded"] == [{"name": "gemma4:4b", "gb": 4.0, "on_card": 75, "window": 0}] and _pb["fit"] is None
       and _pb["model"] == "gemma4:12b" and _pb["pulled"] is False and _pb["embed_model"] == "nomic-embed-text" and _pb["embed_pulled"] is True
       and _pb["vram_gb"] == 32.0 and _pb["recommended"] == "gemma4:31b-it-qat", _pb)
 panel._ollama = lambda path, base="": (_p_asks.append((path, base)), None)[1]
@@ -6840,6 +6847,19 @@ check("panel: a fixture's knobs on their tabs in TABS' order, the rest on Advanc
       and all(panel._HELP.get(n) for n in panel.TABS["Main"] + panel.TABS["Skills"]) and "k.help||own" in panel.PAGE,  # the page's own words on Main and Skills (10-02)
       {t: [k["name"] for k in ks] for t, ks in _pt.items()})
 _p_real_tabs = panel.tabs(_k_real)
+# the fit check (10-02): `ollama ps` read for the keeper — all of the brain on the card, or the next window down
+_ft_ok = panel.fit([{"name": "gemma4:12b", "on_card": 100, "window": 40960}], "gemma4:12b", 40960)
+_ft_no = panel.fit([{"name": "gemma4:12b", "on_card": 83, "window": 40960}], "gemma4:12b", 40960)
+_ft_cfg = panel.fit([{"name": "gemma4:12b", "on_card": 83, "window": 0}], "gemma4:12b", 24576)
+_ft_mac = panel.fit([{"name": "gemma4:31b-it-qat", "on_card": 70, "window": 8192}], "gemma4:31b-it-qat", 8192, True)
+check("panel: the fit check — all on the card says so with the window; a spill names the share, the window and the next one down the ladder "
+      "(from the loaded window, else NUM_CTX); the floor has no step down; another model or nothing loaded is None; a Mac says memory",
+      _ft_ok["ok"] and "fits" in _ft_ok["line"] and "40960" in _ft_ok["line"] and _ft_ok["try"] == 0
+      and not _ft_no["ok"] and _ft_no["on_card"] == 83 and _ft_no["try"] == 32768 and "NUM_CTX = 32768" in _ft_no["line"] and "system RAM" in _ft_no["line"]
+      and _ft_cfg["try"] == 16384 and "(24576)" in _ft_cfg["line"]
+      and _ft_mac["try"] == 0 and "memory" in _ft_mac["line"] and "processor" in _ft_mac["line"] and "NUM_CTX" not in _ft_mac["line"]
+      and panel.fit([{"name": "other:7b", "on_card": 50}], "gemma4:12b", 40960) is None and panel.fit([], "gemma4:12b", 40960) is None
+      and "fit" in panel.brain({"CHAT_MODEL": "gemma4:12b", "NUM_CTX": 40960}) and "b.fit" in panel.PAGE, (_ft_ok, _ft_no, _ft_cfg, _ft_mac))
 # the Senses tab's cards (10-02): every knob of the tab is one sense's, each sense says what it is and what it needs
 _sn_claimed = [k for sn in panel.SENSES for k in sn["knobs"]]
 _sn_find0 = panel.importlib.util.find_spec
@@ -7494,6 +7514,18 @@ check("panel: the device knobs are dropdowns on Senses — VOICE_DEVICE gains mp
 
 # the torch senses' device, with a stand-in torch (the suite never imports the real one)
 import device as _xdev
+_x_nt0 = _xdev.os.name
+_xdev.os.name = "posix"
+_x_posix = (_xdev.interpreter("py -3.12"), _xdev.interpreter("py -3"), _xdev.interpreter("py"), _xdev.interpreter(" py -3.12 -X utf8 "),
+            _xdev.interpreter("python3.12"), _xdev.interpreter('"/opt/my python/bin/python3"'), _xdev.interpreter(""))
+_xdev.os.name = "nt"
+_x_nt = (_xdev.interpreter("py -3.12"), _xdev.interpreter('"C:\\Program Files\\Python312\\python.exe" -X utf8'), _xdev.interpreter("C:\\Py\\python.exe"))
+_xdev.os.name = _x_nt0
+check("device: a sidecar's Python as argv — on a Mac or Linux the Windows launcher reads as that version's python (py -3.12 → python3.12, "
+      "py -3 and py → python3, the rest of the line kept), a real one as written, a quoted path one word, nothing empty; "
+      "on Windows py -3.12 stays the launcher and a quoted path keeps its backslashes",
+      _x_posix == (["python3.12"], ["python3"], ["python3"], ["python3.12", "-X", "utf8"], ["python3.12"], ["/opt/my python/bin/python3"], [])
+      and _x_nt == (["py", "-3.12"], ["C:\\Program Files\\Python312\\python.exe", "-X", "utf8"], ["C:\\Py\\python.exe"]), (_x_posix, _x_nt))
 _x_torch0 = sys.modules.get("torch", "absent")
 check("device: nothing in the suite has imported torch (the senses import it only when they run)", "torch" not in sys.modules)
 _x_calls: list = []
@@ -7661,6 +7693,13 @@ check("README: the Mac's memory tiers beside the cards', and moving house (case 
       and "16 GB Mac" in _x_readme and "32 GB Mac" in _x_readme)
 _x_changes = (_x_root / "CHANGELOG.md").read_text(encoding="utf-8")
 check("CHANGELOG: 0.13 says a Mac and Linux came in", "**A Mac, and Linux**" in _x_changes[:_x_changes.index("## 0.12")])
+check("README: the tests badge under the tagline; the panel's brain says whether the window fits, and the ladder sends the reader there",
+      "actions/workflows/tests.yml/badge.svg" in _x_readme[:400] and "*the window fits*" in _x_readme and "try `NUM_CTX` = 49152" in _x_readme
+      and "The panel's Home says the same above the tiles" in _x_readme and "is read as `python3.12` on the other side" in _x_readme)
+check("CHANGELOG: 0.14 opened with the fit check and a line for every knob; 0.13 closed on its date",
+      _x_changes.index("## 0.14 — 2026-10-02") < _x_changes.index("## 0.13 — 2026-09-29 → 2026-10-02") < _x_changes.index("## 0.12")
+      and "**The fit check**" in _x_changes[:_x_changes.index("## 0.13")] and "**A line for every knob**" in _x_changes[:_x_changes.index("## 0.13")]
+      and version.read(config.ROOT) == "0.14")
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

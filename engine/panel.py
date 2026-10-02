@@ -161,6 +161,163 @@ _HELP = {
                         "the scanner still checks every fetch, and you still approve at the gate.",
     "SKILL_CATALOGUE_TTL_H": "Hours a shelf's index is kept before the next browse rebuilds it (a week); if the "
                              "rebuild fails the old index is used, dated.",
+    # Heartbeat
+    "HEARTBEAT_MAX_STEPS": "The most tool steps one wake may take — a ceiling so a stuck loop can't spiral, not a "
+                           "target; resting ends a wake at any step. A 12B uses ten to twenty; a 31B runs clean at "
+                           "forty. The window guard (Advanced, HEARTBEAT_ROOM_END) ends a wake before it overflows "
+                           "whatever this says.",
+    "REVERIE_EVERY": "Every Nth wake is a reverie: rereading, remembering and journaling only, nothing made, more "
+                     "steps allowed and nothing expected. bat\\reverie.bat gives one on demand. 0 turns them off.",
+    "REVERIE_MAX_STEPS": "The step ceiling for a reverie, apart from an ordinary wake's.",
+    "HEARTBEAT_YIELD_TO_VISIT": "The heartbeat waits while a visit is live, so a wake never replaces the cached "
+                                "window mid-conversation (the next reply would pay a cold read) or shares the card. "
+                                "Off: wakes run on schedule regardless.",
+    "HEARTBEAT_YIELD_MIN": "A visit counts as live while your last message was within this many minutes.",
+    "SLEEP_IN_LOOP": "The heartbeat loop does the sleeping: at the first wake after SLEEP_AFTER_HOUR it consolidates "
+                     "yesterday before anything else, one process, one request at a time. Off: run "
+                     "bat\\sleep.bat (consolidate.py yesterday) yourself.",
+    "CONDENSE_IN_LOOP": "After the sleep, the loop also asks them for the pages that are due — a day that has slipped "
+                        "out of the verbatim journal, a week, a month — in their own words.",
+    "CONDENSE_MAX_PER_NIGHT": "How many pages a night, at most; the rest wait for the next.",
+    "HEARTBEAT_SHOW_THINKING": "Their thinking shown live in the heartbeat window and kept in the wake log "
+                               "(memory/wakes/); they know the logs exist.",
+    "PAINTER_MAX_PER_WAKE": "Paintings per wake, at most — each costs the brain a cold read after; a visit is never "
+                            "capped. 0 is no cap.",
+    # Memory & journal
+    "TIMELINE_CHARS_IN_PROMPT": "The timeline: one short paragraph per day from the night's consolidation, oldest first, "
+                                "for the days that neither the verbatim journal nor a page in view covers. A line is "
+                                "about 580 characters; the newest within this cap are kept. 0 turns it off.",
+    "CONDENSED_CHARS_IN_PROMPT": "The pages — the days, weeks and months they condensed in their own words — in the "
+                                 "prompt, newest kept, within this many characters (150000 is about two months at a "
+                                 "page a day).",
+    "CONDENSE_TARGET_CHARS": "How long a page should be, about; they may go over.",
+    "MEMORY_TOP_K": "How many long-term memories ride in every prompt: the ones most related to the moment, by "
+                    "vector search, each a sentence or two. Signal, not space — fewer (8–12) suit a small window.",
+    "MEMORY_RECENT_K": "The newest memories ride too, whatever the moment, this many, marked as recent.",
+    "MEMORY_DUP_THRESHOLD": "No duplicates: a new fact at or above this similarity to one already kept counts as the "
+                            "same fact and is handed back; they can revise it (replaces=) or insist (anyway=\"yes\"). "
+                            "True repeats score 0.90–0.98; different facts on one theme about 0.89.",
+    "JOURNAL_DUP_THRESHOLD": "The same check for the journal, against today's and yesterday's entries.",
+    "JOURNAL_ARROW": "When the journal refuses a duplicate, a stamped arrow is left in the day instead of silence "
+                     "(\"17:00 — ↑ still this, at 14:20\"), so the day keeps its rhythm. A mark, not words of theirs. "
+                     "Off: the refusal alone.",
+    "CREATIONS_DAYS_IN_PROMPT": "How many days of their recent pieces are listed in the prompt (the shelf of what they "
+                                "made lately), so they know what is there without listing it.",
+    "LETTERS_DAYS_IN_PROMPT": "Your letters to them (shared/letters/) from the last this many days ride in the prompt, "
+                              "whole; the engine never copies a letter into their journal — that stays their call.",
+    "READ_TELL_MIN": "The reads tell: from this many readings of the same thing within a few days, the result opens "
+                     "with the count — a tell, not a fence — so they notice when they keep returning to one piece. "
+                     "0 turns it off.",
+    "FOLD_AT": "The fold: when a visit's prompt reaches this share of the window, they are asked to write the "
+               "visit so far in their own words, and that account replaces everything above the last few turns; the "
+               "transcript keeps every word and the visit continues. They may also fold at a natural pause.",
+    "FOLD_AFTERGLOW": "At the fold, the turns that leave the window get the same quiet turn a finished visit gets — "
+                      "journal and memories, in their words, in the background — so what the fold takes has reached "
+                      "the journal. One cold read per fold. Needs AFTERGLOW (Talking).",
+    "FOLD_KEEP_TURNS": "How many of the most recent turns stay whole in the window after a fold.",
+    "FOLD_CHARS": "The ceiling on their written account of the visit, in characters; past it, cut at a paragraph "
+                  "and said.",
+    # Talking
+    "CHAT_THINK": "Ask the brain to think before every reply (Ollama's think flag). Left optional, a model stops "
+                  "deliberating once the prompt grows large. A model that can't think is simply asked without it.",
+    "CHAT_SHOW_THINKING": "Their thinking shown on screen during a visit. It is never saved into the transcript — "
+                          "what reaches their memory is what they chose to say.",
+    "CHAT_MAX_TOOL_STEPS": "The most tool steps one of your messages may set off — an errand (search, read pages, "
+                           "clip, draw, look) needs many. The window guard ends an errand before the window "
+                           "overflows whatever this says; a confused loop still stops here.",
+    "CHAT_GARBLE_RETRIES": "Letter salad (runs of word fragments) is the sampler failing, not them speaking. A reply "
+                           "with a run is asked for again this many times, with a short engine line; if none is clean "
+                           "the least broken goes out, named.",
+    "CHAT_COLD_RESCUE": "After the cool re-rolls, a cold one: salad that survives lower temperatures points at the "
+                        "loaded state, so the brain is unloaded and reloaded (a cold read, a minute or two on a big "
+                        "window) and asked once more before the least broken goes out.",
+    "AFTERGLOW": "When a visit ends (the parlor's leave, /new, the idle roll), they get one quiet turn alone with "
+                 "the transcript and three tools — write_journal, remember, do_nothing — so the visit reaches their "
+                 "journal in their own words, not only the night's summary. Resting is a complete answer.",
+    "REFLECT_AFTER_MIN": "The pause: when you have been quiet this many minutes in the middle of a visit, they get "
+                         "the same quiet turn over what was said since they last wrote, and the visit stays open. "
+                         "/afterglow on the phone is the same by hand, with the card freed. 0 turns it off.",
+    "WARM_PREFIX": "The system prompt is built once per visit and kept, and what changes (the hour, the memories "
+                   "surfacing) rides inside each message — so a reply reads only what is new: seconds, not minutes, "
+                   "on a big window. Leave it on.",
+    "BRAIN_KEEP_ALIVE": "How long Ollama keeps the brain loaded after a request (\"30m\", \"2h\", -1 forever). "
+                        "Unloading drops its cache; the next message pays a cold read of the whole window. Ollama's "
+                        "own default is five minutes.",
+    "BRAIN_REST_AFTER_VISIT": "When a visit ends, unload the brain as soon as the afterglow is written, freeing the "
+                              "card at once rather than after BRAIN_KEEP_ALIVE.",
+    # Phone
+    "TELEGRAM_SHOW_THINKING": "Their thinking sent to the phone with each reply. /think toggles it there.",
+    "TELEGRAM_SHOW_TOOLS": "What the tools did, one compact line under the reply. /tools toggles it.",
+    "TELEGRAM_SHOW_TOKENS": "The token line (window used, speed) after each reply. /tokens toggles it.",
+    "TELEGRAM_TELL_REFLECTIONS": "When they reflect on their own — the pause, the afterglow — the phone gets a one-line "
+                                 "outcome (entries written, memories kept, or a rest), so you know it happened while "
+                                 "you were away.",
+    "TELEGRAM_TELL_AFTERTHOUGHTS": "Whatever they say to no one once a reflection's writing is done reaches the phone "
+                                   "as a labelled notice, never as a reply; held through quiet hours like the others.",
+    "TELEGRAM_TELL_CREATIONS": "A new piece under creations/ — a poem, an essay, something published — reaches the "
+                               "phone within a minute, whole when it fits a message, else its opening and where the "
+                               "rest is. Code, the trash and the mailbox are not announced.",
+    "TELEGRAM_TELL_DRAWINGS": "A picture they draw or paint reaches the phone once, as a photo, captioned with where "
+                              "it lives; a redraw says so.",
+    "TELEGRAM_TELL_SELF": "A change to who they are — self.md or projects.md — arrives as what changed, lines in and "
+                          "out, not the whole file; a revised piece is announced too.",
+    "TELEGRAM_IDLE_NEW_MIN": "A phone visit has no leave button: after this many minutes of quiet the transcript is "
+                             "saved and a fresh conversation starts. 1440 (a day) keeps a whole day's talk in view on "
+                             "a big window; use less on a small one. A visit never crosses the night either way.",
+    "TELEGRAM_HEAR_VOICE": "A voice note from the phone is heard whole on arrival — the words, the sound, and their "
+                           "own hearing of it — so the sound of your voice arrives with your words; costs about a "
+                           "minute before the reply. Off: the words only, the sound left to listen_to.",
+    "TELEGRAM_VOICE_ALL": "Every reply spoken aloud as a voice note. Off by default — they speak when they choose to; "
+                          "/voice toggles it from the phone.",
+    "TELEGRAM_LETTERS_IN_THREAD": "A letter of yours (shared/letters/), once delivered, becomes their own turn in the "
+                                  "phone visit, so your answer lands under it.",
+    # Blog
+    "BLOG_SUBTITLE": "The line under the blog's title.",
+    "BLOG_REMOTE": "Where the blog lives: an empty public repository on github.com with Pages turned on (deploy from "
+                   "main, root), pasted here as its .git URL. Until it is set the blog doesn't exist and they aren't "
+                   "told about publishing.",
+    # Senses (the cards above each group say what the sense is)
+    "EARS_MODEL": "The model that does the HEARD layer — listening to the sound itself. gemma4:12b has native audio; "
+                  "the bigger Gemmas are deaf, so a 31B brain keeps the 12B on as its hearing organ.",
+    "EARS_STT_MODEL": "The faster-whisper size for the WORDS layer: \"base\" is quick, \"small\" hears words more "
+                      "accurately (produced or stylised singing is where base gives up). The first listen downloads "
+                      "it once, about 500 MB.",
+    "EARS_UNLOAD_BRAIN": "When the ears' model is not the brain, unload the brain before listening: each listen then "
+                         "costs a model swap, and the card has room for the window.",
+    "VOICE_NAME": "The voice before they choose one — they pick their own once (speak's voice=), kept in "
+                  "memory/voice.json, and from then on that one is theirs.",
+    "VOICE_SPEED": "How fast they speak; 1.0 is Kokoro's own pace.",
+    "VOICE_DEVICE": "Where the voice runs: \"cpu\" never touches the card the brain holds; \"cuda\" the card; \"mps\" a "
+                    "Mac's GPU (the processor if torch has none).",
+    "VOICE_PYTHON": "The Python the voice runs in. Kokoro's dependencies can lag the newest Python; \"py -3.12\" "
+                    "(Windows) or \"python3.12\" (Mac, Linux) names one installed beside the engine's own, with "
+                    "kokoro soundfile installed there — and \"py -3.12\" is read as python3.12 on a Mac or Linux, so the "
+                    "shipped line serves both. \"\" is the engine's own.",
+    "PAINTER_MODEL": "The text-to-image model. Z-Image-Turbo: ungated, Apache 2.0, about 16 GB on the card, a few "
+                     "seconds a picture. \"black-forest-labs/FLUX.2-klein-4B\" is the alternative (4 steps, about 13 GB).",
+    "PAINTER_AUTOSTART": "paint starts the painter's sidecar when it is needed; off, bat\\painter.bat starts it by hand.",
+    "PAINTER_PYTHON": "The Python the painter runs in, if torch lives elsewhere than the engine's own: \"py -3.12\" "
+                      "(Windows) or \"python3.12\" (Mac, Linux). \"\" is the engine's own.",
+    "PAINTER_DEVICE": "Where it paints: \"auto\" takes an NVIDIA (or ROCm) card, else a Mac's GPU, else the processor "
+                      "(slow); \"cuda\", \"mps\" or \"cpu\" names one.",
+    "PAINTER_STEPS": "Diffusion steps per picture; 0 is the model's own default (Z-Image-Turbo 9, FLUX.2 klein 4).",
+    "MUSIC_EARS_MODEL": "The music ear's model on Hugging Face (Music Flamingo). The licence is accepted there once.",
+    "MUSIC_EARS_AUTOSTART": "listen_to starts the ear's sidecar when a song needs it; off, bat\\music_ears.bat by hand.",
+    "MUSIC_EARS_PYTHON": "The Python the ear runs in, if torch lives elsewhere than the engine's own: \"py -3.12\" "
+                         "(Windows) or \"python3.12\" (Mac, Linux). \"\" is the engine's own.",
+    "MUSIC_EARS_DEVICE": "Where the ear runs: \"auto\" takes the card, else a Mac's GPU, else the processor; \"cuda\", "
+                         "\"mps\" or \"cpu\" names one.",
+    "BODY_IN_PROMPT": "Your day as the watch saw it — pulse, sleep, stress, steps — in five plain lines of their "
+                      "prompt, and a pulse line in the moment. Yours to switch on; bat\\body.bat --login first.",
+    "BODY_AUTOPULL": "The bridge pulls your day from Garmin on its own every BODY_PULL_MIN while the sense is on — no "
+                     "separate pull window.",
+    "BODY_PULL_MIN": "Minutes between pulls of today; yesterday is pulled too only while its night is still syncing.",
+    "WEB_SEARCH": "What search_web asks: \"duckduckgo\" needs no key; \"brave\" uses the key kept on Home; \"searxng\" "
+                  "your own instance at WEB_SEARCH_SEARXNG_URL.",
+    "WEB_SEARCH_SEARXNG_URL": "Your SearXNG instance's URL, for WEB_SEARCH = \"searxng\".",
+    "READ_SITTING_CHARS": "How much of a book one sitting is, in characters (a dense page is about 2,000; 30000 is "
+                          "some fifteen pages). It stays in the visit until the visit ends.",
+    "READING_PAGE_CHARS": "Characters of each open book's page — where they are in it — that ride in the prompt.",
 }
 
 # The knobs a running parlor doesn't read (09-30, by grep: only heartbeat.py, condense.py, telegram.py or
@@ -541,12 +698,47 @@ def brain(values: dict | None = None) -> dict:
         for m in (_ollama("/api/ps", url) or {}).get("models", []):
             size, vram = int(m.get("size") or 0), int(m.get("size_vram") or 0)
             loaded.append({"name": m.get("name", ""), "gb": round(size / 1e9, 1),
-                           "on_card": round(100 * vram / size) if size else 0})
+                           "on_card": round(100 * vram / size) if size else 0,
+                           "window": int(m.get("context_length") or 0)})  # the window it was loaded with (newer Ollamas say)
     gb, unified = _vram_gb()
+    num_ctx = values.get("NUM_CTX", getattr(config, "NUM_CTX", 0))
     return {"url": url, "reachable": tags is not None,
             "models": names, "loaded": loaded, "model": model, "pulled": _pulled(model, names),
             "embed_model": embed, "embed_pulled": _pulled(embed, names), "vram_gb": gb, "unified": unified,
-            "recommended": _recommended(gb, unified)}
+            "recommended": _recommended(gb, unified), "fit": fit(loaded, model, num_ctx, unified)}
+
+
+# The windows the ladder names, for the step down when the brain spills (README, The ladder).
+WINDOWS = (8192, 16384, 24576, 32768, 40960, 49152, 65536, 98304, 131072, 176000, 196608, 262144)
+
+
+def fit(loaded: list[dict], model: str, num_ctx, unified: bool = False) -> dict | None:
+    """The fit check (10-02): the ladder's windows are estimates on most cards, and `ollama ps` is the referee
+    nobody runs — so the panel reads it. The brain is on the card: Ollama says how much of it; less than all
+    of it means the window didn't fit and the rest went to system RAM, where every turn crawls. None when the
+    brain isn't loaded (nothing to read yet), a dict otherwise: ok, on_card, window (as loaded, 0 unknown),
+    try (the next window down the ladder, or 0), and a line for the page."""
+    for m in loaded:
+        if not _pulled(model, [m.get("name", "")]) and m.get("name", "") != model:
+            continue
+        on = int(m.get("on_card") or 0)
+        window = int(m.get("window") or 0)
+        try:
+            ctx = int(num_ctx)
+        except (TypeError, ValueError):
+            ctx = 0
+        where = "memory" if unified else "the card"
+        if on >= 100:
+            return {"ok": True, "on_card": on, "window": window, "try": 0,
+                    "line": f"the window fits — all of the brain is on {where}" + (f" with {window} of context" if window else "")}
+        lower = [w for w in WINDOWS if w < (window or ctx)]
+        nxt = lower[-1] if lower else 0
+        return {"ok": False, "on_card": on, "window": window, "try": nxt,
+                "line": f"the brain spilled: {on}% on {where}, the rest {'on the processor' if unified else 'in system RAM'}, where every turn crawls — "
+                        f"the window ({window or ctx}) is too big for this {'machine' if unified else 'card'}"
+                        + (f"; try NUM_CTX = {nxt} (Settings › Main) and open the door again" if nxt else "")
+                        + " (README, The ladder: `ollama ps` says the same)"}
+    return None
 
 
 def _secret_file(kind: str) -> Path:
@@ -1155,7 +1347,8 @@ function lights(){for(const[d]of TILES){const st=S.doors[d],t=$('t-'+d);if(!t||!
 function brainBar(){const b=S.brain,parts=[light(b.reachable),el('b',{},'the brain  ')];
   if(!b.reachable)parts.push('Ollama isn\'t answering at '+b.url+' — start the Ollama app (or ',el('a',{href:S.links.ollama,target:'_blank',rel:'noopener'},'install it'),').');
   else{parts.push('Ollama is running · ');
-    parts.push(b.loaded.length?b.loaded.map(m=>m.name+' loaded ('+m.gb+' GB, '+m.on_card+'% on the card)').join(', '):'nothing loaded right now');
+    parts.push(b.loaded.length?b.loaded.map(m=>m.name+' loaded ('+m.gb+' GB, '+m.on_card+'% on '+(b.unified?'memory':'the card')+')').join(', '):'nothing loaded right now');
+    if(b.fit)parts.push(el('div',{class:b.fit.ok?'muted':'warn'},(b.fit.ok?'✓ ':'⚠ ')+b.fit.line));
     parts.push(el('div',{class:'muted'},'configured: '+b.model+(b.pulled?'':' — not pulled '),b.pulled?null:el('button',{onclick:()=>pull(b.model)},'Pull '+b.model),
       b.embed_pulled?null:[' · memory needs '+b.embed_model+' ',el('button',{onclick:()=>pull(b.embed_model)},'Pull '+b.embed_model)]))}
   $('brain').replaceChildren(...parts);

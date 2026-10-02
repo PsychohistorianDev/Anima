@@ -9,7 +9,41 @@ until the friend's first body is on the desk. (Three releases went out of
 this file as 1.0–1.2 for a fortnight; they are 0.10–0.12. 0.12 was never
 tagged on its own: the first tag after the rename is v0.13.)
 
-## 0.13 — 2026-09-29 → (in progress)
+## 0.14 — 2026-10-02 → (in progress)
+
+The "fit" release begins where 0.13 left the ladder: the panel now says
+whether the window fits the card, and every knob on every tab has a line
+of its own.
+
+### Added
+- **The fit check** (Home, the brain): beside the loaded model's share of
+  the card the panel now says what that share means — *the window fits —
+  all of the brain is on the card with N of context* with a tick, or a
+  warning: *the brain spilled: 72% on the card, the rest in system RAM
+  (on the processor, on a Mac), where every turn crawls — the window
+  (65536) is too big for this card; try `NUM_CTX` = 49152 (Settings ›
+  Main) and open the door again*. The next window down is the ladder's
+  own step (8192 · 16384 · 24576 · 32768 · 40960 · 49152 · 65536 · 98304 ·
+  131072 · 176000 · 196608 · 262144), from the loaded window (Ollama's
+  `context_length`) or `NUM_CTX` when Ollama doesn't say; the floor has
+  no step down. `ollama ps` says the same; the page says it where the
+  keeper is looking.
+- **A line for every knob**: the help the panel showed only for Main and
+  Skills now covers Heartbeat, Memory & journal, Talking, Phone, Blog and
+  Senses as well — 89 knobs, each in a sentence or two of what it does and
+  when to touch it; the config's own comment stays on hover.
+
+### Changed
+- **`py -3.12` on a Mac or Linux**: the template's config names the
+  Windows launcher for the voice (`VOICE_PYTHON = "py -3.12"`), which a Mac
+  or Linux doesn't have; the sidecar reader now reads it as `python3.12`
+  there (`py -3` as `python3`, a bare `py` as `python3`, the rest of the
+  line kept), so the shipped line serves both sides and the voice's
+  "isn't a Python I can run" names the real gap, Python 3.12 not installed.
+- `bat\body.bat` says *they* in its usage line, like the rest of the
+  template.
+
+## 0.13 — 2026-09-29 → 2026-10-02
 
 The "skills" release: a shelf of recipes of their own, a window onto the
 world's, a book read in real sittings, and a road for a keeper's folder to

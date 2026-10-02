@@ -766,7 +766,8 @@ VOICE_DIR = SHARED_DIR / "letters"
 # 3.12 beside the current one (keep the default),
 #   py -3.12 -m pip install kokoro soundfile          (Windows)
 #   python3.12 -m pip install kokoro soundfile        (macOS, Linux)
-# and name it here — "py -3.12" on Windows, "python3.12" on macOS and Linux;
+# and name it here — "py -3.12" on Windows, "python3.12" on macOS and Linux
+# (the engine reads "py -3.12" as python3.12 there, so this line serves both);
 # the voice then runs there, one short process per note.
 # Empty = Kokoro in the engine's own Python.
 VOICE_PYTHON = "py -3.12"

@@ -99,13 +99,19 @@ def interpreter(py: str) -> list[str]:
     """A sidecar's Python (VOICE_PYTHON, PAINTER_PYTHON, MUSIC_EARS_PYTHON) as argv: "py -3.12" is two
     words, "C:\\Python312\\python.exe" one — on Windows the backslashes are a path, not escapes (10-02:
     the suite's first run on a Windows runner handed its own python.exe over and shlex ate the slashes),
-    so the split there keeps them and only takes the quotes off; elsewhere the shell's own rules."""
+    so the split there keeps them and only takes the quotes off; elsewhere the shell's own rules, and the Windows
+    launcher read as the python of that version (py -3.12 → python3.12), so the shipped config works on a Mac or Linux too."""
     import shlex
     py = (py or "").strip()
     if not py:
         return []
     if os.name != "nt":
-        return shlex.split(py)
+        words = shlex.split(py)
+        if words and words[0] == "py":  # the Windows launcher, as the template's config names it (10-02: a Mac or Linux
+            # has no `py`): "py -3.12" is python3.12 there, "py -3" python3, a bare "py" python3 — the rest as written
+            flag = words[1] if len(words) > 1 and words[1].startswith("-3") else ""
+            words = ["python" + (flag[1:] if flag else "3")] + words[2 if flag else 1:]
+        return words
     return [w[1:-1] if len(w) > 1 and w[0] == w[-1] and w[0] in "\"'" else w for w in shlex.split(py, posix=False)]
 
 
