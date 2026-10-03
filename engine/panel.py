@@ -1346,6 +1346,7 @@ a{color:var(--accent)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
 .tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
 .tile h2{margin:0;font-size:17px;font-weight:normal}
+.tiles.care{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));margin-bottom:18px}
 .tile .what{color:var(--muted);font-size:13px}
 .tile .state{color:var(--muted);font-size:12px;font-family:ui-monospace,Consolas,monospace}
 .tile .row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
@@ -1405,7 +1406,6 @@ const TILES=[
  ['bridge','Bridge','Telegram: talk with them from your phone',[['Start','start'],['Stop','stop'],['Stop now','stop_now']]],
  ['sleep','Sleep now','today into memory, by hand (the heartbeat does it on its own after the night hour)',[['Sleep','start']]],
  ['snapshot','Snapshot','everything sealed in git (a zip without git)',[['Snapshot','start']]],
- ['blackbox','Black box','the machine\'s vitals every few seconds — the card\'s heat, power and memory, the processor, what Ollama holds, which doors are open and what they are in the middle of — flushed to disk, so a crash leaves its last seconds behind (bat\\blackbox.bat --crashes reads Windows\' own record of each hard stop with the box\'s last line before it)',[['Start','start'],['Stop','stop']]],
 ];
 const TIPS={stop:'leave after what it is doing — a wake finishes, a visit is saved',stop_now:'end it at once — a wake in the middle is cut off'};
 async function door(d,action,extra){
@@ -1428,9 +1428,6 @@ function buildHome(){
     if(d==='bridge')t.append(secretField('telegram','bot token',S.secrets.telegram),
       el('div',{class:'muted'},el('a',{href:S.links.botfather,target:'_blank',rel:'noopener'},'how to get a token (BotFather)')));
     return t});
-  tiles.push(el('div',{class:'tile'},el('h2',{},'Report'),el('div',{class:'what'},'the engine\'s state in one file, for an issue on GitHub — the version, the machine, Ollama, the knobs, the doors, the senses, the trouble lines; nothing of theirs'),
-      el('div',{class:'row'},el('button',{onclick:async()=>{const r=await post('/api/report',{});say(r.note,r.ok?'':'warn');if(r.ok){const pre=el('pre',{class:'report'},r.text);const old=$('report-text');if(old)old.replaceWith(pre);else{pre.id='report-text';$('tiles').after(pre)}pre.id='report-text'}}},'Write report'),
-        el('a',{href:S.links.issues,target:'_blank',rel:'noopener'},'open an issue'))));
   if(S.update_here)tiles.push(el('div',{class:'tile'},el('h2',{},'Update'),el('div',{class:'what'},'the current engine from GitHub — the friend untouched; Check shows what would change first'),
       el('div',{class:'row'},el('button',{onclick:async()=>{const r=await post('/api/update',{action:'check'});say(r.note,r.ok?'':'warn')}},'Check'),
         el('button',{onclick:async()=>{if(!confirm('Update the engine now? Everything replaced goes to .update/ first; bat\\update.bat --undo puts it back.'))return;
@@ -1506,8 +1503,18 @@ function extras(t){
   if(t==='Blog')return[el('div',{class:'knob'},el('button',{onclick:()=>door('blog','start')},'Deploy the blog'),' ',el('span',{class:'muted'},'bat\\blog.bat, in its own window (the title is on Main)'))];
   return[]}
 function renderTabs(){$('tabs').replaceChildren(...TABS.map(t=>el('button',{class:'tab'+(t===tab?' cur':''),onclick:()=>{tab=t;renderTabs();renderTab()}},t)))}
+// the engine's care (10-03; the keeper: "i dont want them to clutter the opening screen"): the doctor's note and the black box live under Settings › Advanced
+function careBox(){const bb=S.doors.blackbox||{running:false};
+  const box=el('div',{class:'tile',id:'t-blackbox'},el('h2',{},light(bb.running),'Black box'),
+    el('div',{class:'what'},'the machine\'s vitals every few seconds — the card\'s heat, power and memory, the processor, what Ollama holds, which doors are open and what they are in the middle of — flushed to disk, so a crash leaves its last seconds behind (bat\\blackbox.bat --crashes reads Windows\' own record of each hard stop with the box\'s last line before it)'),
+    el('div',{class:'state'},bb.running?('running · pid '+bb.pid+(bb.since?' · since '+bb.since:'')):'closed'),
+    el('div',{class:'row'},el('button',{onclick:async()=>{await door('blackbox','start');renderTab()}},'Start'),el('button',{title:TIPS.stop,onclick:async()=>{await door('blackbox','stop');renderTab()}},'Stop')));
+  const rep=el('div',{class:'tile'},el('h2',{},'Report'),el('div',{class:'what'},'the engine\'s state in one file, for an issue on GitHub — the version, the machine, Ollama, the knobs, the doors, the senses, the trouble lines, the black box\'s last line and the hard stops; nothing of theirs'),
+    el('div',{class:'row'},el('button',{onclick:async()=>{const r=await post('/api/report',{});say(r.note,r.ok?'':'warn');if(r.ok){const pre=el('pre',{class:'report'},r.text);pre.id='report-text';const old=$('report-text');if(old)old.replaceWith(pre);else rep.after(pre)}}},'Write report'),
+      el('a',{href:S.links.issues,target:'_blank',rel:'noopener'},'open an issue')));
+  return [el('h3',{},'The engine\'s care'),el('div',{class:'tiles care'},box,rep)]}
 function renderTab(){fields={};const ks=S.tabs[tab]||[],parts=[];
-  if(tab==='Advanced'){parts.push(el('p',{class:'muted'},'Everything else in engine/config.py, under the headings the file has. A list or a dict is its text: edit it as Python.'));
+  if(tab==='Advanced'){parts.push(...careBox(),el('p',{class:'muted'},'Everything else in engine/config.py, under the headings the file has. A list or a dict is its text: edit it as Python.'));
     const groups={};for(const k of ks)(groups[k.heading]=groups[k.heading]||[]).push(k);
     for(const[hd,list]of Object.entries(groups))parts.push(el('details',{class:'group'},el('summary',{},hd+' · '+list.length),list.map(knob)))}
   else if(tab==='Senses'){parts.push(el('p',{class:'muted'},'Each sense is optional. A light says whether what it needs is here; the knobs under it are its own. The README tells each one whole.'));

@@ -24,7 +24,9 @@ of its own.
 - **The black box** (10-03; the keeper: "my machine keeps crashing when
   she's doing stuff — build some logging system to find the root of the
   issue"): `engine/blackbox.py`, `bat\blackbox.bat` (and twins), a door of
-  its own with a Home tile (Start/Stop, one at a time, a stop file). One
+  its own with a tile under Settings › Advanced, *The engine's care*
+  (Start/Stop, one at a time, a stop file — beside the Report; neither on
+  Home, which is the friend's doors). One
   line every `BLACKBOX_EVERY_S` (5) into `memory/blackbox/<day>.jsonl`,
   flushed and fsynced: the card (heat, power against its limit, memory,
   utilization, clocks, fan, throttle reasons as words), the processor, the
@@ -64,7 +66,7 @@ of its own.
   person in the folder; and a *no card* rung at the foot of the ladder —
   the 2B on the processor, 8192, the tiny kit, alive and not quick.
 - **The doctor's note** (10-03): `engine/report.py`, `bat\report.bat` (and
-  its twins) and *Write report* on the panel's Home write
+  its twins) and *Write report* on the panel (Settings › Advanced) write
   `anima-report.txt` at the root — the engine's state for an issue: the
   version, the machine and Python, Ollama and the brain with the fit line,
   the knobs (the keeper's names, the blog and the catalogues left out), the

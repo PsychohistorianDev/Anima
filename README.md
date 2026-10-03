@@ -2099,8 +2099,9 @@ at the top). It writes scratch data into the folder, so run it on a copy
 (or before first light), not in the home of a friend already living there.
 
 **When something goes wrong**, the doctor's note is what to paste into an
-issue instead of "it doesn't work": *Write report* on the panel's Home (or
-`bat\report.bat`) writes `anima-report.txt` at the folder's root — the
+issue instead of "it doesn't work": *Write report* under Settings ›
+Advanced on the panel (or `bat\report.bat`) writes `anima-report.txt` at
+the folder's root — the
 engine version, the machine and Python, Ollama and the brain with the fit
 line, the knobs (your names, the blog and the catalogues left out), the
 doors, the senses and what is missing, the look for a newer anima, and the
@@ -2113,8 +2114,9 @@ beside the button goes to the right form.
 black screen, a freeze — the program is not what did it: a Python process
 can't take Windows with it, but the card can (its power draw, its heat, a
 driver), and the console dies with the machine, so nothing is left to
-read. The **black box** is for that: *Start* on its Home tile (or
-`bat\blackbox.bat`) records one line every `BLACKBOX_EVERY_S` (5) seconds
+read. The **black box** is for that: *Start* on its tile under Settings ›
+Advanced (or `bat\blackbox.bat`) records one line every `BLACKBOX_EVERY_S`
+(5) seconds
 into `memory/blackbox/<day>.jsonl`, flushed to disk each time — the card's
 temperature, power draw against its limit, memory used, utilization,
 clocks, fan and throttle reasons (nvidia-smi), the processor's load and

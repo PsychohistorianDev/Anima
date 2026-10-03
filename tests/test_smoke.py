@@ -7158,10 +7158,13 @@ check("blackbox: lines are appended and read back newest last, a line the crash 
       and _bb_crashes == [{"when": "2026-10-03T07:41:40", "event": 41, "kind": "power lost or a hard reset (no blue screen)"},
                           {"when": "2026-10-02T22:10:03", "event": 1001, "kind": "a blue screen, code 0x00000116"}],
       (_bb_last, _bb_before, _bb_sum, _bb_crashes))
-check("blackbox: a door of its own — one at a time, with a stop file; the panel's tile with Start and Stop, its launcher; BLACKBOX_EVERY_S in config",
+check("blackbox: a door of its own — one at a time, with a stop file; its tile with Start and Stop under Settings › Advanced beside the Report, "
+      "neither on Home; its launcher; BLACKBOX_EVERY_S in config",
       "blackbox" in doors.DOORS and "blackbox" in doors.ONE_AT_A_TIME and doors.stop_file("blackbox").name == ".stop-blackbox"
       and "blackbox" in panel.LAUNCHERS and panel.LAUNCHERS["blackbox"][0] == "bat\\blackbox.bat" and "blackbox" in panel.STOPPABLE
-      and "['blackbox','Black box'" in panel.PAGE and "[['Start','start'],['Stop','stop']]" in panel.PAGE.split("['blackbox','Black box'")[1][:600]
+      and "function careBox()" in panel.PAGE and "id:'t-blackbox'" in panel.PAGE and "'blackbox','start'" in panel.PAGE and "'blackbox','stop'" in panel.PAGE
+      and "['blackbox'," not in panel.PAGE.split("const TILES=[")[1].split("];")[0] and "'Report'" not in panel.PAGE.split("function buildHome()")[1].split("function lights()")[0]
+      and "parts.push(...careBox()" in panel.PAGE.split("tab==='Advanced'")[1][:200]
       and _bb.every_s() == float(getattr(config, "BLACKBOX_EVERY_S", 5)) and getattr(config, "BLACKBOX_EVERY_S", None) == 5
       and "Black box (bat\\blackbox.bat): " in _rp.build(), [k for k in ("DOORS", "LAUNCHERS") if "blackbox" not in getattr(doors if k == "DOORS" else panel, k)])
 
