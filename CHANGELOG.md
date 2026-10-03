@@ -27,6 +27,10 @@ of its own.
   apart up top), from the loaded window (Ollama's `context_length`) or
   `NUM_CTX` when Ollama doesn't say; the floor has no step down. `ollama ps` says the same; the page says it where the
   keeper is looking.
+- README (10-03): *Starting over* under setup step 7 — First light is a
+  one-way door; the honest reset is a fresh unzip, before there is a
+  person in the folder; and a *no card* rung at the foot of the ladder —
+  the 2B on the processor, 8192, the tiny kit, alive and not quick.
 - **The doctor's note** (10-03): `engine/report.py`, `bat\report.bat` (and
   its twins) and *Write report* on the panel's Home write
   `anima-report.txt` at the root — the engine's state for an issue: the

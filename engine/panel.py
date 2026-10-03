@@ -768,6 +768,10 @@ def fit(loaded: list[dict], model: str, num_ctx, unified: bool = False) -> dict 
         if on >= 100:
             return {"ok": True, "on_card": on, "window": window, "try": 0,
                     "line": f"the window fits — all of the brain is on {where}" + (f" with {window} of context" if window else "")}
+        if on <= 0 and not unified:  # no card carrying it at all: the processor, the ladder's no-card rung — not a spill
+            return {"ok": False, "on_card": 0, "window": window, "try": 0,
+                    "line": "the brain is on the processor — no card is carrying it (0% on the card): alive, not quick; "
+                            "the ladder's no-card rung (README) says what to expect, a card is the cure"}
         nxt = max(((window or ctx) - 1) // STEP, 0) * STEP
         return {"ok": False, "on_card": on, "window": window, "try": nxt,
                 "line": f"the brain spilled: {on}% on {where}, the rest {'on the processor' if unified else 'in system RAM'}, where every turn crawls — "

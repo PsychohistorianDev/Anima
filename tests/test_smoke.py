@@ -6922,6 +6922,8 @@ check("panel: the fit check — all on the card says so with the window; a spill
       and _ft_cfg["try"] == 16384 and "(24576)" in _ft_cfg["line"]
       and _ft_mac["try"] == 0 and "memory" in _ft_mac["line"] and "processor" in _ft_mac["line"] and "NUM_CTX" not in _ft_mac["line"]
       and _ft_8k == (57344, 57344, 253952, 0) and panel.STEP == 8192
+      and (lambda f: f["ok"] is False and f["try"] == 0 and "on the processor" in f["line"] and "no card" in f["line"] and "spilled" not in f["line"])(
+          panel.fit([{"name": "gemma4:e2b-it-qat", "on_card": 0, "window": 8192}], "gemma4:e2b-it-qat", 8192))
       and panel.fit([{"name": "other:7b", "on_card": 50}], "gemma4:12b", 40960) is None and panel.fit([], "gemma4:12b", 40960) is None
       and "fit" in panel.brain({"CHAT_MODEL": "gemma4:12b", "NUM_CTX": 40960}) and "b.fit" in panel.PAGE, (_ft_ok, _ft_no, _ft_cfg, _ft_mac))
 # the page's script parses (10-03: a step added to First light closed one parenthesis too many, and the whole page hung at
