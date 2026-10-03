@@ -6871,14 +6871,53 @@ _sn_find0 = panel.importlib.util.find_spec
 panel.importlib.util.find_spec = lambda name, *a, **k: None if name in ("faster_whisper", "garminconnect") else object()
 _sn_which0 = panel.shutil.which
 panel.shutil.which = lambda name, *a, **k: None if name == "ffmpeg" else f"/usr/bin/{name}"
+_sn_probed0 = dict(panel._PROBED)
+panel._PROBED[("py -3.12", "kokoro")] = False  # the sidecar's answers, planted: no subprocess in the suite
+panel._PROBED[("py -3.12", "soundfile")] = True
 _sn = {x["key"]: x for x in panel.senses_state({"VOICE_PYTHON": "py -3.12", "PAINTER_PYTHON": "", "MUSIC_EARS_PYTHON": ""})}
+_sn_vals = {"VOICE_PYTHON": "py -3.12", "PAINTER_PYTHON": "", "MUSIC_EARS_PYTHON": ""}
+_sn_v = {}
+for _sn_ans in (True, panel.ASKING, None):
+    panel._PROBED[("py -3.12", "kokoro")] = _sn_ans
+    _sn_v[_sn_ans] = next(x for x in panel.senses_state(_sn_vals) if x["key"] == "voice")
+panel._PROBED[("py -3.12", "kokoro")] = False
+_sn_miss_no = panel.missing(_sn_vals)
+panel._PROBED[("py -3.12", "kokoro")] = True
+_sn_miss_yes = panel.missing(_sn_vals)
+panel._PROBED[("py -3.12", "kokoro")] = None
+_sn_miss_none = panel.missing(_sn_vals)
+panel._PROBED.clear(); panel._PROBED.update(_sn_probed0)
 panel.importlib.util.find_spec, panel.shutil.which = _sn_find0, _sn_which0
+check("panel: a sense in a sidecar Python is looked for there — installed / not installed with the pip line in that Python / "
+      "looking there… while the first look is out / a Python that can't run named with its knob; Home's missing line follows the same answer "
+      "(kokoro in py -3.12 is not missing; missing there says so; an unrunnable Python says so)",
+      _sn["voice"]["ready"] is False and _sn["voice"]["note"] == "not installed in py -3.12 — py -3.12 -m pip install kokoro soundfile; ffmpeg not found on this machine"
+      and _sn_v[True]["ready"] is True and _sn_v[True]["note"] == "installed in py -3.12; ffmpeg not found on this machine"
+      and _sn_v[panel.ASKING]["ready"] is None and "looking there" in _sn_v[panel.ASKING]["note"] and "py -3.12" in _sn_v[panel.ASKING]["note"]
+      and _sn_v[None]["ready"] is None and "isn't a Python this machine can run" in _sn_v[None]["note"] and "VOICE_PYTHON" in _sn_v[None]["note"]
+      and [m["for"] for m in _sn_miss_no if m["module"] == "kokoro"] == ["their voice (in py -3.12)"]
+      and not [m for m in _sn_miss_yes if m["module"] == "kokoro"]
+      and [m["for"] for m in _sn_miss_none if m["module"] == "kokoro"] == ["their voice (in py -3.12 — which isn't a Python this machine can run; see VOICE_PYTHON)"],
+      (_sn["voice"], _sn_v, _sn_miss_no, _sn_miss_none))
+# the real look, once: this Python has json; a name that is no Python answers None; the first answer is ASKING, the thread fills it
+_ip_key = (sys.executable, "json")
+panel._PROBED.pop(_ip_key, None); panel._PROBED.pop(("no-such-python-anywhere-zq", "json"), None)
+_ip_first = panel.in_python(sys.executable, "json")
+_ip_none_first = panel.in_python("no-such-python-anywhere-zq", "json")
+import threading as _tm_threading
+for _ip_t in [t for t in _tm_threading.enumerate() if t.name == "probe-json"]:
+    _ip_t.join(60)
+_ip_then = panel.in_python(sys.executable, "json")
+_ip_none = panel.in_python("no-such-python-anywhere-zq", "json")
+panel._PROBED.pop(_ip_key, None); panel._PROBED.pop(("no-such-python-anywhere-zq", "json"), None)
+check("panel: the look into a sidecar Python is one short process in the background — asking first, then the answer; a Python that isn't there is None",
+      _ip_first == panel.ASKING and _ip_then is True and _ip_none_first == panel.ASKING and _ip_none is None, (_ip_first, _ip_then, _ip_none))
 check("panel: the Senses tab is cards — every knob of the tab is one sense's and one only; eyes need nothing; the ears say what to install "
-      "and that ffmpeg is missing; a voice in another Python is not checked here; the body asks for its login; the state carries them",
+      "and that ffmpeg is missing; a voice in another Python is looked for there; the body asks for its login; the state carries them",
       sorted(_sn_claimed) == sorted(panel.TABS["Senses"]) and len(_sn_claimed) == len(set(_sn_claimed))
       and _sn["eyes"]["ready"] is True and _sn["eyes"]["knobs"] == []
       and _sn["ears"]["ready"] is False and "faster-whisper" in _sn["ears"]["note"] and "ffmpeg" in _sn["ears"]["note"]
-      and _sn["voice"]["ready"] is None and "py -3.12" in _sn["voice"]["note"]
+      and _sn["voice"]["ready"] is False and "py -3.12" in _sn["voice"]["note"]
       and _sn["body"]["ready"] is False and "garminconnect" in _sn["body"]["note"]
       and _sn["painter"]["ready"] is True and _sn["reading"]["ready"] is True
       and all(x["what"] and x["readme"] for x in _sn.values())
@@ -6898,7 +6937,7 @@ check("panel: the real Main tab in the keeper's order — the brain, the window,
 panel.REQUIREMENTS = [("json", "json", "the standard library"), ("no_such_module_zq", "zq", "a sense")]
 check("panel: a requirement missing is named with its pip name and what it is for; one there is not; the real list is the five",
       panel.missing() == [{"module": "no_such_module_zq", "pip": "zq", "for": "a sense"}]
-      and [m for m, _, _ in _p0[7]] == ["faster_whisper", "numpy", "pypdf", "garminconnect", "kokoro"]
+      and [r[0] for r in _p0[7]] == ["faster_whisper", "numpy", "pypdf", "garminconnect", "kokoro"] and _p0[7][-1][3] == "VOICE_PYTHON"
       and {m["module"] for m in _pst["missing"]} <= {"faster_whisper", "numpy", "pypdf", "garminconnect", "kokoro"})
 panel.REQUIREMENTS = _p0[7]
 

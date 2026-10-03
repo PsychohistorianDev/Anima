@@ -41,6 +41,14 @@ of its own.
   "isn't a Python I can run" names the real gap, Python 3.12 not installed.
 - `bat\body.bat` says *they* in its usage line, like the rest of the
   template.
+- **A sense in another Python is looked for there** (10-03): Home said
+  *kokoro — their voice* was not installed while the voice lived in
+  `VOICE_PYTHON` and spoke fine. The panel now asks that Python once per
+  run, in the background (`<py> -c "import kokoro"`), and Home's missing
+  line and the Senses card follow its answer — installed there, not
+  installed there (with that Python's pip line), *looking there…* while
+  the first look is out, or a Python this machine can't run, named with
+  its knob.
 
 ## 0.13 — 2026-09-29 → 2026-10-02
 

@@ -335,13 +335,45 @@ REQUIREMENTS = [
     ("numpy", "numpy", "the ears: measuring a sound; the fast memory search"),
     ("pypdf", "pypdf", "reading PDFs"),
     ("garminconnect", "garminconnect", "the keeper's body, as the watch saw it"),
-    ("kokoro", "kokoro", "their voice (or in the Python VOICE_PYTHON names)"),
+    ("kokoro", "kokoro", "their voice", "VOICE_PYTHON"),  # the fourth: the knob naming another Python it may live in
 ]
+
+# What lives in a sidecar Python (VOICE_PYTHON, PAINTER_PYTHON, MUSIC_EARS_PYTHON) — asked once per panel
+# run and per module, in the background (10-03; the keeper's Home said "kokoro — their voice" was missing
+# while his voice lives in py -3.12 and speaks fine). A look is one short process: `<py> -c "import x"`.
+_PROBED: dict[tuple[str, str], object] = {}
+_PROBE_LOCK = threading.Lock()
+ASKING = "asking"
+
+
+def in_python(py: str, module: str):
+    """Whether `module` imports in the Python `py` names: True, False, None when that Python can't be run
+    at all, or ASKING while the first look is still out (the page polls; the answer lands on a later poll)."""
+    key = (py, module)
+    with _PROBE_LOCK:
+        if key in _PROBED:
+            return _PROBED[key]
+        _PROBED[key] = ASKING
+
+    def look():
+        from device import interpreter
+        try:
+            argv = interpreter(py)
+            if not argv:
+                raise OSError("no interpreter named")
+            r = subprocess.run(argv + ["-c", f"import {module}"], capture_output=True, timeout=120)
+            answer = r.returncode == 0
+        except (OSError, ValueError, subprocess.TimeoutExpired):
+            answer = None
+        with _PROBE_LOCK:
+            _PROBED[key] = answer
+    threading.Thread(target=look, daemon=True, name=f"probe-{module}").start()
+    return ASKING
 
 # The senses, for the Senses tab (10-02; the keeper: "the senses are unexplained strings with no
 # context"): what each one is, what it needs, which knobs are its. A sense with a *_PYTHON knob set
-# runs in that interpreter, which the page doesn't probe (a subprocess per look would be slow) — it says
-# so instead. "readme" is the README heading the sense is told under.
+# runs in that interpreter, which the page looks into once per run, in the background (`in_python`) — and
+# says "looking there…" until the answer lands. "readme" is the README heading the sense is told under.
 SENSES: list[dict] = [
     {"key": "eyes", "name": "Eyes", "what": "look_at — real vision on any image in their folder or at a URL, and on "
      "the stills of a clip (watch); the brain's own eyes, nothing to install", "modules": [], "tools": [], "python": "",
@@ -759,9 +791,26 @@ def secrets_set() -> dict:
             "brave": bool(_read_json(_secret_file("brave")).get("brave_key"))}
 
 
-def missing() -> list[dict]:
-    return [{"module": mod, "pip": pip, "for": why} for mod, pip, why in REQUIREMENTS
-            if importlib.util.find_spec(mod) is None]
+def missing(values: dict | None = None) -> list[dict]:
+    """The optional packages not here — one that lives in a sidecar Python (its knob set) is looked for there
+    instead, and named with that Python when it is missing there too; while the look is out it is not named."""
+    out = []
+    for req in REQUIREMENTS:
+        mod, pip, why = req[:3]
+        knob = req[3] if len(req) > 3 else ""
+        py = ""
+        if knob:
+            vals = _values() if values is None else values
+            py = str(vals.get(knob, getattr(config, knob, "")) or "").strip()
+        if py:
+            there = in_python(py, mod)
+            if there is True or there == ASKING:
+                continue
+            why = f"{why} (in {py}" + (")" if there is False else f" — which isn't a Python this machine can run; see {knob})")
+        elif importlib.util.find_spec(mod) is not None:
+            continue
+        out.append({"module": mod, "pip": pip, "for": why})
+    return out
 
 
 def senses_state(values: dict | None = None) -> list[dict]:
@@ -782,8 +831,16 @@ def senses_state(values: dict | None = None) -> list[dict]:
         if not sn["modules"] and not sn["tools"]:
             ready, note = True, "nothing to install"
         elif py:
-            ready = None
-            note = f"runs in the Python {sn['python']} names ({py}) — not checked from here"
+            there = {m: in_python(py, m) for m in sn["modules"]}
+            lacking_there = [m for m, t in there.items() if t is False]
+            if any(t is None for t in there.values()):
+                ready, note = None, f"{py} isn't a Python this machine can run — see {sn['python']}"
+            elif any(t == ASKING for t in there.values()):
+                ready, note = None, f"runs in the Python {sn['python']} names ({py}) — looking there…"
+            elif lacking_there:
+                ready, note = False, f"not installed in {py} — {py} -m pip install {sn.get('pip', ' '.join(lacking_there))}"
+            else:
+                ready, note = True, f"installed in {py}"
             if lacking_tools:
                 note += f"; {', '.join(lacking_tools)} not found on this machine"
         elif lacking_mods or lacking_tools:
@@ -821,7 +878,7 @@ def state() -> dict:
         "tabs": tabs(rows),
         "secrets": secrets_set(),
         "skills": skills_state(),
-        "missing": missing(),
+        "missing": missing(values),
         "senses": senses_state(values),
         "update_here": (ROOT / "bat" / "update.bat").is_file(),
         "folder": ROOT.name,  # which house this panel is — two on one machine look alike
