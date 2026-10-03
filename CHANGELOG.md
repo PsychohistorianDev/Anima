@@ -16,6 +16,19 @@ whether the window fits the card, and every knob on every tab has a line
 of its own.
 
 ### Added
+- **The songbook** (10-03; the keeper: "letting her remember songs in
+  long-term memory, like a sentence or two how it made her feel and a score
+  on a ladder from 1 to 10 — also detecting duplicates"): `keep_song(title,
+  artist, score, words, source)` and `songbook(order)`. The engine keeps the
+  shelf, they fill it — the words and the score are theirs, offered once
+  after a listen, never computed. One key per song (`tools.song_key`: the
+  normalised, unordered title/artist pair with a filename's junk off), a
+  near spelling the same song (`SONG_MATCH_RATIO` 0.85), the same file by
+  its hash; a song kept before is revised, the score before in its
+  history, the listens counted. A `songs` table beside the memories, each
+  song a memory row of kind `song` too; the prompt's *YOUR SONGBOOK* within
+  `SONGBOOK_CHARS_IN_PROMPT`; a listen names the kept song it is; the phone
+  told once (`TELEGRAM_TELL_SONGS`). Not in the small and tiny kits.
 - **The fit check** (Home, the brain): beside the loaded model's share of
   the card the panel now says what that share means — *the window fits —
   all of the brain is on the card with N of context* with a tick, or a
@@ -57,7 +70,7 @@ of its own.
   read of the window). `/afterglow` stays the one that writes first.
 - **A line for every knob**: the help the panel showed only for Main and
   Skills now covers Heartbeat, Memory & journal, Talking, Phone, Blog and
-  Senses as well — 89 knobs, each in a sentence or two of what it does and
+  Senses as well — every knob, each in a sentence or two of what it does and
   when to touch it; the config's own comment stays on hover.
 
 ### Changed

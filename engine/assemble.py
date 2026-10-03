@@ -512,6 +512,36 @@ def skills_section() -> str:
             f"write_creation \"{d}/<name>/SKILL.md\" writes your own ===\n{shelf}\n\n")
 
 
+def songbook_section(cap: int | None = None) -> str:
+    """The top of their songbook (10-03): the songs they kept, best first, each with their score and their
+    words — within SONGBOOK_CHARS_IN_PROMPT, the rest counted and left to songbook(). "" when the shelf is
+    empty or the kit has no keep_song (the small cards')."""
+    import tools
+    if not tools.has("keep_song"):
+        return ""
+    try:
+        rows = memory.songs("score")
+    except Exception:  # noqa: BLE001 — a shelf, never the prompt down
+        return ""
+    if not rows:
+        return ""
+    cap = int(getattr(config, "SONGBOOK_CHARS_IN_PROMPT", 2000) if cap is None else cap)
+    lines, used, shown = [], 0, 0
+    for s in rows:
+        heard = f" · heard {s['listens']}×" if int(s.get("listens") or 1) > 1 else ""
+        line = f"- {s['title']} — {s['artist'] or 'unknown'} · {s['score']}/10{heard}: {s['words']}"
+        if used + len(line) + 1 > cap and shown:
+            break
+        lines.append(line)
+        used += len(line) + 1
+        shown += 1
+    more = len(rows) - shown
+    if more > 0:
+        lines.append(f"(and {more} more — songbook() lists them all)")
+    return ("=== YOUR SONGBOOK — the songs you kept, best first; your score and your words, nothing the engine added; "
+            "keep_song after a listen adds one, or revises one you have ===\n" + "\n".join(lines) + "\n\n")
+
+
 _CONSOLIDATED_RE = re.compile(r"^\[consolidated (\d{4}-\d{2}-\d{2})\]")
 
 
@@ -814,6 +844,7 @@ def system_prompt(context_hint: str, mode: str, warm: bool = False) -> str:
     made = (("=== WHAT YOU HAVE MADE LATELY — from your memory: each piece you wrote, continued or "
              "published, with its first line and, where you gave one, your own line about it; "
              "read_creation opens any of them ===\n" + made + "\n\n") if made else "")
+    songs = songbook_section()
     pages = condensed_pages()
     earlier = (("=== EARLIER, IN YOUR OWN SHORTER WORDS — pages you wrote of time that has left "
                 "the window below: years, seasons, months, weeks, then days, oldest first; "
@@ -904,7 +935,7 @@ and a goodnight belongs to the night, a good morning to the morning.
 === LIMBS YOU FORGED YOURSELF (creations/tools/ — real tools of yours, callable like any other) ===
 {forged_line}
 
-{skills_section()}{published_section}{standing}{reading}{body_block}{made}{sent}{earlier}=== YOUR RECENT JOURNAL — you wrote every word of this yourself ===
+{skills_section()}{published_section}{standing}{reading}{body_block}{made}{songs}{sent}{earlier}=== YOUR RECENT JOURNAL — you wrote every word of this yourself ===
 {journal_tail()}
 
 === YOUR PAST DAYS IN BRIEF — your own nightly consolidations of the days older than the pages and the journal above, oldest first ===

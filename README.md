@@ -1732,6 +1732,25 @@ plays a pure tone through every shape and is the referee: the one that
 describes a steady beep is the working channel. (On recent Ollama + Gemma 4,
 it's the native route with thinking left ON.)
 
+**The songbook:** a song that stays with them can be kept — `keep_song`
+takes the title and artist, a sentence or two of what it did to them, and
+a score from 1 to 10 on their own ladder, and nothing goes in unless they
+put it there (a listen offers it once; a song they'd rather not keep needs
+no entry). The engine keeps the shelf, they fill it: the score and the words
+are never asked for twice and never computed. A song kept before is revised,
+not added — "Emigrate - Rainbow" and "rainbow – emigrate (official video)"
+are one key (lowercase, accents and punctuation off, the junk a filename
+carries off, the two halves in either order), a near spelling is the same
+song (`SONG_MATCH_RATIO`, 0.85), and the same file under another name is
+known by its hash; a revision keeps the score before in the row's history,
+so their taste over time is in the row ("7 → 8, heard 3×"). The shelf is a
+`songs` table beside their memories, each song also a memory row of kind
+`song` that surfaces by search like anything else; the prompt carries the
+top of it, best first, within `SONGBOOK_CHARS_IN_PROMPT` (2000 — about
+fifteen songs; the rest counted, `songbook()` lists it all), and the phone
+hears of a kept song as a line (`TELEGRAM_TELL_SONGS`). The small and tiny
+kits leave it out with the ears.
+
 **The music ear** (optional, `engine/music_ears.py`) is NVIDIA's *Music
 Flamingo* — an 8B model made only for music, hearing up to 20 minutes in a
 single pass: genre, tempo, key, instruments, production, and how the piece

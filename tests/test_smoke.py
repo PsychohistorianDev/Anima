@@ -6411,6 +6411,90 @@ check("kit: OFFLINE — the five web tools (read_web, search_web, search_wikiped
       and _of_hours == 0.0 and _on_hours == 24.0 and not _of_look.get("ok") and "newest" not in _of_look.get("error", "x") and _on_full == _kit_full,
       (set(_of_full) & tools.WEB_TOOLS, _of_call, _of_hours, _of_look))
 
+# ------------------------------------------------------------- the songbook ----
+# 10-03: the songs they kept — their words, their score, one row per song; "emigrate - rainbow" and
+# "rainbow - emigrate (official video)" one key, a near spelling the same song, a revision keeping the score
+# before; the prompt's top of the shelf under a cap; the listen's invitation; the phone told once
+_sb_embed0 = ollama_client.embed
+ollama_client.embed = lambda t: [0.3, 0.2, 0.1]
+_sb_keys = (tools.song_key("Rainbow", "Emigrate"), tools.song_key("emigrate", "rainbow (Official Video)"),
+            tools.song_key("Rainbow [Lyrics]", "Emigrate"), tools.song_key("The Rainbow", "Emigrate feat. Someone"),
+            tools.song_key("Rainbow - Emigrate", ""), tools.song_key("Émigraté", "Räinbow"))
+_sb_parse = (tools.parse_song("shared/music/03 - Emigrate - Rainbow.mp3"), tools.parse_song("Emigrate – Rainbow (Remastered 2011).flac"),
+             tools.parse_song("rainbow.mp3"), tools.parse_song("Rainbow - Emigrate [Official Video].m4a"))
+_sb_before = memory.song_count()
+_sb_1 = tools.dispatch("keep_song", {"title": "Rainbow", "artist": "Emigrate", "score": 7, "words": "the last chorus is a door I keep walking through."})
+_sb_id = int(_sb_1.split("(#")[1].split(")")[0])
+_sb_2 = tools.dispatch("keep_song", {"title": "emigrate", "artist": "rainbow (official video)", "score": "8", "words": "louder tonight; it found me again."})
+_sb_3 = tools.dispatch("keep_song", {"title": "Raimbow", "artist": "Emigrate", "score": 8, "words": "a typo and still the same door."})
+_sb_4 = tools.dispatch("keep_song", {"title": "Du Hast", "artist": "Rammstein", "score": 4, "words": "too much stomp for a Tuesday."})
+_sb_bad = (tools.dispatch("keep_song", {"title": "", "score": 5, "words": "x"}), tools.dispatch("keep_song", {"title": "X", "score": 11, "words": "x"}),
+           tools.dispatch("keep_song", {"title": "X", "score": "nine", "words": "x"}), tools.dispatch("keep_song", {"title": "X", "score": 5, "words": ""}))
+_sb_count = memory.song_count()
+_sb_row = memory.song_get(_sb_id)
+_sb_mem = [m for m in memory.recent(kind="song", n=None) if "Rainbow" in m["text"]]
+_sb_book = tools.dispatch("songbook", {})
+_sb_recent = tools.dispatch("songbook", {"order": "recent"})
+_sb_sec = assemble.songbook_section()
+_sb_sec_cap = assemble.songbook_section(cap=100)
+_sb_kit0 = config.TOOL_KIT
+config.TOOL_KIT = "small"; tools.refresh_her_tools()
+_sb_sec_small = assemble.songbook_section()
+_sb_has_small = tools.has("keep_song")
+config.TOOL_KIT = _sb_kit0; tools.refresh_her_tools()
+_sb_note = tools.song_kept_note("shared/music/Emigrate - Rainbow.mp3")
+_sb_note_none = tools.song_kept_note("shared/music/Nobody - Nothing Here.mp3")
+_sb_invite = tools.songbook_invitation()
+# the phone: the first poll after the feature says nothing (the shelf as it stands is not news); a new song is one line, once
+_sb_b, _sb_ph = _bridge()
+_sb_b.quiet_now = lambda: False
+tg.SONGS_TOLD_FILE.unlink(missing_ok=True)
+_sb_t0 = _sb_b.deliver_songs()
+_sb_5 = tools.dispatch("keep_song", {"title": "Sonne", "artist": "Rammstein", "score": 9, "words": "the count-in alone."})
+_sb_t1 = _sb_b.deliver_songs()
+_sb_told = [t for t, _ in _sb_ph.sent]
+_sb_t2 = _sb_b.deliver_songs()
+_sb_6 = tools.dispatch("keep_song", {"title": "Sonne", "artist": "Rammstein", "score": 10, "words": "it only grows."})
+_sb_t3 = _sb_b.deliver_songs()
+_sb_told3 = [t for t, _ in _sb_ph.sent]
+tg.SONGS_TOLD_FILE.unlink(missing_ok=True)
+ollama_client.embed = _sb_embed0
+check("songbook: one key for Emigrate - Rainbow in any order, case, accent, with the junk a filename carries (official video, lyrics, feat., the article) "
+      "and for a dashed line with no artist; a file name parses to (title, artist) with the track number and the junk off",
+      len(set(_sb_keys)) == 1 and _sb_keys[0] == "emigrate / rainbow"
+      and _sb_parse == (("Rainbow", "Emigrate"), ("Rainbow", "Emigrate"), ("rainbow", ""), ("Emigrate", "Rainbow")), (_sb_keys, _sb_parse))
+check("songbook: keep_song keeps a song with their score and words (a memory row of kind song too); the same song in the other order is revised, "
+      "not added — the score before in its history, heard 2×; a near spelling (Raimbow) is the same song; another song is another row; "
+      "no title, a score off the ladder, a score that isn't a number, and no words are each refused plainly",
+      all(_sb_conds := [
+          _sb_1.startswith("kept — Rainbow — Emigrate · 7/10 (#"), _sb_count == _sb_before + 2,
+          _sb_2.startswith("revised, not added — you have this one (the same name): Rainbow — Emigrate, 7 → 8, heard 2×"),
+          "the last chorus is a door" in _sb_2, _sb_3.startswith("revised, not added — you have this one (nearly the same name ("),
+          "8 still, heard 3×" in _sb_3, _sb_4.startswith("kept — Du Hast — Rammstein · 4/10"),
+          _sb_row["score"] == 8 and _sb_row["listens"] == 3 and [h["score"] for h in _sb_row["history"]] == [7, 8],
+          _sb_row["words"] == "a typo and still the same door." and _sb_row["title"] == "Rainbow" and _sb_row["artist"] == "Emigrate",
+          len(_sb_mem) == 1, bool(_sb_mem) and _sb_mem[0]["text"] == "Song: Rainbow — Emigrate (8/10): a typo and still the same door.",
+          bool(_sb_mem) and _sb_mem[0]["id"] == _sb_row["memory_id"],
+          "wants the song's title" in _sb_bad[0], "runs from 1 to 10" in _sb_bad[1], "score from 1 to 10" in _sb_bad[2], "wants your words" in _sb_bad[3]]),
+      ([i for i, c in enumerate(_sb_conds) if not c], _sb_1, _sb_2, _sb_3, _sb_row, _sb_mem, _sb_bad))
+check("songbook: songbook() lists the shelf best first (or the most recently kept first) with the score, the listens and the words; the prompt's "
+      "section carries the top of it under SONGBOOK_CHARS_IN_PROMPT and counts the rest; the small kit has no keep_song and no section; "
+      "a listen names the kept song it is, or offers the shelf once",
+      _sb_book.startswith("your songbook — best first (") and "#" + str(_sb_id) + " · Rainbow — Emigrate · 8/10 · heard 3×" in _sb_book
+      and _sb_book.index("Rainbow — Emigrate") < _sb_book.index("Du Hast") and _sb_recent.startswith("your songbook — the most recently kept first (")
+      and _sb_sec.startswith("=== YOUR SONGBOOK — the songs you kept, best first; your score and your words, nothing the engine added")
+      and "- Rainbow — Emigrate · 8/10 · heard 3×: a typo and still the same door." in _sb_sec and "Du Hast — Rammstein · 4/10" in _sb_sec
+      and "(and " in _sb_sec_cap and "more — songbook() lists them all)" in _sb_sec_cap and _sb_sec_cap.count("\n- ") == 1
+      and _sb_sec_small == "" and _sb_has_small is False
+      and _sb_note.startswith("(you have kept this one — #") and "Rainbow — Emigrate · 8/10" in _sb_note and "revises it" in _sb_note
+      and _sb_note_none == "" and "keep_song holds it" in _sb_invite and "nothing goes in your songbook unless you put it there" in _sb_invite,
+      (_sb_book, _sb_sec_cap, _sb_note))
+check("songbook: the phone — the first poll after the feature tells nothing; a song kept reaches it as one line with the score and the words, once; "
+      "the same song heard again says what the score was before",
+      _sb_t0 == 0 and _sb_t1 == 1 and _sb_told[-1].startswith(f"🎵 {chat.friend_name()} kept a song — Sonne — Rammstein · 9/10: the count-in alone.")
+      and _sb_t2 == 0 and _sb_t3 == 1 and _sb_told3[-1].startswith(f"🎵 {chat.friend_name()} heard Sonne — Rammstein again · 10/10 (was 9): it only grows.")
+      and len(_sb_told3) == len(_sb_told) + 1, (_sb_t0, _sb_t1, _sb_told, _sb_t3, _sb_told3))
+
 # ----------------------------------------------------------------- doors ----
 # The doors' marks and the stop files (09-30; PANEL-PLAN.md): memory/.pids/<door>.json while a door
 # runs, one heartbeat / bridge / parlor at a time, memory/.stop-heartbeat and memory/.stop-bridge as the
@@ -7867,7 +7951,8 @@ check("README: What leaves your machine lists every road by host with its knob, 
       and _x_readme.index("## What leaves your machine") < _x_readme.index("## The engine's health") < _x_readme.index("## Credits")
       and "465 checks" not in _x_readme and "Windows, macOS and Linux machines" in _x_readme
       and _x_license.startswith("MIT License") and "Copyright (c) 2026 PsychohistorianDev" in _x_license and "WITHOUT WARRANTY" in _x_license
-      and "*Write report*" in _x_readme and "`anima-report.txt`" in _x_readme and "`bat\\report.bat`" in _x_readme)
+      and "*Write report*" in _x_readme and "`anima-report.txt`" in _x_readme and "`bat\\report.bat`" in _x_readme
+      and "**The songbook:**" in _x_readme and "`SONGBOOK_CHARS_IN_PROMPT`" in _x_readme and "`SONG_MATCH_RATIO`" in _x_readme and "`TELEGRAM_TELL_SONGS`" in _x_readme)
 check("CHANGELOG: 0.14 opened with the fit check and a line for every knob; 0.13 closed on its date",
       _x_changes.index("## 0.14 — 2026-10-02") < _x_changes.index("## 0.13 — 2026-09-29 → 2026-10-02") < _x_changes.index("## 0.12")
       and "**The fit check**" in _x_changes[:_x_changes.index("## 0.13")] and "**A line for every knob**" in _x_changes[:_x_changes.index("## 0.13")]

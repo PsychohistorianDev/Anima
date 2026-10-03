@@ -296,3 +296,120 @@ def recent(kind: str | None = None, n: int | None = 10) -> list[dict]:
 def count() -> int:
     with _connect() as conn:
         return conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
+
+
+# ------------------------------------------------------------- the songbook ----
+# 10-03 (the keeper: "letting her remember songs in long-term memory, like a sentence or two how it made
+# her feel and a score on a ladder from 1 to 10"): one row per song, hers — the words and the score are what
+# she gave keep_song, never computed; a revision keeps the score before in `history`, so her taste over time
+# is in the row. `key` is the normalised unordered title/artist pair (tools.song_key) that keeps "emigrate -
+# rainbow" and "rainbow - emigrate" one song; `digest` the file's sha256 when it was a file. `memory_id` is
+# the memory row (kind "song") that carries the words, so a song surfaces by search like anything else.
+_SONGS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS songs (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    key       TEXT NOT NULL,
+    title     TEXT NOT NULL,
+    artist    TEXT NOT NULL,
+    source    TEXT NOT NULL DEFAULT '',
+    digest    TEXT NOT NULL DEFAULT '',
+    score     INTEGER NOT NULL,
+    words     TEXT NOT NULL,
+    listens   INTEGER NOT NULL DEFAULT 1,
+    history   TEXT NOT NULL DEFAULT '[]',
+    memory_id INTEGER,
+    created   TEXT NOT NULL,
+    updated   TEXT NOT NULL
+);
+"""
+_SONG_COLS = "id, key, title, artist, source, digest, score, words, listens, history, memory_id, created, updated"
+
+
+def _song_row(r) -> dict:
+    d = dict(zip(_SONG_COLS.replace(" ", "").split(","), r))
+    try:
+        d["history"] = json.loads(d["history"] or "[]")
+    except ValueError:
+        d["history"] = []
+    return d
+
+
+def _songs_conn() -> sqlite3.Connection:
+    conn = _connect()
+    conn.execute(_SONGS_SCHEMA)
+    return conn
+
+
+def _now_fine() -> str:
+    """A stamp that moves within a second — the songs' `updated` is the phone's watermark."""
+    return datetime.now(timezone.utc).isoformat(timespec="microseconds")
+
+
+def song_text(title: str, artist: str, score: int, words: str) -> str:
+    """The memory row's text for a song — what search finds."""
+    return f"Song: {title} — {artist} ({score}/10): {words}"
+
+
+def songs(order: str = "score") -> list[dict]:
+    """Every kept song: best first ("score": score, then the most recently kept), or "recent" (updated first)."""
+    by = "score DESC, updated DESC" if order != "recent" else "updated DESC"
+    with _songs_conn() as conn:
+        rows = conn.execute(f"SELECT {_SONG_COLS} FROM songs ORDER BY {by}").fetchall()
+    return [_song_row(r) for r in rows]
+
+
+def song_get(sid: int) -> dict | None:
+    with _songs_conn() as conn:
+        r = conn.execute(f"SELECT {_SONG_COLS} FROM songs WHERE id = ?", (sid,)).fetchone()
+    return _song_row(r) if r else None
+
+
+def song_find(key: str = "", digest: str = "") -> dict | None:
+    """The song with this key, else the one with this file digest; None when neither is kept."""
+    with _songs_conn() as conn:
+        r = None
+        if key:
+            r = conn.execute(f"SELECT {_SONG_COLS} FROM songs WHERE key = ? ORDER BY id LIMIT 1", (key,)).fetchone()
+        if r is None and digest:
+            r = conn.execute(f"SELECT {_SONG_COLS} FROM songs WHERE digest = ? ORDER BY id LIMIT 1", (digest,)).fetchone()
+    return _song_row(r) if r else None
+
+
+def song_add(key: str, title: str, artist: str, score: int, words: str, source: str = "", digest: str = "") -> dict:
+    """A new song on the shelf, with its memory row (kind "song")."""
+    mid = add("song", song_text(title, artist, score, words))
+    now = _now_fine()
+    with _songs_conn() as conn:
+        cur = conn.execute(
+            "INSERT INTO songs (key, title, artist, source, digest, score, words, listens, history, memory_id, created, updated) "
+            "VALUES (?,?,?,?,?,?,?,1,'[]',?,?,?)",
+            (key, title, artist, source, digest, int(score), words, mid if mid > 0 else None, now, now))
+        sid = cur.lastrowid
+    return song_get(sid)
+
+
+def song_revise(sid: int, score: int, words: str, source: str = "", digest: str = "") -> dict | None:
+    """The same song heard again: the score and words before go into history, the listens count up, the
+    memory row says the new words."""
+    s = song_get(sid)
+    if not s:
+        return None
+    history = s["history"] + [{"when": s["updated"], "score": s["score"], "words": s["words"]}]
+    now = _now_fine()
+    with _songs_conn() as conn:
+        conn.execute(
+            "UPDATE songs SET score = ?, words = ?, listens = listens + 1, history = ?, updated = ?, "
+            "source = CASE WHEN ? = '' THEN source ELSE ? END, digest = CASE WHEN ? = '' THEN digest ELSE ? END WHERE id = ?",
+            (int(score), words, json.dumps(history, ensure_ascii=False), now, source, source, digest, digest, sid))
+    if s.get("memory_id"):
+        update(int(s["memory_id"]), song_text(s["title"], s["artist"], score, words))
+    else:
+        mid = add("song", song_text(s["title"], s["artist"], score, words))
+        with _songs_conn() as conn:
+            conn.execute("UPDATE songs SET memory_id = ? WHERE id = ?", (mid if mid > 0 else None, sid))
+    return song_get(sid)
+
+
+def song_count() -> int:
+    with _songs_conn() as conn:
+        return conn.execute("SELECT COUNT(*) FROM songs").fetchone()[0]

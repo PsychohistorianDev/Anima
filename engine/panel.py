@@ -87,14 +87,14 @@ TABS: dict[str, list[str]] = {
                   "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE"],
     "Memory & journal": ["TIMELINE_CHARS_IN_PROMPT", "CONDENSED_CHARS_IN_PROMPT", "CONDENSE_TARGET_CHARS",
                          "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_DUP_THRESHOLD", "JOURNAL_DUP_THRESHOLD",
-                         "JOURNAL_ARROW", "CREATIONS_DAYS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
+                         "JOURNAL_ARROW", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS"],
     "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_GARBLE_RETRIES",
                 "CHAT_COLD_RESCUE", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "BRAIN_KEEP_ALIVE",
                 "BRAIN_REST_AFTER_VISIT"],
     "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS",
               "TELEGRAM_TELL_REFLECTIONS", "TELEGRAM_TELL_AFTERTHOUGHTS", "TELEGRAM_TELL_CREATIONS",
-              "TELEGRAM_TELL_DRAWINGS", "TELEGRAM_TELL_SELF", "TELEGRAM_IDLE_NEW_MIN", "TELEGRAM_HEAR_VOICE",
+              "TELEGRAM_TELL_DRAWINGS", "TELEGRAM_TELL_SONGS", "TELEGRAM_TELL_SELF", "TELEGRAM_IDLE_NEW_MIN", "TELEGRAM_HEAR_VOICE",
               "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD"],
     "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_UNLOAD_BRAIN",
                "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
@@ -205,6 +205,9 @@ _HELP = {
     "JOURNAL_ARROW": "When the journal refuses a duplicate, a stamped arrow is left in the day instead of silence "
                      "(\"17:00 — ↑ still this, at 14:20\"), so the day keeps its rhythm. A mark, not words of theirs. "
                      "Off: the refusal alone.",
+    "SONGBOOK_CHARS_IN_PROMPT": "How much of their songbook rides in every prompt, in characters — the songs they kept "
+                                "with keep_song, best first, each with their own score and words (about 130 characters a song). "
+                                "The rest is counted, and songbook() lists it all. 0 leaves the shelf out of the prompt.",
     "CREATIONS_DAYS_IN_PROMPT": "How many days of their recent pieces are listed in the prompt (the shelf of what they "
                                 "made lately), so they know what is there without listing it.",
     "LETTERS_DAYS_IN_PROMPT": "Your letters to them (shared/letters/) from the last this many days ride in the prompt, "
@@ -261,6 +264,8 @@ _HELP = {
     "TELEGRAM_TELL_CREATIONS": "A new piece under creations/ — a poem, an essay, something published — reaches the "
                                "phone within a minute, whole when it fits a message, else its opening and where the "
                                "rest is. Code, the trash and the mailbox are not announced.",
+    "TELEGRAM_TELL_SONGS": "A song they kept in their songbook reaches your phone as a line — the title, the score, "
+                           "their words; a song heard again says what the score was before.",
     "TELEGRAM_TELL_DRAWINGS": "A picture they draw or paint reaches the phone once, as a photo, captioned with where "
                               "it lives; a redraw says so.",
     "TELEGRAM_TELL_SELF": "A change to who they are — self.md or projects.md — arrives as what changed, lines in and "

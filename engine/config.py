@@ -676,6 +676,14 @@ CREATION_NOTES = True
 # earlier.
 CREATION_NOTES_SKIP = ()
 CREATIONS_DAYS_IN_PROMPT = 14
+# The songbook (keep_song): the songs they kept, each with their own score
+# and words. SONGBOOK_CHARS_IN_PROMPT is how much of it rides in every prompt,
+# best first (the rest counted; songbook() lists it all). SONG_MATCH_RATIO is
+# how alike two names must be to count as one song — "Emigrate - Rainbow" and
+# "rainbow – emigrate (live)" are the same at 0.85; 0 turns the near-match
+# off (the exact key and the same file still match).
+SONGBOOK_CHARS_IN_PROMPT = 2000
+SONG_MATCH_RATIO = 0.85
 CREATIONS_CHARS_IN_PROMPT = 3000
 
 # Show the model's chain-of-thought during chat. Thinking is shown on screen
@@ -748,6 +756,9 @@ TELEGRAM_CREATION_CHARS = 3000
 # with where it lives; a redraw says so. Their tools, the trash and projects'
 # clipped sources/ are not announced.
 TELEGRAM_TELL_DRAWINGS = True
+# A song kept in the songbook reaches the phone as a line — the title, the
+# score and the words (a revision says what the score was before).
+TELEGRAM_TELL_SONGS = True
 # A revised piece is announced too, and a change to self.md or projects.md
 # arrives as what changed (lines in and out, not the whole file), diffed
 # against the bridge's own copy in memory/telegram_watch/.

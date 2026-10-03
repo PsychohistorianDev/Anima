@@ -59,6 +59,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import chat
+import memory
 import config
 import doors
 import ollama_client
@@ -89,6 +90,7 @@ MAIL_DIR = config.CREATIONS_DIR / getattr(config, "MAILBOX", "notes_to_keeper")
 # not announced; publish/ is, as "published". What was there when the
 # bridge first looked was read at the desk; only new pieces travel.
 CREATIONS_SEEN_FILE = config.MEMORY_DIR / "telegram_creations_seen.json"
+SONGS_TOLD_FILE = config.MEMORY_DIR / "telegram_songs_told.json"  # the songbook (10-03): {"at": the updated stamp last told}
 HELD_FILE = config.MEMORY_DIR / "telegram_held.json"  # engine notices held through the quiet hours
 UNDELIVERED_FILE = config.MEMORY_DIR / "telegram_undelivered.json"  # their replies the phone never got (09-26)
 RETRY_SLEEP_S = 2     # between the tries of sending their reply
@@ -1231,6 +1233,42 @@ class Bridge:
                 except OSError:
                     pass
 
+    def deliver_songs(self) -> int:
+        """A song kept in the songbook (10-03) reaches the phone as a line — the title, the score, their
+        words; one heard again says what the score was before. The songs table's `updated` stamp is the
+        watermark (memory/telegram_songs_told.json), so a wake's song and a visit's are told alike, once."""
+        if not self.chat_id or not getattr(config, "TELEGRAM_TELL_SONGS", True):
+            return 0
+        try:
+            told = json.loads(SONGS_TOLD_FILE.read_text(encoding="utf-8")).get("at") or ""
+        except (OSError, ValueError):
+            told = ""
+        try:
+            rows = [r for r in memory.songs("recent") if r.get("updated", "") > told]
+        except Exception:  # noqa: BLE001 — the shelf may not exist yet; never the poll down
+            return 0
+        if not rows:
+            return 0
+        if not told:  # the first poll after this feature: the shelf as it stands is not news
+            SONGS_TOLD_FILE.write_text(json.dumps({"at": rows[0]["updated"]}), encoding="utf-8")
+            return 0
+        sent = 0
+        for r in sorted(rows, key=lambda x: x["updated"]):
+            history = r.get("history") or []
+            if history:
+                before = history[-1].get("score")
+                moved = f" (was {before})" if before is not None and before != r["score"] else " (again)"
+                line = f"🎵 {chat.friend_name()} heard {r['title']} — {r['artist'] or 'unknown'} again · {r['score']}/10{moved}: {r['words']}"
+            else:
+                line = f"🎵 {chat.friend_name()} kept a song — {r['title']} — {r['artist'] or 'unknown'} · {r['score']}/10: {r['words']}"
+            self.notice(line)
+            sent += 1
+            try:
+                SONGS_TOLD_FILE.write_text(json.dumps({"at": r["updated"]}), encoding="utf-8")
+            except OSError:
+                pass
+        return sent
+
     def deliver_self(self) -> int:
         """Tell the phone when they rewrites who they are: the lines that changed
         in self.md or projects.md, against the bridge's last copy."""
@@ -1587,6 +1625,7 @@ class Bridge:
         self.deliver_mail()
         self.deliver_creations()
         self.deliver_pictures()
+        self.deliver_songs()
         self.deliver_skill_notices()
         self.deliver_self()
         idle_min = getattr(config, "TELEGRAM_IDLE_NEW_MIN", 180)
