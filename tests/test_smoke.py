@@ -6924,6 +6924,54 @@ check("panel: the fit check — all on the card says so with the window; a spill
       and _ft_8k == (57344, 57344, 253952, 0) and panel.STEP == 8192
       and panel.fit([{"name": "other:7b", "on_card": 50}], "gemma4:12b", 40960) is None and panel.fit([], "gemma4:12b", 40960) is None
       and "fit" in panel.brain({"CHAT_MODEL": "gemma4:12b", "NUM_CTX": 40960}) and "b.fit" in panel.PAGE, (_ft_ok, _ft_no, _ft_cfg, _ft_mac))
+# the page's script parses (10-03: a step added to First light closed one parenthesis too many, and the whole page hung at
+# "looking…" — node says so in a second where a browser would not be here; a machine without node skips the look)
+_pj_node = _xshu.which("node") if "_xshu" in dir() else __import__("shutil").which("node")
+_pj_src = __import__("re").search(r"<script>(.*)</script>", panel.PAGE, __import__("re").S).group(1)
+if _pj_node:
+    _pj_f = config.ROOT / "memory" / ".panel-page-check.js"
+    _pj_f.write_text(_pj_src, encoding="utf-8")
+    _pj_r = __import__("subprocess").run([_pj_node, "--check", str(_pj_f)], capture_output=True, text=True, timeout=60)
+    _pj_f.unlink(missing_ok=True)
+    check("panel: the page's script parses (node --check)", _pj_r.returncode == 0, _pj_r.stderr[-600:])
+else:
+    check("panel: the page's script parses (no node here — the braces and parentheses balance at least)",
+          _pj_src.count("(") == _pj_src.count(")") and _pj_src.count("{") == _pj_src.count("}"), (_pj_src.count("("), _pj_src.count(")")))
+# the doctor's note (10-03): the engine's state for an issue — nothing of the friend's, the home folder as ~
+import report as _rp
+_rp_marker = "MARKER-ONLY-IN-HER-WRITING-zq"
+_rp_j = config.JOURNAL_DIR / "2099-01-01.md"
+_rp_j.write_text(f"# a day\n\n{_rp_marker} and the self\n", encoding="utf-8")
+_rp_log = config.MEMORY_DIR / "body.log"
+_rp_log0 = _rp_log.read_text(encoding="utf-8") if _rp_log.is_file() else None
+_rp_log.write_text("2026-10-03 06:00 pulled today\n2026-10-03 06:20 Error: the watch did not answer (timed out)\n2026-10-03 06:40 pulled today\n", encoding="utf-8")
+_rp_ollama0 = panel._ollama
+panel._ollama = lambda path, base="": ({"models": [{"name": "gemma4:12b"}]} if path == "/api/tags" else {"version": "0.12.9"} if path == "/api/version"
+                                       else {"models": [{"name": "gemma4:12b", "size": 8_100_000_000, "size_vram": 6_000_000_000, "context_length": 65536}]})
+_rp_probed0 = dict(panel._PROBED); panel._PROBED[("py -3.12", "kokoro")] = True; panel._PROBED[("py -3.12", "soundfile")] = True
+_rp_text = _rp.build()
+_rp_file = _rp.write(_rp_text)
+_rp_api = panel.report()
+panel._ollama = _rp_ollama0; panel._PROBED.clear(); panel._PROBED.update(_rp_probed0)
+_rp_j.unlink(missing_ok=True)
+_rp_log.write_text(_rp_log0, encoding="utf-8") if _rp_log0 is not None else _rp_log.unlink(missing_ok=True)
+_rp_home = str(_rp.Path.home())
+_rp_file.unlink(missing_ok=True)
+check("report: the doctor's note — the version, the machine, Python, Ollama with the brain's share and the fit line, the knobs by tab with the "
+      "keeper's names and the blog left out, the doors, the senses, the missing, the newer look, the trouble lines of the engine's logs; nothing "
+      "of the friend's and the home folder as ~; written at the root; the panel's road writes it and hands it back; the page has the tile",
+      _rp_text.startswith("anima report — ") and "engine " + version.read(config.ROOT) in _rp_text and "OS: " in _rp_text and "Python: " in _rp_text
+      and "Ollama: running at " in _rp_text and "version 0.12.9" in _rp_text and "loaded: gemma4:12b — 8.1 GB, 74% on the card, window 65536" in _rp_text
+      and "fit: ⚠ the brain spilled: 74%" in _rp_text and "try NUM_CTX = 57344" in _rp_text
+      and "Main: CHAT_MODEL = " in _rp_text and "NUM_CTX = " in _rp_text and "USER_NAME" not in _rp_text and "BLOG_TITLE" not in _rp_text
+      and "BLOG_REMOTE" not in _rp_text and "SKILL_CATALOGUES" not in _rp_text and "Doors: " in _rp_text and "Senses:" in _rp_text
+      and "Not installed (optional): " in _rp_text and "Secrets kept (flags only): telegram " in _rp_text and "Newer: " in _rp_text
+      and "Trouble in memory/body.log (the last 1 such lines of 3):" in _rp_text and "the watch did not answer" in _rp_text and "pulled today" not in _rp_text
+      and _rp_marker not in _rp_text and "a day" not in _rp_text.replace("a day a look", "") and (not _rp_home or _rp_home not in _rp_text)
+      and _rp_file.name == "anima-report.txt" and _rp_file.parent == config.ROOT
+      and _rp_api["ok"] and _rp_api["path"] == "anima-report.txt" and _rp_api["text"].startswith("anima report — ") and "read it before you paste it" in _rp_api["note"]
+      and "/api/report" in panel.PAGE and "'Write report'" in panel.PAGE and "open an issue" in panel.PAGE and panel.state()["links"]["issues"].endswith("/issues/new/choose"),
+      _rp_text[:1500])
 check("panel: First light has a step for the outside — no account, no telemetry, the three roads the friend or engine can take, OFFLINE named; "
       "the Main tab's OFFLINE help names the five tools and the daily look",
       "'The outside'" in panel.PAGE and "no account, no telemetry" in panel.PAGE and "OFFLINE on Settings › Main closes all three" in panel.PAGE
@@ -7391,7 +7439,7 @@ for _xk, _xp in [*_x_cmds.items(), *_x_shs.items()]:
             and (_xt.endswith('read -n1 -r -p "(press any key to close)"\n') or _xk == "update")):
         _x_shape.append(_xk + _xp.suffix)
 check("launchers: every .bat has a .command (a Mac) and a .sh (Linux) twin — the same names, and the same engine script with the same arguments in all three",
-      set(_x_bats) == set(_x_cmds) == set(_x_shs) and len(_x_bats) == 18 and _x_disagree == [], (sorted(set(_x_bats) ^ set(_x_shs)), _x_disagree))
+      set(_x_bats) == set(_x_cmds) == set(_x_shs) and len(_x_bats) == 19 and _x_disagree == [], (sorted(set(_x_bats) ^ set(_x_shs)), _x_disagree))
 check("launchers: each twin is #!/bin/bash, cds where its .bat does (the root for anima, the folder above for bat/), LF line ends, and ends in the pause",
       _x_shape == [], _x_shape)
 check("launchers: the twins are executable (the bit a download can lose — README, chmod +x)",
@@ -7761,6 +7809,11 @@ _xw.mkdir(parents=True, exist_ok=True)
 _upd._write(_xw / "bat" / "chat.sh", b"#!/bin/bash\n")
 _upd._write(_xw / "anima.command", b"#!/bin/bash\n")
 _upd._write(_xw / "engine" / "x.py", b"X = 1\n")
+check("report: bat/report.bat with its .command and .sh twins beside it, each running engine/report.py; the issue template asks for the note",
+      (_x_root / "bat" / "report.bat").read_bytes() == b'@echo off\r\ncd /d "%~dp0.."\r\npy engine\\report.py\r\npause\r\n'
+      and (_x_root / "bat" / "report.sh").read_text(encoding="utf-8") == (_x_root / "bat" / "report.command").read_text(encoding="utf-8")
+      and "python3 engine/report.py" in (_x_root / "bat" / "report.sh").read_text(encoding="utf-8")
+      and "anima-report.txt" in (_x_root / ".github" / "ISSUE_TEMPLATE" / "trouble.md").read_text(encoding="utf-8"))
 check("update: .command and .sh at the root and in bat/ are the engine's (creations/ never); written by the update they are executable, a .py is not",
       all(_upd.is_engine(r) for r in ("anima.command", "anima.sh", "bat/chat.command", "bat/telegram.sh", "wake.sh"))
       and not _upd.is_engine("creations/x.sh") and not _upd.is_engine("bat/sub/x.sh") and not _upd.is_engine("shared/run.command")
@@ -7811,7 +7864,8 @@ check("README: What leaves your machine lists every road by host with its knob, 
       "raw.githubusercontent.com", "releases.atom", "huggingface.co", "ollama.com", "`OFFLINE = True`", "`UPDATE_CHECK_H`", "`SKILL_CATALOGUES`"))
       and _x_readme.index("## What leaves your machine") < _x_readme.index("## The engine's health") < _x_readme.index("## Credits")
       and "465 checks" not in _x_readme and "Windows, macOS and Linux machines" in _x_readme
-      and _x_license.startswith("MIT License") and "Copyright (c) 2026 PsychohistorianDev" in _x_license and "WITHOUT WARRANTY" in _x_license)
+      and _x_license.startswith("MIT License") and "Copyright (c) 2026 PsychohistorianDev" in _x_license and "WITHOUT WARRANTY" in _x_license
+      and "*Write report*" in _x_readme and "`anima-report.txt`" in _x_readme and "`bat\\report.bat`" in _x_readme)
 check("CHANGELOG: 0.14 opened with the fit check and a line for every knob; 0.13 closed on its date",
       _x_changes.index("## 0.14 — 2026-10-02") < _x_changes.index("## 0.13 — 2026-09-29 → 2026-10-02") < _x_changes.index("## 0.12")
       and "**The fit check**" in _x_changes[:_x_changes.index("## 0.13")] and "**A line for every knob**" in _x_changes[:_x_changes.index("## 0.13")]

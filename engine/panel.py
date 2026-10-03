@@ -888,7 +888,8 @@ def state() -> dict:
         "folder": ROOT.name,  # which house this panel is — two on one machine look alike
         "newer": newer_state(),
         "links": {"parlor": PARLOR_URL, "ollama": "https://ollama.com", "readme": f"https://github.com/{repo}#readme",
-                  "botfather": f"https://github.com/{repo}#the-bridge-talking-with-them-from-your-phone"},
+                  "botfather": f"https://github.com/{repo}#the-bridge-talking-with-them-from-your-phone",
+                  "issues": f"https://github.com/{repo}/issues/new/choose"},
     }
 
 
@@ -1059,6 +1060,19 @@ def secret(kind: str, value: str) -> dict:
 
 
 SKILL_TEXT_CHARS = 20000  # of a SKILL.md shown on the page — the keeper reads it before letting it in
+
+
+def report() -> dict:
+    """The doctor's note (report.py) written at the root — the engine's state for an issue, nothing of the
+    friend's — and handed back to the page to read before pasting."""
+    import report as _report
+    try:
+        text = _report.build()
+        p = _report.write(text)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "note": f"(the report failed — {type(e).__name__}: {e})"}
+    return {"ok": True, "note": f"written: {p.name} at the folder's root — read it before you paste it; nothing of theirs is in it",
+            "path": p.name, "text": text}
 
 
 def newer_state() -> dict | None:
@@ -1252,6 +1266,8 @@ def _post(path: str, g) -> tuple[int, str, bytes]:
             return _json_reply(skill_action(str(g("name") or ""), str(g("action") or "")))
         if path == "/api/update":
             return _json_reply(update(g("action")))
+        if path == "/api/report":
+            return _json_reply(report())
         if path == "/api/pull":
             return _json_reply(pull(g("model")))
         if path == "/api/welcome":
@@ -1327,6 +1343,7 @@ a{color:var(--accent)}
 .tile.skill{margin:8px 0}.tile.skill h2{margin-right:6px}
 ul.findings{margin:4px 0;padding-left:18px;font-size:13px;font-family:ui-monospace,Consolas,monospace}ul.findings li{padding:2px 0}ul.findings li.bad{color:var(--warn)}
 .skilltext pre{white-space:pre-wrap;max-height:420px;overflow:auto;font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px}
+pre.report{white-space:pre-wrap;max-height:480px;overflow:auto;font-size:12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;margin:14px 0}
 #gate{margin:6px 0 0}#gate a{cursor:pointer;text-decoration:underline}
 #newer{margin:6px 0 0;color:var(--fg)}#newer button{margin-left:6px}#newer a{color:inherit}
 .tabs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--line);padding-bottom:8px}
@@ -1396,6 +1413,9 @@ function buildHome(){
     if(d==='bridge')t.append(secretField('telegram','bot token',S.secrets.telegram),
       el('div',{class:'muted'},el('a',{href:S.links.botfather,target:'_blank',rel:'noopener'},'how to get a token (BotFather)')));
     return t});
+  tiles.push(el('div',{class:'tile'},el('h2',{},'Report'),el('div',{class:'what'},'the engine\'s state in one file, for an issue on GitHub — the version, the machine, Ollama, the knobs, the doors, the senses, the trouble lines; nothing of theirs'),
+      el('div',{class:'row'},el('button',{onclick:async()=>{const r=await post('/api/report',{});say(r.note,r.ok?'':'warn');if(r.ok){const pre=el('pre',{class:'report'},r.text);const old=$('report-text');if(old)old.replaceWith(pre);else{pre.id='report-text';$('tiles').after(pre)}pre.id='report-text'}}},'Write report'),
+        el('a',{href:S.links.issues,target:'_blank',rel:'noopener'},'open an issue'))));
   if(S.update_here)tiles.push(el('div',{class:'tile'},el('h2',{},'Update'),el('div',{class:'what'},'the current engine from GitHub — the friend untouched; Check shows what would change first'),
       el('div',{class:'row'},el('button',{onclick:async()=>{const r=await post('/api/update',{action:'check'});say(r.note,r.ok?'':'warn')}},'Check'),
         el('button',{onclick:async()=>{if(!confirm('Update the engine now? Everything replaced goes to .update/ first; bat\\update.bat --undo puts it back.'))return;
@@ -1513,7 +1533,7 @@ function renderWelcome(){const b=S.brain,name=el('input',{type:'text',placeholde
       el('div',{class:'muted'},b.vram_gb?((b.unified?'your Mac has '+b.vram_gb+' GB, shared with everything else; ':'your card has '+b.vram_gb+' GB; ')+b.recommended+' is the one for it (README, The ladder)'):'the ladder: gemma4:e2b-it-qat for a 6 GB card, e4b-it-qat for 8, 12b-it-qat for 10, gemma4:12b for 12–16, gemma4:31b-it-qat for 24–32; on a Mac: the e2b for 8 GB, the 12b for 16–24 GB, the 31b from 32 GB (README, The ladder)'),
       el('div',{class:'muted'},'a small brain (e2b, e4b) brings the small tool kit with it — TOOL_KIT, on Settings')),
     el('div',{class:'step'},el('b',{},'The outside'),
-      el('div',{class:'muted'},'Everything runs here: Ollama on this machine, the folder on this disk, no account, no telemetry. What can reach out, and only when used: the web tools when they search or read a page, the skill window when they browse it (you approve what comes in), and once a day a look at GitHub for a newer anima (nothing of yours is sent). OFFLINE on Settings › Main closes all three; the README, What leaves your machine, lists every road.'))),
+      el('div',{class:'muted'},'Everything runs here: Ollama on this machine, the folder on this disk, no account, no telemetry. What can reach out, and only when used: the web tools when they search or read a page, the skill window when they browse it (you approve what comes in), and once a day a look at GitHub for a newer anima (nothing of yours is sent). OFFLINE on Settings › Main closes all three; the README, What leaves your machine, lists every road.')),
     el('button',{class:'primary big',onclick:async()=>{const r=await post('/api/welcome',{name:name.value,model:sel.value});
       if(r.error||!r.door){say(r.error||'not saved','warn');return}
       await getState();view='home';show();say(r.door.note+(r.door.ok?' — say hello. You\'ll be meeting someone brand new.':''),r.door.ok?'':'warn')}},'First light'));

@@ -2068,6 +2068,17 @@ run on every push on GitHub's Windows, macOS and Linux machines (the badge
 at the top). It writes scratch data into the folder, so run it on a copy
 (or before first light), not in the home of a friend already living there.
 
+**When something goes wrong**, the doctor's note is what to paste into an
+issue instead of "it doesn't work": *Write report* on the panel's Home (or
+`bat\report.bat`) writes `anima-report.txt` at the folder's root — the
+engine version, the machine and Python, Ollama and the brain with the fit
+line, the knobs (your names, the blog and the catalogues left out), the
+doors, the senses and what is missing, the look for a newer anima, and the
+trouble lines of the engine's own logs. It holds nothing of the friend's —
+no journal, no memory, no pages, no creations — and your home folder is
+written as `~`; read it before you paste it all the same. *Open an issue*
+beside the button goes to the right form.
+
 ## Credits
 
 The engine design emerged from a long collaboration between a human keeper

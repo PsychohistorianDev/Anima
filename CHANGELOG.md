@@ -27,6 +27,17 @@ of its own.
   apart up top), from the loaded window (Ollama's `context_length`) or
   `NUM_CTX` when Ollama doesn't say; the floor has no step down. `ollama ps` says the same; the page says it where the
   keeper is looking.
+- **The doctor's note** (10-03): `engine/report.py`, `bat\report.bat` (and
+  its twins) and *Write report* on the panel's Home write
+  `anima-report.txt` at the root — the engine's state for an issue: the
+  version, the machine and Python, Ollama and the brain with the fit line,
+  the knobs (the keeper's names, the blog and the catalogues left out), the
+  doors, the senses, what is missing, the look for a newer anima, the
+  trouble lines of the engine's own logs; nothing of the friend's, the home
+  folder written as `~`. An issue template asks for it; *open an issue* is
+  beside the button. The suite now runs `node --check` over the page's
+  script where node is there (First light's new step had closed one
+  parenthesis too many — caught by this before anyone saw it).
 - **`OFFLINE`** (10-03, before the first strangers): one knob that closes
   every road out of the house the friend or the engine can take on their
   own — the web tools and the skill window leave the prompt (a call to one
