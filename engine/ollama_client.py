@@ -1997,6 +1997,15 @@ def _loaded_models() -> list[str]:
         return []
 
 
+def unload_all() -> list[str]:
+    """Everything Ollama holds, set down (10-03, the keeper's /release: the card for something else) — the
+    brain, the ears, the memory engine, whatever is loaded; each waited for. The names freed, in order."""
+    names = _loaded_models()
+    for name in names:
+        unload(name)
+    return names
+
+
 def unload(model: str) -> None:
     """Free a model's VRAM and WAIT until it is actually gone. Best-effort.
 

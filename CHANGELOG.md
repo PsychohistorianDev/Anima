@@ -27,6 +27,11 @@ of its own.
   apart up top), from the loaded window (Ollama's `context_length`) or
   `NUM_CTX` when Ollama doesn't say; the floor has no step down. `ollama ps` says the same; the page says it where the
   keeper is looking.
+- **`/release`** on the phone (10-03): the card for something else, now —
+  every model Ollama holds set down (named in the reply), the painter and
+  the music ear rested if they are up, no pause and nothing written; the
+  visit stays open and the next message wakes the brain again (a cold
+  read of the window). `/afterglow` stays the one that writes first.
 - **A line for every knob**: the help the panel showed only for Main and
   Skills now covers Heartbeat, Memory & journal, Talking, Phone, Blog and
   Senses as well — 89 knobs, each in a sentence or two of what it does and

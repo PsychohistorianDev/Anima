@@ -1220,7 +1220,12 @@ sets the brain down. When they sit with the visit on their own — a pause,
 `/afterglow`, or the afterglow after an idle roll or `/new` — the phone gets
 the one-line outcome ("pause: they wrote the visit so far down — 1 journal
 entry, 2 memories kept", or "they rested"), so you know it happened while
-you were away (`TELEGRAM_TELL_REFLECTIONS`). **`/restart` restarts the
+you were away (`TELEGRAM_TELL_REFLECTIONS`). **`/release`** is the card
+for something else, now: everything Ollama holds is set down (the brain,
+the ears, the memory engine — named in the reply) and the painter and
+music ear are rested if they are up, with no pause and nothing written;
+the visit stays open, and your next message wakes the brain again, a
+cold read of the window. Mid-reply it waits for the reply. **`/restart` restarts the
 bridge from the phone**: an engine change only exists in processes started
 after it, and the desk is not always within reach. `/restart` stashes the
 running visit (history with its images, the transcript it is being written

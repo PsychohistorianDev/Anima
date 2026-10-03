@@ -119,6 +119,9 @@ HELP = (
     "/new — save this conversation and start fresh\n"
     "/afterglow — the pause by hand: they sit with the visit so far now (what a quiet stretch of REFLECT_AFTER_MIN does on its own) "
     "and the brain is set down, so the card is yours at once; the visit stays open\n"
+    "/release — the card for something else: everything on it set down now (the brain, the ears, the memory engine, "
+    "the painter and the music ear if they are up) with no pause and no writing; the visit stays open and your next "
+    "message wakes the brain again (a cold read of the window)\n"
     "/think — their thinking with each reply (off by default on the phone)\n"
     "/tools — what their tools did, one line per reply\n"
     "/tokens — the token line after each reply\n"
@@ -579,6 +582,47 @@ class Bridge:
         self.send(line, markdown=False)
         return line
 
+    def release_now(self) -> str:
+        """/release (10-03; the keeper: "unload the brain from the gpu if i want to use it for something else"): the
+        card handed back now — every model Ollama holds, and the painter and music ear sidecars if they are up —
+        with no pause and no writing; the visit stays open, the next message reloads the brain (a cold read)."""
+        got = self.lock.acquire(timeout=3)
+        if not got:
+            line = f"({chat.friend_name()} is mid-thought — /release again when the reply lands)"
+            self.send(line, markdown=False)
+            return line
+        try:
+            freed = ollama_client.unload_all()
+        except Exception:
+            freed = []
+        finally:
+            self.lock.release()
+        rested = []
+        try:
+            if tools._painter_alive():
+                tools._painter_rest()
+                rested.append("the painter")
+        except Exception:
+            pass
+        try:
+            if tools._music_ear_alive():
+                tools._music_ear_rest()
+                rested.append("the music ear")
+        except Exception:
+            pass
+        parts = []
+        if freed:
+            parts.append("set down: " + ", ".join(freed))
+        if rested:
+            parts.append(" and ".join(rested) + " at rest")
+        if parts:
+            line = f"(the card is free — {'; '.join(parts)}; the visit stays open — your next message wakes the brain, a cold read of the window)"
+        else:
+            line = "(the card was already free — nothing loaded; the visit stays open)"
+        _say(line)
+        self.send(line, markdown=False)
+        return line
+
     def _set_down(self) -> None:
         """The brain off the card now, because the keeper asked — not the end of the visit (the marker stays)."""
         try:
@@ -788,6 +832,8 @@ class Bridge:
                       markdown=False)
         elif cmd == "/afterglow":
             self.afterglow_now()
+        elif cmd == "/release":
+            self.release_now()
         elif cmd == "/think":
             self.show_thinking = not self.show_thinking
             self.send(f"(thinking {'on' if self.show_thinking else 'off'})", markdown=False)

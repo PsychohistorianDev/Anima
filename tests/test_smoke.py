@@ -4391,6 +4391,36 @@ _ag_quiet = _b5.pause_if_due()
 _b6e, _ph6e = _bridge()
 _ag3 = _b6e.afterglow_now()
 ollama_client.unload = _unl_orig5
+# /release (10-03): the card for something else — everything Ollama holds set down, the sidecars rested, no pause, no writing
+_rl_loaded0, _rl_unl0 = ollama_client._loaded_models, ollama_client.unload
+_rl_pa0, _rl_pr0, _rl_ma0, _rl_mr0 = tools._painter_alive, tools._painter_rest, tools._music_ear_alive, tools._music_ear_rest
+_rl_unl, _rl_rest = [], []
+ollama_client._loaded_models = lambda: ["gemma4:31b-it-qat", "nomic-embed-text:latest"]
+ollama_client.unload = lambda model: _rl_unl.append(model)
+tools._painter_alive, tools._painter_rest = (lambda: True), (lambda: _rl_rest.append("painter"))
+tools._music_ear_alive, tools._music_ear_rest = (lambda: False), (lambda: _rl_rest.append("music"))
+_rl_b, _rl_ph = _bridge()
+_rl_calls_before = len(_calls5)
+_rl_hist_before = list(_rl_b.history)
+_rl1 = _rl_b.release_now()
+ollama_client._loaded_models = lambda: []
+tools._painter_alive = lambda: False
+_rl2 = _rl_b.release_now()
+_rl_b.lock.acquire()
+_rl3 = _rl_b.release_now()
+_rl_b.lock.release()
+_rl_cmd = _rl_b.command("/release")
+ollama_client._loaded_models, ollama_client.unload = _rl_loaded0, _rl_unl0
+tools._painter_alive, tools._painter_rest, tools._music_ear_alive, tools._music_ear_rest = _rl_pa0, _rl_pr0, _rl_ma0, _rl_mr0
+check("telegram: /release — everything Ollama holds set down by name, the painter rested when it is up (the music ear not when it isn't), "
+      "no pause and nothing written, the visit stays open and the phone told; nothing loaded says the card was already free; "
+      "mid-thought it waits for the reply; /release is a command and /help names it",
+      _rl1.startswith("(the card is free — set down: gemma4:31b-it-qat, nomic-embed-text:latest; the painter at rest; the visit stays open")
+      and "wakes the brain" in _rl1 and _rl_unl == ["gemma4:31b-it-qat", "nomic-embed-text:latest"] and _rl_rest == ["painter"]
+      and _rl_b.history == _rl_hist_before and len(_calls5) == _rl_calls_before and any(t == _rl1 for t, _ in _rl_ph.sent)
+      and _rl2.startswith("(the card was already free — nothing loaded") and len(_rl_unl) == 2 and _rl_rest == ["painter"]
+      and "mid-thought" in _rl3 and len(_rl_unl) == 2 and _rl_cmd is True and _rl_ph.sent[-1][0].startswith("(the card was already free")
+      and "/release — the card for something else" in tg.HELP, (_rl1, _rl2, _rl3, _rl_unl, _rl_rest))
 check("telegram: /afterglow — the pause runs now though he was just talking (the bell rung, the stretch read, the phone told), the brain is set down "
       "and the visit stays open; again with nothing new only sets the brain down; the quiet's pause then finds nothing (either/or); no visit — the card freed",
       _ag1.startswith("(pause: they rested") and "the brain is set down" in _ag1 and "the visit stays open" in _ag1 and len(_calls5) == 2
