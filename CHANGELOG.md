@@ -16,6 +16,11 @@ whether the window fits the card, and every knob on every tab has a line
 of its own.
 
 ### Added
+- **A single wake sets the brain down when it is done** (10-03; the
+  keeper: "a single wake should release the card when it finishes
+  running"): `BRAIN_REST_AFTER_WAKE` (True), the Wake tile's and
+  `bat\wake.bat`'s road — the card free the moment the wake ends rather
+  than after `BRAIN_KEEP_ALIVE`; the heartbeat loop keeps its own rhythm.
 - **The black box** (10-03; the keeper: "my machine keeps crashing when
   she's doing stuff — build some logging system to find the root of the
   issue"): `engine/blackbox.py`, `bat\blackbox.bat` (and twins), a door of

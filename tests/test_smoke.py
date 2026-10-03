@@ -4421,6 +4421,22 @@ check("telegram: /release — everything Ollama holds set down by name, the pain
       and _rl2.startswith("(the card was already free — nothing loaded") and len(_rl_unl) == 2 and _rl_rest == ["painter"]
       and "mid-thought" in _rl3 and len(_rl_unl) == 2 and _rl_cmd is True and _rl_ph.sent[-1][0].startswith("(the card was already free")
       and "/release — the card for something else" in tg.HELP, (_rl1, _rl2, _rl3, _rl_unl, _rl_rest))
+# a single wake sets the brain down when it is done (10-03): BRAIN_REST_AFTER_WAKE; off leaves it to BRAIN_KEEP_ALIVE
+_rw_unl0, _rw_unl = ollama_client.unload, []
+ollama_client.unload = lambda model: _rw_unl.append(model)
+_rw0 = getattr(config, "BRAIN_REST_AFTER_WAKE", True)
+config.BRAIN_REST_AFTER_WAKE = True
+_rw_on = heartbeat.rest_after_wake()
+config.BRAIN_REST_AFTER_WAKE = False
+_rw_off = heartbeat.rest_after_wake()
+config.BRAIN_REST_AFTER_WAKE = _rw0
+ollama_client.unload = _rw_unl0
+_rw_src = Path(heartbeat.__file__).read_text(encoding="utf-8")
+check("heartbeat: a single wake sets the brain down when it is done (BRAIN_REST_AFTER_WAKE, on by default; off leaves it); the one-off road "
+      "calls it in a finally, the loop does not",
+      _rw_on is True and _rw_unl == [config.CHAT_MODEL] and _rw_off is False and len(_rw_unl) == 1 and _rw0 is True
+      and "finally:\n            rest_after_wake()" in _rw_src and _rw_src.count("    rest_after_wake()\n") == 1
+      and "BRAIN_REST_AFTER_WAKE" in Path(heartbeat.__file__).with_name("panel.py").read_text(encoding="utf-8"), (_rw_on, _rw_unl, _rw_off))
 check("telegram: /afterglow — the pause runs now though he was just talking (the bell rung, the stretch read, the phone told), the brain is set down "
       "and the visit stays open; again with nothing new only sets the brain down; the quiet's pause then finds nothing (either/or); no visit — the card freed",
       _ag1.startswith("(pause: they rested") and "the brain is set down" in _ag1 and "the visit stays open" in _ag1 and len(_calls5) == 2

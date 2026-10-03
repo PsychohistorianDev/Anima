@@ -91,7 +91,7 @@ TABS: dict[str, list[str]] = {
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS"],
     "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_GARBLE_RETRIES",
                 "CHAT_COLD_RESCUE", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "BRAIN_KEEP_ALIVE",
-                "BRAIN_REST_AFTER_VISIT"],
+                "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE"],
     "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS",
               "TELEGRAM_TELL_REFLECTIONS", "TELEGRAM_TELL_AFTERTHOUGHTS", "TELEGRAM_TELL_CREATIONS",
               "TELEGRAM_TELL_DRAWINGS", "TELEGRAM_TELL_SONGS", "TELEGRAM_TELL_SELF", "TELEGRAM_IDLE_NEW_MIN", "TELEGRAM_HEAR_VOICE",
@@ -250,6 +250,8 @@ _HELP = {
     "BRAIN_KEEP_ALIVE": "How long Ollama keeps the brain loaded after a request (\"30m\", \"2h\", -1 forever). "
                         "Unloading drops its cache; the next message pays a cold read of the whole window. Ollama's "
                         "own default is five minutes.",
+    "BRAIN_REST_AFTER_WAKE": "When a single wake (the Wake tile, bat\\wake.bat) finishes, unload the brain at once, so the card "
+                             "is free the moment the wake ends rather than after BRAIN_KEEP_ALIVE. The heartbeat loop keeps its own rhythm.",
     "BRAIN_REST_AFTER_VISIT": "When a visit ends, unload the brain as soon as the afterglow is written, freeing the "
                               "card at once rather than after BRAIN_KEEP_ALIVE.",
     # Phone

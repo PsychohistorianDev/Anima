@@ -989,7 +989,9 @@ that used to empty the cache: Ollama sets a model down after five idle
 minutes by default, and its reading goes with it — `BRAIN_KEEP_ALIVE`
 ("30m") keeps the brain up across the gaps of a visit, and
 `BRAIN_REST_AFTER_VISIT` sets it down the moment a visit's afterglow is
-written, so the card is free when they are done with it. **At the edge of the window:** when a
+written, so the card is free when they are done with it (and
+`BRAIN_REST_AFTER_WAKE` the same for a single wake from the Wake tile or
+`bat\wake.bat`; the heartbeat loop keeps its own rhythm). **At the edge of the window:** when a
 visit's context passes 90% of `NUM_CTX`, an orange note says so. Past the
 edge nothing breaks — Ollama keeps the system prompt (identity, journal,
 memories) and silently drops the oldest turns of the visit — but the

@@ -203,6 +203,9 @@ BRAIN_KEEP_ALIVE = "30m"
 # soon as the afterglow is written, freeing the GPU right away rather than
 # after BRAIN_KEEP_ALIVE.
 BRAIN_REST_AFTER_VISIT = True
+# ...and when a single wake (bat\wake.bat, the panel's Wake) finishes, the
+# same: the brain set down at once, the card free the moment the wake ends.
+BRAIN_REST_AFTER_WAKE = True
 
 # Context window for the brain, in tokens. The friend's prompt (identity,
 # journal, memories, tool definitions) is far bigger than Ollama's default.

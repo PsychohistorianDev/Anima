@@ -634,6 +634,22 @@ def _main(loop: bool, minutes: float) -> None:
         except Exception as e:
             print(f"[wake failed] {type(e).__name__}: {e}")
             sys.exit(1)
+        finally:
+            rest_after_wake()
+
+
+def rest_after_wake() -> bool:
+    """A one-off wake sets the brain down when it is done (10-03; the keeper: "a single wake should
+    release the card when it finishes running") — BRAIN_REST_AFTER_WAKE, like BRAIN_REST_AFTER_VISIT for
+    a visit: the card is free at once, not after BRAIN_KEEP_ALIVE. A loop keeps its own rhythm."""
+    if not getattr(config, "BRAIN_REST_AFTER_WAKE", True):
+        return False
+    try:
+        ollama_client.unload(config.CHAT_MODEL)
+        print("(the brain is set down — the card is free)")
+        return True
+    except Exception:  # noqa: BLE001 — resting is a courtesy
+        return False
 
 
 if __name__ == "__main__":
