@@ -202,7 +202,7 @@ def sidecars() -> dict:
         if not url:
             continue
         try:
-            with urllib.request.urlopen(url + "/health", timeout=2) as r:
+            with urllib.request.urlopen(url + "/health", timeout=0.5) as r:
                 d = json.loads(r.read().decode("utf-8"))
             out[name] = "loaded" if d.get("loaded") else "up"
         except Exception:  # noqa: BLE001
@@ -228,10 +228,29 @@ def doing_now() -> list[dict]:
 
 # ---- one line, the file -------------------------------------------------------------------------------------
 def sample() -> dict:
-    free, total = memory_gb()
-    rec = {"t": datetime.now().isoformat(timespec="seconds"), "gpu": gpu(), "cpu": cpu_percent(),
-           "ram_free_gb": free, "ram_total_gb": total, "disk_free_gb": disk_free_gb(),
-           "ollama": ollama_loaded(), "sidecars": sidecars(), "doors": doors_open(), "doing": doing_now()}
+    """One record — with how long each reading took ("took"), so a slow one is seen (10-03: the first day's
+    lines came 22 s apart, not 5; the timings say which reading drags)."""
+    took: dict = {}
+    t0 = time.perf_counter()
+
+    def timed(name, fn):
+        t = time.perf_counter()
+        try:
+            return fn()
+        finally:
+            took[name] = round(time.perf_counter() - t, 2)
+    rec = {"t": datetime.now().isoformat(timespec="seconds")}
+    rec["gpu"] = timed("gpu", gpu)
+    rec["cpu"] = timed("cpu", cpu_percent)
+    free, total = timed("ram", memory_gb)
+    rec["ram_free_gb"], rec["ram_total_gb"] = free, total
+    rec["disk_free_gb"] = timed("disk", disk_free_gb)
+    rec["ollama"] = timed("ollama", ollama_loaded)
+    rec["sidecars"] = timed("sidecars", sidecars)
+    rec["doors"] = timed("doors", doors_open)
+    rec["doing"] = timed("doing", doing_now)
+    took["all"] = round(time.perf_counter() - t0, 2)
+    rec["took"] = took
     return rec
 
 
@@ -394,8 +413,8 @@ def run() -> int:
                 return 0
             rec = sample()
             write(rec)
-            print(line(rec)[:200])
-            time.sleep(every_s())
+            print(line(rec)[:200] + (f"  (readings took {rec['took']['all']} s)" if rec["took"]["all"] > every_s() else ""))
+            time.sleep(max(0.5, every_s() - rec["took"]["all"]))
     except KeyboardInterrupt:
         return 0
 
