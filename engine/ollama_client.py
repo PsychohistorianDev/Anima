@@ -284,6 +284,21 @@ def chat(messages: list[dict], tools: list[dict] | None = None,
     deliberation — finishing a cut sentence — and, since the server is then
     not parsing channel tokens, a step that a stray one cannot split.
     """
+    try:  # the black box (10-03): "brain: a reply" while the card works
+        import doing as _doing
+        _doing.mark("brain: a reply")
+    except Exception:  # noqa: BLE001
+        _doing = None
+    try:
+        return _chat(messages, tools, timeout, think, expect_words, think_retries)
+    finally:
+        if _doing is not None:
+            _doing.done()
+
+
+def _chat(messages: list[dict], tools: list[dict] | None = None,
+          timeout: float | None = None, think: bool | None = None,
+          expect_words: bool = False, think_retries: int | None = None) -> dict:
     options = {"num_ctx": getattr(config, "NUM_CTX", 8192)}
     options.update(getattr(config, "SAMPLING_OPTIONS", {}))
     payload: dict = {

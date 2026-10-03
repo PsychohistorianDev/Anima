@@ -16,6 +16,20 @@ whether the window fits the card, and every knob on every tab has a line
 of its own.
 
 ### Added
+- **The black box** (10-03; the keeper: "my machine keeps crashing when
+  she's doing stuff — build some logging system to find the root of the
+  issue"): `engine/blackbox.py`, `bat\blackbox.bat` (and twins), a door of
+  its own with a Home tile (Start/Stop, one at a time, a stop file). One
+  line every `BLACKBOX_EVERY_S` (5) into `memory/blackbox/<day>.jsonl`,
+  flushed and fsynced: the card (heat, power against its limit, memory,
+  utilization, clocks, fan, throttle reasons as words), the processor, the
+  memory, the disk, what Ollama holds, the sidecars, the doors, and what
+  each door is in the middle of — `engine/doing.py`, one small file per
+  process that `tools.dispatch` marks with the tool's name and
+  `ollama_client.chat` with "brain: a reply" while they run. `--crashes`
+  reads Windows' event log (Kernel-Power 41, 6008, BugCheck 1001 with its
+  code) and puts the box's last line before each; `--last` the newest
+  lines; the doctor's note carries both.
 - **The songbook** (10-03; the keeper: "letting her remember songs in
   long-term memory, like a sentence or two how it made her feel and a score
   on a ladder from 1 to 10 — also detecting duplicates"): `keep_song(title,

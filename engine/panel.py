@@ -434,8 +434,9 @@ LAUNCHERS = {
     "snapshot": ("bat\\snapshot.bat", [], "snapshot.py", []),
     "garmin": ("bat\\body.bat", ["--login"], "body.py", ["--login"]),
     "blog": ("bat\\blog.bat", [], "blog.py", ["--deploy"]),
+    "blackbox": ("bat\\blackbox.bat", [], "blackbox.py", []),
 }
-STOPPABLE = ("heartbeat", "bridge")  # the two with a stop file (doors.ask_stop) — and a Restart
+STOPPABLE = ("heartbeat", "bridge", "blackbox")  # those with a stop file (doors.ask_stop) — the first two with a Restart
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][\w.:/-]{0,120}$")  # an Ollama model name; nothing a console could read as more
 _WINDOWS = os.name == "nt"
 _MAC = sys.platform == "darwin"
@@ -962,10 +963,11 @@ def _start(door: str, minutes=None) -> dict:
              "sleep": "sleep is running in its own window — today into memory",
              "snapshot": "the snapshot is running in its own window",
              "garmin": "the Garmin login is in its own window — email, password, the code",
-             "blog": "the blog is building and deploying in its own window"}
+             "blog": "the blog is building and deploying in its own window",
+             "blackbox": "the black box is recording in its own window — the machine's vitals every few seconds"}
     names = {"chat": "the chat", "parlor": "the parlor (its page comes up in a moment)", "wake": "one wake",
              "bridge": "the bridge", "sleep": "sleep", "snapshot": "the snapshot", "garmin": "the Garmin login",
-             "blog": "the blog's build"}
+             "blog": "the blog's build", "blackbox": "the black box"}
     return _started(_bat(*LAUNCHERS[door]), notes[door], names[door])
 
 
@@ -1011,7 +1013,8 @@ def door_action(door: str, action: str, minutes=None) -> dict:
             return _no(f"(the {door} isn't running)")
         if action == "stop":
             doors.ask_stop(door)
-            what = "the wake it is in" if door == "heartbeat" else "the poll it is in, and saves the visit"
+            what = ("the wake it is in" if door == "heartbeat" else "its next line" if door == "blackbox"
+                    else "the poll it is in, and saves the visit")
             return {"ok": True, "note": f"the {door} is asked to stop — it leaves after {what}"}
         try:
             _kill(int(st["pid"]))
@@ -1400,6 +1403,7 @@ const TILES=[
  ['bridge','Bridge','Telegram: talk with them from your phone',[['Start','start'],['Stop','stop'],['Stop now','stop_now']]],
  ['sleep','Sleep now','today into memory, by hand (the heartbeat does it on its own after the night hour)',[['Sleep','start']]],
  ['snapshot','Snapshot','everything sealed in git (a zip without git)',[['Snapshot','start']]],
+ ['blackbox','Black box','the machine\'s vitals every few seconds — the card\'s heat, power and memory, the processor, what Ollama holds, which doors are open and what they are in the middle of — flushed to disk, so a crash leaves its last seconds behind (bat\\blackbox.bat --crashes reads Windows\' own record of each hard stop with the box\'s last line before it)',[['Start','start'],['Stop','stop']]],
 ];
 const TIPS={stop:'leave after what it is doing — a wake finishes, a visit is saved',stop_now:'end it at once — a wake in the middle is cut off'};
 async function door(d,action,extra){

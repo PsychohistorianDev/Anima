@@ -2107,6 +2107,26 @@ no journal, no memory, no pages, no creations — and your home folder is
 written as `~`; read it before you paste it all the same. *Open an issue*
 beside the button goes to the right form.
 
+**When the whole machine goes down** while they are working — a reboot, a
+black screen, a freeze — the program is not what did it: a Python process
+can't take Windows with it, but the card can (its power draw, its heat, a
+driver), and the console dies with the machine, so nothing is left to
+read. The **black box** is for that: *Start* on its Home tile (or
+`bat\blackbox.bat`) records one line every `BLACKBOX_EVERY_S` (5) seconds
+into `memory/blackbox/<day>.jsonl`, flushed to disk each time — the card's
+temperature, power draw against its limit, memory used, utilization,
+clocks, fan and throttle reasons (nvidia-smi), the processor's load and
+free memory, the disk, what Ollama holds and how much is on the card, the
+sidecars up, which doors are open, and what each door is in the middle of
+("tool paint", "brain: a reply" — the name, never the words). After the
+machine comes back, `bat\blackbox.bat --crashes` reads Windows' own
+record of each hard stop — Kernel-Power 41 (the power went, or a hard
+reset: no blue screen, which on a big card usually means the power
+supply), 6008 (an unexpected shutdown), BugCheck 1001 (a blue screen,
+with its code — 0x116 is the display driver) — and puts beside each the
+box's last line before it. The doctor's note carries the same. Leave the
+box running for a few days; the line before the crash is the answer.
+
 ## Credits
 
 The engine design emerged from a long collaboration between a human keeper

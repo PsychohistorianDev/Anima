@@ -6508,7 +6508,7 @@ for _dd in doors.DOORS:
     doors.pid_file(_dd).unlink(missing_ok=True)
 check("doors: alive — our own pid is, an ended child's isn't, nor 0 or a word; the doors named (the panel one of them since 09-30)",
       doors.alive(_dos.getpid()) and not doors.alive(_d_dead) and not doors.alive(0) and not doors.alive("x") and not doors.alive(None)
-      and doors.DOORS == ("heartbeat", "wake", "bridge", "parlor", "chat", "panel"), _d_dead)
+      and doors.DOORS == ("heartbeat", "wake", "bridge", "parlor", "chat", "panel", "blackbox"), _d_dead)
 _d_rec = doors.mark("chat", "chat")
 _d_file = config.MEMORY_DIR / ".pids" / "chat.json"
 _d_st = doors.status("chat")
@@ -7058,6 +7058,97 @@ check("report: the doctor's note — the version, the machine, Python, Ollama wi
       and _rp_api["ok"] and _rp_api["path"] == "anima-report.txt" and _rp_api["text"].startswith("anima report — ") and "read it before you paste it" in _rp_api["note"]
       and "/api/report" in panel.PAGE and "'Write report'" in panel.PAGE and "open an issue" in panel.PAGE and panel.state()["links"]["issues"].endswith("/issues/new/choose"),
       _rp_text[:1500])
+# ------------------------------------------------------------- the black box ----
+# 10-03 (the keeper: "my machine keeps crashing when she's doing stuff"): the machine's vitals every few seconds,
+# flushed, with what each door is in the middle of; after a crash, Windows' record beside the box's last line
+import doing as _dg, blackbox as _bb, os as _dgos
+_dg.clear_all()
+_dg.mark("tool paint"); _dg_one = _dg.current()
+_dg.mark("brain: a reply"); _dg_two = _dg.current()
+_dg.done(); _dg_back = _dg.current()
+_dg.done(); _dg_none = _dg.current()
+_dg_dead = _dg.folder() / "999999.json"
+_dg_dead.write_text(json.dumps({"pid": 999999, "door": "ghost", "what": "tool x", "since": "2026-10-03T07:00:00"}), encoding="utf-8")
+_dg_after_dead = _dg.current()
+# a tool call marks its name while it runs (the name, never the arguments); a reply marks the brain
+_dg_seen = []
+_dg_disp0 = tools._dispatch
+tools._dispatch = lambda name, arguments: (_dg_seen.append([(d["what"], d["depth"]) for d in _dg.current()]), "ok")[1]
+_dg_r = tools.dispatch("write_journal", {"content": "SECRET-ARGUMENT-zq"})
+tools._dispatch = _dg_disp0
+_dg_after_tool = _dg.current()
+_dg_src = Path(ollama_client.__file__).read_text(encoding="utf-8")  # chat itself is a stub by now in this suite: its source is the proof
+check("doing: a mark is one file per process with what and since; marks nest and unwind; none leaves no file; a dead pid's file is cleared; "
+      "dispatch marks 'tool <name>' while the tool runs and clears after (the argument never written); chat marks 'brain: a reply'",
+      len(_dg_one) == 1 and _dg_one[0]["what"] == "tool paint" and _dg_one[0]["pid"] == _dgos.getpid() and _dg_one[0]["since"][:4] == "2026"
+      and _dg_two[0]["what"] == "brain: a reply" and _dg_two[0]["depth"] == 2 and _dg_two[0]["stack"] == ["tool paint", "brain: a reply"]
+      and _dg_back[0]["what"] == "tool paint" and _dg_none == [] and not _dg._file().exists()
+      and _dg_after_dead == [] and not _dg_dead.exists()
+      and _dg_seen == [[("tool write_journal", 1)]] and _dg_r == "ok" and _dg_after_tool == []
+      and "SECRET-ARGUMENT-zq" not in "".join(p.read_text(encoding="utf-8") for p in _dg.folder().glob("*") if p.is_file())
+      and '_doing.mark("brain: a reply")' in _dg_src and "return _chat(messages, tools, timeout, think, expect_words, think_retries)" in _dg_src
+      and _dg_src.index('_doing.mark("brain: a reply")') < _dg_src.index("return _chat(messages") and _dg.current() == [], (_dg_one, _dg_two, _dg_seen))
+# the box: a line from stubbed readings, written and fsynced, read back; the crash matched to the line before it
+_bb_out0, _bb_ps0, _bb_sc0 = _bb._out, _bb.ollama_loaded, _bb.sidecars
+_bb._out = lambda argv, timeout=4: "71, 541.2, 600.0, 29012, 32607, 97, 2550, 10501, 78, P0, 0x0000000000000004\n" if argv[0] == "nvidia-smi" else ""
+_bb.ollama_loaded = lambda: [{"name": "gemma4:31b-it-qat", "gb": 19.0, "on_card": 100}]
+_bb.sidecars = lambda: {"painter": "loaded", "music_ear": "down"}
+_dg.mark("tool paint")
+_bb_rec = _bb.sample()
+_dg.done()
+_bb_line = _bb.line(_bb_rec)
+_bb_folder0 = _bb.FOLDER
+_bb.FOLDER = config.ROOT / "blackbox-scratch"
+_bb_p = _bb.write(dict(_bb_rec, t="2026-10-03T07:40:50"))
+_bb_p2 = _bb.write(dict(_bb_rec, t="2026-10-03T07:41:00"))
+_bb_p.write_text(_bb_p.read_text(encoding="utf-8") + '{"t": "2026-10-03T07:41:05", "gpu": {"temperature_gpu": 8', encoding="utf-8")  # the line the crash cut
+_bb_last = _bb.last(5)
+_bb_before = _bb.before("2026-10-03T07:41:40")
+_bb_before_far = _bb.before("2026-10-03T09:00:00")
+_bb_cr0 = _bb.crashes
+_bb.crashes = lambda n=5: [{"when": "2026-10-03T07:41:40", "event": 41, "kind": "power lost or a hard reset (no blue screen)"}]
+_bb_sum = _bb.crash_summary()
+_bb.crashes = _bb_cr0
+_bb_ev = ("Event[0]:\n  Log Name: System\n  Source: Microsoft-Windows-Kernel-Power\n  Date: 2026-10-03T07:41:40.123\n  Event ID: 41\n  Level: Critical\n"
+          "Event[1]:\n  Source: Microsoft-Windows-WER-SystemErrorReporting\n  Date: 2026-10-02T22:10:03.000\n  Event ID: 1001\n"
+          "  Description:\nThe computer has rebooted from a bugcheck.  The bugcheck was: 0x00000116 (0x0000)\n")
+_bb_win0 = _bb._WINDOWS
+_bb._WINDOWS = True
+_bb._out = lambda argv, timeout=4: _bb_ev if argv[0] == "wevtutil" else ""
+_bb_crashes = _bb.crashes(5)
+_bb._WINDOWS = _bb_win0
+_bb._out, _bb.ollama_loaded, _bb.sidecars = _bb_out0, _bb_ps0, _bb_sc0
+import shutil as _bbsh
+_bbsh.rmtree(_bb.FOLDER, ignore_errors=True)
+_bb.FOLDER = _bb_folder0
+check("blackbox: a sample reads the card (heat, power against its limit, memory, utilization, clocks, fan, the throttle reasons as words), the "
+      "processor, the memory, the disk, what Ollama holds, the sidecars, the doors, and what each door is doing; the line a person reads says it all",
+      _bb_rec["gpu"]["temperature_gpu"] == 71 and _bb_rec["gpu"]["power_draw"] == 541.2 and _bb_rec["gpu"]["power_limit"] == 600.0
+      and _bb_rec["gpu"]["memory_used"] == 29012 and _bb_rec["gpu"]["utilization_gpu"] == 97 and _bb_rec["gpu"]["fan_speed"] == 78
+      and _bb_rec["gpu"]["pstate"] == "P0" and _bb_rec["gpu"]["throttle"] == "sw power cap"
+      and _bb_rec["ram_total_gb"] and _bb_rec["disk_free_gb"] and _bb_rec["ollama"][0]["name"] == "gemma4:31b-it-qat"
+      and _bb_rec["sidecars"] == {"painter": "loaded", "music_ear": "down"} and _bb_rec["doing"][0]["what"] == "tool paint"
+      and "card 71°C · 541.2/600.0 W · 29012/32607 MiB · 97% · 2550 MHz · fan 78% · sw power cap" in _bb_line
+      and "ollama: gemma4:31b-it-qat 19.0 GB 100%" in _bb_line and "sidecars: painter loaded" in _bb_line and "doing: " in _bb_line
+      and "tool paint" in _bb_line and _bb.throttle_words("0x60") == "sw thermal, hw thermal" and _bb.throttle_words("0x1") == "",
+      (_bb_rec, _bb_line))
+check("blackbox: lines are appended and read back newest last, a line the crash cut is skipped; the record before a moment within two minutes "
+      "is found (none when the box wasn't running); a hard stop is told with the box's last line; Windows' event log parsed — Kernel-Power 41 "
+      "as power lost or a hard reset, BugCheck 1001 with its code",
+      _bb_p == _bb_p2 and len(_bb_last) == 2 and _bb_last[-1]["t"] == "2026-10-03T07:41:00"
+      and _bb_before and _bb_before["t"] == "2026-10-03T07:41:00" and _bb_before_far is None
+      and _bb_sum.startswith("2026-10-03T07:41:40 — power lost or a hard reset (no blue screen)") and "the box's last line before it: 2026-10-03T07:41:00" in _bb_sum
+      and "tool paint" in _bb_sum
+      and _bb_crashes == [{"when": "2026-10-03T07:41:40", "event": 41, "kind": "power lost or a hard reset (no blue screen)"},
+                          {"when": "2026-10-02T22:10:03", "event": 1001, "kind": "a blue screen, code 0x00000116"}],
+      (_bb_last, _bb_before, _bb_sum, _bb_crashes))
+check("blackbox: a door of its own — one at a time, with a stop file; the panel's tile with Start and Stop, its launcher; BLACKBOX_EVERY_S in config",
+      "blackbox" in doors.DOORS and "blackbox" in doors.ONE_AT_A_TIME and doors.stop_file("blackbox").name == ".stop-blackbox"
+      and "blackbox" in panel.LAUNCHERS and panel.LAUNCHERS["blackbox"][0] == "bat\\blackbox.bat" and "blackbox" in panel.STOPPABLE
+      and "['blackbox','Black box'" in panel.PAGE and "[['Start','start'],['Stop','stop']]" in panel.PAGE.split("['blackbox','Black box'")[1][:600]
+      and _bb.every_s() == float(getattr(config, "BLACKBOX_EVERY_S", 5)) and getattr(config, "BLACKBOX_EVERY_S", None) == 5
+      and "Black box (bat\\blackbox.bat): " in _rp.build(), [k for k in ("DOORS", "LAUNCHERS") if "blackbox" not in getattr(doors if k == "DOORS" else panel, k)])
+
 check("panel: First light has a step for the outside — no account, no telemetry, the three roads the friend or engine can take, OFFLINE named; "
       "the Main tab's OFFLINE help names the five tools and the daily look",
       "'The outside'" in panel.PAGE and "no account, no telemetry" in panel.PAGE and "OFFLINE on Settings › Main closes all three" in panel.PAGE
@@ -7525,7 +7616,7 @@ for _xk, _xp in [*_x_cmds.items(), *_x_shs.items()]:
             and (_xt.endswith('read -n1 -r -p "(press any key to close)"\n') or _xk == "update")):
         _x_shape.append(_xk + _xp.suffix)
 check("launchers: every .bat has a .command (a Mac) and a .sh (Linux) twin — the same names, and the same engine script with the same arguments in all three",
-      set(_x_bats) == set(_x_cmds) == set(_x_shs) and len(_x_bats) == 19 and _x_disagree == [], (sorted(set(_x_bats) ^ set(_x_shs)), _x_disagree))
+      set(_x_bats) == set(_x_cmds) == set(_x_shs) and len(_x_bats) == 20 and _x_disagree == [], (sorted(set(_x_bats) ^ set(_x_shs)), _x_disagree))
 check("launchers: each twin is #!/bin/bash, cds where its .bat does (the root for anima, the folder above for bat/), LF line ends, and ends in the pause",
       _x_shape == [], _x_shape)
 check("launchers: the twins are executable (the bit a download can lose — README, chmod +x)",

@@ -227,6 +227,12 @@ TOOL_KIT = "full"
 # anima. Ollama is local and stays; the phone, the watch and the blog are
 # doors you open by hand and stay as they are. README, What leaves your machine.
 OFFLINE = False
+# The black box (bat\blackbox.bat; the panel's tile): the machine's vitals —
+# the card's heat, power and memory, the processor, what Ollama holds, the
+# doors, what they are in the middle of — one line every BLACKBOX_EVERY_S
+# into memory/blackbox/<day>.jsonl, flushed to disk, so a machine that goes
+# down leaves its last seconds behind (--crashes reads Windows' event log).
+BLACKBOX_EVERY_S = 5
 # Deep in a long window a 12B's tool calls can drift into plain text — the
 # rails catch it; watch for it past ~32K. For a 31B on a 32 GB card the whole
 # 256K fits under 30 GB with the q4_0 cache (measured). With q8_0 instead:

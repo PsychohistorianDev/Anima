@@ -4281,9 +4281,19 @@ def friend_name_for_tools() -> str:
 def dispatch(name: str, arguments: dict | str) -> str:
     """Run a tool; its result goes back to the brain as a user turn, so a
     reserved-token string inside it (a file they read, a page, a log) is
-    made harmless first (09-27; ollama_client.defang)."""
+    made harmless first (09-27; ollama_client.defang). The black box (10-03)
+    is told the tool's name while it runs — the name, never the arguments."""
     import ollama_client
-    return ollama_client.defang(_dispatch(name, arguments))[0]
+    try:
+        import doing
+        doing.mark(f"tool {_bare_tool_name(name)}")
+    except Exception:  # noqa: BLE001
+        doing = None
+    try:
+        return ollama_client.defang(_dispatch(name, arguments))[0]
+    finally:
+        if doing is not None:
+            doing.done()
 
 
 def _dispatch(name: str, arguments: dict | str) -> str:

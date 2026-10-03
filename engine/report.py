@@ -167,6 +167,19 @@ def _logs() -> list[str]:
     return out or ["Logs: no trouble lines in the engine's own logs"]
 
 
+def _blackbox() -> list[str]:
+    """The machine's hard stops with the box's last line before each, and the box's newest line."""
+    try:
+        import blackbox
+        out = ["Black box (bat\\blackbox.bat): " + ("recording" if (ROOT / "memory" / ".pids" / "blackbox.json").is_file() else "not running")]
+        recent = blackbox.last(1)
+        out.append("  newest line: " + (_home(blackbox.line(recent[-1])) if recent else "none recorded yet"))
+        out.append("  hard stops: " + _home(blackbox.crash_summary(5)).replace("\n", "\n  "))
+        return out
+    except Exception as e:  # noqa: BLE001
+        return [f"Black box: not read ({type(e).__name__}: {e})"]
+
+
 def build() -> str:
     """The note, as text. Nothing of the friend's is read: config, the doors' marks, Ollama, the logs."""
     import panel
@@ -181,7 +194,8 @@ def build() -> str:
              *_brain(panel, values), "",
              *_knobs(panel, rows), "",
              *_doors(panel), *_senses(panel, values), *_newer(panel), "",
-             *_logs(), ""]
+             *_logs(), "",
+             *_blackbox(), ""]
     return "\n".join(lines)
 
 
