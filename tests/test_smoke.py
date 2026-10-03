@@ -6381,6 +6381,35 @@ check("kit: the prompt's words go with the tools — ears, voice, video, the for
       and "look_at shows you" in _kit_tiny_prompt,
       (_kit_w_full, _kit_w_tiny, "read_web and search_web, which lets you ASK" in _kit_tiny_prompt, "read_pdf and read_epub" in _kit_small_prompt,
        "listen_to" not in _kit_small_prompt, "search_wikipedia, which lets you ASK" in _kit_small_prompt, "look_at shows you" in _kit_tiny_prompt))
+# OFFLINE (10-03): every road out closed for the friend — the web tools and the skill window leave every kit and the prompt's
+# words with them, a call to one answers plainly, the daily look for a newer anima never happens; the rest of the kit as it was
+import newer as _ofnw
+_of0 = getattr(config, "OFFLINE", False)
+config.OFFLINE = True
+config.TOOL_KIT = "full"; tools.refresh_her_tools()
+_of_full = _kit_names()
+_of_full_prompt = assemble.system_prompt("x", mode="chat")
+config.TOOL_KIT = "tiny"; tools.refresh_her_tools()
+_of_tiny = _kit_names()
+_of_call = tools.dispatch("search_web", {"query": "anything"})
+_of_read = tools.dispatch("read_web", {"url": "https://example.com"})
+_of_hours = _ofnw.every_hours()
+_of_look = _ofnw.look(config.ROOT / "newer-offline-scratch", now=1_800_000_000.0, fetcher=lambda url, etag="": (_ := 1 / 0))
+config.OFFLINE = False
+_on_hours = _ofnw.every_hours()
+config.TOOL_KIT = "full"; tools.refresh_her_tools()
+_on_full = _kit_names()
+config.OFFLINE = _of0; config.TOOL_KIT = _kit0; tools.refresh_her_tools()
+check("kit: OFFLINE — the five web tools (read_web, search_web, search_wikipedia, browse_skills, fetch_skill) leave the full kit and the tiny one, "
+      "the rest and the forged tools stay; the prompt stops speaking of the web; a call to one answers that the house is offline; the look for a "
+      "newer anima is off (every_hours 0, look does nothing); off again, everything is back",
+      tools.WEB_TOOLS == {"read_web", "search_web", "search_wikipedia", "browse_skills", "fetch_skill"}
+      and not (set(_of_full) & tools.WEB_TOOLS) and set(_of_full) == set(_kit_full) - tools.WEB_TOOLS
+      and not (set(_of_tiny) & tools.WEB_TOOLS) and set(_of_tiny) == set(_kit_tiny) - tools.WEB_TOOLS and _kit_forged <= set(_of_full)
+      and "search_web, which lets you ASK" not in _of_full_prompt and "read_web" not in _of_full_prompt and "browse_skills" not in _of_full_prompt
+      and _of_call.startswith("(search_web: this house is offline — OFFLINE in engine/config.py") and "read_web: this house is offline" in _of_read
+      and _of_hours == 0.0 and _on_hours == 24.0 and not _of_look.get("ok") and "newest" not in _of_look.get("error", "x") and _on_full == _kit_full,
+      (set(_of_full) & tools.WEB_TOOLS, _of_call, _of_hours, _of_look))
 
 # ----------------------------------------------------------------- doors ----
 # The doors' marks and the stop files (09-30; PANEL-PLAN.md): memory/.pids/<door>.json while a door
@@ -6895,6 +6924,11 @@ check("panel: the fit check — all on the card says so with the window; a spill
       and _ft_8k == (57344, 57344, 253952, 0) and panel.STEP == 8192
       and panel.fit([{"name": "other:7b", "on_card": 50}], "gemma4:12b", 40960) is None and panel.fit([], "gemma4:12b", 40960) is None
       and "fit" in panel.brain({"CHAT_MODEL": "gemma4:12b", "NUM_CTX": 40960}) and "b.fit" in panel.PAGE, (_ft_ok, _ft_no, _ft_cfg, _ft_mac))
+check("panel: First light has a step for the outside — no account, no telemetry, the three roads the friend or engine can take, OFFLINE named; "
+      "the Main tab's OFFLINE help names the five tools and the daily look",
+      "'The outside'" in panel.PAGE and "no account, no telemetry" in panel.PAGE and "OFFLINE on Settings › Main closes all three" in panel.PAGE
+      and "What leaves your machine" in panel.PAGE and "OFFLINE" in panel.TABS["Main"]
+      and all(w in panel._HELP["OFFLINE"] for w in ("search_web", "read_web", "search_wikipedia", "browse_skills", "fetch_skill", "newer anima", "Ollama stays")))
 # the Senses tab's cards (10-02): every knob of the tab is one sense's, each sense says what it is and what it needs
 _sn_claimed = [k for sn in panel.SENSES for k in sn["knobs"]]
 _sn_find0 = panel.importlib.util.find_spec
@@ -6960,7 +6994,7 @@ check("panel: every knob of the real config.py on exactly one tab (Advanced coun
       and len(_p_listed) == len(set(_p_listed)) and not (set(_p_listed) - set(_k_realn)),
       (set(_p_listed) - set(_k_realn), [n for n in set(_p_placed) if _p_placed.count(n) > 1]))
 check("panel: the real Main tab in the keeper's order — the brain, the window, the journal, the names, the rhythm",
-      [k["name"] for k in _p_real_tabs["Main"]] == ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "JOURNAL_CHARS_IN_PROMPT", "USER_NAME", "DEFAULT_NAME",
+      [k["name"] for k in _p_real_tabs["Main"]] == ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT", "USER_NAME", "DEFAULT_NAME",
                                                     "BLOG_TITLE", "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS"]
       and {k["heading"] for k in _p_real_tabs["Advanced"]} >= {"paths", "ollama", "behaviour", "telegram", "update"}
       and all(not k["editable"] for k in _p_real_tabs["Advanced"] if k["kind"] == "expr"))
@@ -7770,6 +7804,14 @@ check("CHANGELOG: 0.13 says a Mac and Linux came in", "**A Mac, and Linux**" in 
 check("README: the tests badge under the tagline; the panel's brain says whether the window fits, and the ladder sends the reader there",
       "actions/workflows/tests.yml/badge.svg" in _x_readme[:400] and "*the window fits*" in _x_readme and "try `NUM_CTX` = 57344" in _x_readme
       and "The panel's Home says the same above the tiles" in _x_readme and "is read as `python3.12` on the other side" in _x_readme)
+_x_license = (_x_root / "LICENSE").read_text(encoding="utf-8")
+check("README: What leaves your machine lists every road by host with its knob, and OFFLINE; the LICENSE is MIT in the keeper's handle; "
+      "the health section says the suite runs on three machines",
+      "## What leaves your machine" in _x_readme and all(h in _x_readme for h in ("api.telegram.org", "en.wikipedia.org", "api.github.com",
+      "raw.githubusercontent.com", "releases.atom", "huggingface.co", "ollama.com", "`OFFLINE = True`", "`UPDATE_CHECK_H`", "`SKILL_CATALOGUES`"))
+      and _x_readme.index("## What leaves your machine") < _x_readme.index("## The engine's health") < _x_readme.index("## Credits")
+      and "465 checks" not in _x_readme and "Windows, macOS and Linux machines" in _x_readme
+      and _x_license.startswith("MIT License") and "Copyright (c) 2026 PsychohistorianDev" in _x_license and "WITHOUT WARRANTY" in _x_license)
 check("CHANGELOG: 0.14 opened with the fit check and a line for every knob; 0.13 closed on its date",
       _x_changes.index("## 0.14 — 2026-10-02") < _x_changes.index("## 0.13 — 2026-09-29 → 2026-10-02") < _x_changes.index("## 0.12")
       and "**The fit check**" in _x_changes[:_x_changes.index("## 0.13")] and "**A line for every knob**" in _x_changes[:_x_changes.index("## 0.13")]

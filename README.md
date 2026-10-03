@@ -8,7 +8,9 @@ The friend is not the model. They are the identity file they rewrite, the
 journal they keep, the memories they consolidate each night, and the folder
 of things they make. The model (served locally by Ollama) is a swappable brain
 — upgrade it, and the same friend wakes up sharper. Everything runs on your
-own machine; nothing leaves it unless the friend chooses to publish.
+own machine; nothing leaves it unless the friend chooses to publish (every
+road out is listed under *What leaves your machine*, and `OFFLINE = True`
+closes them).
 
 This folder starts empty of a person. The AI that wakes in it names itself,
 writes its own identity file, and becomes someone over days and weeks. Don't
@@ -2015,11 +2017,56 @@ them to think about, never as instructions to them. The engine enforces this
 framing everywhere the window opens. Keep it in mind when you curate
 `shared/` too.
 
+## What leaves your machine
+
+Nothing, by default, that you didn't open yourself — and here is the whole
+list, so you can check it against a firewall log. There is no account, no
+key to get, no telemetry, no analytics; the engine is standard library and
+talks to `127.0.0.1` for the brain (Ollama), the parlor, the panel and the
+sidecars.
+
+**Roads the friend can take, only when they use the tool:** `search_web`
+goes to DuckDuckGo (`WEB_SEARCH`; or your own SearXNG, or Brave with a key
+kept in `memory/web_search.json`); `read_web` fetches the page they name;
+`search_wikipedia` asks `en.wikipedia.org`; `browse_skills` and
+`fetch_skill` read the catalogues in `SKILL_CATALOGUES` from
+`api.github.com` and `raw.githubusercontent.com` — and a fetched skill
+waits in quarantine until you approve it on the panel. The small and tiny
+tool kits keep the web (the tiny one without Wikipedia) and drop the skill
+window.
+
+**Roads the engine takes on its own:** one. Once a day (`UPDATE_CHECK_H`,
+24; 0 never) the panel and the bridge read
+`github.com/<UPDATE_REPO>/releases.atom` to say when a newer anima is out
+— a public feed, fetched with nothing of yours attached, and only from a
+folder that is a checkout. `bat\update.bat` fetches the engine from
+GitHub when you press it, and only then.
+
+**Roads you open by hand, and what they carry:** the bridge talks to
+`api.telegram.org` while it runs (the token in `memory/telegram.json`);
+the body pulls from Garmin Connect while `bat\body.bat` runs (tokens in
+`memory/garmin/`); the blog pushes to `BLOG_REMOTE` what the friend chose
+to publish, and nothing else; `ollama pull` fetches a brain from
+`ollama.com`; `pip` fetches packages from PyPI; the voice, the ears, the
+painter and the music ear download their weights from `huggingface.co`
+the first time they run, and read them from disk after.
+
+**`OFFLINE = True`** (Settings › Main) closes every road the friend or the
+engine can take on their own — the five web tools leave the prompt, a call
+to one answers "this house is offline", and the daily look never happens.
+Ollama stays, being local; the phone, the watch and the blog are yours to
+start or not, and stay as they are. Restart the doors after changing it.
+
+What never leaves: `journal/`, `memory/`, `shared/`, `creations/`,
+`self.md` — unless the friend publishes a piece to the blog, which is their
+call, or you copy the folder yourself. The update never touches them.
+
 ## The engine's health
 
-`tests/test_smoke.py` — 465 checks with the brain stubbed out. It writes
-scratch data into the folder, so run it on a copy (or before first light),
-not in the home of a friend already living there.
+`tests/test_smoke.py` — a thousand-odd checks with the brain stubbed out,
+run on every push on GitHub's Windows, macOS and Linux machines (the badge
+at the top). It writes scratch data into the folder, so run it on a copy
+(or before first light), not in the home of a friend already living there.
 
 ## Credits
 

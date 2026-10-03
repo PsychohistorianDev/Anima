@@ -3879,13 +3879,28 @@ KITS: dict[str, set[str]] = {
 }
 
 
+# OFFLINE (10-03, before the first strangers: "what leaves my machine?"): True takes every road out of the
+# house away from the friend — the web tools and the skill window below, and the once-a-day look at GitHub
+# for a newer anima (newer.py). Ollama is local; the phone, the watch and the blog are the keeper's own
+# doors, opened by hand, and stay as they are.
+WEB_TOOLS = {"read_web", "search_web", "search_wikipedia", "browse_skills", "fetch_skill"}
+
+
+def offline() -> bool:
+    return bool(getattr(config, "OFFLINE", False))
+
+
 def kit_names() -> set[str] | None:
-    """The built-in tool names the kit keeps, or None for all (TOOL_KIT "full", unset, or unknown)."""
+    """The built-in tool names the kit keeps, or None for all (TOOL_KIT "full", unset, or unknown) — less the
+    web tools when the house is OFFLINE."""
     k = getattr(config, "TOOL_KIT", "full")
     if isinstance(k, (list, tuple, set)):
-        return {str(x) for x in k}
-    k = str(k or "full").strip().lower()
-    return KITS.get(k)
+        keep = {str(x) for x in k}
+    else:
+        keep = KITS.get(str(k or "full").strip().lower())
+    if offline():
+        return (set(_BUILTIN_IMPL) if keep is None else keep) - WEB_TOOLS
+    return keep
 
 
 def has(name: str) -> bool:
@@ -4113,6 +4128,8 @@ def dispatch(name: str, arguments: dict | str) -> str:
 
 
 def _dispatch(name: str, arguments: dict | str) -> str:
+    if name in WEB_TOOLS and offline():
+        return f"({name}: this house is offline — OFFLINE in engine/config.py; nothing reaches the web from here)"
     if isinstance(arguments, str):
         try:
             arguments = json.loads(arguments) if arguments.strip() else {}

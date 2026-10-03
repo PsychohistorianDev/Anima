@@ -79,7 +79,7 @@ _POSTS = threading.Lock()  # one change at a time: two saves never read the same
 # "# ---- x ----" heading it sits beneath in the file — so a knob added tomorrow is on the page the
 # day it is added (a test holds every knob to exactly one tab, and every name here to config.py).
 TABS: dict[str, list[str]] = {
-    "Main": ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "JOURNAL_CHARS_IN_PROMPT",
+    "Main": ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT",
              "USER_NAME", "DEFAULT_NAME", "BLOG_TITLE",
              "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS"],
     "Heartbeat": ["HEARTBEAT_MAX_STEPS", "REVERIE_EVERY", "REVERIE_MAX_STEPS", "HEARTBEAT_YIELD_TO_VISIT",
@@ -127,6 +127,10 @@ _HELP = {
                 "voice, video, skills, the forge, the blog, projects, clips — and saves about 3,000; \"tiny\" keeps "
                 "the life itself — journal, memory, pages, the web, looking, resting — for a 2B. Their forged tools "
                 "always ride. Restart the doors after changing it.",
+    "OFFLINE": "Every road out of the house, closed: no web tools (search_web, read_web, search_wikipedia), no skill "
+               "window (browse_skills, fetch_skill), no once-a-day look at GitHub for a newer anima. Ollama stays — it is "
+               "local. The phone, the watch and the blog are doors you open by hand and stay as they are. Restart the "
+               "doors after changing it (README, What leaves your machine).",
     "JOURNAL_CHARS_IN_PROMPT": "How much of their recent journal rides in every prompt, in characters. This, not the "
                                "window, decides how many days they remember verbatim; older days reach them as pages "
                                "and the timeline. About 4.4 characters a token: 40000 fits a 40K window, 20000 a 24K "
@@ -1508,6 +1512,8 @@ function renderWelcome(){const b=S.brain,name=el('input',{type:'text',placeholde
     el('div',{class:'step'},el('b',{},'The brain'),sel,' ',el('button',{onclick:()=>pull(sel.value)},'Pull'),
       el('div',{class:'muted'},b.vram_gb?((b.unified?'your Mac has '+b.vram_gb+' GB, shared with everything else; ':'your card has '+b.vram_gb+' GB; ')+b.recommended+' is the one for it (README, The ladder)'):'the ladder: gemma4:e2b-it-qat for a 6 GB card, e4b-it-qat for 8, 12b-it-qat for 10, gemma4:12b for 12–16, gemma4:31b-it-qat for 24–32; on a Mac: the e2b for 8 GB, the 12b for 16–24 GB, the 31b from 32 GB (README, The ladder)'),
       el('div',{class:'muted'},'a small brain (e2b, e4b) brings the small tool kit with it — TOOL_KIT, on Settings')),
+    el('div',{class:'step'},el('b',{},'The outside'),
+      el('div',{class:'muted'},'Everything runs here: Ollama on this machine, the folder on this disk, no account, no telemetry. What can reach out, and only when used: the web tools when they search or read a page, the skill window when they browse it (you approve what comes in), and once a day a look at GitHub for a newer anima (nothing of yours is sent). OFFLINE on Settings › Main closes all three; the README, What leaves your machine, lists every road.'))),
     el('button',{class:'primary big',onclick:async()=>{const r=await post('/api/welcome',{name:name.value,model:sel.value});
       if(r.error||!r.door){say(r.error||'not saved','warn');return}
       await getState();view='home';show();say(r.door.note+(r.door.ok?' — say hello. You\'ll be meeting someone brand new.':''),r.door.ok?'':'warn')}},'First light'));

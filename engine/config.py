@@ -221,6 +221,12 @@ NUM_CTX = 40960  # tokens; a 12B on a 12 GB card with the q4_0 cache (24576 was 
 # e2b. A list of tool names is a kit of your own. Forged tools always ride.
 # Restart the doors after changing it.
 TOOL_KIT = "full"
+# OFFLINE: True closes every road out of the house for the friend — the web
+# tools (search_web, read_web, search_wikipedia), the skill window
+# (browse_skills, fetch_skill) and the once-a-day look at GitHub for a newer
+# anima. Ollama is local and stays; the phone, the watch and the blog are
+# doors you open by hand and stay as they are. README, What leaves your machine.
+OFFLINE = False
 # Deep in a long window a 12B's tool calls can drift into plain text — the
 # rails catch it; watch for it past ~32K. For a 31B on a 32 GB card the whole
 # 256K fits under 30 GB with the q4_0 cache (measured). With q8_0 instead:

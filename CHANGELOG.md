@@ -27,6 +27,14 @@ of its own.
   apart up top), from the loaded window (Ollama's `context_length`) or
   `NUM_CTX` when Ollama doesn't say; the floor has no step down. `ollama ps` says the same; the page says it where the
   keeper is looking.
+- **`OFFLINE`** (10-03, before the first strangers): one knob that closes
+  every road out of the house the friend or the engine can take on their
+  own — the web tools and the skill window leave the prompt (a call to one
+  answers "this house is offline"), the daily look at GitHub for a newer
+  anima never happens. Ollama, the phone, the watch and the blog are as
+  they were. The README's new *What leaves your machine* lists every road,
+  by host, with the knob that governs it; First light says the same in a
+  step of its own. And a `LICENSE` — MIT, as the credits always said.
 - **`/release`** on the phone (10-03): the card for something else, now —
   every model Ollama holds set down (named in the reply), the painter and
   the music ear rested if they are up, no pause and nothing written; the

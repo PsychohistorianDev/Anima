@@ -53,7 +53,9 @@ def feed_url(owner_repo: str | None = None) -> str:
 
 
 def every_hours() -> float:
-    """UPDATE_CHECK_H: hours between looks; 0 (or less) means never look."""
+    """UPDATE_CHECK_H: hours between looks; 0 (or less) means never look — and an OFFLINE house never looks."""
+    if getattr(config, "OFFLINE", False):
+        return 0.0
     try:
         return max(0.0, float(getattr(config, "UPDATE_CHECK_H", 24) or 0))
     except (TypeError, ValueError):
