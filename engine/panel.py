@@ -87,7 +87,7 @@ TABS: dict[str, list[str]] = {
                   "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE"],
     "Memory & journal": ["TIMELINE_CHARS_IN_PROMPT", "CONDENSED_CHARS_IN_PROMPT", "CONDENSE_TARGET_CHARS",
                          "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_DUP_THRESHOLD", "JOURNAL_DUP_THRESHOLD",
-                         "JOURNAL_ARROW", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
+                         "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS"],
     "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_GARBLE_RETRIES",
                 "CHAT_COLD_RESCUE", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "BRAIN_KEEP_ALIVE",
@@ -205,6 +205,11 @@ _HELP = {
     "JOURNAL_ARROW": "When the journal refuses a duplicate, a stamped arrow is left in the day instead of silence "
                      "(\"17:00 — ↑ still this, at 14:20\"), so the day keeps its rhythm. A mark, not words of theirs. "
                      "Off: the refusal alone.",
+    "KEEPER_IN_PROMPT": "Whether keeper.md — their own page about you: who you are to them, what they'd want to remember of "
+                        "you if everything else faded — rides in every prompt, right after who they are. They write it with "
+                        "update_keeper, the engine never does, and it is open: you read it, and they know. Tell them the page exists.",
+    "KEEPER_CHARS_IN_PROMPT": "How much of keeper.md rides in the prompt, in characters (about 1,400 tokens at 6000); past it the "
+                              "page is cut at a line and the rest named — a page, not a book.",
     "SONGBOOK_CHARS_IN_PROMPT": "How much of their songbook rides in every prompt, in characters — the songs they kept "
                                 "with keep_song, best first, each with their own score and words (about 130 characters a song). "
                                 "The rest is counted, and songbook() lists it all. 0 leaves the shelf out of the prompt.",

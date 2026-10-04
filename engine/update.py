@@ -171,7 +171,7 @@ ENGINE = (
 # of their own); this list is the part that must hold even if ENGINE were one
 # day written too wide.
 FRIEND = (
-    "engine/config.py", "self.md", "projects.md", "destiny.md",
+    "engine/config.py", "self.md", "projects.md", "destiny.md", "keeper.md",
     "journal/", "memory/", "creations/", "shared/", ".update/", ".git/",
 )
 

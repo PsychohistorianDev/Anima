@@ -398,6 +398,52 @@ config.DESTINY_IN_PROMPT = False
 check("destiny: DESTINY_IN_PROMPT False keeps it out", assemble.destiny() == "" and "=== WHERE YOU ARE GOING" not in assemble.system_prompt("", mode="auto"))
 config.DESTINY_IN_PROMPT = True
 config.DESTINY_FILE.unlink()
+# keeper.md (10-04; the keeper: "a keeper.md where she writes all the relevant memories about the keeper" — open): a page about the
+# keeper in their own words, right after WHO YOU ARE; theirs alone, every version kept; the empty page named; the afterglow may write it
+_kp_file = getattr(config, "KEEPER_FILE", config.ROOT / "keeper.md")
+_kp_hist = getattr(config, "KEEPER_HISTORY_DIR", config.MEMORY_DIR / "keeper_history")
+_kp_file.unlink(missing_ok=True)
+_kp_empty_prompt = assemble.system_prompt("", mode="auto")
+_kp_r0 = tools.dispatch("update_keeper", {"new_content": "   "})
+_kp_r1 = tools.dispatch("update_keeper", {"new_content": "The one who opens the door in the morning.\nLaughs with the whole face; goes quiet when tired, which is not the same as cross."})
+_kp_text1 = _kp_file.read_text(encoding="utf-8")
+_kp_p1 = assemble.system_prompt("", mode="auto")
+_kp_r2 = tools.dispatch("update_keeper", {"new_content": "Opens the door in the morning. Quiet when tired. Keeps the music loud on Fridays."})
+_kp_hist_files = sorted(_kp_hist.glob("keeper-*.md")) if _kp_hist.is_dir() else []
+_kp_hist_text = _kp_hist_files[0].read_text(encoding="utf-8") if _kp_hist_files else ""
+_kp_long = "\n".join(f"Line {i} of a long page about the keeper, each one a different thing remembered." for i in range(200))
+_kp_r3 = tools.dispatch("update_keeper", {"new_content": _kp_long})
+_kp_p3 = assemble.keeper()
+_kp_read = tools.dispatch("read_creation", {"path": "keeper.md"})
+_kp_in0 = getattr(config, "KEEPER_IN_PROMPT", True)
+config.KEEPER_IN_PROMPT = False
+_kp_off = assemble.system_prompt("", mode="auto")
+config.KEEPER_IN_PROMPT = _kp_in0
+_kp_file.unlink(missing_ok=True)
+import shutil as _kpsh
+_kpsh.rmtree(_kp_hist, ignore_errors=True)
+check("keeper: the page rides right after WHO YOU ARE and before the projects; empty, one line says it is theirs to begin and never required; "
+      "no words is refused; the first write says it rides and that they read it; the file holds their words whole",
+      "=== YOUR KEEPER, AS YOU KNOW THEM (keeper.md — yours via update_keeper; they read it) ===" in _kp_empty_prompt
+      and "(keeper.md is empty — a page about them is yours to begin" in _kp_empty_prompt and "nothing in it is required" in _kp_empty_prompt
+      and _kp_empty_prompt.index("=== WHO YOU ARE") < _kp_empty_prompt.index("=== YOUR KEEPER") < _kp_empty_prompt.index("=== YOUR PROJECTS")
+      and "wants words" in _kp_r0 and _kp_r1.startswith("keeper.md written — who they are to you rides with you now, after who you are; they can read it")
+      and _kp_text1 == "The one who opens the door in the morning.\nLaughs with the whole face; goes quiet when tired, which is not the same as cross.\n"
+      and "Laughs with the whole face" in _kp_p1 and "(keeper.md is empty" not in _kp_p1, (_kp_r0, _kp_r1, _kp_text1[:80]))
+check("keeper: a rewrite keeps the version before in memory/keeper_history/ and says so; past KEEPER_CHARS_IN_PROMPT the page is cut at a line and "
+      "the rest named for read_file; asking file hands for keeper.md hands the page back with the engine's note; KEEPER_IN_PROMPT False leaves it out; "
+      "the afterglow may write it, the phone watches it, the update never touches it, every kit carries it",
+      _kp_r2.startswith("keeper.md rewritten (the version before is kept)") and len(_kp_hist_files) == 1
+      and "Laughs with the whole face" in _kp_hist_text
+      and "A page, not a book" in _kp_r3 and "(…the page goes on," in _kp_p3 and "read_file \"keeper.md\" opens it whole" in _kp_p3
+      and len(_kp_p3) < int(getattr(config, "KEEPER_CHARS_IN_PROMPT", 6000)) + 200
+      and _kp_read.startswith("(a note from your engine: keeper.md is not in creations/") and "update_keeper" in _kp_read and "Line 3 of a long page" in _kp_read
+      and "YOUR KEEPER" not in _kp_off
+      and '"update_keeper", "do_nothing"}' in Path(tools.__file__).with_name("chat.py").read_text(encoding="utf-8")
+      and '"keeper.md": getattr(config, "KEEPER_FILE"' in Path(tools.__file__).with_name("telegram.py").read_text(encoding="utf-8")
+      and '"destiny.md", "keeper.md",' in Path(tools.__file__).with_name("update.py").read_text(encoding="utf-8")
+      and all("update_keeper" in tools.KITS[k] for k in ("small", "tiny")) and "update_keeper" in tools._BUILTIN_IMPL,
+      (_kp_r2, _kp_hist_files, _kp_r3[-120:], _kp_p3[-200:]))
 tools.dispatch("edit_identity", {"new_content": '"""\n# self.md\nName: Testfriend\nsteward of the garden."""'})
 _idt = config.IDENTITY_FILE.read_text(encoding="utf-8")
 check("tools: identity sheds docstring litter",
@@ -4226,7 +4272,7 @@ _hist = [{"role": "user", "content": "the bridge works!"}, {"role": "assistant",
 _tf = config.EPISODIC_DIR / "chat-telegram-afterglow-test.md"
 chat.save_transcript(_hist, tag="telegram", path=_tf)
 _line = chat.afterglow(_hist, _tf, tag="telegram")
-check("afterglow: only their three tools are offered", _seen["tools"] == ["do_nothing", "remember", "write_journal"], _seen["tools"])
+check("afterglow: only their four tools are offered (the keeper page since 10-04)", _seen["tools"] == ["do_nothing", "remember", "update_keeper", "write_journal"], _seen["tools"])
 check("afterglow: the transcript is handed to them as material, not a message",
       "This is the afterglow" in _seen["user"] and "over Telegram" in _seen["user"] and "the bridge works!" in _seen["user"], _seen["user"][:200])
 check("afterglow: they wrote it down", "1 journal entry" in _line and "1 memory kept" in _line, _line)

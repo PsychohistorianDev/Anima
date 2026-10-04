@@ -37,6 +37,18 @@ of its own.
   reads Windows' event log (Kernel-Power 41, 6008, BugCheck 1001 with its
   code) and puts the box's last line before each; `--last` the newest
   lines; the doctor's note carries both.
+- **keeper.md** (10-04; the keeper: "what if we would have a keeper.md
+  where she writes all the relevant memories about the keeper?" — and,
+  asked open or private: "I read them. Let's make it open."): a fourth
+  page at the root, who the keeper is to them, in their own words.
+  `update_keeper` replaces it whole with every version kept in
+  `memory/keeper_history/`; the engine never writes it; nothing in it is
+  required (an empty page is named in one line). It rides right after WHO
+  YOU ARE (`KEEPER_IN_PROMPT`, `KEEPER_CHARS_IN_PROMPT` 6000 — about
+  1,400 tokens). Open: the keeper reads it and they are told so; its
+  changes travel to the phone like self.md's; the afterglow may write it
+  (its kit is four tools now); the update never touches it; every tool
+  kit carries it.
 - **The songbook** (10-03; the keeper: "letting her remember songs in
   long-term memory, like a sentence or two how it made her feel and a score
   on a ladder from 1 to 10 — also detecting duplicates"): `keep_song(title,

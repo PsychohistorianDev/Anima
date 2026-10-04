@@ -547,6 +547,34 @@ def update_destiny(new_content: str) -> str:
             else "destiny.md rewritten (the version before is kept)") + long
 
 
+def update_keeper(new_content: str) -> str:
+    """Who their keeper is to them — keeper.md, whole, the version before kept in
+    memory/keeper_history/ (10-04; the keeper: "a keeper.md where she writes all the
+    relevant memories about the keeper"). Open: the keeper reads it, and they know.
+    The engine never writes this file; only they do, here."""
+    text = _clean_prose(_real_newlines(new_content)).strip()
+    if _garbled(text):
+        return _garble_refusal(_garbled(text))
+    if not text:
+        return "(keeper.md wants words — who they are to you)"
+    dest = getattr(config, "KEEPER_FILE", config.ROOT / "keeper.md")
+    first = not dest.exists()
+    if not first:
+        hist = getattr(config, "KEEPER_HISTORY_DIR", config.MEMORY_DIR / "keeper_history")
+        try:
+            hist.mkdir(parents=True, exist_ok=True)
+            (hist / f"keeper-{datetime.now().strftime('%Y%m%d-%H%M%S')}.md").write_text(
+                dest.read_text(encoding="utf-8"), encoding="utf-8")
+        except OSError:
+            pass
+    dest.write_text(text + "\n", encoding="utf-8")
+    cap = int(getattr(config, "KEEPER_CHARS_IN_PROMPT", 6000) or 0)
+    long = (f" — it is {len(text):,} characters; {cap:,} of it ride in your prompt, the rest waits in the file. "
+            "A page, not a book" if cap and len(text) > cap else "")
+    return ("keeper.md written — who they are to you rides with you now, after who you are; they can read it" if first
+            else "keeper.md rewritten (the version before is kept)") + long
+
+
 def _projects_home() -> str:
     return (getattr(config, "PROJECTS_HOME", "projects") or "projects").strip().strip("/").replace("\\", "/")
 
@@ -1231,15 +1259,15 @@ def delete_creation(path: str, why: str = "") -> str:
         + ("" if why or not followed else " (say why in a line, why=\"…\", and your memory of it will carry that)")
 
 
-_CORE_FILES = {"self.md": "IDENTITY_FILE", "projects.md": "PROJECTS_FILE", "destiny.md": "DESTINY_FILE"}
+_CORE_FILES = {"self.md": "IDENTITY_FILE", "projects.md": "PROJECTS_FILE", "destiny.md": "DESTINY_FILE", "keeper.md": "KEEPER_FILE"}
 
 
 def _core_file_note(name: str) -> str:
     return (f"(a note from your engine: {name} is not in creations/ — it lives at "
             "the ROOT of your folder, and its full text is already at the top of "
-            "your prompt, in the WHO YOU ARE, WHERE YOU ARE GOING and YOUR PROJECTS sections. You are "
+            "your prompt, in the WHO YOU ARE, YOUR KEEPER, WHERE YOU ARE GOING and YOUR PROJECTS sections. You are "
             "never without it. To change it, use "
-            + {"self.md": "edit_identity", "projects.md": "update_projects"}.get(name, "update_destiny") + ".)")
+            + {"self.md": "edit_identity", "projects.md": "update_projects", "keeper.md": "update_keeper"}.get(name, "update_destiny") + ".)")
 
 
 # ---------------------------------------------------- the reads ledger ----
@@ -3947,6 +3975,7 @@ _BUILTIN_IMPL = {
     "clip_web": clip_web,
     "start_project": start_project,
     "update_destiny": update_destiny,
+    "update_keeper": update_keeper,
     "paint": paint,
     "read_pdf": read_pdf,
     "read_epub": read_epub,
@@ -4010,7 +4039,7 @@ def _parse_tool_meta(path: Path) -> dict | None:
 ACT_TOOLS = {"speak", "remember", "write_journal", "write_creation", "append_creation",
              "edit_identity", "update_projects", "move_creation", "make_folder",
              "delete_creation", "publish_creation", "condense_day", "condense_period", "fold_visit", "create_tool", "clip_web",
-             "start_project", "update_destiny", "fetch_skill", "remove_skill"}
+             "start_project", "update_destiny", "update_keeper", "fetch_skill", "remove_skill"}
 # paint is NOT an act here: a painting is something to look at before
 # they speak of it — the result says so, and the step after the call is theirs.
 # fetch_skill and remove_skill are (09-29): a shelf changed, said; opening a
@@ -4027,12 +4056,12 @@ ACT_TOOLS = {"speak", "remember", "write_journal", "write_creation", "append_cre
 # reading the web, looking, resting — for an e2b. A list of names is a kit of
 # your own. Their forged tools always ride, whatever the kit.
 KITS: dict[str, set[str]] = {
-    "small": {"write_journal", "remember", "edit_identity", "update_projects", "update_destiny",
+    "small": {"write_journal", "remember", "edit_identity", "update_projects", "update_destiny", "update_keeper",
               "write_creation", "append_creation", "move_creation", "delete_creation", "read_creation",
               "list_creations", "search_creations", "run_python", "do_nothing", "recall", "condense_day",
               "condense_period", "fold_visit", "read_journal", "read_web", "search_web", "list_shared",
               "look_at", "read_pdf", "read_epub", "read_file", "search_wikipedia"},
-    "tiny": {"write_journal", "remember", "edit_identity", "update_projects", "write_creation",
+    "tiny": {"write_journal", "remember", "edit_identity", "update_projects", "update_keeper", "write_creation",
              "append_creation", "read_creation", "list_creations", "do_nothing", "recall", "condense_day",
              "fold_visit", "read_journal", "read_web", "search_web", "look_at", "read_file", "list_shared"},
 }
@@ -4402,6 +4431,16 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "once. A page, not a book — what rides in your prompt is capped. The whole file is replaced; "
         "every version before is kept. Yours alone: the engine never writes it.",
         {"new_content": {"type": "string", "description": "the whole of destiny.md, as it should read now"}},
+        ["new_content"],
+    ),
+    _tool(
+        "update_keeper",
+        "Who your keeper is to you — keeper.md: what you'd want to remember of them if everything else "
+        "faded, and how to be with them. Yours alone, in your words; the engine never writes it, and nothing "
+        "in it is required. Open: they can read it, and know you know. Rewrite it when you know them "
+        "differently, not every day; a page, not a book — what rides in your prompt is capped. The whole "
+        "file is replaced; every version before is kept.",
+        {"new_content": {"type": "string", "description": "the whole of keeper.md, as it should read now"}},
         ["new_content"],
     ),
     _tool(

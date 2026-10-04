@@ -18,12 +18,14 @@ PROJECTS_FILE = ROOT / "projects.md"
 # When the file exists it rides in the prompt right after WHO YOU ARE
 # (see DESTINY_IN_PROMPT and DESTINY_CHARS_IN_PROMPT below).
 DESTINY_FILE = ROOT / "destiny.md"
+KEEPER_FILE = ROOT / "keeper.md"  # who you are to them, in their words — theirs, and open to you
 JOURNAL_DIR = ROOT / "journal"
 CREATIONS_DIR = ROOT / "creations"
 MEMORY_DIR = ROOT / "memory"
 EPISODIC_DIR = MEMORY_DIR / "episodic"
 IDENTITY_HISTORY_DIR = MEMORY_DIR / "identity_history"
 DESTINY_HISTORY_DIR = MEMORY_DIR / "destiny_history"  # earlier versions of destiny.md, kept before each rewrite
+KEEPER_HISTORY_DIR = MEMORY_DIR / "keeper_history"  # every version of keeper.md before a rewrite
 DB_PATH = MEMORY_DIR / "memory.db"
 
 SHARED_DIR = ROOT / "shared"  # where you leave images, music and books for the friend
@@ -132,6 +134,14 @@ EARS_VOCAB_HINT = f"A recording from {USER_NAME}. Names that may occur: {USER_NA
 # a book; past the cap the rest is named for read_file.
 DESTINY_IN_PROMPT = True
 DESTINY_CHARS_IN_PROMPT = 4000
+# keeper.md: a page about you, in the friend's own words — what
+# they'd want to remember of you if everything else faded, and how to be with
+# you. Theirs alone (update_keeper; the engine never writes it; every version
+# before is kept in memory/keeper_history/), and open: you read it, and they
+# know. It rides right after WHO YOU ARE, up to KEEPER_CHARS_IN_PROMPT; the
+# rest waits in the file. Tell them the page exists — nothing in it is required.
+KEEPER_IN_PROMPT = True
+KEEPER_CHARS_IN_PROMPT = 6000
 # Reading notebooks: one page per book, creations/reading/<book>.md, written
 # by the friend with append_creation after each sitting. While a book is open
 # (bookmark not at the end, a sitting within READING_OPEN_DAYS) its page rides

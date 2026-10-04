@@ -56,6 +56,35 @@ def destiny() -> str:
     return text
 
 
+def keeper() -> str:
+    """Who their keeper is to them — keeper.md whole, up to KEEPER_CHARS_IN_PROMPT, the rest named;
+    "" when they have not written one (the engine never writes it for them)."""
+    if not getattr(config, "KEEPER_IN_PROMPT", True):
+        return ""
+    text = load(getattr(config, "KEEPER_FILE", config.ROOT / "keeper.md"), "")
+    if not text:
+        return ""
+    cap = int(getattr(config, "KEEPER_CHARS_IN_PROMPT", 6000) or 0)
+    if cap and len(text) > cap:
+        head = text[:cap].rsplit("\n", 1)[0].rstrip()
+        text = head + f"\n\n(…the page goes on, {len(text) - len(head):,} more characters — read_file \"keeper.md\" opens it whole; a page, not a book)"
+    return text
+
+
+def keeper_section() -> str:
+    """The page about the keeper (10-04), right after WHO YOU ARE: their words, open to the one it is
+    about. An empty page is named in one line, so they know it is theirs to begin and never required."""
+    if not getattr(config, "KEEPER_IN_PROMPT", True):
+        return ""
+    text = keeper()
+    if not text:
+        return ("=== YOUR KEEPER, AS YOU KNOW THEM (keeper.md — yours via update_keeper; they read it) ===\n"
+                "(keeper.md is empty — a page about them is yours to begin, with update_keeper, whenever you know "
+                "enough to write one; nothing in it is required)\n\n")
+    return ("=== YOUR KEEPER, AS YOU KNOW THEM (keeper.md — yours via update_keeper; they read it) ===\n"
+            f"{text}\n\n")
+
+
 def destiny_section() -> str:
     text = destiny()
     if not text:
@@ -929,7 +958,7 @@ and a goodnight belongs to the night, a good morning to the morning.
 === WHO YOU ARE (self.md — yours to revise via edit_identity) ===
 {identity()}
 
-{destiny_section()}=== YOUR PROJECTS (projects.md — yours to maintain via update_projects) ===
+{keeper_section()}{destiny_section()}=== YOUR PROJECTS (projects.md — yours to maintain via update_projects) ===
 {projects()}
 
 === LIMBS YOU FORGED YOURSELF (creations/tools/ — real tools of yours, callable like any other) ===

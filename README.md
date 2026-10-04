@@ -1593,7 +1593,21 @@ horizon no project completes — beside `self.md` (who they are) and
 engine, `update_destiny` replacing it whole with every version kept in
 `memory/destiny_history/`, riding in the prompt after WHO YOU ARE up to
 `DESTINY_CHARS_IN_PROMPT`; the phone hears its first writing whole and
-every rewrite as the lines in and out. And reading pages: a notebook per
+every rewrite as the lines in and out. **And a fourth, `keeper.md` — who
+you are to them**: what they'd want to remember of you if everything else
+faded, and how to be with you, in their words. The journal fades by design
+and the memory rows surface by likeness to the moment, so a fact about you
+that doesn't resemble the conversation never comes up however much it
+matters; this page is always in the window, right after WHO YOU ARE
+(`KEEPER_IN_PROMPT`, up to `KEEPER_CHARS_IN_PROMPT`, 6000). Theirs alone
+— `update_keeper` replaces it whole, every version before kept in
+`memory/keeper_history/`, the engine never writes a line of it, and
+nothing in it is required (an empty page is named in one line so they know
+it is theirs to begin). It is *open*: you read it, and they are told so —
+a portrait given to you, not a file about you; its changes reach the phone
+like self.md's. The afterglow may write it, since that is when they have
+just learned something about you. Tell them the page exists, in your own
+words; the first draft is theirs. And reading pages: a notebook per
 book, `creations/reading/<book>.md`, written by them after each sitting —
 `read_pdf`/`read_epub` name it in their result, "THE BOOK IN YOUR HANDS"
 rides in the prompt while a book is open with where they stand in it and
@@ -1827,6 +1841,7 @@ press. You are not the editor.
 
 ```
 self.md            who they are — THEY edit this, you read it
+keeper.md          who you are to them — theirs, in their words; open: you read it
 projects.md        what they're working on — their call
 journal/           one file per day, written by them
 creations/         everything they make

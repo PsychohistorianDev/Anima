@@ -101,7 +101,8 @@ RETRY_SLEEP_S = 2     # between the tries of sending their reply
 # memory/telegram_watch/ (creations under telegram_watch/creations/).
 WATCH_DIR = config.MEMORY_DIR / "telegram_watch"
 WATCHED = {"self.md": config.IDENTITY_FILE, "projects.md": config.PROJECTS_FILE,
-           "destiny.md": getattr(config, "DESTINY_FILE", config.ROOT / "destiny.md")}
+           "destiny.md": getattr(config, "DESTINY_FILE", config.ROOT / "destiny.md"),
+           "keeper.md": getattr(config, "KEEPER_FILE", config.ROOT / "keeper.md")}  # open means open (10-04)
 CREATION_SKIP = {"tools", ".trash", MAIL_DIR.name, "archives", "attic"}
 CREATION_KINDS = {"poems": "a poem", "essays": "an essay", "stories": "a story", "humor": "a joke",
                   "theory": "a piece of theory", "letters": "a letter", "songs": "a song",

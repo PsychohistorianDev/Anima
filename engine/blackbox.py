@@ -261,7 +261,11 @@ def file_for(day: datetime | None = None) -> Path:
 def write(rec: dict) -> Path:
     """Appended, flushed and fsynced — the point of the box is that the line is on the disk when the
     power goes."""
-    p = file_for()
+    try:
+        day = datetime.fromisoformat(str(rec.get("t", ""))[:19])
+    except ValueError:
+        day = None
+    p = file_for(day)
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")
