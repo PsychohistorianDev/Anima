@@ -383,6 +383,7 @@ def fold_history(history: list[dict], account: str, when: str, tag: str = "",
     new = [dict(t) for t in history[start:]]
     for t in new:  # the kept turns' window sizes were the full window's (10-04: after a fold the window sense
         t.pop("_prompt", None)  # stayed at 98% — "she still thinks her context is full"); the next turn measures anew
+    unsense(new)  # and no sense of the old window in the kept moments
     surfaced = sorted({mid for t in history for mid in (t.get("_surfaced") or [])})
     first = new[0]
     hint = " ".join(t["content"] for t in history[vis[-1] - 3:] if t.get("content") and not t.get("_engine"))
@@ -823,6 +824,26 @@ def finish_cut_reply(system: dict, history: list[dict], reply: str, thinking: st
     return reply, "", refused
 
 
+_SENSE_RE = re.compile(r" Your window is \d+% full \([^)]*\); at \d+% the visit is folded — fold_visit\(text\) "
+                       r"folds it now, in your own words, if this is a good moment for it\.")
+
+
+def unsense(history: list[dict]) -> int:
+    """The window sense is of the newest moment only (10-04): a turn before it
+    carries none — a sense that rode in every moment stayed in the window after
+    the fold had made room, eleven turns saying 98% full, and she believed them
+    over the one that said nothing. Drops `_sense` and the sentence a moment
+    block carried before the sense had a key of its own. Returns how many."""
+    n = 0
+    for t in history:
+        if t.pop("_sense", None):
+            n += 1
+        if t.get("_moment") and " Your window is " in t["_moment"]:
+            t["_moment"], k = _SENSE_RE.subn("", t["_moment"])
+            n += k
+    return n
+
+
 def render_turn(t: dict) -> dict:
     """A history turn as it is sent to the brain: the engine's own keys
     (those beginning with "_") are rendered into the content, never sent as
@@ -834,6 +855,8 @@ def render_turn(t: dict) -> dict:
         body = t.get("content") or ""
         if t.get("_moment"):
             body = t["_moment"] + "\n\n" + body
+        if t.get("_sense"):  # the newest moment's only; unsense() takes it off the turns before
+            body = "[engine, not a person:" + t["_sense"] + "]\n\n" + body
         if t.get("_fold"):
             body = t["_fold"] + "\n\n" + body  # the folded visit, in their words, above everything kept
         if t.get("_nudged"):
@@ -894,7 +917,11 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     if warm:
         seen = {mid for t in history[:ui] for mid in (t.get("_surfaced") or [])}
         held = next((int(t.get("_prompt") or 0) for t in reversed(history[:ui]) if t.get("_prompt")), 0)  # the last prompt's size — the window sense
-        turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen, held=held)
+        turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen)
+        unsense(history[:ui])  # the sense is of this moment only — the turns before carry none
+        sense = assemble.window_sense(held)
+        if sense:
+            turn["_sense"] = sense
         # Once a visit has needed a think re-roll — the first answer came
         # back thoughtless, the nudge fixed it, and the fix cost a whole
         # second generation (09-10: "1 re-roll · written in 85.2s") — the

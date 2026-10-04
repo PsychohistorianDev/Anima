@@ -266,6 +266,7 @@ class Bridge:
         self.history = list(state.get("history") or [])
         for t in self.history:  # the stashed window sizes may be a folded window's (10-04); a restart measures anew
             t.pop("_prompt", None)
+        chat.unsense(self.history)  # and the stashed moments carry no window sense — the next moment's is the one
         loops = 0
         fangs = 0
         for t in self.history:  # a loop that went out whole does not ride again (09-24)

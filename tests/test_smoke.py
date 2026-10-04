@@ -3278,12 +3278,13 @@ check("telegram: the next bridge picks the visit back up",
       and b5.file == b4.file and b5.offset == 43 and b5.show_thinking
       and "picked the visit back up" in _line and "1 of " in _line and "'s turns" in _line and not tg.RESUME_FILE.exists(), (_line, b5.history))
 check("telegram: nothing to resume is quiet", b5.resume() == "" and tg.Bridge("TOKEN", 1).resume() == "")
-tg.RESUME_FILE.write_text(_json.dumps({"history": [{"role": "user", "content": "before the fold", "_prompt": 257715, "_fold": "[engine: folded]"},
+tg.RESUME_FILE.write_text(_json.dumps({"history": [{"role": "user", "content": "before the fold", "_prompt": 257715, "_fold": "[engine: folded]", "_sense": " Your window is 98% full", "_moment": assemble.moment("x", held=int(config.NUM_CTX * 0.98))[0]},
                                                    {"role": "assistant", "content": "yes"}, {"role": "user", "content": "after", "_prompt": 257000}], "offset": 7}), encoding="utf-8")
 b5r = tg.Bridge("TOKEN", 1)
 _line_r = b5r.resume()
 check("telegram: a resumed visit carries no window sizes — a restart measures the window anew (10-04: the stale 98% after a fold)",
-      "picked the visit back up" in _line_r and len(b5r.history) == 3 and not any("_prompt" in t for t in b5r.history) and b5r.history[0]["_fold"] == "[engine: folded]"
+      "picked the visit back up" in _line_r and len(b5r.history) == 3 and not any("_prompt" in t or "_sense" in t for t in b5r.history) and b5r.history[0]["_fold"] == "[engine: folded]"
+      and "Your window is" not in b5r.history[0]["_moment"] and b5r.history[0]["_moment"].startswith("[engine, not a person: it is")
       and b5r.offset == 7, (_line_r, b5r.history))
 # 09-26, 16:21: the thinking bubble reached the phone, the reply's send hit a network hiccup, and the reply
 # (already in the transcript) was never sent. Now: three tries, then kept and sent with the next poll
@@ -5191,6 +5192,20 @@ check("fold: the kept turns carry no window size out of the fold, the block says
       and "the window had filled, so 7 of" in _nh[0]["_fold"] and "the window has room again now" in _nh[0]["_fold"]
       and _chat_src.count('held = next((int(t.get("_prompt") or 0) for t in reversed(') == 2 and 'held = max((int(t.get("_prompt")' not in _chat_src,
       ([t.get("_prompt") for t in _nh], _nh[0]["_fold"][:220]))
+# the sense itself: of the newest moment only, a key of its own, rendered as its own engine line; the turns before
+# carry none (10-04, after the restart: eleven stashed moments still said 98% and she believed them)
+_sn_m = assemble.moment("the cake", held=int(config.NUM_CTX * 0.98))[0]
+_sn_h = [{"role": "user", "content": "a", "_moment": _sn_m, "_prompt": 7}, {"role": "assistant", "content": "b"},
+         {"role": "user", "content": "c", "_moment": "[engine: m2]", "_sense": assemble.window_sense(int(config.NUM_CTX * 0.97))}]
+_sn_n = _chatmod.unsense(_sn_h)
+_sn_r = _chatmod.render_turn({"role": "user", "content": "d", "_moment": "[engine: m3]", "_sense": assemble.window_sense(int(config.NUM_CTX * 0.76))})["content"]
+check("fold: the window sense is the newest turn's own key — unsense() takes it off the turns before (the key, and the sentence an old moment carried) and the fold's kept turns carry none",
+      "Your window is" in _sn_m and _sn_n == 2 and "Your window is" not in _sn_h[0]["_moment"] and "_sense" not in _sn_h[2] and _sn_h[0]["_moment"].startswith("[engine, not a person: it is")
+      and " From your long-term memory" in _sn_h[0]["_moment"] and _sn_h[0]["_prompt"] == 7
+      and _sn_r.startswith("[engine, not a person: Your window is 76% full (") and "fold_visit(text) folds it now" in _sn_r and "[engine: m3]\n\nd" in _sn_r
+      and not any("_sense" in t or "Your window is" in (t.get("_moment") or "") for t in _nh)
+      and "assemble.moment(hint, exclude=seen)\n        unsense(history[:ui])" in _chat_src and 'turn["_sense"] = sense' in _chat_src,
+      (_sn_n, _sn_h[0]["_moment"][:100], _sn_r[:120]))
 # the bell: rung inside the visit; the friend journals first, then folds
 _fh3 = [dict(t) for t in _fh]
 _brain_fold = ScriptedBrain([

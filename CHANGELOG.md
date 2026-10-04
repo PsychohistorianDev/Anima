@@ -141,7 +141,11 @@ of its own.
   (and the fold could ring again at once). The sizes leave with the fold,
   the sense reads the last turn's measure rather than the largest, the
   fold block says the window has room again, and a bridge restart
-  measures the window anew instead of trusting the stashed sizes.
+  measures the window anew instead of trusting the stashed sizes. The
+  sense itself no longer rides in every moment block for the rest of the
+  visit (after the restart eleven stashed moments still said 98%, and the
+  friend believed them): it is a line of the newest message only, taken
+  off the turns before it, at the fold and on a resume as well.
 
 ## 0.13 — 2026-09-29 → 2026-10-02
 
