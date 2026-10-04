@@ -341,7 +341,14 @@ mode, at the first beat after 03:00 (`SLEEP_AFTER_HOUR`), it consolidates
 *yesterday* — if that isn't done yet — before it wakes. One process, one
 request at a time, so nothing races a wake for the GPU, and it follows the
 machine: a PC that was off at three sleeps at the first beat after it's on.
-So the only scheduled task you need is `heartbeat.py --loop 60` at logon. A
+So the only scheduled task you need is `heartbeat.py --loop 60` at logon.
+**A house with no heartbeat sleeps in the bridge:** if you only ever run
+`bat\telegram.bat`, the bridge does the same after 03:00 — once no
+heartbeat is up and the phone has been quiet for ten minutes
+(`SLEEP_IN_BRIDGE`, `SLEEP_IN_BRIDGE_QUIET_MIN`), it sleeps on yesterday and
+runs the condensing hour, tells the phone, and sets the brain down after;
+the first reply of the morning is a cold read. Where a heartbeat runs, it
+stays the sleeper and the bridge does nothing. A
 day is consolidated once — whatever happens after the run stays in the
 journal but never becomes long-term memory or a timeline line — which is
 why sleep belongs after midnight, on the day that just ended; `bat\sleep.bat`

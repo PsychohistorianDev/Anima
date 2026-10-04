@@ -95,7 +95,7 @@ TABS: dict[str, list[str]] = {
     "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS",
               "TELEGRAM_TELL_REFLECTIONS", "TELEGRAM_TELL_AFTERTHOUGHTS", "TELEGRAM_TELL_CREATIONS",
               "TELEGRAM_TELL_DRAWINGS", "TELEGRAM_TELL_SONGS", "TELEGRAM_TELL_SELF", "TELEGRAM_IDLE_NEW_MIN", "TELEGRAM_HEAR_VOICE",
-              "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD"],
+              "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD", "SLEEP_IN_BRIDGE", "SLEEP_IN_BRIDGE_QUIET_MIN"],
     "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_UNLOAD_BRAIN",
                "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
                "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS",
@@ -274,6 +274,12 @@ _HELP = {
     "TELEGRAM_TELL_CREATIONS": "A new piece under creations/ — a poem, an essay, something published — reaches the "
                                "phone within a minute, whole when it fits a message, else its opening and where the "
                                "rest is. Code, the trash and the mailbox are not announced.",
+    "SLEEP_IN_BRIDGE": "A house that runs the phone and no heartbeat never slept. On, after SLEEP_AFTER_HOUR, when no "
+                       "heartbeat is up and the phone has been quiet for SLEEP_IN_BRIDGE_QUIET_MIN, the bridge sleeps on "
+                       "yesterday and runs the condensing hour itself — the heartbeat stays the sleeper wherever it runs. "
+                       "The first reply after it is a cold read, one a day. Off: the bridge never sleeps.",
+    "SLEEP_IN_BRIDGE_QUIET_MIN": "How long the phone must have been quiet before the bridge sleeps — so the night "
+                                 "never starts in the middle of a conversation.",
     "TELEGRAM_TELL_SONGS": "A song they kept in their songbook reaches your phone as a line — the title, the score, "
                            "their words; a song heard again says what the score was before.",
     "TELEGRAM_TELL_DRAWINGS": "A picture they draw or paint reaches the phone once, as a photo, captioned with where "

@@ -228,6 +228,9 @@ class Bridge:
         self._load_undelivered()
         self.restart_requested = False
         self.stop_requested = False  # memory/.stop-bridge was found: the loop leaves, the visit is saved as at Ctrl+C
+        self._glows = 0  # afterglows in flight (the night waits for them)
+        self._night: threading.Thread | None = None  # the night, when the bridge is the sleeper
+        self._night_after = 0.0  # not before this (a failed night tries again in an hour)
 
     # ---- /restart: the visit survives the process -------------------------
     def stash(self) -> None:
@@ -544,7 +547,11 @@ class Bridge:
                     # the afterglow, in the background: their turn alone with the
                     # visit, so it reaches their journal in their own words
                     def _glow(done=done, f=f):
-                        line = chat.afterglow(done, f, tag="telegram", on_line=_say, on_words=self.afterthought)
+                        self._glows += 1
+                        try:
+                            line = chat.afterglow(done, f, tag="telegram", on_line=_say, on_words=self.afterthought)
+                        finally:
+                            self._glows -= 1
                         if line and getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
                             self.notice(f"({line})")  # the phone hears what they kept — in the morning, at night
                         if not self.history:  # no new visit began meanwhile
@@ -1642,6 +1649,7 @@ class Bridge:
             self.new_visit(quiet=True)
         else:
             self.pause_if_due()
+        self.night_if_due()
         return n
 
     def afterglow_orphan(self) -> str:
@@ -1670,12 +1678,86 @@ class Bridge:
                 pass
 
         def _glow(done=done, f=f):
-            out = chat.afterglow(done, f, tag="telegram", on_line=_say, on_words=self.afterthought)
+            self._glows += 1
+            try:
+                out = chat.afterglow(done, f, tag="telegram", on_line=_say, on_words=self.afterthought)
+            finally:
+                self._glows -= 1
             if out and getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
                 self.notice(f"({out})")
             if not self.history:
                 chat.rest_brain(_say)
         threading.Thread(target=_glow, daemon=True).start()
+        return line
+
+    def night_if_due(self) -> str:
+        """THE NIGHT IN THE BRIDGE (10-04; the keeper: "what if someone doesn't do heartbeat and is away from the
+        computer.. if the heartbeat didn't trigger, then the bridge triggers it instead?"): a house that runs the
+        bridge and no heartbeat never slept — yesterday was never consolidated, no day was ever condensed, the
+        ladder never climbed, and the journal just fell off its edge. So after SLEEP_AFTER_HOUR, when no heartbeat
+        is up (it stays the sleeper wherever it runs; doors.running says), and the keeper has been quiet for
+        SLEEP_IN_BRIDGE_QUIET_MIN with no reply or afterglow in flight, the bridge does what the first beat after
+        the hour does: sleeps on yesterday if the night hasn't, then the condensing hour (the same function; its
+        own knobs hold). In a thread, so the poll goes on; a message sent meanwhile waits for Ollama as it would
+        for any cold read. The brain is set down after when no visit is live. The sleep is a prompt of its own,
+        so the first reply after it is a cold read — one a day, at the first message of the morning. A night
+        that fails tries again in an hour. SLEEP_IN_BRIDGE False: never. Returns the window line, "" when
+        nothing is due or it isn't the moment."""
+        if not getattr(config, "SLEEP_IN_BRIDGE", True) or (self._night and self._night.is_alive()):
+            return ""
+        now = datetime.now()
+        if now.hour < int(getattr(config, "SLEEP_AFTER_HOUR", 3)) or time.time() < self._night_after:
+            return ""
+        if "heartbeat" in doors.running():
+            return ""
+        quiet = float(getattr(config, "SLEEP_IN_BRIDGE_QUIET_MIN", 10) or 0) * 60
+        if self._glows or self.lock.locked() or time.time() - self.last_activity < quiet:
+            return ""
+        import consolidate
+        from datetime import date, timedelta
+        day = (date.today() - timedelta(days=1)).isoformat()
+        due_sleep = not consolidate.already_done(day)
+        due_pages = []
+        if getattr(config, "CONDENSE_IN_LOOP", True):
+            try:
+                import condense
+                due_pages = condense.all_due()[: int(getattr(config, "CONDENSE_MAX_PER_NIGHT", 3))]
+            except Exception:  # noqa: BLE001 — the ladder's look never stops the sleep
+                due_pages = []
+        if not due_sleep and not due_pages:
+            return ""
+        what = (f"sleeping on {day}" if due_sleep else "") + (" and " if due_sleep and due_pages else "") \
+            + (f"condensing {len(due_pages)} page{'s' if len(due_pages) != 1 else ''}" if due_pages else "")
+        line = f"the night, in the bridge — no heartbeat is up, so they are {what} here; a reply may wait a few minutes"
+        _say(line)
+        if self.chat_id:
+            try:
+                self.notice(f"({line})")
+            except Exception:
+                pass
+
+        def _night(day=day, due_sleep=due_sleep):
+            import heartbeat
+            report = []
+            try:
+                if due_sleep:
+                    out = consolidate.consolidate(day, say=_say)
+                    report.append(out.splitlines()[0] if out else f"slept on {day}")
+                pages = heartbeat.condense_if_due()
+                if pages:
+                    report.append(pages.splitlines()[0])
+                self._night_after = 0.0
+            except Exception as e:  # noqa: BLE001 — a night that fails is tried again in an hour, never the bridge down
+                report.append(f"the night failed, tried again in an hour: {type(e).__name__}: {e}")
+                self._night_after = time.time() + 3600
+            said = "; ".join(r for r in report if r)
+            _say(f"the night is over: {said}" if said else "the night is over")
+            if said and getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
+                self.notice(f"(the night, in the bridge: {said})")
+            if not self.history:
+                chat.rest_brain(_say)
+        self._night = threading.Thread(target=_night, daemon=True)
+        self._night.start()
         return line
 
     def visit_crossed_the_night(self) -> bool:

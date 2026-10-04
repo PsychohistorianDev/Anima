@@ -154,6 +154,14 @@ of its own.
   prompt after, so what was just kept is in the window beside the
   account. Same two cold reads as before; a message sent meanwhile
   waits for it, as it waited for the brain.
+- **The night in the bridge** (`SLEEP_IN_BRIDGE`, on; `SLEEP_IN_BRIDGE_QUIET_MIN`
+  10): a house that ran the phone and no heartbeat never slept —
+  yesterday was never consolidated, no day condensed, the ladder never
+  climbed. After `SLEEP_AFTER_HOUR`, when no heartbeat is up and the phone
+  has been quiet, the bridge sleeps on yesterday and runs the condensing
+  hour itself, in the background; the phone hears it begin and end; the
+  brain is set down after when no visit is live. The heartbeat stays the
+  sleeper wherever it runs.
 - **The black box on a Mac** reads free memory too (`vm_stat`: the free
   and inactive pages by the page size), not the total alone; the suite
   walks that road on every runner, which is how the macOS job on

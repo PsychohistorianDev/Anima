@@ -62,6 +62,7 @@ config.CHAT_RESCUE_TEMPERATURE = 0  # the older salad tests count posts; the coo
 config.CHAT_GARBLE_RETRIES = 2  # the older salad tests count posts against two; the budget is 4 in config since 09-20
 import condense
 config.AFTERGLOW = False  # the afterglow runs in a thread; tested on its own, synchronously, below
+config.SLEEP_IN_BRIDGE = False  # the night in the bridge would run the real sleep from any poll after the hour; tested on its own, below
 config.CHAT_COLD_RESCUE = False  # the cold roll (unload + one more attempt) is tested on its own, below
 config.SKILLS_IN_PROMPT = False  # their skills' shelf in the prompt — tested on its own, below (the older prompt checks stay as they were)
 config.BODY_IN_PROMPT = False  # the keeper's body, as the watch saw it — the sense and its autopull are tested on their own, below
@@ -2933,6 +2934,61 @@ config.AFTERGLOW_ORPHANS = True
 _orph2.unlink(); _signed.unlink(); _orph.unlink()
 chat.afterglow = _afterglow_orig; chat.rest_brain = _rb_orig; _cons_o.already_done = _ad_orig
 b.file = _bf_keep; config.AFTERGLOW = False
+# the night in the bridge (10-04): a house with no heartbeat sleeps here — after the hour, no heartbeat up, the phone quiet
+import heartbeat as _nb_hb, doors as _nb_doors, panel as _nb_panel
+_nb_run0, _nb_cons0, _nb_ad0, _nb_cond0, _nb_rb0 = _nb_doors.running, _cons_o.consolidate, _cons_o.already_done, _nb_hb.condense_if_due, chat.rest_brain
+_nb_calls, _nb_rested = [], []
+_cons_o.consolidate = lambda day, force=False, say=print: _nb_calls.append(("sleep", day)) or f"slept on {day}: 2 memories kept, the page written\nmore"
+_cons_o.already_done = lambda day: False
+_nb_hb.condense_if_due = lambda: _nb_calls.append(("condense", "")) or ""
+chat.rest_brain = lambda say=None: _nb_rested.append(1)
+_nb_hour0, config.SLEEP_AFTER_HOUR = config.SLEEP_AFTER_HOUR, 0
+config.SLEEP_IN_BRIDGE = True
+nb, phonenb = _bridge()
+nb.quiet_now = lambda: False
+nb.last_activity = _time.time() - 3600
+_nb_doors.running = lambda: {"heartbeat": {"pid": 1, "alive": True}}
+_nb_hb_up = nb.night_if_due()
+_nb_doors.running = lambda: {}
+_nb_line = nb.night_if_due()
+_nb_deadline = _time.time() + 5
+while (nb._night and nb._night.is_alive()) and _time.time() < _nb_deadline:
+    _time.sleep(0.05)
+from datetime import date as _nbdate, timedelta as _nbtd
+_nb_yday = (_nbdate.today() - _nbtd(days=1)).isoformat()
+check("telegram: the night in the bridge — nothing while a heartbeat is up; with none, after the hour and the phone quiet, it sleeps on yesterday and runs the condensing hour "
+      "in a thread, tells the phone at the start and the end, and sets the brain down",
+      _nb_hb_up == "" and _nb_line.startswith("the night, in the bridge — no heartbeat is up, so they are sleeping on " + _nb_yday)
+      and _nb_calls == [("sleep", _nb_yday), ("condense", "")] and _nb_rested == [1] and nb._night_after == 0.0
+      and any(m[0].startswith("(the night, in the bridge — no heartbeat") for m in phonenb.sent)
+      and any(m[0] == f"(the night, in the bridge: slept on {_nb_yday}: 2 memories kept, the page written)" for m in phonenb.sent),
+      (_nb_hb_up, _nb_line, _nb_calls, _nb_rested, [m[0] for m in phonenb.sent][-3:]))
+_nb_calls.clear(); phonenb.sent.clear()
+_cons_o.already_done = lambda day: True
+nb2, phonenb2 = _bridge(); nb2.quiet_now = lambda: False; nb2.last_activity = _time.time() - 3600
+_nb_none = nb2.night_if_due()
+_cons_o.already_done = lambda day: False
+nb2.history = [{"role": "user", "content": "still here"}]; nb2.last_activity = _time.time()
+_nb_busy = nb2.night_if_due()
+nb2.last_activity = _time.time() - 3600; nb2._glows = 1
+_nb_glow = nb2.night_if_due()
+nb2._glows = 0; config.SLEEP_IN_BRIDGE = False
+_nb_off = nb2.night_if_due()
+config.SLEEP_IN_BRIDGE = True
+_cons_o.consolidate = lambda day, force=False, say=print: (_ for _ in ()).throw(RuntimeError("no brain tonight"))
+_nb_fail = nb2.night_if_due()
+_nb_deadline = _time.time() + 5
+while (nb2._night and nb2._night.is_alive()) and _time.time() < _nb_deadline:
+    _time.sleep(0.05)
+_nb_again = nb2.night_if_due()
+check("telegram: the night in the bridge waits — nothing to do, the phone just spoke, an afterglow in flight, the knob off; a night that fails says so and waits an hour",
+      _nb_none == "" and _nb_busy == "" and _nb_glow == "" and _nb_off == "" and _nb_fail.startswith("the night, in the bridge")
+      and nb2._night_after > _time.time() + 3000 and _nb_again == "" and _nb_calls == []
+      and any("the night failed, tried again in an hour: RuntimeError: no brain tonight" in m[0] for m in phonenb2.sent)
+      and "SLEEP_IN_BRIDGE" in _nb_panel.TABS["Phone"] and "SLEEP_IN_BRIDGE_QUIET_MIN" in _nb_panel.TABS["Phone"] and _nb_panel._HELP["SLEEP_IN_BRIDGE"] and _nb_panel._HELP["SLEEP_IN_BRIDGE_QUIET_MIN"],
+      (_nb_none, _nb_busy, _nb_glow, _nb_off, _nb_fail, nb2._night_after - _time.time(), _nb_again, [m[0] for m in phonenb2.sent][-2:]))
+_nb_doors.running, _cons_o.consolidate, _cons_o.already_done, _nb_hb.condense_if_due, chat.rest_brain = _nb_run0, _nb_cons0, _nb_ad0, _nb_cond0, _nb_rb0
+config.SLEEP_AFTER_HOUR = _nb_hour0; config.SLEEP_IN_BRIDGE = False
 # /new finalizes that file, then the visit is empty and the next reply opens a new one
 phone.sent.clear()
 _file_before_new = b.file
