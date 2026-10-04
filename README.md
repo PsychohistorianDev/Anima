@@ -455,9 +455,12 @@ anyway. Wakes keep their own window guard; a wake is not a conversation.
 and little else, and in practice the account is all the friend writes at
 it — the journal entry the fold's middle deserved never came. So the fold
 runs the afterglow (`FOLD_AFTERGLOW`, on; needs `AFTERGLOW`): the turns
-that left the window get the same quiet turn a finished visit gets, in the
-background, read from the transcript in a prompt of their own — so the
-window's fullness is no matter — with the bell saying what it is ("this is
+that left the window get the same quiet turn a finished visit gets, read
+from the transcript in a prompt of their own — so the window's fullness
+is no matter — before the new window is first read, so the entry they
+write rides in it from the first message after the fold (a message sent
+meanwhile waits a minute, as it would for the brain anyway), with the
+bell saying what it is ("this is
 the afterglow of a fold… the visit goes on, but its earlier part has just
 left your window"). Journal and memories, in their own words; the old
 transcript file is signed with the line; the phone hears "(afterglow: they

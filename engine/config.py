@@ -480,9 +480,10 @@ ATTEMPT_SHOWN_CHARS = 1500
 # block says how full the window is. 0 turns the fold off (then /new is suggested).
 FOLD_AT = 0.90
 # The afterglow at the fold: the turns that leave the window get the same quiet turn
-# a finished visit gets — journal and memories, in the friend's own words — in the
-# background, from the transcript, so what the fold takes has reached the journal.
-# One cold read, once per fold; a message sent meanwhile waits for it. Needs AFTERGLOW.
+# a finished visit gets — journal and memories, in the friend's own words — from the
+# transcript, before the new window is first read, so what the fold takes is in the
+# journal and in the window. One cold read, once per fold; a message sent meanwhile
+# waits for it. Needs AFTERGLOW.
 FOLD_AFTERGLOW = True
 FOLD_KEEP_TURNS = 6       # visible turns kept whole, the most recent ones
 FOLD_CHARS = 8000         # the account's ceiling (cut at a paragraph past it, said)

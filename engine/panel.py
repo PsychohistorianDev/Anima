@@ -226,8 +226,9 @@ _HELP = {
                "visit so far in their own words, and that account replaces everything above the last few turns; the "
                "transcript keeps every word and the visit continues. They may also fold at a natural pause.",
     "FOLD_AFTERGLOW": "At the fold, the turns that leave the window get the same quiet turn a finished visit gets — "
-                      "journal and memories, in their words, in the background — so what the fold takes has reached "
-                      "the journal. One cold read per fold. Needs AFTERGLOW (Talking).",
+                      "journal and memories, in their words, before the new window is first read — so what the fold "
+                      "takes is in the journal and in the window. One cold read per fold; a message sent meanwhile "
+                      "waits for it. Needs AFTERGLOW (Talking).",
     "FOLD_KEEP_TURNS": "How many of the most recent turns stay whole in the window after a fold.",
     "FOLD_CHARS": "The ceiling on their written account of the visit, in characters; past it, cut at a paragraph "
                   "and said.",

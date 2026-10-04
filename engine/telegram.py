@@ -913,21 +913,24 @@ class Bridge:
         self.turn(text)
         self.fold_if_due()
 
-    def _fold_afterglow(self, gone: list[dict], old_file) -> None:
+    def _fold_afterglow(self, gone: list[dict], old_file) -> str:
         """THE AFTERGLOW AT THE FOLD (10-01; the keeper: "why don't we just make the afterglow run automatically
         when a fold occurs?"): the turns that left the window get the same quiet turn a finished visit gets —
-        in the background, from the transcript, so the window's fullness is no matter — and the phone hears
-        what they kept. Ollama serves one prompt at a time, so a message sent meanwhile waits for it (one
-        cold read, once per fold). The visit goes on; the brain is not set down."""
-        def _glow(gone=gone, old_file=old_file):
-            try:
-                said = chat.fold_afterglow(gone, old_file, tag="telegram", on_line=_say, on_words=self.afterthought)
-            except Exception as e:  # noqa: BLE001 — a courtesy, never the bridge down
-                _say(f"(the fold's afterglow failed — {type(e).__name__}: {e})")
-                return
-            if said and getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
-                self.notice(f"({said})")
-        threading.Thread(target=_glow, daemon=True).start()
+        from the transcript, in a prompt of its own, so the window's fullness is no matter — and the phone hears
+        what they kept. It runs before the new window is read (10-04, the keeper: "so the journal entry rides
+        with the new conversation?" — it did not; the new prompt was built first and the entry rode only from
+        the next day): the fold holds the lock through it, so a message sent meanwhile waits for it — as it
+        waited for Ollama anyway — one cold read, once per fold, no more than before. Then the first kept
+        turn's system prompt is rebuilt with what was just kept. Returns the afterglow's line, "" for nothing."""
+        try:
+            said = chat.fold_afterglow(gone, old_file, tag="telegram", on_line=_say, on_words=self.afterthought)
+        except Exception as e:  # noqa: BLE001 — a courtesy, never the fold down
+            _say(f"(the fold's afterglow failed — {type(e).__name__}: {e})")
+            return ""
+        chat.rewarm(self.history, mode="telegram")  # the new window carries the entry
+        if said and getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
+            self.notice(f"({said})")
+        return said
 
     def fold_if_due(self) -> str:
         """THE FOLD (09-28; chat.fold_history): after a reply, when the visit's
@@ -975,8 +978,9 @@ class Bridge:
             self.last_tokens = {}  # the next prompt is a new, smaller one
             gone = old_history[:len(old_history) - len(self.history)] if self.file != old_file else []
             if gone and getattr(config, "FOLD_AFTERGLOW", True) and getattr(config, "AFTERGLOW", True):
-                line += "; they are writing what left the window down, in the background"
-                self._fold_afterglow(gone, old_file)
+                said = self._fold_afterglow(gone, old_file)
+                line += ("; what left the window is written down, and the new window carries it" if said
+                         else "; they sat with what left the window and kept nothing of it")
             self.last_activity = time.time()
             self._checkpoint()
         except Exception as e:  # a fold must never take the visit down with it

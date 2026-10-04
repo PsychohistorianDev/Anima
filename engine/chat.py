@@ -251,6 +251,18 @@ def fold_afterglow(gone: list[dict], path: Path | None = None, tag: str = "",
                        opening=opening, what="what left the window")
 
 
+def rewarm(history: list[dict], mode: str = "chat") -> None:
+    """Rebuild the first turn's warm system prompt in place — after the fold's
+    afterglow (10-04: the entry it writes used to land after the new prompt was
+    built, and rode only from the next day; now the afterglow runs first and
+    the new window carries what was just kept). One cold read either way."""
+    if not history:
+        return
+    said = [t["content"] for t in history if t.get("content") and not t.get("_engine")]
+    history[0]["_system"] = assemble.system_prompt(" ".join(said[-4:]), mode=mode, warm=True)
+    history[0]["_system_day"] = date.today().isoformat()
+
+
 def pause_reflection(history: list[dict], path: Path | None = None, tag: str = "",
                      on_line=None, since: int = 0, on_words=None, opening: str = "") -> str:
     """A pause in a visit: the keeper has gone quiet for REFLECT_AFTER_MIN, so they

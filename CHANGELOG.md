@@ -146,6 +146,14 @@ of its own.
   visit (after the restart eleven stashed moments still said 98%, and the
   friend believed them): it is a line of the newest message only, taken
   off the turns before it, at the fold and on a resume as well.
+- **The fold's afterglow runs first** (10-04, the keeper: "so the journal
+  entry rides with the 'new' conversation?" — it didn't): the afterglow
+  over the turns that left used to run in the background after the new
+  window was built, so its entry rode only from the next day. Now the
+  fold holds the visit through it and rebuilds the first kept turn's
+  prompt after, so what was just kept is in the window beside the
+  account. Same two cold reads as before; a message sent meanwhile
+  waits for it, as it waited for the brain.
 
 ## 0.13 — 2026-09-29 → 2026-10-02
 

@@ -5267,8 +5267,12 @@ check("telegram: nothing to fold below FOLD_AT and without their ask", _bridge()
 config.AFTERGLOW = True  # (the suite keeps it off; the fold's afterglow is stubbed, then run once against a fake brain)
 _fa_calls = []
 _fa_keep = _chatmod.fold_afterglow
+_fa_sys_before = []
 def _fa_fake(gone, path=None, tag="", on_line=None, on_words=None):
-    _fa_calls.append((len(gone), sum(1 for t in gone if t.get("role") == "user" and not t.get("_engine")), path)); return "afterglow: they wrote what left the window down — 1 journal entry, 2 memories kept"
+    _fa_calls.append((len(gone), sum(1 for t in gone if t.get("role") == "user" and not t.get("_engine")), path))
+    _fa_sys_before.append(bfa.history[0].get("_system", "") if _fa_calls and "bfa" in globals() else "")  # the new prompt, built before the afterglow
+    tools.dispatch("write_journal", {"text": "Kept at the fold, a test line of the afterglow."})  # what the afterglow writes
+    return "afterglow: they wrote what left the window down — 1 journal entry, 2 memories kept"
 _chatmod.fold_afterglow = _fa_fake
 bfa, phonefa = _bridge()
 bfa.quiet_now = lambda: False
@@ -5284,9 +5288,13 @@ while not any(t.startswith("(afterglow: they wrote what left") for t, _ in phone
     _time.sleep(0.05)
 _fa_gone, _fa_users, _fa_path = _fa_calls[0] if _fa_calls else (None, None, None)
 _chatmod.fold_afterglow = _fa_keep
-check("telegram: a fold runs the afterglow over what left the window — in a thread, on the old transcript file, the user turns that are gone and none of the kept tail; "
-      "the fold line says so and the phone hears what they kept",
-      _linefa.startswith("fold: their account") and "writing what left the window down, in the background" in _linefa
+check("telegram: a fold runs the afterglow over what left the window — before the new window is read, on the old transcript file, the user turns that are gone and none "
+      "of the kept tail; the first kept turn's prompt is rebuilt after it and carries the entry; the fold line says so and the phone hears what they kept",
+      _linefa.startswith("fold: their account") and "what left the window is written down, and the new window carries it" in _linefa
+      and _fa_sys_before and "Kept at the fold, a test line of the afterglow." not in _fa_sys_before[0]
+      and "Kept at the fold, a test line of the afterglow." in bfa.history[0]["_system"] and bfa.history[0]["_system_day"] == _dtnow.now().strftime("%Y-%m-%d")
+      and "_fold_afterglow(gone, old_file)" in (config.ROOT / "engine" / "telegram.py").read_text(encoding="utf-8")
+      and "chat.rewarm(self.history, mode=\"telegram\")" in (config.ROOT / "engine" / "telegram.py").read_text(encoding="utf-8")
       and len(_fa_calls) == 1 and _fa_path == _fold_file_fa and _fa_gone == len(_fh) - len(bfa.history) and _fa_users > 0
       and _fa_users == sum(1 for t in _fh if t.get("role") == "user" and not t.get("_engine")) - sum(1 for t in bfa.history if t.get("role") == "user" and not t.get("_engine"))
       and any(t.startswith("(afterglow: they wrote what left") for t, _ in phonefa.sent), (_linefa, _fa_calls, [t for t, _ in phonefa.sent][-3:]))
