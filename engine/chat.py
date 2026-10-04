@@ -381,6 +381,8 @@ def fold_history(history: list[dict], account: str, when: str, tag: str = "",
         earlier = [i for i in users if i < start]
         start = earlier[-1] if earlier else start
     new = [dict(t) for t in history[start:]]
+    for t in new:  # the kept turns' window sizes were the full window's (10-04: after a fold the window sense
+        t.pop("_prompt", None)  # stayed at 98% — "she still thinks her context is full"); the next turn measures anew
     surfaced = sorted({mid for t in history for mid in (t.get("_surfaced") or [])})
     first = new[0]
     hint = " ".join(t["content"] for t in history[vis[-1] - 3:] if t.get("content") and not t.get("_engine"))
@@ -395,8 +397,8 @@ def fold_history(history: list[dict], account: str, when: str, tag: str = "",
     n_gone = sum(1 for i in vis if i < start and history[i]["role"] == "user")
     acct = account.strip() if account else ""
     first["_fold"] = ("[engine, not a person: this visit" + (f" began at {began} and" if began else "")
-                      + f" was folded at {when} because the window filled — {n_gone} of your keeper's messages and your replies "
-                      "to them left the window; the transcript on disk keeps them whole. "
+                      + f" was folded at {when}: the window had filled, so {n_gone} of your keeper's messages and your replies "
+                      "to them left it; the transcript on disk keeps them whole, and the window has room again now. "
                       + (f"What came before, in your own words, written then:]\n\n{acct}\n\n[…and from here the visit goes on as it was said.]"
                          if acct else "You did not write it down before the fold, so only the turns below remain in view.]"))
     first["_fold_when"] = when
@@ -891,7 +893,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     system = {"role": "system", "content": system_text}
     if warm:
         seen = {mid for t in history[:ui] for mid in (t.get("_surfaced") or [])}
-        held = max((int(t.get("_prompt") or 0) for t in history[:ui]), default=0)  # the last prompt's size — the window sense
+        held = next((int(t.get("_prompt") or 0) for t in reversed(history[:ui]) if t.get("_prompt")), 0)  # the last prompt's size — the window sense
         turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen, held=held)
         # Once a visit has needed a think re-roll — the first answer came
         # back thoughtless, the nudge fixed it, and the fix cost a whole
@@ -1309,7 +1311,7 @@ def main() -> None:
             print(f"\n{name} > {reply}")
             # the fold (09-28): the window nearly full, or they asked for it
             pending = tools.fold_pending()
-            held = max((int(t.get("_prompt") or 0) for t in history), default=0)
+            held = next((int(t.get("_prompt") or 0) for t in reversed(history) if t.get("_prompt")), 0)
             if pending or (fold_due(held) and foldable(history)):
                 try:
                     if not pending:

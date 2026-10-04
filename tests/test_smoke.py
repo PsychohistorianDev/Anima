@@ -3274,9 +3274,17 @@ check("telegram: the stash confirms the offset with Telegram and writes the visi
 b5, phone5 = _bridge()
 _line = b5.resume()
 check("telegram: the next bridge picks the visit back up",
-      b5.history == b4.history and b5.file == b4.file and b5.offset == 43 and b5.show_thinking
+      b5.history == [{k: v for k, v in t.items() if k != "_prompt"} for t in b4.history]  # the sizes stay behind (10-04)
+      and b5.file == b4.file and b5.offset == 43 and b5.show_thinking
       and "picked the visit back up" in _line and "1 of " in _line and "'s turns" in _line and not tg.RESUME_FILE.exists(), (_line, b5.history))
 check("telegram: nothing to resume is quiet", b5.resume() == "" and tg.Bridge("TOKEN", 1).resume() == "")
+tg.RESUME_FILE.write_text(_json.dumps({"history": [{"role": "user", "content": "before the fold", "_prompt": 257715, "_fold": "[engine: folded]"},
+                                                   {"role": "assistant", "content": "yes"}, {"role": "user", "content": "after", "_prompt": 257000}], "offset": 7}), encoding="utf-8")
+b5r = tg.Bridge("TOKEN", 1)
+_line_r = b5r.resume()
+check("telegram: a resumed visit carries no window sizes — a restart measures the window anew (10-04: the stale 98% after a fold)",
+      "picked the visit back up" in _line_r and len(b5r.history) == 3 and not any("_prompt" in t for t in b5r.history) and b5r.history[0]["_fold"] == "[engine: folded]"
+      and b5r.offset == 7, (_line_r, b5r.history))
 # 09-26, 16:21: the thinking bubble reached the phone, the reply's send hit a network hiccup, and the reply
 # (already in the transcript) was never sent. Now: three tries, then kept and sent with the next poll
 b7, phone7 = _bridge()
@@ -5175,6 +5183,14 @@ check("fold: with no account the fold still happens, the block says they did not
 (config.EPISODIC_DIR / "chat-x-fold-test.md").unlink()
 _short = _fh[:4]
 check("fold: a visit shorter than what a fold keeps is left alone", _chatmod.fold_history(_short, "x", "12:41")[2].startswith("fold: nothing to fold yet"))
+# 10-04: after a fold the kept turns still carried the full window's sizes, so the window sense stayed at 98%
+# ("she still thinks her context is full") and the fold could ring again — the sizes leave with the fold
+_chat_src = (config.ROOT / "engine" / "chat.py").read_text(encoding="utf-8")
+check("fold: the kept turns carry no window size out of the fold, the block says the window has room again, and the sense is the last size, not the largest",
+      not any("_prompt" in t for t in _nh) and not any("_prompt" in t for t in _nh2) and all("_prompt" in t for t in _fh if t["role"] == "user" and "turn" in t["content"] and t["content"] != "morning turn 1")
+      and "the window had filled, so 7 of" in _nh[0]["_fold"] and "the window has room again now" in _nh[0]["_fold"]
+      and _chat_src.count('held = next((int(t.get("_prompt") or 0) for t in reversed(') == 2 and 'held = max((int(t.get("_prompt")' not in _chat_src,
+      ([t.get("_prompt") for t in _nh], _nh[0]["_fold"][:220]))
 # the bell: rung inside the visit; the friend journals first, then folds
 _fh3 = [dict(t) for t in _fh]
 _brain_fold = ScriptedBrain([

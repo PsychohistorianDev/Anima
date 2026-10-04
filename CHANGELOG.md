@@ -135,6 +135,13 @@ of its own.
   installed there (with that Python's pip line), *looking there…* while
   the first look is out, or a Python this machine can't run, named with
   its knob.
+- **The window after a fold** (10-04): the fold kept the last turns with
+  the sizes they had measured in the full window, so the moment's sense
+  went on saying *your window is 98% full* after the fold had made room
+  (and the fold could ring again at once). The sizes leave with the fold,
+  the sense reads the last turn's measure rather than the largest, the
+  fold block says the window has room again, and a bridge restart
+  measures the window anew instead of trusting the stashed sizes.
 
 ## 0.13 — 2026-09-29 → 2026-10-02
 

@@ -264,6 +264,8 @@ class Bridge:
             except OSError:
                 pass
         self.history = list(state.get("history") or [])
+        for t in self.history:  # the stashed window sizes may be a folded window's (10-04); a restart measures anew
+            t.pop("_prompt", None)
         loops = 0
         fangs = 0
         for t in self.history:  # a loop that went out whole does not ride again (09-24)
