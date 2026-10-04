@@ -7263,10 +7263,20 @@ check("doing: a mark is one file per process with what and since; marks nest and
       and _dg_src.index('_doing.mark("brain: a reply")') < _dg_src.index("return _chat(messages") and _dg.current() == [], (_dg_one, _dg_two, _dg_seen))
 # the box: a line from stubbed readings, written and fsynced, read back; the crash matched to the line before it
 _bb_out0, _bb_ps0, _bb_sc0 = _bb._out, _bb.ollama_loaded, _bb.sidecars
-_bb._out = lambda argv, timeout=4: "71, 541.2, 600.0, 29012, 32607, 97, 2550, 10501, 78, P0, 0x0000000000000004\n" if argv[0] == "nvidia-smi" else ""
+_bb_vm = "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                              123456.\nPages active:                           2000000.\nPages inactive:                          500000.\nPages speculative:                        10000.\n"
+_bb._out = lambda argv, timeout=4: ("71, 541.2, 600.0, 29012, 32607, 97, 2550, 10501, 78, P0, 0x0000000000000004\n" if argv[0] == "nvidia-smi"
+                                     else "34359738368\n" if argv[0] == "sysctl" else _bb_vm if argv[0] == "vm_stat" else "")  # a Mac runner reads RAM through _out (10-04: the mac job failed on an empty answer)
 _bb.ollama_loaded = lambda: [{"name": "gemma4:31b-it-qat", "gb": 19.0, "on_card": 100}]
 _bb.sidecars = lambda: {"painter": "loaded", "music_ear": "down"}
 _dg.mark("tool paint")
+_bb_mac0, _bb_ps_mod = _bb._MAC, sys.modules.get("psutil")
+_bb._MAC, sys.modules["psutil"] = True, None  # the Mac road of the memory reader, on every runner, psutil out of the way: free = (free + inactive pages) × page size
+_bb_mac_ram = _bb.memory_gb()
+_bb._MAC = _bb_mac0
+if _bb_ps_mod is None:
+    del sys.modules["psutil"]
+else:
+    sys.modules["psutil"] = _bb_ps_mod
 _bb_rec = _bb.sample()
 _dg.done()
 _bb_line = _bb.line(_bb_rec)
@@ -7299,7 +7309,7 @@ check("blackbox: a sample reads the card (heat, power against its limit, memory,
       _bb_rec["gpu"]["temperature_gpu"] == 71 and _bb_rec["gpu"]["power_draw"] == 541.2 and _bb_rec["gpu"]["power_limit"] == 600.0
       and _bb_rec["gpu"]["memory_used"] == 29012 and _bb_rec["gpu"]["utilization_gpu"] == 97 and _bb_rec["gpu"]["fan_speed"] == 78
       and _bb_rec["gpu"]["pstate"] == "P0" and _bb_rec["gpu"]["throttle"] == "sw power cap"
-      and _bb_rec["ram_total_gb"] and _bb_rec["disk_free_gb"] and _bb_rec["ollama"][0]["name"] == "gemma4:31b-it-qat"
+      and _bb_rec["ram_total_gb"] and _bb_rec["disk_free_gb"] and _bb_rec["ollama"][0]["name"] == "gemma4:31b-it-qat" and _bb_mac_ram == (9.5, 32.0)
       and _bb_rec["sidecars"] == {"painter": "loaded", "music_ear": "down"} and _bb_rec["doing"][0]["what"] == "tool paint"
       and "card 71°C · 541.2/600.0 W · 29012/32607 MiB · 97% · 2550 MHz · fan 78% · sw power cap" in _bb_line
       and "ollama: gemma4:31b-it-qat 19.0 GB 100%" in _bb_line and "sidecars: painter loaded" in _bb_line and "doing: " in _bb_line

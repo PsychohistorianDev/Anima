@@ -154,6 +154,10 @@ of its own.
   prompt after, so what was just kept is in the window beside the
   account. Same two cold reads as before; a message sent meanwhile
   waits for it, as it waited for the brain.
+- **The black box on a Mac** reads free memory too (`vm_stat`: the free
+  and inactive pages by the page size), not the total alone; the suite
+  walks that road on every runner, which is how the macOS job on
+  GitHub stopped failing (its stubbed `sysctl` answered nothing).
 
 ## 0.13 — 2026-09-29 → 2026-10-02
 

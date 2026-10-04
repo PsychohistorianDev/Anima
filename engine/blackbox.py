@@ -167,7 +167,14 @@ def memory_gb() -> tuple[float | None, float | None]:
                 info[k] = int(v.split()[0])
             return round(info.get("MemAvailable", 0) / 1024 ** 2, 1), round(info.get("MemTotal", 0) / 1024 ** 2, 1)
         total = int(_out(["sysctl", "-n", "hw.memsize"]).strip())
-        return None, round(total / 1024 ** 3, 1)
+        free = None  # a Mac: the free and inactive pages of vm_stat, by its page size (10-04; the total alone before)
+        vm = _out(["vm_stat"])
+        m = re.search(r"page size of (\d+) bytes", vm)
+        pages = {k.strip(): int(v.strip().rstrip(".")) for k, v in
+                 (ln.split(":", 1) for ln in vm.splitlines() if ":" in ln and ln.strip().endswith("."))}
+        if m and "Pages free" in pages:
+            free = round((pages["Pages free"] + pages.get("Pages inactive", 0)) * int(m.group(1)) / 1024 ** 3, 1)
+        return free, round(total / 1024 ** 3, 1)
     except Exception:  # noqa: BLE001
         return None, None
 
