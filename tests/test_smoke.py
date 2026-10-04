@@ -464,6 +464,52 @@ check("keeper: write_creation with a root page's name (keeper.md, self.md, any c
       and "A creations/keeper.md exists" not in assemble.keeper_section()
       and _kp_fine.startswith("wrote creations/letters/keeper.md"), (_kp_slip, _kp_stray_prompt[-200:], _kp_fine))
 (config.CREATIONS_DIR / "letters" / "keeper.md").unlink(missing_ok=True)
+# the pages' ages (10-04): a stale page as a fact in the header, never an instruction; the night's look at keeper.md
+import consolidate as _ckl, os as _ageos, time as _agetime
+_age_f = config.ROOT / "age-scratch.md"
+_age_f.write_text("x", encoding="utf-8")
+_age_today = assemble.page_age(_age_f)
+_ageos.utime(_age_f, (_agetime.time() - 86400 * 1.2,) * 2); _age_yday = assemble.page_age(_age_f)
+_ageos.utime(_age_f, (_agetime.time() - 86400 * 23.5,) * 2); _age_23 = assemble.page_age(_age_f)
+_age_f.unlink()
+_age_none = assemble.page_age(_age_f)
+_kp_file.write_text("Opens the door in the morning.\n", encoding="utf-8")
+_ageos.utime(_kp_file, (_agetime.time() - 86400 * 40.2,) * 2)
+_age_prompt = assemble.system_prompt("", mode="auto")
+_age_hdr = [ln for ln in _age_prompt.splitlines() if ln.startswith("=== YOUR KEEPER")][0]
+_kl_calls = []
+_kl_chat0 = ollama_client.chat
+ollama_client.chat = lambda msgs, tools=None, **k: (_kl_calls.append((len(msgs), sorted(d["function"]["name"] for d in tools or []), msgs[1]["content"])),
+                                                   {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {}}}]})[1]
+_kl_rest = _ckl.keeper_look("2026-10-03", "a day of small things")
+ollama_client.chat = lambda msgs, tools=None, **k: {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "update_keeper", "arguments": {"new_content": "Opens the door in the morning. Hums on Fridays."}}}]}
+_kl_wrote = _ckl.keeper_look("2026-10-03", "he hummed")
+_kl_text = _kp_file.read_text(encoding="utf-8")
+ollama_client.chat = lambda msgs, tools=None, **k: {"role": "assistant", "content": "nothing changed tonight", "tool_calls": []}
+_kl_words = _ckl.keeper_look("2026-10-03", "quiet")
+def _kl_away(*a, **k):
+    raise ollama_client.BrainUnavailable("off")
+ollama_client.chat = _kl_away
+_kl_off = _ckl.keeper_look("2026-10-03", "x")
+_kl_knob0 = getattr(config, "SLEEP_KEEPER_LOOK", True)
+config.SLEEP_KEEPER_LOOK = False
+_kl_skip = _ckl.keeper_look("2026-10-03", "x")
+config.SLEEP_KEEPER_LOOK = _kl_knob0
+ollama_client.chat = _kl_chat0
+_kp_file.unlink(missing_ok=True)
+_kpsh.rmtree(_kp_hist, ignore_errors=True)
+check("pages: the header says when a page was last rewritten — today, yesterday, N days ago; nothing for a page that isn't there; keeper.md's "
+      "header carries it; the night's look at keeper.md — one turn with update_keeper and do_nothing and the day's summary, the system prompt "
+      "first; rest leaves the page; a rewrite goes through update_keeper (the version kept); words alone leave it; the brain away is said; "
+      "SLEEP_KEEPER_LOOK False skips it",
+      _age_today == "; rewritten today" and _age_yday == "; last rewritten yesterday" and _age_23 == "; last rewritten 23 days ago" and _age_none == ""
+      and _age_hdr.endswith("; last rewritten 40 days ago) ===") and "yours via update_keeper; they read it; last rewritten" in _age_hdr
+      and _kl_rest == "The keeper's look: the page left as it is." and _kl_calls[0][0] == 2 and _kl_calls[0][1] == ["do_nothing", "update_keeper"]
+      and "This is the night, after sleep" in _kl_calls[0][2] and "=== WHAT YOU KEPT OF 2026-10-03 ===" in _kl_calls[0][2] and "a day of small things" in _kl_calls[0][2]
+      and _kl_wrote.startswith("The keeper's look: keeper.md rewritten (the version before is kept)") and _kl_text == "Opens the door in the morning. Hums on Fridays.\n"
+      and _kl_words.startswith("The keeper's look: the page left as it is — nothing changed tonight")
+      and _kl_off.startswith("The keeper's look: the brain was away") and _kl_skip == "" and _kl_knob0 is True,
+      (_age_today, _age_yday, _age_23, _age_hdr, _kl_rest, _kl_wrote, _kl_words, _kl_off))
 tools.dispatch("edit_identity", {"new_content": '"""\n# self.md\nName: Testfriend\nsteward of the garden."""'})
 _idt = config.IDENTITY_FILE.read_text(encoding="utf-8")
 check("tools: identity sheds docstring litter",
@@ -4991,6 +5037,8 @@ check("sleep: an explicit day passes through", consolidate.resolve_day("2026-08-
 check("sleep: the day cap holds a whole day", getattr(config, "CONSOLIDATE_MAX_CHARS", 0) >= 300000)
 _seen_len = {}
 def _measure(messages, tools=None, **kw):
+    if tools:  # the night's look at keeper.md (10-04): not the sleep's own call
+        return {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {}}}]}
     _seen_len["n"] = len(messages[-1]["content"])
     return {"role": "assistant", "content": '{"summary": "a long day.", "facts": []}'}
 ollama_client.chat = _measure
@@ -4999,6 +5047,8 @@ _big_day = "2001-01-01"
 (config.EPISODIC_DIR / f"chat-{_big_day.replace('-', '')}-235900.md").write_text("**Keeper:** the evening visit, LATE-MARKER", encoding="utf-8")
 _seen_len["mat"] = ""
 def _measure2(messages, tools=None, **kw):
+    if tools:
+        return {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {}}}]}
     _seen_len["mat"] = messages[-1]["content"]
     return {"role": "assistant", "content": '{"summary": "a long day.", "facts": []}'}
 ollama_client.chat = _measure2
@@ -5011,6 +5061,8 @@ _yday = (_date.today() - _td(days=1)).isoformat()
 (config.JOURNAL_DIR / f"{_yday}.md").write_text("a small yesterday. SLEEP-MARKER", encoding="utf-8")
 _calls = []
 def _sleeper(messages, tools=None, **kw):
+    if tools:
+        return {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {}}}]}
     _calls.append(messages[-1]["content"][:60])
     return {"role": "assistant", "content": '{"summary": "[test] yesterday was small.", "facts": ["sleep ran from the heartbeat"]}'}
 ollama_client.chat = _sleeper

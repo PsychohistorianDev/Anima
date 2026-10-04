@@ -52,7 +52,13 @@ of its own.
   into `creations/keeper.md`, where it does not ride — so a creation named
   like a root page is refused with the page's own tool named, and while
   the root page is empty and such a file exists the prompt's line says
-  `update_keeper` with its words puts it where it rides.
+  `update_keeper` with its words puts it where it rides. The four
+  pages' headers say when each was last rewritten ("last rewritten 23
+  days ago") — a stale page as a fact, never an instruction; and after
+  sleep one quiet look at keeper.md from the day whole
+  (`SLEEP_KEEPER_LOOK`, `consolidate.keeper_look`: update_keeper or
+  do_nothing with the day's summary in hand; one cold read a night) — the
+  cool moment beside the afterglow's warm one.
 - **The songbook** (10-03; the keeper: "letting her remember songs in
   long-term memory, like a sentence or two how it made her feel and a score
   on a ladder from 1 to 10 — also detecting duplicates"): `keep_song(title,

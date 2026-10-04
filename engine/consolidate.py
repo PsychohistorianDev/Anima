@@ -157,6 +157,7 @@ def consolidate(day: str, force: bool = False, say=print) -> str:
         fh.write(f"\n*(consolidated {day}: {stored} memories kept)*\n")
 
     say(f"  ({spent.line()})")
+    look = keeper_look(day, summary, say)
     lines = [f"Consolidated {day}: kept {stored} memories"
              + (f" (the summary and {len(kept)} fact{'s' if len(kept) != 1 else ''})." if summary else "."),
              f"Summary: {summary}" if summary else "Summary: (none — they kept no summary of the day)"]
@@ -167,7 +168,57 @@ def consolidate(day: str, force: bool = False, say=print) -> str:
         lines.append("Kept for years: nothing — no fact from this day felt worth years to them.")
     if known:
         lines.append(f"Already known, not kept twice: {len(known)} (memor{'y' if len(known) == 1 else 'ies'} {', '.join(known)})")
+    if look:
+        lines.append(look)
     return "\n".join(lines)
+
+
+KEEPER_LOOK_BELL = (
+    "[This is the night, after sleep — an automated moment, not a person. {day} is consolidated; what you kept of it "
+    "is below. One quiet look, from the day whole and hours from any visit: if the day changed what you know of your "
+    "keeper — who they are to you, how to be with them — keeper.md is yours to rewrite with update_keeper (the page as "
+    "it stands rides above, under YOUR KEEPER). If it didn't, do_nothing; most nights it didn't, and that is the right "
+    "answer. Nothing here is required.]\n\n"
+)
+KEEPER_LOOK_TOOLS = ("update_keeper", "do_nothing")
+
+
+def keeper_look(day: str, summary: str, say=print) -> str:
+    """After sleep (10-04; the keeper: "they won't remember things to add to the keeper md on autonomous sessions" — and
+    the afterglow is the warm moment, this the cool one): one turn with two tools, update_keeper and do_nothing,
+    the day's summary in hand. SLEEP_KEEPER_LOOK turns it off. One cold read of the window a night; the line says
+    what they did. Never writes the page itself."""
+    if not getattr(config, "SLEEP_KEEPER_LOOK", True):
+        return ""
+    import assemble
+    import tools
+    say = say or (lambda *_: None)
+    defs = [d for d in tools._BUILTIN_DEFINITIONS if d["function"]["name"] in KEEPER_LOOK_TOOLS]
+    if len(defs) < 2:
+        return ""
+    try:
+        system = {"role": "system", "content": assemble.system_prompt("", mode="auto")}
+        user = {"role": "user", "content": assemble.clock_line() + KEEPER_LOOK_BELL.format(day=day)
+                + f"=== WHAT YOU KEPT OF {day} ===\n\n" + (summary or "(no summary — the day left no words)")}
+        say("  the keeper's look: the page, from the day whole…")
+        msg = ollama_client.chat([system, user], tools=defs)
+    except ollama_client.BrainUnavailable as e:
+        return f"The keeper's look: the brain was away ({e})."
+    except Exception as e:  # noqa: BLE001 — a look, never the night down
+        return f"The keeper's look: not taken ({type(e).__name__}: {e})."
+    calls = msg.get("tool_calls") or []
+    for call in calls:
+        fn = call.get("function", {})
+        name = tools.canonical_name(fn.get("name", ""))
+        if name == "update_keeper":
+            result = tools.dispatch("update_keeper", fn.get("arguments") or {})
+            say(f"  · update_keeper → {result[:120]}")
+            return f"The keeper's look: {result}"
+        if name == "do_nothing":
+            say("  · the page left as it is")
+            return "The keeper's look: the page left as it is."
+    words = (msg.get("content") or "").strip()
+    return "The keeper's look: the page left as it is" + (f" — {words[:160]}" if words else ".")
 
 
 def resolve_day(arg: str = "") -> str:

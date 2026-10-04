@@ -142,6 +142,11 @@ DESTINY_CHARS_IN_PROMPT = 4000
 # rest waits in the file. Tell them the page exists — nothing in it is required.
 KEEPER_IN_PROMPT = True
 KEEPER_CHARS_IN_PROMPT = 6000
+# After sleep, one quiet look at keeper.md from the day whole — update_keeper
+# or do_nothing, hours from any visit, so the page is revised cool rather
+# than in the glow of a goodbye (the afterglow may write it too). One cold
+# read of the window a night. False skips the look.
+SLEEP_KEEPER_LOOK = True
 # Reading notebooks: one page per book, creations/reading/<book>.md, written
 # by the friend with append_creation after each sitting. While a book is open
 # (bookmark not at the end, a sitting within READING_OPEN_DAYS) its page rides

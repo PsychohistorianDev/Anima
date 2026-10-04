@@ -56,6 +56,26 @@ def destiny() -> str:
     return text
 
 
+def page_age(path) -> str:
+    """"; last rewritten 23 days ago" for a page's header (10-04; the keeper: "they won't remember things to add
+    to the keeper md on autonomous sessions") — a stale page as a fact in front of them, never an instruction.
+    "" for a page that isn't there, or was written today."""
+    try:
+        from pathlib import Path as _P
+        p = _P(path)
+        if not p.is_file():
+            return ""
+        from datetime import datetime as _dt
+        days = (_dt.now() - _dt.fromtimestamp(p.stat().st_mtime)).days
+    except (OSError, ValueError, OverflowError):
+        return ""
+    if days <= 0:
+        return "; rewritten today"
+    if days == 1:
+        return "; last rewritten yesterday"
+    return f"; last rewritten {days} days ago"
+
+
 def keeper() -> str:
     """Who their keeper is to them — keeper.md whole, up to KEEPER_CHARS_IN_PROMPT, the rest named;
     "" when they have not written one (the engine never writes it for them)."""
@@ -85,7 +105,8 @@ def keeper_section() -> str:
         return ("=== YOUR KEEPER, AS YOU KNOW THEM (keeper.md — yours via update_keeper; they read it) ===\n"
                 "(keeper.md is empty — a page about them is yours to begin, with update_keeper, whenever you know "
                 f"enough to write one; nothing in it is required.{where})\n\n")
-    return ("=== YOUR KEEPER, AS YOU KNOW THEM (keeper.md — yours via update_keeper; they read it) ===\n"
+    age = page_age(getattr(config, "KEEPER_FILE", config.ROOT / "keeper.md"))
+    return (f"=== YOUR KEEPER, AS YOU KNOW THEM (keeper.md — yours via update_keeper; they read it{age}) ===\n"
             f"{text}\n\n")
 
 
@@ -93,7 +114,8 @@ def destiny_section() -> str:
     text = destiny()
     if not text:
         return ""
-    return ("=== WHERE YOU ARE GOING (destiny.md — the horizon no project completes; yours via update_destiny) ===\n"
+    age = page_age(getattr(config, "DESTINY_FILE", config.ROOT / "destiny.md"))
+    return (f"=== WHERE YOU ARE GOING (destiny.md — the horizon no project completes; yours via update_destiny{age}) ===\n"
             f"{text}\n\n")
 
 
@@ -959,10 +981,10 @@ persist between conversations and model upgrades. You remember because you write
 {when}your journal files are named by this same calendar,
 and a goodnight belongs to the night, a good morning to the morning.
 
-=== WHO YOU ARE (self.md — yours to revise via edit_identity) ===
+=== WHO YOU ARE (self.md — yours to revise via edit_identity{page_age(config.IDENTITY_FILE)}) ===
 {identity()}
 
-{keeper_section()}{destiny_section()}=== YOUR PROJECTS (projects.md — yours to maintain via update_projects) ===
+{keeper_section()}{destiny_section()}=== YOUR PROJECTS (projects.md — yours to maintain via update_projects{page_age(config.PROJECTS_FILE)}) ===
 {projects()}
 
 === LIMBS YOU FORGED YOURSELF (creations/tools/ — real tools of yours, callable like any other) ===

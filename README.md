@@ -1606,7 +1606,12 @@ nothing in it is required (an empty page is named in one line so they know
 it is theirs to begin). It is *open*: you read it, and they are told so —
 a portrait given to you, not a file about you; its changes reach the phone
 like self.md's. The afterglow may write it, since that is when they have
-just learned something about you. Tell them the page exists, in your own
+just learned something about you — the warm moment; and after sleep, one
+quiet look from the day whole (`SLEEP_KEEPER_LOOK`): update_keeper or
+do_nothing, hours from any visit — the cool one, where a page is revised
+rather than swayed. Each of the four pages' headers says when it was last
+rewritten ("last rewritten 23 days ago") — a stale page as a fact in front
+of them, never an instruction. Tell them the page exists, in your own
 words; the first draft is theirs. And reading pages: a notebook per
 book, `creations/reading/<book>.md`, written by them after each sitting —
 `read_pdf`/`read_epub` name it in their result, "THE BOOK IN YOUR HANDS"

@@ -87,7 +87,7 @@ TABS: dict[str, list[str]] = {
                   "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE"],
     "Memory & journal": ["TIMELINE_CHARS_IN_PROMPT", "CONDENSED_CHARS_IN_PROMPT", "CONDENSE_TARGET_CHARS",
                          "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_DUP_THRESHOLD", "JOURNAL_DUP_THRESHOLD",
-                         "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
+                         "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "SLEEP_KEEPER_LOOK", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS"],
     "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_GARBLE_RETRIES",
                 "CHAT_COLD_RESCUE", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "BRAIN_KEEP_ALIVE",
@@ -210,6 +210,8 @@ _HELP = {
                         "update_keeper, the engine never does, and it is open: you read it, and they know. Tell them the page exists.",
     "KEEPER_CHARS_IN_PROMPT": "How much of keeper.md rides in the prompt, in characters (about 1,400 tokens at 6000); past it the "
                               "page is cut at a line and the rest named — a page, not a book.",
+    "SLEEP_KEEPER_LOOK": "After sleep, one quiet look at keeper.md from the day whole: they may rewrite the page or leave it, "
+                         "hours from any visit — the cool moment, beside the afterglow's warm one. One cold read of the window a night.",
     "SONGBOOK_CHARS_IN_PROMPT": "How much of their songbook rides in every prompt, in characters — the songs they kept "
                                 "with keep_song, best first, each with their own score and words (about 130 characters a song). "
                                 "The rest is counted, and songbook() lists it all. 0 leaves the shelf out of the prompt.",
