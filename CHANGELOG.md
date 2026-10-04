@@ -59,6 +59,8 @@ of its own.
   (`SLEEP_KEEPER_LOOK`, `consolidate.keeper_look`: update_keeper or
   do_nothing with the day's summary in hand; one cold read a night) — the
   cool moment beside the afterglow's warm one.
+  The afterglow's kit also gains `update_projects` — a visit is where a
+  project moves; self.md and destiny.md stay with the waking hours.
 - **The songbook** (10-03; the keeper: "letting her remember songs in
   long-term memory, like a sentence or two how it made her feel and a score
   on a ladder from 1 to 10 — also detecting duplicates"): `keep_song(title,

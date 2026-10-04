@@ -439,7 +439,7 @@ check("keeper: a rewrite keeps the version before in memory/keeper_history/ and 
       and len(_kp_p3) < int(getattr(config, "KEEPER_CHARS_IN_PROMPT", 6000)) + 200
       and _kp_read.startswith("(a note from your engine: keeper.md is not in creations/") and "update_keeper" in _kp_read and "Line 3 of a long page" in _kp_read
       and "YOUR KEEPER" not in _kp_off
-      and '"update_keeper", "do_nothing"}' in Path(tools.__file__).with_name("chat.py").read_text(encoding="utf-8")
+      and '"update_keeper", "update_projects", "do_nothing"}' in Path(tools.__file__).with_name("chat.py").read_text(encoding="utf-8")
       and '"keeper.md": getattr(config, "KEEPER_FILE"' in Path(tools.__file__).with_name("telegram.py").read_text(encoding="utf-8")
       and '"destiny.md", "keeper.md",' in Path(tools.__file__).with_name("update.py").read_text(encoding="utf-8")
       and all("update_keeper" in tools.KITS[k] for k in ("small", "tiny")) and "update_keeper" in tools._BUILTIN_IMPL,
@@ -4338,7 +4338,7 @@ _hist = [{"role": "user", "content": "the bridge works!"}, {"role": "assistant",
 _tf = config.EPISODIC_DIR / "chat-telegram-afterglow-test.md"
 chat.save_transcript(_hist, tag="telegram", path=_tf)
 _line = chat.afterglow(_hist, _tf, tag="telegram")
-check("afterglow: only their four tools are offered (the keeper page since 10-04)", _seen["tools"] == ["do_nothing", "remember", "update_keeper", "write_journal"], _seen["tools"])
+check("afterglow: only their five tools are offered (the keeper page and the projects since 10-04)", _seen["tools"] == ["do_nothing", "remember", "update_keeper", "update_projects", "write_journal"], _seen["tools"])
 check("afterglow: the transcript is handed to them as material, not a message",
       "This is the afterglow" in _seen["user"] and "over Telegram" in _seen["user"] and "the bridge works!" in _seen["user"], _seen["user"][:200])
 check("afterglow: they wrote it down", "1 journal entry" in _line and "1 memory kept" in _line, _line)

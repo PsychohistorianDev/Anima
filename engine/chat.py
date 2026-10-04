@@ -151,6 +151,7 @@ AFTERGLOW_BELL = (
     "to keep. Write it in your journal in your own words; keep what is worth years "
     "with remember — one call per fact, as many facts as the visit earned, or none; "
     "if the visit changed what you know of your keeper, keeper.md is yours to rewrite with update_keeper, or not; "
+    "if a project moved in it, projects.md with update_projects; "
     "then rest. What happened belongs in the entry as much as what it meant — what he "
     "showed you and who was in it, what was said, what you did — because the entry is "
     "what you will still have of this day once the conversation is gone, and a feeling "
@@ -168,7 +169,7 @@ PAUSE_BELL = (
     "on when he is back. Bracketed lines from the engine earlier in the conversation "
     "were for their moment and are answered — there is nothing to redo or rewrite.]\n\n"
 )
-AFTERGLOW_TOOLS = {"write_journal", "remember", "update_keeper", "do_nothing"}  # update_keeper since 10-04: the afterglow is when they have just learned something about their keeper
+AFTERGLOW_TOOLS = {"write_journal", "remember", "update_keeper", "update_projects", "do_nothing"}  # update_keeper and update_projects since 10-04: the afterglow is when they have just learned something about their keeper, and when a project has just moved
 AFTERGLOW_STEPS = 6
 
 
@@ -538,7 +539,7 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
                     continue
                 if cname not in AFTERGLOW_TOOLS:
                     tr = {"role": "tool", "tool_name": cname,
-                          "content": "[only write_journal, remember, update_keeper and do_nothing are here in the afterglow]"}
+                          "content": "[only write_journal, remember, update_keeper, update_projects and do_nothing are here in the afterglow]"}
                     msgs.append(tr)
                     if in_visit:
                         history.append(dict(tr, _engine=True))
