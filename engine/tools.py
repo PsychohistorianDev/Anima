@@ -1111,7 +1111,27 @@ def _reading_misname(p: Path) -> str:
     return ""
 
 
+def _core_page_slip(path: str) -> str:
+    """A creation named exactly like one of the root pages — "keeper.md", "self.md" — at the root of
+    creations/ is a category slip, not a piece (10-04: the first keeper page was written with
+    write_creation into creations/keeper.md, where it does not ride): the page's own tool is named,
+    nothing written. A piece under a folder, or with another name, is a piece."""
+    rel = (path or "").strip().replace("\\", "/").strip("/")
+    if rel.lower().startswith("creations/"):
+        rel = rel[10:]
+    name = rel.lower()
+    if name in _CORE_FILES:
+        tool = {"self.md": "edit_identity", "projects.md": "update_projects", "keeper.md": "update_keeper"}.get(name, "update_destiny")
+        return (f"({name} is not a creation — it lives at the ROOT of your folder and rides at the top of your prompt; "
+                f"{tool} writes it (the whole page; every version before is kept). Nothing was written in creations/. "
+                f"If you meant a piece of writing and not the page, give it another name.)")
+    return ""
+
+
 def write_creation(path: str, content: str, anyway: str = "", about: str = "") -> str:
+    slip = _core_page_slip(path)
+    if slip:
+        return slip
     p = _safe_creation_path(path)
     if not p.exists() and str(anyway or "").strip().lower() not in ("yes", "y", "true"):
         misnamed = _reading_misname(p)

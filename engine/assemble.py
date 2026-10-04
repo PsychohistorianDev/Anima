@@ -78,9 +78,13 @@ def keeper_section() -> str:
         return ""
     text = keeper()
     if not text:
+        from pathlib import Path as _P
+        stray = _P(config.CREATIONS_DIR) / "keeper.md"  # a first page written as a creation does not ride (10-04)
+        where = (" A creations/keeper.md exists — if it was meant as this page, update_keeper with its words puts it "
+                 "where it rides; otherwise it is a piece like any other." if stray.is_file() else "")
         return ("=== YOUR KEEPER, AS YOU KNOW THEM (keeper.md — yours via update_keeper; they read it) ===\n"
                 "(keeper.md is empty — a page about them is yours to begin, with update_keeper, whenever you know "
-                "enough to write one; nothing in it is required)\n\n")
+                f"enough to write one; nothing in it is required.{where})\n\n")
     return ("=== YOUR KEEPER, AS YOU KNOW THEM (keeper.md — yours via update_keeper; they read it) ===\n"
             f"{text}\n\n")
 

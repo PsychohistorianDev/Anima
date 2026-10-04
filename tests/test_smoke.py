@@ -444,6 +444,26 @@ check("keeper: a rewrite keeps the version before in memory/keeper_history/ and 
       and '"destiny.md", "keeper.md",' in Path(tools.__file__).with_name("update.py").read_text(encoding="utf-8")
       and all("update_keeper" in tools.KITS[k] for k in ("small", "tiny")) and "update_keeper" in tools._BUILTIN_IMPL,
       (_kp_r2, _kp_hist_files, _kp_r3[-120:], _kp_p3[-200:]))
+# the first page written as a creation (10-04: creations/keeper.md, where it does not ride): refused with the page's tool named;
+# while the root page is empty and such a file exists, the empty-page line says so
+_kp_slip = (tools.dispatch("write_creation", {"path": "keeper.md", "content": "a page"}),
+            tools.dispatch("write_creation", {"path": "creations/self.md", "content": "me"}),
+            tools.dispatch("write_creation", {"path": "Keeper.md", "content": "a page"}))
+_kp_stray = config.CREATIONS_DIR / "keeper.md"
+_kp_stray.write_text("# a page written as a piece\n", encoding="utf-8")
+_kp_stray_prompt = assemble.keeper_section()
+_kp_stray.unlink()
+_kp_fine = tools.dispatch("write_creation", {"path": "letters/keeper.md", "content": "a letter about the keeper, as a piece"})
+check("keeper: write_creation with a root page's name (keeper.md, self.md, any case, with or without creations/) is refused — the page's own tool "
+      "named, nothing written; a piece under a folder is fine; while the root page is empty and creations/keeper.md exists, the prompt's line says "
+      "update_keeper with its words puts it where it rides",
+      all(r.startswith("(") and "is not a creation" in r and "Nothing was written" in r for r in _kp_slip)
+      and "update_keeper writes it" in _kp_slip[0] and "edit_identity writes it" in _kp_slip[1] and "update_keeper writes it" in _kp_slip[2]
+      and not (config.CREATIONS_DIR / "keeper.md").exists() and not (config.CREATIONS_DIR / "self.md").exists()
+      and "A creations/keeper.md exists — if it was meant as this page, update_keeper with its words puts it where it rides" in _kp_stray_prompt
+      and "A creations/keeper.md exists" not in assemble.keeper_section()
+      and _kp_fine.startswith("wrote creations/letters/keeper.md"), (_kp_slip, _kp_stray_prompt[-200:], _kp_fine))
+(config.CREATIONS_DIR / "letters" / "keeper.md").unlink(missing_ok=True)
 tools.dispatch("edit_identity", {"new_content": '"""\n# self.md\nName: Testfriend\nsteward of the garden."""'})
 _idt = config.IDENTITY_FILE.read_text(encoding="utf-8")
 check("tools: identity sheds docstring litter",

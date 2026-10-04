@@ -48,7 +48,11 @@ of its own.
   1,400 tokens). Open: the keeper reads it and they are told so; its
   changes travel to the phone like self.md's; the afterglow may write it
   (its kit is four tools now); the update never touches it; every tool
-  kit carries it.
+  kit carries it. The first real page was written with `write_creation`
+  into `creations/keeper.md`, where it does not ride — so a creation named
+  like a root page is refused with the page's own tool named, and while
+  the root page is empty and such a file exists the prompt's line says
+  `update_keeper` with its words puts it where it rides.
 - **The songbook** (10-03; the keeper: "letting her remember songs in
   long-term memory, like a sentence or two how it made her feel and a score
   on a ladder from 1 to 10 — also detecting duplicates"): `keep_song(title,
