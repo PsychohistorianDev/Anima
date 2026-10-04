@@ -7269,10 +7269,10 @@ _bb._out = lambda argv, timeout=4: ("71, 541.2, 600.0, 29012, 32607, 97, 2550, 1
 _bb.ollama_loaded = lambda: [{"name": "gemma4:31b-it-qat", "gb": 19.0, "on_card": 100}]
 _bb.sidecars = lambda: {"painter": "loaded", "music_ear": "down"}
 _dg.mark("tool paint")
-_bb_mac0, _bb_ps_mod = _bb._MAC, sys.modules.get("psutil")
-_bb._MAC, sys.modules["psutil"] = True, None  # the Mac road of the memory reader, on every runner, psutil out of the way: free = (free + inactive pages) × page size
+_bb_mac0, _bb_win0, _bb_ps_mod = _bb._MAC, _bb._WINDOWS, sys.modules.get("psutil")
+_bb._MAC, _bb._WINDOWS, sys.modules["psutil"] = True, False, None  # the Mac road of the memory reader, on every runner (the Windows road is asked first — off too), psutil out of the way: free = (free + inactive pages) × page size
 _bb_mac_ram = _bb.memory_gb()
-_bb._MAC = _bb_mac0
+_bb._MAC, _bb._WINDOWS = _bb_mac0, _bb_win0
 if _bb_ps_mod is None:
     del sys.modules["psutil"]
 else:
