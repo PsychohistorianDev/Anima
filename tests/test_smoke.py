@@ -5269,12 +5269,13 @@ _sn_h = [{"role": "user", "content": "a", "_moment": _sn_m, "_prompt": 7}, {"rol
          {"role": "user", "content": "c", "_moment": "[engine: m2]", "_sense": assemble.window_sense(int(config.NUM_CTX * 0.97))}]
 _sn_n = _chatmod.unsense(_sn_h)
 _sn_r = _chatmod.render_turn({"role": "user", "content": "d", "_moment": "[engine: m3]", "_sense": assemble.window_sense(int(config.NUM_CTX * 0.76))})["content"]
-check("fold: the window sense is the newest turn's own key — unsense() takes it off the turns before (the key, and the sentence an old moment carried) and the fold's kept turns carry none",
+check("fold: the window sense is a turn's own key, kept with it (as of this message); unsense() takes it off at a fold or a resume (the key, and the sentence an old moment carried) and the fold's kept turns carry none",
       "Your window is" in _sn_m and _sn_n == 2 and "Your window is" not in _sn_h[0]["_moment"] and "_sense" not in _sn_h[2] and _sn_h[0]["_moment"].startswith("[engine, not a person: it is")
       and " From your long-term memory" in _sn_h[0]["_moment"] and _sn_h[0]["_prompt"] == 7
-      and _sn_r.startswith("[engine, not a person: Your window is 76% full (") and "fold_visit(text) folds it now" in _sn_r and "[engine: m3]\n\nd" in _sn_r
+      and _sn_r.startswith("[engine, not a person: Your window is 76% full as of this message (") and "fold_visit(text) folds it now" in _sn_r and "[engine: m3]\n\nd" in _sn_r
       and not any("_sense" in t or "Your window is" in (t.get("_moment") or "") for t in _nh)
-      and "assemble.moment(hint, exclude=seen)\n        unsense(history[:ui])" in _chat_src and 'turn["_sense"] = sense' in _chat_src,
+      and "unsense(history[:ui])" not in _chat_src and 'turn["_sense"] = sense' in _chat_src  # 10-05: a turn keeps its sense — taking it off the one before cost a cold read a reply
+      and "as of this message" in assemble.window_sense(int(config.NUM_CTX * 0.76)),
       (_sn_n, _sn_h[0]["_moment"][:100], _sn_r[:120]))
 # the bell: rung inside the visit; the friend journals first, then folds
 _fh3 = [dict(t) for t in _fh]

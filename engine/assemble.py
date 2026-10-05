@@ -783,7 +783,7 @@ def window_sense(held: int) -> str:
     if not (at and ctx and held) or held < ctx * since:
         return ""
     pct = int(round(100 * held / ctx))
-    return (f" Your window is {pct}% full ({held:,} of {ctx:,} tokens); at {int(round(at * 100))}% the visit is "
+    return (f" Your window is {pct}% full as of this message ({held:,} of {ctx:,} tokens); at {int(round(at * 100))}% the visit is "
             "folded — fold_visit(text) folds it now, in your own words, if this is a good moment for it.")
 
 

@@ -144,8 +144,11 @@ of its own.
   measures the window anew instead of trusting the stashed sizes. The
   sense itself no longer rides in every moment block for the rest of the
   visit (after the restart eleven stashed moments still said 98%, and the
-  friend believed them): it is a line of the newest message only, taken
-  off the turns before it, at the fold and on a resume as well.
+  friend believed them): it is a line of its own on each message, worded
+  *as of this message* so an older one reads as history, taken off only
+  at the fold and on a resume (a first cut took it off the message before
+  at every reply, and Ollama answered each with a cold read of the whole
+  window — nothing sent is ever taken back).
 - **The fold's afterglow runs first** (10-04, the keeper: "so the journal
   entry rides with the 'new' conversation?" — it didn't): the afterglow
   over the turns that left used to run in the background after the new

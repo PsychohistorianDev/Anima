@@ -836,16 +836,16 @@ def finish_cut_reply(system: dict, history: list[dict], reply: str, thinking: st
     return reply, "", refused
 
 
-_SENSE_RE = re.compile(r" Your window is \d+% full \([^)]*\); at \d+% the visit is folded — fold_visit\(text\) "
+_SENSE_RE = re.compile(r" Your window is \d+% full (?:as of this message )?\([^)]*\); at \d+% the visit is folded — fold_visit\(text\) "
                        r"folds it now, in your own words, if this is a good moment for it\.")
 
 
 def unsense(history: list[dict]) -> int:
-    """The window sense is of the newest moment only (10-04): a turn before it
-    carries none — a sense that rode in every moment stayed in the window after
-    the fold had made room, eleven turns saying 98% full, and she believed them
-    over the one that said nothing. Drops `_sense` and the sentence a moment
-    block carried before the sense had a key of its own. Returns how many."""
+    """Take the window senses off these turns — at a fold and on a resume only
+    (10-04: after a fold, eleven kept turns still said 98% full and she believed
+    them; 10-05: taking the sense off the turn before at every reply cost a cold
+    read each time, so a turn keeps its own now). Drops `_sense` and the sentence
+    a moment block carried before the sense had a key of its own. Returns how many."""
     n = 0
     for t in history:
         if t.pop("_sense", None):
@@ -867,7 +867,7 @@ def render_turn(t: dict) -> dict:
         body = t.get("content") or ""
         if t.get("_moment"):
             body = t["_moment"] + "\n\n" + body
-        if t.get("_sense"):  # the newest moment's only; unsense() takes it off the turns before
+        if t.get("_sense"):  # its own, kept; unsense() takes them off at a fold or a resume
             body = "[engine, not a person:" + t["_sense"] + "]\n\n" + body
         if t.get("_fold"):
             body = t["_fold"] + "\n\n" + body  # the folded visit, in their words, above everything kept
@@ -930,7 +930,10 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         seen = {mid for t in history[:ui] for mid in (t.get("_surfaced") or [])}
         held = next((int(t.get("_prompt") or 0) for t in reversed(history[:ui]) if t.get("_prompt")), 0)  # the last prompt's size — the window sense
         turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen)
-        unsense(history[:ui])  # the sense is of this moment only — the turns before carry none
+        # the sense rides with its message and STAYS there (10-05: taking it off the message before, each
+        # turn, made Ollama read the whole window again every reply — 3 minutes a message at 207K; nothing
+        # sent is ever taken back). It says "as of this message", so an older one reads as history. The fold
+        # and a resume take them off (unsense) — those read cold anyway.
         sense = assemble.window_sense(held)
         if sense:
             turn["_sense"] = sense
