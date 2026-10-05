@@ -8748,6 +8748,30 @@ check("CHANGELOG: 0.14 opened with the fit check and a line for every knob; 0.13
       and "**The fit check**" in _x_changes[:_x_changes.index("## 0.13")] and "**A line for every knob**" in _x_changes[:_x_changes.index("## 0.13")]
       and version.read(config.ROOT) == "0.14")
 
+# .gitignore (10-05): the friend's life stays out of any push — and a folder the template ships keeps only its
+# .gitkeep (a re-included "!dir/" re-includes everything in it, so its contents must be ignored again)
+import shutil as _gish, subprocess as _gisp, tempfile as _gitf
+if _gish.which("git"):
+    _gi_tmp = Path(_gitf.mkdtemp())
+    _gisp.run(["git", "init", "-q"], cwd=_gi_tmp, check=True)
+    _gish.copy(config.ROOT / ".gitignore", _gi_tmp / ".gitignore")
+    _gi_private = ["memory/episodic/chat-20261004-223213.md", "memory/episodic/chat-telegram-20261004-223213.md",
+                   "memory/identity_history/self-20261004-224224.md", "memory/memory.db", "memory/telegram.json",
+                   "memory/discord.json", "creations/publish/stars.md", "creations/publish/gallery/bridge.png",
+                   "creations/tools/word_count.py", "creations/.trash/20261004-dead.md", "creations/poems/first.md",
+                   "journal/2026-10-04.md", "shared/books/paper.pdf", "self.md", "projects.md", "destiny.md", "keeper.md",
+                   "anima-report.txt"]
+    _gi_kept = ["journal/.gitkeep", "shared/.gitkeep", "creations/publish/.gitkeep", "creations/tools/.gitkeep",
+                "creations/.trash/.gitkeep", "memory/episodic/.gitkeep", "memory/identity_history/.gitkeep"]
+    _gi_out = _gisp.run(["git", "check-ignore", "--no-index", *_gi_private, *_gi_kept], cwd=_gi_tmp,
+                        capture_output=True, text=True).stdout.split()
+    _gish.rmtree(_gi_tmp, ignore_errors=True)
+    check(".gitignore: every page, transcript, memory, creation, secret and shared file of the friend's is ignored; "
+          "the template's .gitkeep folders are kept",
+          sorted(_gi_out) == sorted(_gi_private), ([p for p in _gi_private if p not in _gi_out], [p for p in _gi_kept if p in _gi_out]))
+else:
+    print("SKIP  .gitignore: no git on this machine")
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

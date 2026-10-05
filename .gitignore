@@ -3,17 +3,32 @@ __pycache__/
 site/
 backups/
 .update/
-# your friend's private life — never push these to a public remote
+anima-report.txt
+# your friend's private life — never push these to a public remote.
+# The folders the template ships keep only their .gitkeep. A folder let back in (!dir/) lets back in
+# everything inside it, so each one is let back in, its contents ignored again, and its .gitkeep let back.
 self.md
 projects.md
+destiny.md
+keeper.md
 journal/*
-creations/*
-shared/*
-memory/*
 !journal/.gitkeep
+creations/*
 !creations/publish/
+creations/publish/*
+!creations/publish/.gitkeep
 !creations/tools/
+creations/tools/*
+!creations/tools/.gitkeep
 !creations/.trash/
+creations/.trash/*
+!creations/.trash/.gitkeep
+shared/*
 !shared/.gitkeep
+memory/*
 !memory/episodic/
+memory/episodic/*
+!memory/episodic/.gitkeep
 !memory/identity_history/
+memory/identity_history/*
+!memory/identity_history/.gitkeep
