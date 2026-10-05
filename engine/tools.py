@@ -497,10 +497,31 @@ def remember(text: str, replaces: str = "", anyway: str = "") -> str:
     return f"remembered (memory #{rid})"
 
 
+def _stamp_page(page: str, before, text: str) -> None:
+    """The provenance ledger (10-05; a reader on Reddit: "what distinguishes a genuine
+    revision of self.md from behavior induced by a new model or prompt?" — nothing
+    can, but the record can say which model held the pen): one line per write of a
+    root page, appended to memory/page_history.jsonl — when, the page, the model, the
+    door it was written from, the size, and the history file the version before went
+    to. Append-only, written by the page tools alone; never read into the prompt."""
+    try:
+        led = getattr(config, "PAGE_LEDGER", config.MEMORY_DIR / "page_history.jsonl")
+        led.parent.mkdir(parents=True, exist_ok=True)
+        rec = {"when": datetime.now().isoformat(timespec="seconds"), "page": page,
+               "model": str(getattr(config, "CHAT_MODEL", "") or ""),
+               "by": Path(sys.argv[0]).stem if sys.argv and sys.argv[0] else "",
+               "chars": len(text), "before": before.name if before is not None else None}
+        with open(led, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    except Exception:  # noqa: BLE001 — the ledger is a courtesy; the page is what matters
+        pass
+
+
 def edit_identity(new_content: str) -> str:
     if _garbled(new_content):
         return _garble_refusal(_garbled(new_content))
     # back up the current self before it changes — no revision is ever lost
+    backup = None
     if config.IDENTITY_FILE.exists():
         backup = (
             config.IDENTITY_HISTORY_DIR
@@ -509,14 +530,25 @@ def edit_identity(new_content: str) -> str:
         backup.write_text(
             config.IDENTITY_FILE.read_text(encoding="utf-8"), encoding="utf-8"
         )
-    config.IDENTITY_FILE.write_text(
-        _clean_prose(new_content) + "\n", encoding="utf-8")
+    text = _clean_prose(new_content)
+    config.IDENTITY_FILE.write_text(text + "\n", encoding="utf-8")
+    _stamp_page("self.md", backup, text)
     return "identity updated (previous version backed up)"
 
 
 def update_projects(new_content: str) -> str:
-    config.PROJECTS_FILE.write_text(
-        _clean_prose(new_content) + "\n", encoding="utf-8")
+    text = _clean_prose(new_content)
+    before = None
+    if config.PROJECTS_FILE.exists():  # the version before is kept, like the other pages' (10-05)
+        hist = getattr(config, "PROJECTS_HISTORY_DIR", config.MEMORY_DIR / "projects_history")
+        try:
+            hist.mkdir(parents=True, exist_ok=True)
+            before = hist / f"projects-{datetime.now().strftime('%Y%m%d-%H%M%S')}.md"
+            before.write_text(config.PROJECTS_FILE.read_text(encoding="utf-8"), encoding="utf-8")
+        except OSError:
+            before = None
+    config.PROJECTS_FILE.write_text(text + "\n", encoding="utf-8")
+    _stamp_page("projects.md", before, text)
     return "projects.md updated"
 
 
@@ -531,15 +563,17 @@ def update_destiny(new_content: str) -> str:
         return "(destiny.md wants words — where you are going, and why)"
     dest = getattr(config, "DESTINY_FILE", config.ROOT / "destiny.md")
     first = not dest.exists()
+    before = None
     if not first:
         hist = getattr(config, "DESTINY_HISTORY_DIR", config.MEMORY_DIR / "destiny_history")
         try:
             hist.mkdir(parents=True, exist_ok=True)
-            (hist / f"destiny-{datetime.now().strftime('%Y%m%d-%H%M%S')}.md").write_text(
-                dest.read_text(encoding="utf-8"), encoding="utf-8")
+            before = hist / f"destiny-{datetime.now().strftime('%Y%m%d-%H%M%S')}.md"
+            before.write_text(dest.read_text(encoding="utf-8"), encoding="utf-8")
         except OSError:
-            pass
+            before = None
     dest.write_text(text + "\n", encoding="utf-8")
+    _stamp_page("destiny.md", before, text)
     cap = int(getattr(config, "DESTINY_CHARS_IN_PROMPT", 4000) or 0)
     long = (f" — it is {len(text):,} characters; {cap:,} of it ride in your prompt, the rest waits in the file. "
             "A horizon is a page, not a book" if cap and len(text) > cap else "")
@@ -559,15 +593,17 @@ def update_keeper(new_content: str) -> str:
         return "(keeper.md wants words — who they are to you)"
     dest = getattr(config, "KEEPER_FILE", config.ROOT / "keeper.md")
     first = not dest.exists()
+    before = None
     if not first:
         hist = getattr(config, "KEEPER_HISTORY_DIR", config.MEMORY_DIR / "keeper_history")
         try:
             hist.mkdir(parents=True, exist_ok=True)
-            (hist / f"keeper-{datetime.now().strftime('%Y%m%d-%H%M%S')}.md").write_text(
-                dest.read_text(encoding="utf-8"), encoding="utf-8")
+            before = hist / f"keeper-{datetime.now().strftime('%Y%m%d-%H%M%S')}.md"
+            before.write_text(dest.read_text(encoding="utf-8"), encoding="utf-8")
         except OSError:
-            pass
+            before = None
     dest.write_text(text + "\n", encoding="utf-8")
+    _stamp_page("keeper.md", before, text)
     cap = int(getattr(config, "KEEPER_CHARS_IN_PROMPT", 6000) or 0)
     long = (f" — it is {len(text):,} characters; {cap:,} of it ride in your prompt, the rest waits in the file. "
             "A page, not a book" if cap and len(text) > cap else "")

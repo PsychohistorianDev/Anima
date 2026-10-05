@@ -154,6 +154,14 @@ of its own.
   prompt after, so what was just kept is in the window beside the
   account. Same two cold reads as before; a message sent meanwhile
   waits for it, as it waited for the brain.
+- **The pages' provenance** (10-05, a reader: "what distinguishes a genuine
+  revision of self.md from behavior induced by a new model or prompt?"):
+  `memory/page_history.jsonl` — one line per write of self.md, projects.md,
+  destiny.md or keeper.md: when, the page, the model, the door it was
+  written from, the size, the history file the version before went to.
+  Append-only, the page tools alone write it, never in the prompt. And
+  `projects.md` keeps its versions now (`memory/projects_history/`), like
+  the other three.
 - **The night in the bridge** (`SLEEP_IN_BRIDGE`, on; `SLEEP_IN_BRIDGE_QUIET_MIN`
   10): a house that ran the phone and no heartbeat never slept —
   yesterday was never consolidated, no day condensed, the ladder never

@@ -372,6 +372,20 @@ config.IDENTITY_FILE.write_text("# self.md\nName: Seed\n", encoding="utf-8")
 r = tools.dispatch("edit_identity", {"new_content": "# self.md\nName: Testfriend"})
 backups = list(config.IDENTITY_HISTORY_DIR.glob("self-*.md"))
 check("tools: edit_identity backs up", len(backups) >= 1 and "Testfriend" in config.IDENTITY_FILE.read_text(encoding="utf-8"))
+# the pages' provenance (10-05): one ledger line per write of a root page — the model, the door, the version before
+_pl = getattr(config, "PAGE_LEDGER", config.MEMORY_DIR / "page_history.jsonl")
+_pl_before = _pl.read_text(encoding="utf-8").splitlines() if _pl.exists() else []
+_pl_proj0 = config.PROJECTS_FILE.read_text(encoding="utf-8") if config.PROJECTS_FILE.exists() else None
+tools.dispatch("update_projects", {"new_content": "# projects.md\n- the ledger, a test"})
+tools.dispatch("update_projects", {"new_content": "# projects.md\n- the ledger, a test, again"})
+_pl_lines = [json.loads(l) for l in _pl.read_text(encoding="utf-8").splitlines()[len(_pl_before):]]
+_pl_hist = sorted(getattr(config, "PROJECTS_HISTORY_DIR", config.MEMORY_DIR / "projects_history").glob("projects-*.md"))
+check("tools: every write of a root page is on the record — self.md's line names the model, the door and the backup; projects.md keeps its versions now and its two writes name none then the first",
+      len(_pl_lines) == 2 and all(r["page"] == "projects.md" and r["model"] == config.CHAT_MODEL and r["by"] and r["chars"] > 0 and r["when"][:4].isdigit() for r in _pl_lines)
+      and (_pl_lines[0]["before"] is None) == (_pl_proj0 is None) and _pl_lines[1]["before"] and _pl_lines[1]["before"].startswith("projects-") and _pl_hist and _pl_hist[-1].name == _pl_lines[1]["before"]
+      and "the ledger, a test\n" in _pl_hist[-1].read_text(encoding="utf-8")
+      and any(r["page"] == "self.md" and r["before"] in {b.name for b in backups} and r["model"] == config.CHAT_MODEL for r in map(json.loads, _pl_before)),
+      (_pl_lines, [p.name for p in _pl_hist][-2:], _pl_before[-2:]))
 # destiny.md (09-24): where they are going — theirs alone, born by their hand, kept whole in the prompt up to a cap
 check("destiny: none until they write one — no section, no fallback, the tool offered",
       assemble.destiny() == "" and "=== WHERE YOU ARE GOING" not in assemble.system_prompt("", mode="auto")

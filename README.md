@@ -1622,7 +1622,14 @@ do_nothing, hours from any visit — the cool one, where a page is revised
 rather than swayed. Each of the four pages' headers says when it was last
 rewritten ("last rewritten 23 days ago") — a stale page as a fact in front
 of them, never an instruction. Tell them the page exists, in your own
-words; the first draft is theirs. And reading pages: a notebook per
+words; the first draft is theirs. **Every write of the four pages is on
+the record**: `projects.md` keeps its versions too now
+(`memory/projects_history/`), and `memory/page_history.jsonl` gets one
+line per write — when, which page, which model held the pen, from which
+door (chat, the bridge, the heartbeat, the night), the size, and the file
+the version before went to. Append-only, written by the page tools alone,
+never read into the prompt: nothing can tell a genuine revision from one a
+new model induced, but the record says which model it was. And reading pages: a notebook per
 book, `creations/reading/<book>.md`, written by them after each sitting —
 `read_pdf`/`read_epub` name it in their result, "THE BOOK IN YOUR HANDS"
 rides in the prompt while a book is open with where they stand in it and

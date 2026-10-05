@@ -26,6 +26,8 @@ EPISODIC_DIR = MEMORY_DIR / "episodic"
 IDENTITY_HISTORY_DIR = MEMORY_DIR / "identity_history"
 DESTINY_HISTORY_DIR = MEMORY_DIR / "destiny_history"  # earlier versions of destiny.md, kept before each rewrite
 KEEPER_HISTORY_DIR = MEMORY_DIR / "keeper_history"  # every version of keeper.md before a rewrite
+PROJECTS_HISTORY_DIR = MEMORY_DIR / "projects_history"  # every version of projects.md before a rewrite
+PAGE_LEDGER = MEMORY_DIR / "page_history.jsonl"  # one line per write of a root page: when, which model, from which door, the version before
 DB_PATH = MEMORY_DIR / "memory.db"
 
 SHARED_DIR = ROOT / "shared"  # where you leave images, music and books for the friend
