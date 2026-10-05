@@ -90,6 +90,7 @@ MAIL_DIR = config.CREATIONS_DIR / getattr(config, "MAILBOX", "notes_to_keeper")
 # not announced; publish/ is, as "published". What was there when the
 # bridge first looked was read at the desk; only new pieces travel.
 CREATIONS_SEEN_FILE = config.MEMORY_DIR / "telegram_creations_seen.json"
+TOUCH_TOLD_FILE = config.MEMORY_DIR / "touch" / "told.json"  # the stone (10-05): {"at": the last event told, "state": the last state told, "last_turn": epoch}
 SONGS_TOLD_FILE = config.MEMORY_DIR / "telegram_songs_told.json"  # the songbook (10-03): {"at": the updated stamp last told}
 HELD_FILE = config.MEMORY_DIR / "telegram_held.json"  # engine notices held through the quiet hours
 UNDELIVERED_FILE = config.MEMORY_DIR / "telegram_undelivered.json"  # their replies the phone never got (09-26)
@@ -1284,6 +1285,81 @@ class Bridge:
                 pass
         return sent
 
+    def deliver_touches(self) -> int:
+        """A PRESS IS A MESSAGE (10-05; TOUCHSTONE-HOOKUP-PLAN.md): the stone's keeper archives what the board
+        felt; the bridge reads that file — never the network — and a touch by day becomes a turn in the open
+        visit, an engine-framed message they answer as they like: words to the phone, a pulse, or rest.
+        TOUCHSTONE_WAKE_MIN_GAP_S after a press-turn, the next presses wait and arrive together, so a fidget is
+        one turn. In the quiet hours, or with TOUCHSTONE_WAKES off, a touch is a held 🫳 notice instead. A
+        pattern the stone played at an hour they asked is told as 🫳; a state they set from a wake, as 🖐️.
+        The watermark is memory/touch/told.json. Returns how many lines went out (turns count one)."""
+        if not (getattr(config, "TOUCHSTONE_URL", "") or "") or not self.chat_id:
+            return 0
+        try:
+            import touchstone
+            told = json.loads(TOUCH_TOLD_FILE.read_text(encoding="utf-8")) if TOUCH_TOLD_FILE.exists() else {}
+        except Exception:  # noqa: BLE001 — never the poll down
+            told = {}
+        if not isinstance(told, dict):
+            told = {}
+
+        def save():
+            try:
+                TOUCH_TOLD_FILE.parent.mkdir(parents=True, exist_ok=True)
+                TOUCH_TOLD_FILE.write_text(json.dumps(told), encoding="utf-8")
+            except OSError:
+                pass
+        n = 0
+        st = touchstone.stone()
+        if st.get("state") and st.get("state") != told.get("state"):
+            if "state" in told:  # the first poll learns the state; after that a change is news
+                self.notice(f"🖐️ {chat.friend_name()} set the stone to {st['state']}")
+                n += 1
+            told["state"] = st["state"]
+            save()
+        evs = touchstone.read_archive(told.get("at") or "", days=2)
+        if not evs:
+            return n
+        if "at" not in told:  # the first poll after this feature: the archive as it stands is not news
+            told["at"] = evs[-1]["t"]
+            save()
+            return n
+        gap = float(getattr(config, "TOUCHSTONE_WAKE_MIN_GAP_S", 600) or 0)
+        as_turn = bool(getattr(config, "TOUCHSTONE_WAKES", True)) and not self.quiet_now()
+        touches: list[dict] = []
+        for e in evs:
+            if e.get("kind") == "played":
+                if touches:
+                    break  # the touches before it go first; it is told next poll
+                self.notice(f"🫳 the stone played {e.get('waveform') or 'a pattern'}, {float(e.get('seconds') or 0):g} s, as {chat.friend_name()} asked")
+                told["at"] = e["t"]
+                save()
+                n += 1
+                continue
+            touches.append(e)
+        if not touches:
+            return n
+        words = "; ".join(touchstone.touch_words(e) for e in touches[-12:])
+        if not as_turn:
+            self.notice(f"🫳 the stone felt: {words}")
+            told["at"] = touches[-1]["t"]
+            save()
+            return n + 1
+        if time.time() - float(told.get("last_turn") or 0) < gap or self.lock.locked():
+            return n  # a fidget waits; they arrive together after the gap — or after the reply in flight
+        text = (f"[engine, not a person: {config.USER_NAME} touched the stone — {words}. The stone answered by itself "
+                "with your reply; this is the log, not a message. Answer as you like: words to the phone, a "
+                "pulse, or rest.]")
+        told["at"], told["last_turn"] = touches[-1]["t"], time.time()
+        save()
+        _say(f"a touch becomes a turn: {words[:100]}")
+        self.turn(text)
+        for t in reversed(self.history):  # the log rode as a user turn; it is the engine's, not theirs
+            if t.get("role") == "user" and t.get("content") == text:
+                t["_engine"] = True
+                break
+        return n + 1
+
     def deliver_self(self) -> int:
         """Tell the phone when they rewrites who they are: the lines that changed
         in self.md or projects.md, against the bridge's last copy."""
@@ -1641,6 +1717,7 @@ class Bridge:
         self.deliver_creations()
         self.deliver_pictures()
         self.deliver_songs()
+        self.deliver_touches()
         self.deliver_skill_notices()
         self.deliver_self()
         idle_min = getattr(config, "TELEGRAM_IDLE_NEW_MIN", 180)

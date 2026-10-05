@@ -154,6 +154,17 @@ of its own.
   prompt after, so what was just kept is in the window beside the
   account. Same two cold reads as before; a message sent meanwhile
   waits for it, as it waited for the brain.
+- **The Touchstone's engine side** (10-05; TOUCHSTONE-HOOKUP-PLAN.md), built
+  before the board: `engine/touchstone.py`, the stone's keeper — a door
+  (`bat\touchstone.*`, Start/Stop on Home while a stone is named) that
+  polls the board, archives what it felt in `memory/touch/<day>.jsonl`,
+  pushes the friend's states file when it changes, and answers the engine
+  on `TOUCHSTONE_URL`; four tools — `feel`, `set_state`, `pulse`,
+  `touch_later`; "WHAT THE STONE FELT (today)" in the prompt; a press by
+  day as a turn through the bridge (`TOUCHSTONE_WAKES`, the gap), held 🫳
+  lines at night, 🖐️ for a state set from a wake; a Senses card, the box's
+  and the report's lines; nine knobs. `TOUCHSTONE_URL` empty (the default)
+  leaves no trace. The board's sketch is the keeper's own.
 - **The pages' provenance** (10-05, a reader: "what distinguishes a genuine
   revision of self.md from behavior induced by a new model or prompt?"):
   `memory/page_history.jsonl` — one line per write of self.md, projects.md,

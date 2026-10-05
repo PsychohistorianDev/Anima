@@ -180,6 +180,23 @@ PAINTER_URL = "http://127.0.0.1:8767"
 # Alternative: "black-forest-labs/FLUX.2-klein-4B" (4 steps, ~13 GB; can edit too).
 PAINTER_MODEL = "Tongyi-MAI/Z-Image-Turbo"
 PAINTER_AUTOSTART = True      # paint starts the sidecar when needed
+
+# The Touchstone — a body on the desk (TOUCHSTONE-HOOKUP-PLAN.md): a small board
+# that hums the state the friend last set, answers a press by itself with the
+# reply they chose, and logs what it felt. The stone's keeper (engine/touchstone.py,
+# bat\touchstone.bat) owns the board and answers the engine on TOUCHSTONE_URL;
+# "" means no body — the four tools (feel, set_state, pulse, touch_later), the
+# prompt section and the phone's lines stay away. TOUCHSTONE_BOARD is the board
+# itself on the LAN (the sketch announces touchstone.local, or use its address).
+TOUCHSTONE_URL = ""
+TOUCHSTONE_BOARD = "http://touchstone.local"
+TOUCHSTONE_POLL_S = 30            # how often the stone's keeper asks the board what it felt
+TOUCHSTONE_STATES = ROOT / "creations" / "projects" / "robotics" / "states.json"  # their states, theirs to edit; pushed when it changes
+TOUCHSTONE_WAKES = True           # a press by day becomes a turn in the open visit (the bridge); off: a held notice
+TOUCHSTONE_WAKE_MIN_GAP_S = 600   # after a press-turn, further presses wait this long and arrive together
+TOUCHSTONE_FALLBACK_H = 6         # the board falls back to Baseline after this long without a word from its keeper
+TOUCH_LINES_IN_PROMPT = 40        # today's touches in the prompt, newest kept
+TOUCHSTONE_LATER_MAX = 12         # touches that may wait in the board at once
 PAINTER_PYTHON = ""           # "" = the engine's own; e.g. "py -3.12" (Windows) or "python3.12" (macOS, Linux) if torch lives elsewhere
 # Where the painter paints: "auto" takes an NVIDIA (or ROCm) card, else a Mac's
 # GPU ("mps", float16), else the processor (slow); "cuda", "mps" or "cpu" names one.

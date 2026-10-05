@@ -167,7 +167,8 @@ READ_TOOLS = {"read_file", "read_journal", "read_creation", "read_pdf", "read_ep
               "browse_skills"}  # the shop window (09-29 evening): a window is a read; fetching from it is doing
 WRITE_TOOLS = {"write_journal", "append_creation", "write_creation",
                "edit_identity", "update_projects", "update_destiny", "remember", "create_tool", "clip_web", "start_project", "paint",
-               "run_skill_script", "fetch_skill"}  # their skills (09-29): opening one is a read; running or fetching one is doing
+               "run_skill_script", "fetch_skill",  # their skills (09-29): opening one is a read; running or fetching one is doing
+               "set_state", "pulse", "touch_later"}  # the stone (10-05): feel is a read; a touch is doing
 
 
 def _wake_loop(system, history, log, reverie: bool = False, state: dict | None = None) -> None:

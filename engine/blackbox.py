@@ -205,7 +205,8 @@ def ollama_loaded() -> list[dict] | None:
 def sidecars() -> dict:
     import urllib.request
     out = {}
-    for name, url in (("painter", getattr(config, "PAINTER_URL", "")), ("music_ear", getattr(config, "MUSIC_EARS_URL", ""))):
+    for name, url in (("painter", getattr(config, "PAINTER_URL", "")), ("music_ear", getattr(config, "MUSIC_EARS_URL", "")),
+                      ("touchstone", getattr(config, "TOUCHSTONE_URL", ""))):
         if not url:
             continue
         try:

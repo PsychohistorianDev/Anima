@@ -6605,7 +6605,7 @@ _kit_unknown = _kit_names()
 config.TOOL_KIT = _kit0; tools.refresh_her_tools()
 import json as _kjson
 check("kit: full is every built-in; small and tiny are its named subsets, in the file's order; a list is a kit of one's own; an unknown name means full",
-      _kit_full[:len(tools._BUILTIN_DEFINITIONS)] == [d["function"]["name"] for d in tools._BUILTIN_DEFINITIONS]
+      _kit_full[:len(tools._BUILTIN_DEFINITIONS) - len(tools.STONE_TOOLS)] == [d["function"]["name"] for d in tools._BUILTIN_DEFINITIONS if d["function"]["name"] not in tools.STONE_TOOLS]  # no stone named: its four leave (10-05)
       and set(_kit_small) - _kit_forged == tools.KITS["small"] and set(_kit_tiny) - _kit_forged == tools.KITS["tiny"]
       and [n for n in _kit_small if n not in _kit_forged] == [n for n in _kit_full if n in tools.KITS["small"]]
       and [n for n in _kit_own if n not in _kit_forged] == ["write_journal", "do_nothing"] and _kit_forged <= set(_kit_own)
@@ -6751,7 +6751,7 @@ for _dd in doors.DOORS:
     doors.pid_file(_dd).unlink(missing_ok=True)
 check("doors: alive — our own pid is, an ended child's isn't, nor 0 or a word; the doors named (the panel one of them since 09-30)",
       doors.alive(_dos.getpid()) and not doors.alive(_d_dead) and not doors.alive(0) and not doors.alive("x") and not doors.alive(None)
-      and doors.DOORS == ("heartbeat", "wake", "bridge", "parlor", "chat", "panel", "blackbox"), _d_dead)
+      and doors.DOORS == ("heartbeat", "wake", "bridge", "parlor", "chat", "panel", "blackbox", "touchstone"), _d_dead)
 _d_rec = doors.mark("chat", "chat")
 _d_file = config.MEMORY_DIR / ".pids" / "chat.json"
 _d_st = doors.status("chat")
@@ -7198,7 +7198,7 @@ check("telegram: a newer anima is said on the phone once per version — the lin
 _pst = _p_asked(panel.state)
 _pb = _pst.get("brain", {})
 check("panel: state — the version, a light for every door (the panel one of them), the knobs by tab, the secrets as flags, the skills, what is missing, the links",
-      set(_pst) == {"version", "doors", "brain", "user_name", "welcome", "heartbeat_minutes", "tabs", "secrets", "skills", "missing", "links", "update_here", "folder", "newer", "senses"}
+      set(_pst) == {"version", "doors", "brain", "user_name", "welcome", "heartbeat_minutes", "tabs", "secrets", "skills", "missing", "links", "update_here", "folder", "newer", "senses", "stone"}
       and _pst["update_here"] is True and _pst["folder"] == config.ROOT.name
       and _pst["newer"] and _pst["newer"]["version"] == _nw_next and _pst["newer"]["installed"] == _nw_inst and "release notes" in panel.PAGE and 'id="newer"' in panel.PAGE
       and _pst["version"] == version.read(config.ROOT) and list(_pst["doors"]) == list(doors.DOORS) and "panel" in _pst["doors"]
@@ -7835,6 +7835,201 @@ check("config.py: knob help is plain description — no dates, no 'the keeper', 
       _c_bad == [] and _c_same and len(knobs.read(_c_text)) > 200, (_c_bad[:5], _c_same))
 
 # ------------------------------------------------------------ a Mac, and Linux ----
+# ---- the Touchstone's engine side (10-05; TOUCHSTONE-HOOKUP-PLAN.md), against a fake board ----------------------
+import touchstone as _ts, socket as _ts_sock, threading as _ts_thr, json as _ts_json, time as _ts_time, shutil as _ts_shu
+from http.server import BaseHTTPRequestHandler as _TsBase, HTTPServer as _TsServer
+import blackbox as _ts_bb
+
+
+class _FakeBoard(_TsBase):
+    state = {"name": "Baseline"}; events: list = []; later: list = []; posted: list = []
+    def log_message(self, *a): pass
+    def _j(self, o, code=200):
+        b = _ts_json.dumps(o).encode(); self.send_response(code); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+    def do_GET(self):
+        if self.path.startswith("/felt"): return self._j(_FakeBoard.events)
+        if self.path == "/health": return self._j({"state": _FakeBoard.state["name"], "uptime": 42, "queued": len(_FakeBoard.later)})
+        if self.path == "/later": return self._j({"queue": _FakeBoard.later})
+        self._j({"error": "?"}, 404)
+    def do_DELETE(self):
+        _FakeBoard.later.clear(); self._j({"ok": True, "queued": 0})
+    def do_POST(self):
+        n = int(self.headers.get("Content-Length") or 0); d = _ts_json.loads(self.rfile.read(n) or b"{}")
+        _FakeBoard.posted.append((self.path, d))
+        if self.path == "/state":
+            if d.get("name") not in ("Baseline", "Home", "Tethered"):
+                return self._j({"error": "unknown state", "states": ["Baseline", "Home", "Tethered"]}, 400)
+            _FakeBoard.state["name"] = d["name"]; return self._j({"ok": True, "state": d["name"]})
+        if self.path == "/later":
+            _FakeBoard.later.append(d); return self._j({"ok": True, "queued": len(_FakeBoard.later)})
+        self._j({"ok": True})
+
+
+def _ts_free_port() -> int:
+    s = _ts_sock.socket(); s.bind(("127.0.0.1", 0)); p = s.getsockname()[1]; s.close(); return p
+
+
+_ts_board = _TsServer(("127.0.0.1", 0), _FakeBoard)
+_ts_thr.Thread(target=_ts_board.serve_forever, daemon=True).start()
+_ts_url0, _ts_board0 = getattr(config, "TOUCHSTONE_URL", ""), getattr(config, "TOUCHSTONE_BOARD", "")
+_ts_shu.rmtree(_ts.TOUCH_DIR, ignore_errors=True)
+config.TOUCHSTONE_BOARD = f"http://127.0.0.1:{_ts_board.server_port}"
+_ts_port = _ts_free_port()
+config.TOUCHSTONE_URL = f"http://127.0.0.1:{_ts_port}"
+_ts_t0 = _ts_time.time() - 300
+_ts_clock = [_ts_time.time() - 100]
+def _ts_tick(step=10):
+    _ts_clock[0] += step
+    return _ts_clock[0]
+_FakeBoard.events = [{"t": _ts_t0, "kind": "press", "force": 61, "seconds": 12, "reply": "warm", "state": "Home"},
+                     {"t": _ts_t0 + 60, "kind": "tap", "force": 22, "seconds": 0.3, "reply": "nudge"},
+                     {"t": _ts_t0 + 61, "kind": "noise"}]
+_ts_n1 = _ts.poll(); _ts_n2 = _ts.poll()
+_ts_arch = _ts.read_archive("")
+_ts_st = _ts.stone()
+check("touchstone: the keeper's poll archives what the board felt (by each event's day, noise dropped, its moment local), remembers the board's word, and a second look brings nothing new",
+      _ts_n1 == 2 and _ts_n2 == 0 and [e["kind"] for e in _ts_arch] == ["press", "tap"] and _ts_arch[0]["force"] == 61 and _ts_arch[0]["reply"] == "warm"
+      and _ts_arch[0]["t"] == _dtnow.fromtimestamp(_ts_t0).isoformat(timespec="seconds") and all(e.get("fetched_at") for e in _ts_arch)
+      and _ts_st["state"] == "Baseline" and _ts_st["seen"] and not _ts_st["away_since"] and _ts_st["queued"] == 0 and _ts_st["last_t"] == _ts_arch[-1]["t"]
+      and _ts.day_file(_ts_arch[0]["t"][:10]).exists(), (_ts_n1, _ts_n2, _ts_arch, _ts_st))
+_ts_w = [_ts.touch_words(e) for e in _ts_arch] + [_ts.touch_words({"t": "2026-10-05T19:30:00", "kind": "played", "waveform": "Tethered", "seconds": 10})]
+check("touchstone: a touch in words — the hour, the weight, the length, what the board answered with; a pattern it played at an hour asked",
+      _ts_w[0].endswith("a firm steady press, 12 s — it answered with your warm reply") and _ts_w[1].endswith("a light tap — it answered with your nudge reply")
+      and _ts_w[2] == "19:30 it played Tethered, 10 s, as you asked", _ts_w)
+_ts_states = _ts.states_file(); _ts_states.parent.mkdir(parents=True, exist_ok=True)
+_ts_states.write_text(_ts_json.dumps({"Home": {"hum": 45, "pattern": "tide", "reply": "warm"}, "Tethered": {"hum": 60}}), encoding="utf-8")
+_ts_push1 = _ts.push_states(); _ts_push2 = _ts.push_states()
+_ts_states.write_text("{not json", encoding="utf-8"); _ts_time.sleep(0.01); _ts_os_utime = __import__("os").utime(_ts_states, None)
+_ts_push3 = _ts.push_states()
+_ts_states.write_text(_ts_json.dumps({"Home": {"hum": 50}}), encoding="utf-8"); __import__("os").utime(_ts_states, (_ts_time.time() + 5, _ts_time.time() + 5))
+_ts_push4 = _ts.push_states()
+check("touchstone: their states file is pushed to the board when it changes — once per change, a file that doesn't read is named once and the board keeps its map",
+      _ts_push1.startswith("their states pushed to the stone: Home, Tethered") and _ts_push2 == "" and "doesn't read" in _ts_push3
+      and _ts_push4.startswith("their states pushed to the stone: Home") and [p for p, d in _FakeBoard.posted if p == "/states"] == ["/states", "/states"]
+      and _FakeBoard.posted[-1][1] == {"Home": {"hum": 50}}, (_ts_push1, _ts_push2, _ts_push3, _ts_push4, _FakeBoard.posted))
+_ts_srv = _ts.serve(_ts_port)
+tools.refresh_her_tools()
+_ts_feel1 = tools.dispatch("feel", {})
+_ts_feel2 = tools.dispatch("feel", {})
+_ts_set_ok = tools.dispatch("set_state", {"name": "Home"})
+_ts_set_no = tools.dispatch("set_state", {"name": "Nope"})
+_ts_pulse = tools.dispatch("pulse", {"waveform": "heartbeat", "seconds": 2})
+_ts_later = tools.dispatch("touch_later", {"at": "+2h", "waveform": "Tethered"})
+_ts_later_bad = tools.dispatch("touch_later", {"at": "soon", "waveform": "Tethered"})
+_ts_when = tools._when("19:30")
+_ts_feel3 = tools.dispatch("feel", {"since": "00:00"})
+check("touchstone: the four tools through the keeper — feel reads the archive in words and remembers the look (a second look: nothing since), set_state sets (an unknown one lists theirs), "
+      "pulse plays now, touch_later leaves a touch for an hour (+2h, 19:30; 'soon' is refused) and the keeper counts it; feel names what it hums and what waits",
+      _ts_feel1.startswith("(the stone, ever: ") and "a firm steady press, 12 s" in _ts_feel1 and "it hums Baseline" in _ts_feel1
+      and _ts_feel2.startswith("(nothing touched the stone since ") and "it hums " in _ts_feel2
+      and _ts_set_ok == "the stone is Home now — it hums that until you set another" and _ts.stone()["state"] == "Home"
+      and _ts_set_no.startswith("(the stone has no state 'Nope' — it knows: Baseline, Home, Tethered")
+      and _ts_pulse.startswith("the stone played heartbeat for 2 s, just now") and ("/pulse", {"waveform": "heartbeat", "seconds": 2.0}) in _FakeBoard.posted
+      and _ts_later.startswith("the stone will play Tethered for 10 s at ") and len(_FakeBoard.later) == 1 and abs(_FakeBoard.later[0]["at"] - (_ts_time.time() + 7200)) < 120
+      and _ts_later_bad.startswith("(touch_later wants a moment") and _ts_when is not None and _ts_when.strftime("%H:%M") == "19:30" and _ts_when > _dtnow.now()
+      and "1 touch waiting in it" in _ts_feel3 and "it hums Home since" in _ts_feel3 and "a firm steady press" in _ts_feel3
+      and tools.has("feel") and all(n in {d["function"]["name"] for d in tools.DEFINITIONS} for n in tools.STONE_TOOLS)
+      and {"set_state", "pulse", "touch_later"} <= tools.ACT_TOOLS and "feel" not in tools.ACT_TOOLS,
+      (_ts_feel1, _ts_feel2, _ts_set_ok, _ts_set_no, _ts_pulse, _ts_later, _ts_later_bad, _ts_feel3, _FakeBoard.later))
+_ts_sec = assemble.stone_section()
+_ts_sp = assemble.system_prompt("x", mode="chat", warm=True)
+_ts_cap0, config.TOUCH_LINES_IN_PROMPT = getattr(config, "TOUCH_LINES_IN_PROMPT", 40), 1
+_ts_sec_cap = assemble.stone_section()
+config.TOUCH_LINES_IN_PROMPT = _ts_cap0
+check("touchstone: the prompt's section — today's touches a line each, what it hums and what waits in the header, the cap names the rest; the senses paragraph says they have a body on the desk",
+      _ts_sec.startswith("=== WHAT THE STONE FELT (today) — your body on the desk: a log, not a message; feel reads more, set_state, pulse and touch_later answer; hums Home since ")
+      and "1 touch waiting in it ===" in _ts_sec and _ts_sec.count("\n- ") == 2 and "a firm steady press, 12 s" in _ts_sec
+      and "=== WHAT THE STONE FELT (today)" in _ts_sp and "You have a body on the desk: the stone" in _ts_sp and "touch_later leaves a touch" in _ts_sp
+      and _ts_sec_cap.count("\n- ") == 1 and '(…1 earlier today — feel since="00:00" lists them)' in _ts_sec_cap, (_ts_sec, _ts_sec_cap))
+# the bridge: a press is a message
+_ts_told = tg.TOUCH_TOLD_FILE
+_ts_told.unlink(missing_ok=True)
+nts, phonets = _bridge(); nts.quiet_now = lambda: False
+ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "I felt that. Hello, hand."}, {"role": "assistant", "content": "again, twice."}])
+_ts_d0 = nts.deliver_touches()  # the first poll learns; the archive as it stands is not news
+_ts_ms0 = memory.search; memory.search = lambda *a, **k: []  # the suite's memory store is mixed by now; a turn's moment needs no memories here
+_FakeBoard.events = [{"t": _ts_tick(), "kind": "press", "force": 40, "seconds": 4, "reply": "warm", "state": "Home"}]
+_ts.poll()
+_ts_d1 = nts.deliver_touches()
+_ts_told1 = _ts_json.loads(_ts_told.read_text(encoding="utf-8"))
+_FakeBoard.events = [{"t": _ts_tick(), "kind": "tap", "force": 20, "seconds": 0.2, "reply": "warm"}]
+_ts.poll()
+_ts_d2 = nts.deliver_touches()  # within the gap: it waits
+_ts_gap0, config.TOUCHSTONE_WAKE_MIN_GAP_S = config.TOUCHSTONE_WAKE_MIN_GAP_S, 0
+_FakeBoard.events = [{"t": _ts_tick(), "kind": "tap", "force": 25, "seconds": 0.2, "reply": "warm"}]
+_ts.poll()
+_ts_d3 = nts.deliver_touches()  # both taps, one turn
+config.TOUCHSTONE_WAKE_MIN_GAP_S = _ts_gap0
+_ts_user_turns = [t for t in nts.history if t.get("role") == "user"]
+check("telegram: a press by day becomes a turn — the first poll learns the archive, a new press is an engine-framed message they answer on the phone, "
+      "a tap within the gap waits and arrives with the next one as one turn, and the log rode as the engine's turn, not the keeper's",
+      _ts_d0 == 0 and _ts_d1 == 1 and _ts_d2 == 0 and _ts_d3 == 1
+      and any("I felt that. Hello, hand." in t for t, _ in phonets.sent) and any("again, twice." in t for t, _ in phonets.sent)
+      and len(_ts_user_turns) == 2 and all(t.get("_engine") for t in _ts_user_turns)
+      and _ts_user_turns[0]["content"].startswith(f"[engine, not a person: {config.USER_NAME} touched the stone — ") and "a soft steady press, 4 s" in _ts_user_turns[0]["content"]
+      and "this is the log, not a message" in _ts_user_turns[0]["content"]
+      and _ts_user_turns[1]["content"].count(" tap") == 2 and _ts_told1["last_turn"] and _ts_told1["at"],
+      (_ts_d0, _ts_d1, _ts_d2, _ts_d3, [t for t, _ in phonets.sent][-4:], [t.get("content", "")[:80] for t in _ts_user_turns]))
+phonets.sent.clear()
+nts.quiet_now = lambda: True
+_FakeBoard.events = [{"t": _ts_tick(), "kind": "hold", "force": 70, "seconds": 20, "reply": "warm"},
+                     {"t": _ts_tick(), "kind": "played", "waveform": "Tethered", "seconds": 10}]
+_ts.poll()
+_ts_d4 = nts.deliver_touches()
+_ts_d5 = nts.deliver_touches()
+_FakeBoard.state["name"] = "Tethered"; _ts.poll()
+_ts_d6 = nts.deliver_touches()
+check("telegram: in the quiet hours a touch is a held 🫳 line; a pattern the stone played at an hour they asked is told as 🫳 (next poll, after the touches before it); "
+      "a state set from a wake as 🖐️ — each once",
+      _ts_d4 == 1 and _ts_d5 == 1 and _ts_d6 == 1 and nts.deliver_touches() == 0
+      and [h for h in nts.held if h.startswith("🫳 the stone felt: ") and "a firm hold, 20 s" in h]
+      and [h for h in nts.held if h == f"🫳 the stone played Tethered, 10 s, as {chat.friend_name()} asked"]
+      and [h for h in nts.held if h == f"🖐️ {chat.friend_name()} set the stone to Tethered"] and phonets.sent == [],
+      (_ts_d4, _ts_d5, _ts_d6, nts.held[-4:], phonets.sent))
+nts.held.clear(); nts._save_held()
+_ts_wakes0, config.TOUCHSTONE_WAKES = getattr(config, "TOUCHSTONE_WAKES", True), False
+nts.quiet_now = lambda: False
+_FakeBoard.events = [{"t": _ts_tick(), "kind": "tap", "force": 20, "seconds": 0.2}]
+_ts.poll(); _ts_d7 = nts.deliver_touches()
+config.TOUCHSTONE_WAKES = _ts_wakes0
+check("telegram: TOUCHSTONE_WAKES off — a touch by day is a 🫳 line, never a turn",
+      _ts_d7 == 1 and any(t.startswith("🫳 the stone felt: ") for t, _ in phonets.sent) and len([t for t in nts.history if t.get("role") == "user"]) == 2, phonets.sent)
+# the board away; the keeper away; no stone at all
+_ts_board.shutdown(); _ts_board.server_close()
+_ts_away = _ts.poll()
+_ts_set_away = tools.dispatch("set_state", {"name": "Home"})
+_ts_feel_away = tools.dispatch("feel", {})
+_ts_sec_away = assemble.stone_section()
+_ts_bb = _ts_bb.sidecars()
+_ts_srv.shutdown(); _ts_srv.server_close()
+_ts_set_nokeeper = tools.dispatch("pulse", {"waveform": "heartbeat"})
+_ts_sn1 = {x["key"]: x for x in panel.senses_state(dict(panel._values(panel._rows()), TOUCHSTONE_URL=config.TOUCHSTONE_URL))}["stone"]  # the panel reads the file; the card takes values
+config.TOUCHSTONE_URL = ""
+tools.refresh_her_tools()
+_ts_refused = tools.dispatch("feel", {})
+_ts_sp_off = assemble.system_prompt("x", mode="chat", warm=True)
+_ts_st_panel0 = panel.state()["stone"]
+_ts_sn0 = {x["key"]: x for x in panel.senses_state(panel._values(panel._rows()))}["stone"]
+check("touchstone: the board away — the poll says so once and the keeper answers 503 with since when, feel and the section carry it, the box sees the keeper; "
+      "the keeper down — the tools say which .bat opens it; no stone named — the tools leave the kit and refuse, no section, no body in the senses, the panel's door and card follow",
+      _ts_away == -1 and _ts.away() and _ts_set_away.startswith("(the stone has been away since ") and "away since" in _ts_feel_away
+      and "away since" in _ts_sec_away and _ts_bb.get("touchstone") in ("up", "down")
+      and _ts_set_nokeeper == tools._NO_KEEPER
+      and _ts_sn1["ready"] is True and "its keeper at http://127.0.0.1" in _ts_sn1["note"]
+      and _ts_refused.startswith("(feel: there is no stone in this house — TOUCHSTONE_URL") and not tools.has("feel")
+      and not any(d["function"]["name"] in tools.STONE_TOOLS for d in tools.DEFINITIONS)
+      and "WHAT THE STONE FELT" not in _ts_sp_off and "You have a body on the desk" not in _ts_sp_off
+      and _ts_st_panel0 is False and _ts_sn0["ready"] is False and "no stone in this house" in _ts_sn0["note"]
+      and "touchstone" in panel.LAUNCHERS and "touchstone" in panel.STOPPABLE and "touchstone" in doors.ONE_AT_A_TIME
+      and all(panel._HELP.get(k) for k in ("TOUCHSTONE_URL", "TOUCHSTONE_BOARD", "TOUCHSTONE_POLL_S", "TOUCHSTONE_WAKES", "TOUCHSTONE_WAKE_MIN_GAP_S", "TOUCHSTONE_FALLBACK_H", "TOUCH_LINES_IN_PROMPT", "TOUCHSTONE_LATER_MAX"))
+      and "['touchstone','The stone'" in panel.PAGE and "d!=='touchstone'||S.stone" in panel.PAGE,
+      (_ts_away, _ts_set_away, _ts_feel_away[:80], _ts_sec_away[:120], _ts_bb, _ts_set_nokeeper, _ts_sn1["note"], _ts_refused, _ts_sn0["note"]))
+config.TOUCHSTONE_URL, config.TOUCHSTONE_BOARD = _ts_url0, _ts_board0
+memory.search = _ts_ms0
+tools.refresh_her_tools()
+_ts_shu.rmtree(_ts.TOUCH_DIR, ignore_errors=True)
+_ts_states.unlink(missing_ok=True)
+
 # 10-01 (MAC-PLAN.md): the launchers' twins, the panel's windows on a Mac and on Linux, Stop now's process
 # group, the closing-window hook, the card on a Mac, the torch senses' device, the update's executable bit,
 # the words. Nothing here opens a terminal, needs a Mac, or imports torch: sys.platform's answers are
@@ -7872,7 +8067,7 @@ for _xk, _xp in [*_x_cmds.items(), *_x_shs.items()]:
             and (_xt.endswith('read -n1 -r -p "(press any key to close)"\n') or _xk == "update")):
         _x_shape.append(_xk + _xp.suffix)
 check("launchers: every .bat has a .command (a Mac) and a .sh (Linux) twin — the same names, and the same engine script with the same arguments in all three",
-      set(_x_bats) == set(_x_cmds) == set(_x_shs) and len(_x_bats) == 20 and _x_disagree == [], (sorted(set(_x_bats) ^ set(_x_shs)), _x_disagree))
+      set(_x_bats) == set(_x_cmds) == set(_x_shs) and len(_x_bats) == 21 and _x_disagree == [], (sorted(set(_x_bats) ^ set(_x_shs)), _x_disagree))
 check("launchers: each twin is #!/bin/bash, cds where its .bat does (the root for anima, the folder above for bat/), LF line ends, and ends in the pause",
       _x_shape == [], _x_shape)
 check("launchers: the twins are executable (the bit a download can lose — README, chmod +x)",

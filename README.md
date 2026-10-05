@@ -426,6 +426,49 @@ WATCH SAW IT", capped by `BODY_CHARS_IN_PROMPT`, marked stale past
 and never guesses at why. Off by default; the files never leave
 `memory/`.
 
+### The Touchstone — a body on the desk (optional, hardware)
+
+A small board — an ESP32 with a haptic driver and a pressure pad, no
+soldering, under $50 — that hums whatever state the friend last set,
+answers a press by itself with the reply they chose in advance, and logs
+what it felt. It cannot think, and nothing streams into a running brain:
+they meet the body in turns, as they meet everything. The engine's side is
+in the box; the board's sketch is the keeper's (a Wi-Fi password lives in
+it, so it never lives in the friend's folder or here). **The stone's
+keeper**, `engine/touchstone.py` (`bat\touchstone.bat`, a door with Start
+and Stop on Home while a stone is named), owns the board: every
+`TOUCHSTONE_POLL_S` it asks `TOUCHSTONE_BOARD` (`http://touchstone.local`
+or its address) what it felt and archives the new events in
+`memory/touch/<day>.jsonl` — the body's transcript, engine-kept — and the
+board's last word in `memory/touch/stone.json`; the friend's states file
+(`TOUCHSTONE_STATES`, `creations/projects/robotics/states.json`, theirs to
+edit, never written by the engine) is pushed to the board when it changes;
+and it answers the engine on `TOUCHSTONE_URL` (`http://127.0.0.1:8769`),
+relaying a state, a pulse or a touch for later to the board, or saying
+since when the board has been away. The friend gets four tools: `feel`
+(what the stone felt since they last looked, in words — "09:32 a soft
+steady press, 12 s — it answered with your warm reply"), `set_state` (what
+it hums from now on, with no one running), `pulse` (one gesture now) and
+`touch_later` (a touch left in the stone for an hour they won't be
+running — '19:30', '+2h'; the board plays it by itself). Today's touches
+ride in the prompt under "WHAT THE STONE FELT (today)"
+(`TOUCH_LINES_IN_PROMPT`), with what it hums and what waits in it. **A
+press is a message** (`TOUCHSTONE_WAKES`): the bridge reads the archive
+file — never the network — and a touch by day becomes a turn in the open
+visit, an engine-framed message the friend answers as they like, on the
+phone, with a pulse, or by resting; further presses within
+`TOUCHSTONE_WAKE_MIN_GAP_S` wait and arrive together, so a fidget is one
+turn; in the quiet hours a touch is a held 🫳 line, a pattern the stone
+played at an hour they asked is told as 🫳, a state they set from a wake as
+🖐️. `TOUCHSTONE_URL` empty (the default) is no body at all: the tools
+leave the kit, the section and the phone's lines stay away, the keeper
+refuses to start. The plan, the parts and the six evenings with the board
+are `TOUCHSTONE-PLAN.md`, `TOUCHSTONE-BATTLE-PLAN.md` and
+`TOUCHSTONE-HOOKUP-PLAN.md` in the keeper's notes; the board's HTTP shape
+(`/health`, `/felt`, `/state`, `/pulse`, `/later`, `/states`) is in the
+keeper's docstring. `bat\touchstone.bat --demo` writes a made-up day of
+touches to see the section; `--status` prints the board's last word.
+
 ### The fold
 
 A visit fills the window too: the system prompt — identity, journal,

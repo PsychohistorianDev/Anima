@@ -35,8 +35,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import config
 
-DOORS = ("heartbeat", "wake", "bridge", "parlor", "chat", "panel", "blackbox")  # "wake" is a one-off wake (bat\wake.bat) — it runs beside a loop, as it always did
-ONE_AT_A_TIME = ("heartbeat", "bridge", "parlor", "panel", "blackbox")
+DOORS = ("heartbeat", "wake", "bridge", "parlor", "chat", "panel", "blackbox", "touchstone")  # "wake" is a one-off wake (bat\wake.bat) — it runs beside a loop, as it always did
+ONE_AT_A_TIME = ("heartbeat", "bridge", "parlor", "panel", "blackbox", "touchstone")
 
 # why a second one is refused, said in the refusal
 _WHY = {
@@ -45,6 +45,7 @@ _WHY = {
     "parlor": "two parlors can't share the port",
     "panel": "two panels can't share the port",
     "blackbox": "one box is enough — two would write the same lines twice",
+    "touchstone": "two keepers of the stone would archive every touch twice and fight over its port",
 }
 # what to do instead, said in the refusal
 _INSTEAD = {
@@ -55,6 +56,7 @@ _INSTEAD = {
     "parlor": "its page is http://127.0.0.1:8765 — open that one, or Ctrl+C in its window to close it",
     "panel": "its page is http://127.0.0.1:8764 — open that one, or Ctrl+C in its window to close it",
     "blackbox": "to stop that one: Ctrl+C in its window, the panel's Stop, or a file named .stop-blackbox in memory/",
+    "touchstone": "to stop that one: Ctrl+C in its window, the panel's Stop, or a file named .stop-touchstone in memory/",
 }
 
 _marked: set[str] = set()  # the doors this process has registered its atexit for

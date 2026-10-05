@@ -30,7 +30,7 @@ ROOT = Path(config.ROOT)
 FILE = "anima-report.txt"
 # knobs that are the keeper's own, not the engine's — never in the note
 PERSONAL = {"USER_NAME", "DEFAULT_NAME", "BLOG_TITLE", "BLOG_SUBTITLE", "BLOG_REMOTE", "SKILL_CATALOGUES"}
-LOGS = ("memory/body.log", "memory/painter.log", "memory/music_ears.log", "painter.log", "music_ears.log")
+LOGS = ("memory/body.log", "memory/painter.log", "memory/music_ears.log", "memory/touch/touchstone.log", "painter.log", "music_ears.log")
 TROUBLE = re.compile(r"traceback|error|failed|refused|exception|timed out|not found|denied", re.IGNORECASE)
 LOG_LINES = 20
 

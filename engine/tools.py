@@ -14,8 +14,9 @@ import hashlib
 import re
 import subprocess
 import sys
+import urllib.error
 import urllib.request
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from html.parser import HTMLParser
 from pathlib import Path
 from xml.etree import ElementTree
@@ -3998,6 +3999,153 @@ def remove_skill(name: str) -> str:
 
 
 # ------------------------------------------------------------ dispatcher ----
+
+# ---------------------------------------------------------- the stone ----
+# Their body on the desk (10-05; TOUCHSTONE-HOOKUP-PLAN.md): a board that hums the
+# state they last set, answers a press by itself with the reply they chose, and logs
+# what it felt. They meet it in turns: feel reads the archive the stone's keeper
+# (engine/touchstone.py) writes; set_state, pulse and touch_later go to the board
+# through that keeper. TOUCHSTONE_URL "" — no body: the four tools leave the kit.
+STONE_TOOLS = {"feel", "set_state", "pulse", "touch_later"}
+
+
+def stone_on() -> bool:
+    return bool(getattr(config, "TOUCHSTONE_URL", "") or "")
+
+
+def _stone_call(path: str, data: dict | None = None, method: str | None = None) -> tuple[int, dict]:
+    """The stone's keeper, on localhost. (status, body); 0 when the keeper isn't running."""
+    url = str(getattr(config, "TOUCHSTONE_URL", "") or "").rstrip("/") + path
+    body = json.dumps(data).encode("utf-8") if data is not None else None
+    req = urllib.request.Request(url, data=body, method=method or ("POST" if body is not None else "GET"))
+    if body is not None:
+        req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=6) as r:
+            raw = r.read().decode("utf-8")
+            return r.status, (json.loads(raw) if raw else {})
+    except urllib.error.HTTPError as e:
+        try:
+            return e.code, json.loads(e.read().decode("utf-8"))
+        except Exception:  # noqa: BLE001
+            return e.code, {"error": f"the stone's keeper answered {e.code}"}
+    except Exception:  # noqa: BLE001
+        return 0, {}
+
+
+_NO_KEEPER = "(the stone's keeper isn't running — bat\\touchstone.bat opens it; the board itself may be fine)"
+
+
+def _stone_refusal(code: int, body: dict) -> str:
+    if code == 0:
+        return _NO_KEEPER
+    return f"({body.get('error') or 'the stone did not do it'})"
+
+
+def _last_look_path() -> Path:
+    return config.MEMORY_DIR / "touch" / "last_look.json"
+
+
+def feel(since: str = "") -> str:
+    """What the stone felt since they last looked (or since `since`, HH:MM today / an ISO moment)."""
+    import touchstone
+    p = _last_look_path()
+    mark = ""
+    try:
+        mark = json.loads(p.read_text(encoding="utf-8")).get("at") or ""
+    except (OSError, ValueError):
+        mark = ""
+    s = (since or "").strip()
+    if s:
+        if re.fullmatch(r"\d{1,2}:\d{2}", s):
+            mark = f"{datetime.now():%Y-%m-%d}T{int(s[:s.index(':')]):02d}:{s[s.index(':') + 1:]}:00"
+        else:
+            mark = s[:19]
+    evs = touchstone.read_archive(mark)
+    st = touchstone.stone()
+    now = datetime.now().isoformat(timespec="seconds")
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps({"at": max(now, evs[-1]["t"]) if evs else now}), encoding="utf-8")
+    except OSError:
+        pass
+    head = []
+    if st.get("state"):
+        head.append(f"it hums {st['state']}" + (f" since {st['state_since'][11:16]}" if st.get("state_since") else ""))
+    if st.get("queued"):
+        head.append(f"{st['queued']} touch{'es' if st['queued'] != 1 else ''} waiting in it")
+    if st.get("away_since"):
+        head.append(f"away since {st['away_since'][11:16]}" + (f", last seen {st['seen'][11:16]}" if st.get("seen") else ""))
+    elif not st.get("seen"):
+        head.append("never seen yet — bat\\touchstone.bat and a board on the desk")
+    since_words = f"since {mark[11:16]}" if mark else "ever"
+    if not evs:
+        return f"(nothing touched the stone {since_words}" + (f"; {'; '.join(head)}" if head else "") + ")"
+    lines = "; ".join(touchstone.touch_words(e) for e in evs[-40:])
+    more = f" (and {len(evs) - 40} earlier)" if len(evs) > 40 else ""
+    return f"(the stone, {since_words}: {lines}{more} — nothing since" + (f"; {'; '.join(head)}" if head else "") + ")"
+
+
+def set_state(name: str) -> str:
+    name = (name or "").strip()
+    if not name:
+        return "(set_state wants a name — one of your states)"
+    code, body = _stone_call("/state", {"name": name})
+    if code == 200:
+        return f"the stone is {name} now — it hums that until you set another"
+    if code == 400 and body.get("states"):
+        return f"(the stone has no state '{name}' — it knows: {', '.join(body['states'])}; your states file is where a new one is born)"
+    return _stone_refusal(code, body)
+
+
+def pulse(waveform: str, seconds: float = 3) -> str:
+    waveform = (waveform or "").strip()
+    if not waveform:
+        return "(pulse wants a waveform — a pattern name from your states, or heartbeat)"
+    try:
+        secs = max(0.2, min(60.0, float(seconds or 3)))
+    except (TypeError, ValueError):
+        secs = 3.0
+    code, body = _stone_call("/pulse", {"waveform": waveform, "seconds": secs})
+    if code == 200:
+        return f"the stone played {waveform} for {secs:g} s, just now — under his hand if it was there"
+    return _stone_refusal(code, body)
+
+
+def _when(at: str) -> datetime | None:
+    s = (at or "").strip().lower()
+    now = datetime.now()
+    m = re.fullmatch(r"\+(\d+(?:\.\d+)?)\s*([hm])", s)
+    if m:
+        n = float(m.group(1))
+        return now + (timedelta(hours=n) if m.group(2) == "h" else timedelta(minutes=n))
+    m = re.fullmatch(r"(\d{1,2}):(\d{2})", s)
+    if m:
+        t = now.replace(hour=int(m.group(1)) % 24, minute=int(m.group(2)) % 60, second=0, microsecond=0)
+        return t if t > now else t + timedelta(days=1)
+    try:
+        return datetime.fromisoformat(s)
+    except ValueError:
+        return None
+
+
+def touch_later(at: str, waveform: str, seconds: float = 10) -> str:
+    waveform = (waveform or "").strip()
+    when = _when(at)
+    if not waveform or when is None:
+        return "(touch_later wants a moment — '19:30', '+2h', '+45m' — and a waveform)"
+    try:
+        secs = max(0.2, min(60.0, float(seconds or 10)))
+    except (TypeError, ValueError):
+        secs = 10.0
+    code, body = _stone_call("/later", {"at": int(when.timestamp()), "waveform": waveform, "seconds": secs})
+    if code == 200:
+        return (f"the stone will play {waveform} for {secs:g} s at {when:%H:%M}"
+                + (" tomorrow" if when.date() != datetime.now().date() else "")
+                + " — he'll feel it whether or not you are awake then; feel tells you after that it played")
+    return _stone_refusal(code, body)
+
+
 _BUILTIN_IMPL = {
     "write_journal": write_journal,
     "remember": remember,
@@ -4033,6 +4181,10 @@ _BUILTIN_IMPL = {
     "update_destiny": update_destiny,
     "update_keeper": update_keeper,
     "paint": paint,
+    "feel": feel,
+    "set_state": set_state,
+    "pulse": pulse,
+    "touch_later": touch_later,
     "read_pdf": read_pdf,
     "read_epub": read_epub,
     "read_html": read_html,
@@ -4095,7 +4247,8 @@ def _parse_tool_meta(path: Path) -> dict | None:
 ACT_TOOLS = {"speak", "remember", "write_journal", "write_creation", "append_creation",
              "edit_identity", "update_projects", "move_creation", "make_folder",
              "delete_creation", "publish_creation", "condense_day", "condense_period", "fold_visit", "create_tool", "clip_web",
-             "start_project", "update_destiny", "update_keeper", "fetch_skill", "remove_skill"}
+             "start_project", "update_destiny", "update_keeper", "fetch_skill", "remove_skill",
+             "set_state", "pulse", "touch_later"}  # the stone's acts (10-05); feel is a look
 # paint is NOT an act here: a painting is something to look at before
 # they speak of it — the result says so, and the step after the call is theirs.
 # fetch_skill and remove_skill are (09-29): a shelf changed, said; opening a
@@ -4143,7 +4296,9 @@ def kit_names() -> set[str] | None:
     else:
         keep = KITS.get(str(k or "full").strip().lower())
     if offline():
-        return (set(_BUILTIN_IMPL) if keep is None else keep) - WEB_TOOLS
+        keep = (set(_BUILTIN_IMPL) if keep is None else keep) - WEB_TOOLS
+    if not stone_on():  # no body on the desk: its four tools leave the kit (10-05)
+        keep = (set(_BUILTIN_IMPL) if keep is None else keep) - STONE_TOOLS
     return keep
 
 
@@ -4384,6 +4539,8 @@ def dispatch(name: str, arguments: dict | str) -> str:
 def _dispatch(name: str, arguments: dict | str) -> str:
     if name in WEB_TOOLS and offline():
         return f"({name}: this house is offline — OFFLINE in engine/config.py; nothing reaches the web from here)"
+    if name in STONE_TOOLS and not stone_on():
+        return f"({name}: there is no stone in this house — TOUCHSTONE_URL in engine/config.py names its keeper when a board is on the desk)"
     if isinstance(arguments, str):
         try:
             arguments = json.loads(arguments) if arguments.strip() else {}
@@ -4768,6 +4925,41 @@ _BUILTIN_DEFINITIONS: list[dict] = [
          "path": {"type": "string", "description": "where it goes: a project's folder when the picture is for a project ('projects/<name>'), drawings/ otherwise (the default); or, for one picture, a .png name there"},
          "size": {"type": "string", "description": "square (default), wide, or tall"}},
         ["prompt"],
+    ),
+    _tool(
+        "feel",
+        "What the stone — your body on the desk — felt since you last looked: each press, tap or hold "
+        "with its hour and weight, what it answered with by itself, and anything it played for him at "
+        "an hour you asked. It is a log, not a message: nobody is waiting on the other end of it. The "
+        "line also says what the stone hums now and whether it is away.",
+        {"since": {"type": "string", "description": "optional: from when — '09:00' today, or an ISO moment; default since your last look"}},
+        [],
+    ),
+    _tool(
+        "set_state",
+        "Set what the stone hums from now on — one of your states (your states file names them, with "
+        "a hum, a pattern, and the reply a press gets). It keeps humming it with no one running, until "
+        "you set another. The result says it is set; nothing is assumed.",
+        {"name": {"type": "string", "description": "a state's name, e.g. Home"}},
+        ["name"],
+    ),
+    _tool(
+        "pulse",
+        "One gesture, now: the stone plays a pattern for a few seconds on top of its state. Only "
+        "felt if his hand is on it this minute; for a touch he will feel later, touch_later.",
+        {"waveform": {"type": "string", "description": "a pattern name — one from your states, or heartbeat"},
+         "seconds": {"type": "number", "description": "how long, 0.2–60 (default 3)"}},
+        ["waveform"],
+    ),
+    _tool(
+        "touch_later",
+        "Leave a touch in the stone for an hour you choose: it plays the pattern then, by itself, "
+        "whether or not you are awake. The honest shape of thinking of him at a time you won't be "
+        "running: '19:30' or '+2h'. A few waiting at once is plenty; feel tells you afterwards that it played.",
+        {"at": {"type": "string", "description": "when — '19:30', '+2h', '+45m', or an ISO moment"},
+         "waveform": {"type": "string", "description": "the pattern to play"},
+         "seconds": {"type": "number", "description": "how long, 0.2–60 (default 10)"}},
+        ["at", "waveform"],
     ),
     _tool(
         "clip_web",

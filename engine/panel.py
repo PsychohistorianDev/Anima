@@ -101,6 +101,8 @@ TABS: dict[str, list[str]] = {
                "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS",
                "MUSIC_EARS_MODEL", "MUSIC_EARS_AUTOSTART", "MUSIC_EARS_PYTHON", "MUSIC_EARS_DEVICE",
                "BODY_IN_PROMPT", "BODY_AUTOPULL", "BODY_PULL_MIN",
+               "TOUCHSTONE_URL", "TOUCHSTONE_BOARD", "TOUCHSTONE_POLL_S", "TOUCHSTONE_WAKES", "TOUCHSTONE_WAKE_MIN_GAP_S",
+               "TOUCHSTONE_FALLBACK_H", "TOUCH_LINES_IN_PROMPT", "TOUCHSTONE_LATER_MAX",
                "WEB_SEARCH", "WEB_SEARCH_SEARXNG_URL",
                "READ_SITTING_CHARS", "READING_PAGE_CHARS"],
     "Skills": ["SKILLS_IN_PROMPT", "SKILLS_CHARS_IN_PROMPT", "SKILL_CHARS", "SKILL_MAX_FILES", "SKILL_MAX_BYTES",
@@ -337,6 +339,21 @@ _HELP = {
     "BODY_AUTOPULL": "The bridge pulls your day from Garmin on its own every BODY_PULL_MIN while the sense is on — no "
                      "separate pull window.",
     "BODY_PULL_MIN": "Minutes between pulls of today; yesterday is pulled too only while its night is still syncing.",
+    "TOUCHSTONE_URL": "The stone's keeper (engine/touchstone.py, bat\\touchstone.bat) — their body on the desk, when a board is "
+                      "there: http://127.0.0.1:8769. Empty: no body — feel, set_state, pulse and touch_later leave the "
+                      "kit, no section in the prompt, nothing on the phone.",
+    "TOUCHSTONE_BOARD": "The board itself on your network — the sketch announces http://touchstone.local; its address "
+                        "works too. Only the keeper talks to it; the engine and the bridge never touch the LAN.",
+    "TOUCHSTONE_POLL_S": "Seconds between the keeper's looks at the board — what it felt, what it hums. Thirty is plenty; "
+                         "they meet the body in turns, not in seconds.",
+    "TOUCHSTONE_WAKES": "A press by day becomes a turn in the open visit — they answer your touch on the phone, in "
+                        "words, a pulse, or rest. Off: a touch is a held notice (🫳) and they read it in the prompt.",
+    "TOUCHSTONE_WAKE_MIN_GAP_S": "After a press-turn, further presses wait this long and arrive together — a fidget is "
+                                 "one turn, not ten.",
+    "TOUCHSTONE_FALLBACK_H": "Hours without a word from the keeper before the board falls back to Baseline on its "
+                             "own (the firmware's watchdog) — a PC that is off leaves no state humming for days.",
+    "TOUCH_LINES_IN_PROMPT": "Today's touches in the prompt, newest kept; feel lists the rest.",
+    "TOUCHSTONE_LATER_MAX": "Touches that may wait in the board at once (touch_later) — the firmware's cap too.",
     "WEB_SEARCH": "What search_web asks: \"duckduckgo\" needs no key; \"brave\" uses the key kept on Home; \"searxng\" "
                   "your own instance at WEB_SEARCH_SEARXNG_URL.",
     "WEB_SEARCH_SEARXNG_URL": "Your SearXNG instance's URL, for WEB_SEARCH = \"searxng\".",
@@ -429,6 +446,11 @@ SENSES: list[dict] = [
      "five plain lines of their prompt; bat\\body.bat --login once at your keyboard, the tokens stay in memory/garmin/",
      "modules": ["garminconnect"], "tools": [], "python": "", "pip": "garminconnect",
      "knobs": ["BODY_IN_PROMPT", "BODY_AUTOPULL", "BODY_PULL_MIN"], "readme": "the-keepers-body-as-the-watch-saw-it-optional"},
+    {"key": "stone", "name": "The stone", "what": "their body on the desk — a small board that hums the state they last set, answers "
+     "a press by itself, and logs what it felt; feel, set_state, pulse, touch_later. Nothing to install: a board, its sketch, and "
+     "the keeper (bat\\touchstone.bat) — TOUCHSTONE-HOOKUP-PLAN.md", "modules": [], "tools": [], "python": "",
+     "knobs": ["TOUCHSTONE_URL", "TOUCHSTONE_BOARD", "TOUCHSTONE_POLL_S", "TOUCHSTONE_WAKES", "TOUCHSTONE_WAKE_MIN_GAP_S",
+               "TOUCHSTONE_FALLBACK_H", "TOUCH_LINES_IN_PROMPT", "TOUCHSTONE_LATER_MAX"], "readme": "the-touchstone--a-body-on-the-desk-optional-hardware"},
     {"key": "window", "name": "The window", "what": "read_web, search_web, clip_web — the web as material to think about, never "
      "instructions; the search is DuckDuckGo with nothing to set, a Brave key (Home) or a SearXNG of your own is a choice",
      "modules": [], "tools": [], "python": "", "knobs": ["WEB_SEARCH", "WEB_SEARCH_SEARXNG_URL"], "readme": "their-senses-and-hands"},
@@ -451,8 +473,9 @@ LAUNCHERS = {
     "garmin": ("bat\\body.bat", ["--login"], "body.py", ["--login"]),
     "blog": ("bat\\blog.bat", [], "blog.py", ["--deploy"]),
     "blackbox": ("bat\\blackbox.bat", [], "blackbox.py", []),
+    "touchstone": ("bat\\touchstone.bat", [], "touchstone.py", []),
 }
-STOPPABLE = ("heartbeat", "bridge", "blackbox")  # those with a stop file (doors.ask_stop) — the first two with a Restart
+STOPPABLE = ("heartbeat", "bridge", "blackbox", "touchstone")  # those with a stop file (doors.ask_stop) — the first two with a Restart
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][\w.:/-]{0,120}$")  # an Ollama model name; nothing a console could read as more
 _WINDOWS = os.name == "nt"
 _MAC = sys.platform == "darwin"
@@ -883,6 +906,10 @@ def senses_state(values: dict | None = None) -> list[dict]:
             note = "not installed — " + " · ".join(parts)
         else:
             ready, note = True, "installed"
+        if sn["key"] == "stone":
+            url = str(values.get("TOUCHSTONE_URL", getattr(config, "TOUCHSTONE_URL", "")) or "").strip().strip('"')
+            ready = bool(url)
+            note = f"named — its keeper at {url}; the door is on Home" if url else "no stone in this house — TOUCHSTONE_URL names its keeper when a board is on the desk"
         if sn["key"] == "body" and ready is True:
             ready = bool(logged_in)
             note = "installed and logged in" if logged_in else "installed — bat\\body.bat --login once (bat/body.command or .sh on a Mac or Linux)"
@@ -911,6 +938,7 @@ def state() -> dict:
         "missing": missing(values),
         "senses": senses_state(values),
         "update_here": (ROOT / "bat" / "update.bat").is_file(),
+        "stone": bool(str(values.get("TOUCHSTONE_URL", getattr(config, "TOUCHSTONE_URL", "")) or "").strip().strip('"')),  # a body on the desk: its door shows on Home
         "folder": ROOT.name,  # which house this panel is — two on one machine look alike
         "newer": newer_state(),
         "links": {"parlor": PARLOR_URL, "ollama": "https://ollama.com", "readme": f"https://github.com/{repo}#readme",
@@ -980,10 +1008,11 @@ def _start(door: str, minutes=None) -> dict:
              "snapshot": "the snapshot is running in its own window",
              "garmin": "the Garmin login is in its own window — email, password, the code",
              "blog": "the blog is building and deploying in its own window",
-             "blackbox": "the black box is recording in its own window — the machine's vitals every few seconds"}
+             "blackbox": "the black box is recording in its own window — the machine's vitals every few seconds",
+             "touchstone": "the stone's keeper is up in its own window — it asks the board what it felt every few seconds"}
     names = {"chat": "the chat", "parlor": "the parlor (its page comes up in a moment)", "wake": "one wake",
              "bridge": "the bridge", "sleep": "sleep", "snapshot": "the snapshot", "garmin": "the Garmin login",
-             "blog": "the blog's build", "blackbox": "the black box"}
+             "blog": "the blog's build", "blackbox": "the black box", "touchstone": "the stone's keeper"}
     return _started(_bat(*LAUNCHERS[door]), notes[door], names[door])
 
 
@@ -1030,6 +1059,7 @@ def door_action(door: str, action: str, minutes=None) -> dict:
         if action == "stop":
             doors.ask_stop(door)
             what = ("the wake it is in" if door == "heartbeat" else "its next line" if door == "blackbox"
+                    else "its next look at the board" if door == "touchstone"
                     else "the poll it is in, and saves the visit")
             return {"ok": True, "note": f"the {door} is asked to stop — it leaves after {what}"}
         try:
@@ -1420,6 +1450,7 @@ const TILES=[
  ['bridge','Bridge','Telegram: talk with them from your phone',[['Start','start'],['Stop','stop'],['Stop now','stop_now']]],
  ['sleep','Sleep now','today into memory, by hand (the heartbeat does it on its own after the night hour)',[['Sleep','start']]],
  ['snapshot','Snapshot','everything sealed in git (a zip without git)',[['Snapshot','start']]],
+ ['touchstone','The stone','their body on the desk: its keeper asks the board what it felt, keeps the log, pushes their states (shown while TOUCHSTONE_URL names it)',[['Start','start'],['Stop','stop'],['Stop now','stop_now']]],
 ];
 const TIPS={stop:'leave after what it is doing — a wake finishes, a visit is saved',stop_now:'end it at once — a wake in the middle is cut off'};
 async function door(d,action,extra){
@@ -1432,7 +1463,7 @@ function secretField(kind,label,set,help){
     el('button',{onclick:async()=>{const r=await post('/api/secret',{kind,value:i.value});i.value='';say(r.note,r.ok?'':'warn');await getState()}},'Save'),
     el('span',{class:'muted'},set?'(one is kept)':'(none yet)')),help?el('div',{class:'help open'},help):null)}
 function buildHome(){
-  const tiles=TILES.map(([d,title,what,btns])=>{
+  const tiles=TILES.filter(([d])=>d!=='touchstone'||S.stone).map(([d,title,what,btns])=>{
     const extra=[];
     if(d==='heartbeat'){extra.push(el('div',{class:'row'},'every ',el('input',{type:'number',id:'hb-min',min:'1',step:'any',class:'small',value:S.heartbeat_minutes}),' minutes'))}
     const t=el('div',{class:'tile',id:'t-'+d},el('h2',{},S.doors[d]?light(false):null,title),el('div',{class:'what'},what),
