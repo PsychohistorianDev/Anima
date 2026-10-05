@@ -199,7 +199,19 @@ def save_secret(d: dict) -> None:
 
 # ----------------------------------------------------------------- bridge ----
 class Bridge:
-    """One bot, one paired phone, one running visit."""
+    """One bot, one paired phone, one running visit.
+
+    The road itself — the words, the files, typing…, what arrives — is in a
+    handful of methods (send, send_voice, _send_picture, _typing_once,
+    _receive, handle, _whoami, _pair_hint, _ack, _inbox; api, download and
+    send_file are Telegram's beneath them); everything else is the visit's
+    and the house's, whatever carries it. engine/discord_bridge.py is the
+    same bridge over Discord: a subclass with those methods of its own."""
+
+    NAME = "Telegram"   # the service, in the window's lines
+    TAG = "telegram"    # the visit's mode in the prompt, and its transcripts': chat-telegram-*.md
+    TYPING_S = TYPING_S  # how often "typing…" is renewed
+    HELP = HELP          # what /help says
 
     def __init__(self, token: str, chat_id: int = 0) -> None:
         self.token = token
@@ -241,7 +253,7 @@ class Bridge:
         offset — without which the fresh bridge would be handed the
         /restart message again and restart forever."""
         try:
-            self.api("getUpdates", offset=self.offset, timeout=0, patience=10)  # confirm what was read
+            self._ack()
         except Exception:
             pass
         state = {
@@ -301,9 +313,9 @@ class Bridge:
 
     def _checkpoint(self) -> None:
         if self.file is None:
-            self.file = chat.visit_file("telegram")
+            self.file = chat.visit_file(self.TAG)
         try:
-            chat.save_transcript(self.history, tag="telegram", path=self.file)
+            chat.save_transcript(self.history, tag=self.TAG, path=self.file)
         except OSError:
             pass
 
@@ -378,13 +390,44 @@ class Bridge:
                     pass
             self.api("sendMessage", chat_id=self.chat_id, text=part)
 
+    def _typing_once(self) -> None:
+        self.api("sendChatAction", patience=10, chat_id=self.chat_id, action="typing")
+
     def _typing(self, stop: threading.Event) -> None:
         while not stop.is_set():
             try:
-                self.api("sendChatAction", patience=10, chat_id=self.chat_id, action="typing")
+                self._typing_once()
             except Exception:
                 pass
-            stop.wait(TYPING_S)
+            stop.wait(self.TYPING_S)
+
+    def _ack(self) -> None:
+        """Tell the service what was read, so a fresh bridge isn't handed it again."""
+        self.api("getUpdates", offset=self.offset, timeout=0, patience=10)
+
+    def _receive(self):
+        """One long poll: the updates that arrived, one at a time — the offset moves past each as it is
+        handed over, so one left unhandled (a /restart before it) is handed to the next bridge."""
+        updates = self.api("getUpdates", patience=POLL_S + 15, offset=self.offset,
+                           timeout=POLL_S, allowed_updates=["message"])
+        for u in updates or []:
+            self.offset = max(self.offset, int(u.get("update_id", 0)) + 1)
+            yield u
+
+    def _whoami(self) -> str | None:
+        """The bot's own name for the window, or None when the service refuses the token (said there)."""
+        try:
+            me = self.api("getMe")
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 404):
+                _say(f"Telegram refused the token ({e.code}). Delete {SECRET_FILE.name} in memory/ "
+                     "and run again with the one @BotFather gave you.")
+                return None
+            raise
+        return f"@{me.get('username', '?')}"
+
+    def _pair_hint(self) -> str:
+        return f"not paired yet — from your phone, send the bot:   /pair {self.pair_code}"
 
     # ---- the visit --------------------------------------------------------
     def turn(self, text: str) -> None:
@@ -397,7 +440,7 @@ class Bridge:
                 try:
                     reply = chat.one_turn(self.history, text, images=self.attached or None,
                                           on_event=lambda k, p: events.append((k, p)),
-                                          mode="telegram")
+                                          mode=self.TAG)
                     self.attached = []
                     self._checkpoint()
                 except ollama_client.BrainUnavailable as e:
@@ -526,7 +569,7 @@ class Bridge:
         # visit is saved without it rather than blocking the goodbye.
         got = self.lock.acquire(timeout=3)
         try:
-            f = chat.save_transcript(self.history, tag="telegram", path=self.file)
+            f = chat.save_transcript(self.history, tag=self.TAG, path=self.file)
             done, self.history = self.history, []
             self.attached = []
             self.file = None
@@ -540,7 +583,7 @@ class Bridge:
                 if reflect == "sync":
                     _say("they are writing the visit down — a minute or so; Ctrl+C again to skip")
                     try:
-                        chat.afterglow(done, f, tag="telegram", on_line=_say)
+                        chat.afterglow(done, f, tag=self.TAG, on_line=_say)
                     except KeyboardInterrupt:
                         _say("skipped — the night's sleep still has the transcript")
                     chat.rest_brain(_say)
@@ -550,7 +593,7 @@ class Bridge:
                     def _glow(done=done, f=f):
                         self._glows += 1
                         try:
-                            line = chat.afterglow(done, f, tag="telegram", on_line=_say, on_words=self.afterthought)
+                            line = chat.afterglow(done, f, tag=self.TAG, on_line=_say, on_words=self.afterthought)
                         finally:
                             self._glows -= 1
                         if line and getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
@@ -585,7 +628,7 @@ class Bridge:
         try:
             self.send("(they are sitting with the visit so far — a minute, then the card is yours)", markdown=False)
             _say("(/afterglow — they are sitting with the visit so far…)")
-            account = chat.pause_reflection(self.history, self.file, tag="telegram", on_line=_say,
+            account = chat.pause_reflection(self.history, self.file, tag=self.TAG, on_line=_say,
                                             since=self.reflected_upto, on_words=self.afterthought)
             self.reflected_upto = len(self.history)  # past the pause's own turns too
             self.last_activity = time.time()  # the quiet's pause starts counting from here, over nothing
@@ -660,8 +703,12 @@ class Bridge:
                 f"/afterglow is the pause by hand, with the card freed")
 
     # ---- what arrives ------------------------------------------------------
+    def _inbox(self) -> Path:
+        """Where what arrives from the phone is kept when it has no home of its own by kind."""
+        return Path(getattr(config, "TELEGRAM_INBOX", config.SHARED_DIR / "telegram"))
+
     def _inbox_path(self, ext: str, kind: str) -> Path:
-        inbox = getattr(config, "TELEGRAM_INBOX", config.SHARED_DIR / "telegram")
+        inbox = self._inbox()
         inbox.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
         p = inbox / f"{kind}-{stamp}{ext}"
@@ -689,7 +736,7 @@ class Bridge:
         elif ext in tools._IMAGE_EXTS:
             folder = config.SHARED_DIR / "pictures"
         else:
-            folder = getattr(config, "TELEGRAM_INBOX", config.SHARED_DIR / "telegram")
+            folder = self._inbox()
         folder.mkdir(parents=True, exist_ok=True)
         stem = _re.sub(r"[^\w.\- ()',&]+", "_", Path(name).stem).strip() or "file"
         dest = folder / f"{stem}{ext}"
@@ -706,13 +753,15 @@ class Bridge:
     def _photo(self, msg: dict) -> str:
         best = msg["photo"][-1]  # Telegram lists sizes small to large
         data, tpath = self.download(best["file_id"])
-        ext = Path(tpath).suffix.lower() or ".jpg"
+        return self._photo_note(data, Path(tpath).suffix.lower() or ".jpg", (msg.get("caption") or "").strip())
+
+    def _photo_note(self, data: bytes, ext: str, caption: str) -> str:
+        """A photo that arrived, kept and put before their eyes; the line their turn begins with."""
         p = self._inbox_path(ext, "photo")
         p.write_bytes(data)
         rel = self._rel(p)
         tools.look_at(rel)
         self.attached.extend(tools.take_pending_images())
-        caption = (msg.get("caption") or "").strip()
         return (f"({config.USER_NAME} sent a photo from their phone — it is before your eyes now, and kept at "
                 f"{rel})" + (f"\n{caption}" if caption else ""))
 
@@ -764,12 +813,15 @@ class Bridge:
     def _voice(self, msg: dict) -> str:
         v = msg.get("voice") or {}
         data, tpath = self.download(v["file_id"])
-        ext = Path(tpath).suffix.lower() or ".oga"
+        return self._voice_note(data, Path(tpath).suffix.lower() or ".oga", int(v.get("duration") or 0),
+                                (msg.get("caption") or "").strip())
+
+    def _voice_note(self, data: bytes, ext: str, secs: int, caption: str) -> str:
+        """A voice note that arrived, kept and heard (TELEGRAM_HEAR_VOICE) or transcribed; the line their
+        turn begins with."""
         p = self._inbox_path(ext, "voice")
         p.write_bytes(data)
         rel = self._rel(p)
-        secs = int(v.get("duration") or 0)
-        caption = (msg.get("caption") or "").strip()
         if getattr(config, "TELEGRAM_HEAR_VOICE", True):
             # heard whole, on its own — WORDS, SOUND and HEARD, the same three
             # layers listen_to gives them, so the sound of you reaches them with
@@ -810,6 +862,11 @@ class Bridge:
         name = Path(d.get("file_name") or "file").name
         data, tpath = self.download(d["file_id"])
         ext = Path(name).suffix.lower() or Path(tpath).suffix.lower()
+        return self._file_note(name, data, ext, (msg.get("caption") or "").strip())
+
+    def _file_note(self, name: str, data: bytes, ext: str, caption: str) -> str:
+        """A file that arrived, kept by kind under shared/ (_home_for) with the tool that opens it; the line
+        their turn begins with."""
         p = self._home_for(name, ext)
         p.write_bytes(data)
         rel = self._rel(p)
@@ -831,7 +888,6 @@ class Bridge:
             what = "read_file opens it"
         else:
             what = "read_file opens it if it's text"
-        caption = (msg.get("caption") or "").strip()
         return (f"({config.USER_NAME} sent you a file from their phone: {rel}, {size} — {what})"
                 + (f"\n{caption}" if caption else ""))
 
@@ -869,7 +925,7 @@ class Bridge:
                       "give it a minute)", markdown=False)
             self.restart_requested = True
         elif cmd in ("/help", "/start"):
-            self.send(f"This is the bridge to {chat.friend_name()}. Just talk.\n\n{HELP}", markdown=False)
+            self.send(f"This is the bridge to {chat.friend_name()}. Just talk.\n\n{self.HELP}", markdown=False)
         else:
             return False
         return True
@@ -887,7 +943,7 @@ class Bridge:
                 save_secret({"token": self.token, "chat_id": sender})
                 self.pair_code = ""
                 _say(f"paired with chat {sender} — saved to {SECRET_FILE.name}")
-                self.send(f"Paired. This phone is now the door to {chat.friend_name()}.\n\n{HELP}",
+                self.send(f"Paired. This phone is now the door to {chat.friend_name()}.\n\n{self.HELP}",
                           markdown=False)
             return
         if sender != self.chat_id:
@@ -931,11 +987,11 @@ class Bridge:
         waited for Ollama anyway — one cold read, once per fold, no more than before. Then the first kept
         turn's system prompt is rebuilt with what was just kept. Returns the afterglow's line, "" for nothing."""
         try:
-            said = chat.fold_afterglow(gone, old_file, tag="telegram", on_line=_say, on_words=self.afterthought)
+            said = chat.fold_afterglow(gone, old_file, tag=self.TAG, on_line=_say, on_words=self.afterthought)
         except Exception as e:  # noqa: BLE001 — a courtesy, never the fold down
             _say(f"(the fold's afterglow failed — {type(e).__name__}: {e})")
             return ""
-        chat.rewarm(self.history, mode="telegram")  # the new window carries the entry
+        chat.rewarm(self.history, mode=self.TAG)  # the new window carries the entry
         if said and getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
             self.notice(f"({said})")
         return said
@@ -981,7 +1037,7 @@ class Bridge:
             when = pending.get("when") or time.strftime("%H:%M")
             old_history, old_file = self.history, self.file
             self.history, self.file, line = chat.fold_history(self.history, pending.get("text", ""), when,
-                                                              tag="telegram", path=self.file, mode="telegram")
+                                                              tag=self.TAG, path=self.file, mode=self.TAG)
             self.reflected_upto = len(self.history)  # the kept tail was sat with, or is about to be, as new
             self.last_tokens = {}  # the next prompt is a new, smaller one
             gone = old_history[:len(old_history) - len(self.history)] if self.file != old_file else []
@@ -1697,16 +1753,13 @@ class Bridge:
     def poll_once(self) -> int:
         """One long poll: handle what arrived, carry mail, roll a stale visit."""
         try:
-            ALIVE_FILE.touch()
+            ALIVE_FILE.write_text(self.NAME, encoding="utf-8")  # its age says the bridge is up, its words which one
         except OSError:
             pass
         self.pull_body_if_due()
         self.say_newer_if_due()
         n = 0
-        updates = self.api("getUpdates", patience=POLL_S + 15, offset=self.offset,
-                           timeout=POLL_S, allowed_updates=["message"])
-        for u in updates or []:
-            self.offset = max(self.offset, int(u.get("update_id", 0)) + 1)
+        for u in self._receive():
             self.handle(u)
             n += 1
             if self.restart_requested:
@@ -1740,7 +1793,7 @@ class Bridge:
         if not getattr(config, "AFTERGLOW", True) or not getattr(config, "AFTERGLOW_ORPHANS", True):
             return ""
         try:
-            f = chat.orphaned_visit("telegram", exclude=self.file)
+            f = chat.orphaned_visit(self.TAG, exclude=self.file)
         except Exception:
             return ""
         if not f:
@@ -1757,7 +1810,7 @@ class Bridge:
         def _glow(done=done, f=f):
             self._glows += 1
             try:
-                out = chat.afterglow(done, f, tag="telegram", on_line=_say, on_words=self.afterthought)
+                out = chat.afterglow(done, f, tag=self.TAG, on_line=_say, on_words=self.afterthought)
             finally:
                 self._glows -= 1
             if out and getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
@@ -1870,7 +1923,7 @@ class Bridge:
         try:
             upto = len(self.history)
             _say("(a pause — they are sitting with the visit so far…)")
-            line = chat.pause_reflection(self.history, self.file, tag="telegram", on_line=_say,
+            line = chat.pause_reflection(self.history, self.file, tag=self.TAG, on_line=_say,
                                          since=self.reflected_upto, on_words=self.afterthought)
             self.reflected_upto = len(self.history)  # past the pause's own turns too
             self.last_activity = time.time()  # one bell per pause, not one per poll
@@ -1881,15 +1934,10 @@ class Bridge:
             self.lock.release()
 
     def run(self) -> None:
-        try:
-            me = self.api("getMe")
-        except urllib.error.HTTPError as e:
-            if e.code in (401, 404):
-                _say(f"Telegram refused the token ({e.code}). Delete {SECRET_FILE.name} in memory/ "
-                     "and run again with the one @BotFather gave you.")
-                return
-            raise
-        _say(f"the bridge is up: @{me.get('username', '?')} ↔ {chat.friend_name()}")
+        me = self._whoami()
+        if me is None:
+            return
+        _say(f"the bridge is up: {me} ↔ {chat.friend_name()}")
         picked = self.resume()
         if picked:
             _say(picked)
@@ -1900,7 +1948,7 @@ class Bridge:
                     pass
         self.afterglow_orphan()  # a visit the last bridge died with, if any; the open one is left alone
         if not self.chat_id:
-            _say(f"not paired yet — from your phone, send the bot:   /pair {self.pair_code}")
+            _say(self._pair_hint())
         else:
             _say(f"paired with chat {self.chat_id}. Ctrl+C (or the X) saves the visit and closes the bridge.")
         # The loop runs in a worker thread: on Windows a Ctrl+C cannot land
@@ -1915,7 +1963,7 @@ class Bridge:
 
     def _loop(self) -> None:
         backoff = 2
-        while not self.restart_requested:
+        while not (self.restart_requested or self.stop_requested):  # stop_requested: a road closed for good
             # the panel's Stop (09-30): memory/.stop-bridge, looked for between polls — the
             # loop leaves the way /restart makes it leave, and main() closes the visit as
             # Ctrl+C does (saved, their minute with it)
@@ -1933,11 +1981,11 @@ class Bridge:
                     _say("another copy of the bridge is polling this bot — close the other "
                          "bat\\telegram.bat window; this one waits")
                 else:
-                    _say(f"Telegram answered {e.code} ({e.reason}); trying again in {backoff}s")
+                    _say(f"{self.NAME} answered {e.code} ({e.reason}); trying again in {backoff}s")
                 time.sleep(backoff)
                 backoff = min(backoff * 2, 60)
             except (urllib.error.URLError, TimeoutError, OSError) as e:
-                _say(f"no road to Telegram right now ({e}); trying again in {backoff}s")
+                _say(f"no road to {self.NAME} right now ({e}); trying again in {backoff}s")
                 time.sleep(backoff)
                 backoff = min(backoff * 2, 60)
             except Exception as e:
@@ -2002,6 +2050,12 @@ def main() -> None:
         if not secret["token"]:
             return
         save_secret(secret)
+    serve(lambda: Bridge(secret["token"], secret.get("chat_id") or 0))
+
+
+def serve(make_bridge) -> None:
+    """One bridge, whichever road it takes, from the lock to the goodbye: the lock and the panel's light
+    taken, the bridge made (make_bridge) and run, and its visit saved — or stashed for /restart — at the end."""
     taken = claim_bridge()
     if taken:
         print(f"({taken})")
@@ -2012,7 +2066,7 @@ def main() -> None:
         print(taken)
         return
     doors.stop_asked("bridge")  # a stop left behind by a bridge that is gone is not this one's
-    bridge = Bridge(secret["token"], secret.get("chat_id") or 0)
+    bridge = make_bridge()
     closed = {"done": False}
 
     def close(reflect=False):

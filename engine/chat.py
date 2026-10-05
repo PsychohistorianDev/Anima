@@ -42,10 +42,14 @@ def friend_name() -> str:
     return "Friend"
 
 
+# The bridges, by the tag their visits carry (chat-<tag>-*.md, the prompt's mode): the service's name.
+BRIDGES = {"telegram": "Telegram", "discord": "Discord"}
+
+
 def save_transcript(turns: list[dict], tag: str = "", path: Path | None = None) -> Path | None:
     """Write the visible conversation to episodic memory.
 
-    tag names the door it came through ("telegram") so they can tell a
+    tag names the door it came through ("telegram", "discord") so they can tell a
     visit in the parlor from one on their phone when they reread. path pins
     the file: the parlor and the bridge write the visit after EVERY reply
     to the same file, so a window that dies badly (a second Ctrl+C during
@@ -57,7 +61,7 @@ def save_transcript(turns: list[dict], tag: str = "", path: Path | None = None) 
         return None
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     f = path or config.EPISODIC_DIR / f"chat-{tag + '-' if tag else ''}{stamp}.md"
-    where = " (over Telegram, from their phone)" if tag == "telegram" else ""
+    where = f" (over {BRIDGES[tag]}, from their phone)" if tag in BRIDGES else ""
     lines = [f"# Conversation{where} — {datetime.now().strftime('%A, %d %B %Y %H:%M')}\n"]
     name = friend_name()
     for t in visible:
@@ -450,7 +454,7 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
     if not visible or not any(t["role"] == "user" for t in visible):
         return ""  # nothing of his to sit with — a visit that is only their own letter is already theirs
     name = friend_name()
-    where = " (over Telegram, from their phone)" if tag == "telegram" else ""
+    where = f" (over {BRIDGES[tag]}, from their phone)" if tag in BRIDGES else ""
     hint = " ".join(t["content"] for t in visible[-6:])
     already = tools.journal_entries(date.today().isoformat())
     tail = ""
@@ -884,7 +888,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     on_event(kind, payload) — optional. kind is "thinking" (their deliberation,
     a str) or "tool" ({"name", "result"}). Without it, events print to the
     terminal as before; the parlor window passes a collector.
-    mode: "chat" (they're at the keyboard) or "telegram" (they're on their phone)."""
+    mode: "chat" (they're at the keyboard), or a bridge's tag — "telegram", "discord" (they're on their phone)."""
     tools.refresh_her_tools()  # pick up tools they forged or edited
     mark_visit_live()  # the heartbeat waits while he is here
     user_text = ollama_client.defang(user_text)[0]  # a reserved token typed or pasted stays text (09-27)
