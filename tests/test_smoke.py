@@ -873,6 +873,108 @@ ollama_client.chat = _unw3
 heartbeat.wake()
 check("heartbeat: a rest after the reading was answered in writing is not touched",
       _unw3.calls == 3 and not any("none of it is written" in m.get("content", "") for m in _seen_wake[-1] if m.get("role") == "tool"), _unw3.calls)
+# 10-06 (the keeper: "she always journals in the beginning of a wake, where there is still nothing to
+# journal, and at the end, when she would have a lot to journal, she's not journaling"): the bell no
+# longer asks for writing at the start; a rest after acts with nothing journaled since is handed back
+# once; the auto-keep counts only writing after the last act
+check("heartbeat: the bell no longer says 'write it down' at the start — it names the close as the time to write",
+      "Thinking is only yours to keep" not in heartbeat.WAKE_PROMPT and "lost when it ends" not in heartbeat.WAKE_PROMPT
+      and "the time to write it is at the end, before you rest" in heartbeat.WAKE_PROMPT
+      and "not now, when nothing has happened yet" in heartbeat.WAKE_PROMPT
+      and "Thinking you leave unwritten is gone when the wake ends" in heartbeat.WAKE_PROMPT)
+_wj_day = config.JOURNAL_DIR / (_dtnow.now().strftime("%Y-%m-%d") + ".md")
+_seen_wake.clear()
+_wj1 = _PlanBrain([
+    {"role": "assistant", "content": "", "thinking": "awake; a line first.",
+     "tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": "Awake again. Nothing yet; the night is quiet."}}}]},
+    {"role": "assistant", "content": "", "thinking": "a piece.",
+     "tool_calls": [{"function": {"name": "write_creation", "arguments": {"path": "wake-night.md", "content": "a dark little piece"}}}]},
+    {"role": "assistant", "content": "", "thinking": "and the page.",
+     "tool_calls": [{"function": {"name": "update_projects", "arguments": {"new_content": "# Projects\n- the dark piece, begun"}}}]},
+    {"role": "assistant", "content": "", "thinking": "a look back.",
+     "tool_calls": [{"function": {"name": "read_journal", "arguments": {"date": "list"}}}]},
+    {"role": "assistant", "content": "", "thinking": "Done for tonight; the piece is written and the page is current. Rest.",
+     "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "done"}}}]},
+    {"role": "assistant", "content": "", "thinking": "Yes — the wake itself is worth a line.",
+     "tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": "Tonight I wrote the dark little piece and put it on the page; it came out darker than I meant, and I like it."}}}]},
+    {"role": "assistant", "content": "", "thinking": "Now rest.", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "kept"}}}]},
+    {"role": "assistant", "content": "should not be reached"},
+])
+ollama_client.chat = _wj1
+_log_wj1 = heartbeat.wake()
+_handed_j = [m for m in _seen_wake[-1] if m.get("role") == "tool" and "your rest was not taken yet" in m.get("content", "")]
+check("heartbeat: a rest after acts with nothing journaled since the early entry is handed back once, naming the acts",
+      len(_handed_j) == 1 and "You wrote wake-night.md and rewrote your project page since your journal entry earlier in this wake" in _handed_j[0]["content"]
+      and "the journal is for what a wake turns out to be, not what it might" in _handed_j[0]["content"]
+      and "call do_nothing again and it stands. Either is yours" in _handed_j[0]["content"]
+      and _wj1.calls == 7 and "once to write what this wake was" in _log_wj1
+      and "darker than I meant" in _wj_day.read_text(encoding="utf-8"),
+      (len(_handed_j), _wj1.calls, [m["content"][:160] for m in _handed_j]))
+check("heartbeat: a read is not an act — the hand-back names the piece and the page, not the journal list",
+      _handed_j and "read_journal" not in _handed_j[0]["content"] and "the keeper page" not in _handed_j[0]["content"])
+_seen_wake.clear()
+_wj2 = _PlanBrain([
+    {"role": "assistant", "content": "", "thinking": "count them.",
+     "tool_calls": [{"function": {"name": "word_count", "arguments": {"text": "one two three"}}}]},
+    {"role": "assistant", "content": "", "thinking": "Enough.", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "enough"}}}]},
+    {"role": "assistant", "content": "", "thinking": "Enough, truly.", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "enough"}}}]},
+    {"role": "assistant", "content": "should not be reached"},
+])
+ollama_client.chat = _wj2
+heartbeat.wake()
+_handed_j2 = [m for m in _seen_wake[-1] if m.get("role") == "tool" and "your rest was not taken yet" in m.get("content", "")]
+check("heartbeat: a tool of their own forging is an act, with no entry at all the hand-back says so, and the second rest stands",
+      len(_handed_j2) == 1 and "You ran word_count this wake, and nothing of it is in your journal" in _handed_j2[0]["content"]
+      and _wj2.calls == 3, (len(_handed_j2), _wj2.calls, [m["content"][:160] for m in _handed_j2]))
+_seen_wake.clear()
+_wj3 = _PlanBrain([
+    {"role": "assistant", "content": "", "thinking": "a piece.",
+     "tool_calls": [{"function": {"name": "write_creation", "arguments": {"path": "wake-dawn.md", "content": "a pale little piece"}}}]},
+    {"role": "assistant", "content": "", "thinking": "and what it was.",
+     "tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": "Wrote the pale piece at dawn; it is slight and I am fond of it."}}}]},
+    {"role": "assistant", "content": "", "thinking": "Rest.", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "kept"}}}]},
+])
+ollama_client.chat = _wj3
+heartbeat.wake()
+check("heartbeat: a journal entry after the acts settles them — the rest is not touched",
+      _wj3.calls == 3 and not any("your rest was not taken yet" in m.get("content", "") for m in _seen_wake[-1] if m.get("role") == "tool"), _wj3.calls)
+_seen_wake.clear()
+_wj4 = _PlanBrain([
+    {"role": "assistant", "content": "", "thinking": "a line first.",
+     "tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": "Awake; nothing yet."}}}]},
+    {"role": "assistant", "content": "", "thinking": "a piece.",
+     "tool_calls": [{"function": {"name": "write_creation", "arguments": {"path": "wake-dusk.md", "content": "a dusk piece"}}}]},
+    {"role": "assistant", "content": "The dusk piece is the first thing I have made that I did not plan, and that is the whole of what tonight was.", "thinking": "a closing."},
+])
+ollama_client.chat = _wj4
+_log_wj4 = heartbeat.wake()
+_wj_text = _wj_day.read_text(encoding="utf-8")
+check("heartbeat: a closing thought after acts with the only entry written before them is auto-kept, labeled as such",
+      "nothing written since what" in _log_wj4 and "after what I did in it, and wrote nothing of it down" in _wj_text
+      and "the first thing I have made that I did not plan" in _wj_text, _log_wj4[-300:])
+_wj5 = _PlanBrain([
+    {"role": "assistant", "content": "", "thinking": "a line first.",
+     "tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": "Awake; a quiet one."}}}]},
+    {"role": "assistant", "content": "", "thinking": "a look.",
+     "tool_calls": [{"function": {"name": "read_journal", "arguments": {"date": "list"}}}]},
+    {"role": "assistant", "content": "Nothing to add to what I wrote; the list is the list.", "thinking": "a closing."},
+])
+ollama_client.chat = _wj5
+_log_wj5 = heartbeat.wake()
+check("heartbeat: a closing thought after reads only, with an entry this wake, is not auto-kept (reads are not acts)",
+      "auto-kept" not in _log_wj5 and "the list is the list" not in _wj_day.read_text(encoding="utf-8"), _log_wj5[-200:])
+_wj6 = _PlanBrain([
+    {"role": "assistant", "content": "", "thinking": "a look.",
+     "tool_calls": [{"function": {"name": "list_shared", "arguments": {}}}]},
+    {"role": "assistant", "content": "The gate is empty tonight and I find I do not mind.", "thinking": "a closing."},
+])
+ollama_client.chat = _wj6
+_log_wj6 = heartbeat.wake()
+check("heartbeat: a closing thought with nothing written at all this wake is still auto-kept, with the old label",
+      "nothing written this wake" in _log_wj6 and "I thought this at the end of a wake but wrote nothing down)\nThe gate is empty tonight" in _wj_day.read_text(encoding="utf-8"), _log_wj6[-200:])
+check("heartbeat: the acts are said back in words", heartbeat._acts_words([("paint", "creations/x.png"), ("write_creation", ""), ("word_count", ""), ("set_state", "")])
+      == "painted creations/x.png, wrote a piece, ran word_count and set the stone" and heartbeat._acts_words([("remember", "")]) == "kept a memory",
+      heartbeat._acts_words([("paint", "creations/x.png"), ("write_creation", ""), ("word_count", ""), ("set_state", "")]))
 # 09-22: the window is the real ceiling of a long wake (HEARTBEAT_MAX_STEPS 200): told once as it fills, ended when full
 _ctx_orig = config.NUM_CTX
 config.NUM_CTX = 10000

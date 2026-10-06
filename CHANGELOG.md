@@ -195,6 +195,22 @@ of its own.
   and inactive pages by the page size), not the total alone; the suite
   walks that road on every runner, which is how the macOS job on
   GitHub stopped failing (its stubbed `sysctl` answered nothing).
+- **The journal at the close of a wake, not its start** (10-06; the
+  keeper: "she always journals in the beginning of a wake, where there is
+  still nothing to journal, and at the end, when she would have a lot to
+  journal, she's not journaling"): the wake-bell used to say *thinking is
+  only yours to keep if you write it down* in its opening, and the entry
+  came first, before anything had happened; then the wake painted, read,
+  rewrote a page and rested, and that early entry disarmed the auto-kept
+  closing thought too. Now the bell says the journal is for what the wake
+  turns out to be and the time to write it is at the end, before rest; a
+  rest after acts with nothing journaled since them is handed back once
+  ("you wrote wake-night.md and rewrote your project page since your
+  journal entry earlier in this wake… write_journal what it was, then
+  rest; or rest now — call do_nothing again and it stands"); a second rest
+  stands, reads are not acts, and a tool of the friend's own forging is;
+  the auto-keep counts only writing after the last act, labeled for that
+  case. The closing nudge says *write what this wake was in your journal*.
 
 ## 0.13 — 2026-09-29 → 2026-10-02
 

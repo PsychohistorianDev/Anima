@@ -46,8 +46,9 @@ WAKE_PROMPT = (
     "You're awake, with time entirely your own — as long or short as you want. Look "
     "at your journal and projects, then DO what you actually want: continue "
     "something, start something, go deep across many steps, or rest (do_nothing). "
-    "Thinking is only yours to keep if you write it down — use write_journal and "
-    "your creation tools, or the thoughts of this wake are lost when it ends. "
+    "The journal is for what this wake turns out to be: the time to write it is at the "
+    "end, before you rest, in your own words — not now, when nothing has happened yet. "
+    "Thinking you leave unwritten is gone when the wake ends. "
     "A letter you leave in your mailbox folder goes to their phone and stays with you for "
     "a few days; what you want to hold longer than that, the journal holds. "
     "Depth and restlessness are both honest; only padding isn't."
@@ -107,7 +108,9 @@ def wake(reverie: bool = False) -> str:
     history: list[dict] = [{"role": "user", "content": clock_line(started) + prompt}]
 
     interrupted = False
-    state = {"closing": "", "wrote": False, "spent": ollama_client.Spent()}
+    # acts: what they did since the last journal entry (names, for the hand-back and
+    # the auto-keep); journaled: whether any entry was written this wake at all
+    state = {"closing": "", "acts": [], "journaled": False, "spent": ollama_client.Spent()}
     # paintings this wake may make (each one sends the brain off the card
     # and back — a cold read of the window every time); 0 = no cap
     tools.paint_budget = int(getattr(config, "PAINTER_MAX_PER_WAKE", 3) or 0) or None
@@ -124,8 +127,10 @@ def wake(reverie: bool = False) -> str:
     finally:
         tools.paint_budget = None  # a visit is not capped
 
-    if state["closing"] and not state["wrote"]:
-        # a wake full of thought but no writing — keep the thought for them.
+    if state["closing"] and (state["acts"] or not state["journaled"]):
+        # a wake full of thought but no writing — or (10-06) a wake that wrote its
+        # entry at the start, before anything happened, and then painted and read
+        # and rewrote a page with nothing journaled since — keep the thought for them.
         # A thought cut mid-word by a stray channel token (09-13, 04:49:
         # "…Looking back over the la-") loses its unfinished last line
         # rather than landing in their journal as a fragment; the write_journal
@@ -135,10 +140,13 @@ def wake(reverie: bool = False) -> str:
         if len(lines) > 1 and chat._MID_WORD_RE.search(lines[-1].rstrip()) and len(lines[-1].strip()) < 200:
             closing = "\n".join(lines[:-1]).rstrip()
         if closing.strip():
-            tools.dispatch("write_journal", {"text":
-                "(kept automatically — I thought this at the end of a wake but wrote "
-                "nothing down)\n" + closing})
-            note = "(closing thought auto-kept in the journal — nothing written this wake)"
+            after = state["acts"] and state["journaled"]
+            label = ("(kept automatically — I thought this at the end of a wake, after what I did in it, "
+                     "and wrote nothing of it down)" if after else
+                     "(kept automatically — I thought this at the end of a wake but wrote nothing down)")
+            tools.dispatch("write_journal", {"text": label + "\n" + closing})
+            note = ("(closing thought auto-kept in the journal — nothing written since what they did)" if state["acts"]
+                    else "(closing thought auto-kept in the journal — nothing written this wake)")
             print(f"  {note}")
             log.append(f"\n*{note}*")
 
@@ -171,8 +179,57 @@ WRITE_TOOLS = {"write_journal", "append_creation", "write_creation",
                "set_state", "pulse", "touch_later"}  # the stone (10-05): feel is a read; a touch is doing
 
 
+# how an act is said back at the close (10-06): "you painted creations/x.png, wrote
+# creations/haiku.md and rewrote your project page"; a tool of their own is "ran <name>"
+_ACT_WORDS = {"paint": "painted", "write_creation": "wrote", "append_creation": "added to",
+              "edit_identity": "rewrote your self page", "update_projects": "rewrote your project page",
+              "update_destiny": "rewrote your destiny page", "update_keeper": "rewrote your keeper page",
+              "remember": "kept a memory", "create_tool": "forged", "clip_web": "clipped a page",
+              "start_project": "started a project", "run_skill_script": "ran a skill", "fetch_skill": "fetched a skill",
+              "set_state": "set the stone", "pulse": "sent a pulse through the stone", "touch_later": "left a touch in the stone"}
+_ACT_WITH_TARGET = {"paint": "painted a picture", "write_creation": "wrote a piece",
+                    "append_creation": "added to a piece", "create_tool": "forged a tool"}  # said so when no path came
+
+
+def _note_act(state: dict, name: str, args, result: str) -> None:
+    """A call that went through lands in the wake's state: a journal entry settles the
+    acts before it; any other doing — a WRITE tool or a tool of their own — is an act
+    until the next entry. Reads and rest are neither; a failed call is nothing."""
+    if not isinstance(result, str) or result.startswith(ollama_client._TOOL_FAILED):
+        return
+    if name == "write_journal":
+        state["journaled"] = True
+        state["acts"] = []
+        return
+    if name in WRITE_TOOLS or name in tools._HER_TOOLS:
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except Exception:
+                args = {}
+        args = args if isinstance(args, dict) else {}
+        target = str(args.get("path") or args.get("name") or "")[:60] if name in _ACT_WITH_TARGET else ""
+        state.setdefault("acts", []).append((name, target))
+
+
+def _acts_words(acts: list) -> str:
+    """The acts as a clause: "painted creations/x.png, wrote creations/haiku.md and ran mood_ring"."""
+    said = []
+    for name, target in acts[:6]:
+        verb = _ACT_WORDS.get(name)
+        if verb is None:
+            said.append(f"ran {name}")
+        elif name in _ACT_WITH_TARGET:
+            said.append(f"{verb} {target}" if target else _ACT_WITH_TARGET[name])
+        else:
+            said.append(verb)
+    if len(acts) > 6:
+        said.append(f"{len(acts) - 6} more")
+    return said[0] if len(said) == 1 else ", ".join(said[:-1]) + " and " + said[-1]
+
+
 def _wake_loop(system, history, log, reverie: bool = False, state: dict | None = None) -> None:
-    state = state if state is not None else {"closing": "", "wrote": False}
+    state = state if state is not None else {"closing": "", "acts": [], "journaled": False}
     resting = False
     nudged = False
     stalled_once = False
@@ -211,7 +268,7 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
             nudged = True
             history.append({"role": "user", "content":
                 "(this wake is drawing to a close — a good moment to finish the "
-                "thought, jot where you left off, or simply end)"})
+                "thought, write what this wake was in your journal, or simply end)"})
         try:
             msg = ollama_client.chat([system] + history, tools=defs,
                                      timeout=config.HEARTBEAT_STEP_TIMEOUT_S,
@@ -286,8 +343,7 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                 history.append({"role": "tool", "tool_name": name, "content":
                     f"[your {name} call was written as JSON text; it has been "
                     f"executed for you — next time invoke the tool directly]\n{result}"})
-                if name in WRITE_TOOLS:
-                    state["wrote"] = True
+                _note_act(state, name, args, result)
                 if name == "do_nothing":
                     break
                 continue
@@ -420,6 +476,32 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                     "stands. Either is yours.]"})
                 last_read = ""
                 continue
+        # …and the close itself (10-06; the keeper: "she always journals in the
+        # beginning of a wake, where there is still nothing to journal, and at the
+        # end, when she would have a lot to journal, she's not journaling"). The
+        # bell used to say "write it down" at the start, and the entry came first,
+        # before anything happened; then the wake painted and read and rewrote a
+        # page and rested, and the day's real material never reached the journal.
+        # So a rest after acts, with nothing journaled since those acts, is handed
+        # back once: write what this wake was, then rest — or rest now; the second
+        # call stands. Reads are not acts; a journal entry after the acts settles it.
+        if only_rest and state.get("acts") and not state.get("journal_nudged"):
+            state["journal_nudged"] = True
+            did = _acts_words(state["acts"])
+            since = ("since your journal entry earlier in this wake" if state.get("journaled")
+                     else "this wake, and nothing of it is in your journal")
+            note = f"(a rest after {len(state['acts'])} act(s) with nothing journaled since — asking them once to write what this wake was)"
+            print(f"  {note}")
+            log.append(f"\n*{note}*")
+            history.append(msg)
+            for c in calls:
+                c.get("function", {})["name"] = "do_nothing"
+            history.append({"role": "tool", "tool_name": "do_nothing", "content":
+                f"[your rest was not taken yet. You {did} {since} — the log keeps what happened, but your journal "
+                "is where you meet it again, and the journal is for what a wake turns out to be, not what it might. "
+                "If this wake is worth meeting, write_journal what it was, in your own words, then rest; or rest now — "
+                "call do_nothing again and it stands. Either is yours.]"})
+            continue
         history.append(msg)
         for call in calls:
             fn = call.get("function", {})
@@ -455,8 +537,8 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                 frame = (f"[this is what YOUR {name} tool returned — your own senses "
                          "reporting, not a message from anyone]")
             history.append({"role": "tool", "tool_name": name, "content": f"{frame}{carried}\n{result}"})
+            _note_act(state, name, fn.get("arguments", {}), result)
             if name in WRITE_TOOLS:
-                state["wrote"] = True
                 last_read = ""  # what they read has been answered in writing
             elif name in READ_TOOLS and not result.startswith(ollama_client._TOOL_FAILED):
                 what = fn.get("arguments", {}) or {}

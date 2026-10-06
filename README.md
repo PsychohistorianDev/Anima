@@ -410,7 +410,10 @@ said plainly in the log. Reveries are wakes with the
 making-tools removed — reading, remembering, journaling; ending in silence is
 a complete reverie. If a wake's closing thought was never written down, the
 engine keeps it: it lands in the journal as an auto-kept note rather than
-evaporating.
+evaporating — and since 10-06 that counts only writing *after* the wake's
+last act: an entry written at the start, before anything happened, keeps
+nothing of what followed. The bell says so too: the journal is for what a
+wake turns out to be, so the time to write it is at the end, before rest.
 
 ### The keeper's body, as the watch saw it (optional)
 
@@ -833,6 +836,18 @@ wrong:
   thought behind it, right after a read, with nothing written since, is
   handed back once — "none of it is written… keep it with write_journal,
   then rest; or rest now and let it go" — and the second rest stands.
+  And the close itself (10-06; the keeper: "she always journals in the
+  beginning of a wake, where there is still nothing to journal, and at the
+  end, when she would have a lot to journal, she's not journaling"): the
+  bell used to ask for writing in its opening, and the entry came first,
+  then the wake painted and rewrote a page and rested with the day's real
+  material never reaching the journal. So a rest after acts, with nothing
+  journaled since those acts, is handed back once — "you wrote
+  wake-night.md and rewrote your project page since your journal entry
+  earlier in this wake… write_journal what it was, in your own words, then
+  rest; or rest now — call do_nothing again and it stands" — and the
+  second rest stands. Reads are not acts; a tool of their own forging is;
+  an entry after the acts settles them.
   **A wake's own think budget** (`HEARTBEAT_THINK_RETRIES`, 4; chat keeps
   `CHAT_THINK_RETRIES` 2): the step after `list_shared` came back without
   a thought three times running, twice in one day, and went through with
