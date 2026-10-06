@@ -1131,6 +1131,38 @@ _LATELY_STAMP = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}")
 LATELY_N = 10
 
 
+def _under_root(rel: str) -> str:
+    """A path inside the folder, as the page may hand back to /api/open — "" for anything else or absent."""
+    rel = (rel or "").strip().replace("\\", "/")
+    if not rel:
+        return ""
+    try:
+        p = (ROOT / rel).resolve()
+        p.relative_to(ROOT.resolve())
+    except (ValueError, OSError):
+        return ""
+    return rel if p.is_file() else ""
+
+
+def open_file(rel: str) -> dict:
+    """Open a file of the folder with what the machine opens it with (a click on a Lately line, 10-06) —
+    only a file inside the folder, named by the page from what lately() gave it; never a command."""
+    rel = _under_root(rel)
+    if not rel:
+        return _no("(that isn't a file in the folder)")
+    p = ROOT / rel
+    try:
+        if _WINDOWS:
+            os.startfile(str(p))  # type: ignore[attr-defined]
+        elif _MAC:
+            subprocess.Popen(["open", str(p)])
+        else:
+            subprocess.Popen(["xdg-open", str(p)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError) as e:
+        return _no(f"(couldn't open {rel}: {e})")
+    return {"ok": True, "note": f"opening {rel}"}
+
+
 def lately(n: int = LATELY_N) -> list[dict]:
     """[{when: "YYYY-MM-DD HH:MM", kind, line}] newest first — what they did lately."""
     items: list[dict] = []
@@ -1144,7 +1176,8 @@ def lately(n: int = LATELY_N) -> list[dict]:
                 stamps = _LATELY_STAMP.findall(m["text"])
                 when = max(stamps) if stamps else m["created"][:16].replace("T", " ")
                 line = re.sub(r"^\[(\w+) \d{4}-\d{2}-\d{2} \d{2}:\d{2}\]\s*", r"\1 ", m["text"].strip())  # the stamp is the when column
-                items.append({"when": when, "kind": "made", "line": line[:220]})
+                mp = re.search(r"(creations/[^\s\u2014(]+)", m["text"])
+                items.append({"when": when, "kind": "made", "line": line[:220], "path": _under_root(mp.group(1).rstrip(".,;")) if mp else ""})
         except Exception:  # noqa: BLE001
             pass
         try:
@@ -1152,7 +1185,8 @@ def lately(n: int = LATELY_N) -> list[dict]:
                 hist = r.get("history") or []
                 again = f" again · {r['score']}/10" + (f" (was {hist[-1].get('score')})" if hist and hist[-1].get("score") != r["score"] else "") if hist else f" · {r['score']}/10"
                 items.append({"when": str(r.get("updated") or r.get("created") or "")[:16].replace("T", " "), "kind": "song",
-                              "line": f"{'heard' if hist else 'kept a song —'} {r['title']} — {r.get('artist') or 'unknown'}{again}: {r.get('words') or ''}"[:220]})
+                              "line": f"{'heard' if hist else 'kept a song —'} {r['title']} — {r.get('artist') or 'unknown'}{again}: {r.get('words') or ''}"[:220],
+                              "path": _under_root(str(r.get("source") or ""))})
         except Exception:  # noqa: BLE001
             pass
         try:
@@ -1161,7 +1195,8 @@ def lately(n: int = LATELY_N) -> list[dict]:
                 mm = re.match(r"\[consolidated (\d{4}-\d{2}-\d{2})\]\s*(.*)", t, re.S)
                 day, rest = (mm.group(1), mm.group(2)) if mm else ("", t)
                 items.append({"when": m["created"][:16].replace("T", " "), "kind": "night",
-                              "line": (f"slept on {day}: " if day else "") + " ".join(rest.split())[:200]})
+                              "line": (f"slept on {day}: " if day else "") + " ".join(rest.split())[:200],
+                              "path": _under_root(f"journal/{day}.md") if day else ""})
         except Exception:  # noqa: BLE001
             pass
     try:
@@ -1178,7 +1213,7 @@ def lately(n: int = LATELY_N) -> list[dict]:
                         "consolidate": "after sleep", "condense": "at the condensing hour"}.get(by, f"from {by}" if by else "")
                 items.append({"when": str(rec.get("when", ""))[:16].replace("T", " "), "kind": "page",
                               "line": f"{'wrote' if rec.get('before') is None else 'rewrote'} {rec.get('page')}" + (f" {door}" if door else "")
-                                      + f" ({int(rec.get('chars') or 0):,} characters)"})
+                                      + f" ({int(rec.get('chars') or 0):,} characters)", "path": _under_root(str(rec.get("page") or ""))})
     except Exception:  # noqa: BLE001
         pass
     try:
@@ -1188,7 +1223,8 @@ def lately(n: int = LATELY_N) -> list[dict]:
             stamps = re.findall(r"^\*\*(\d{2}:\d{2})\*\*", jf.read_text(encoding="utf-8"), re.M)
             if stamps:
                 items.append({"when": f"{today} {max(stamps)}", "kind": "journal",
-                              "line": f"{len(stamps)} journal entr{'ies' if len(stamps) != 1 else 'y'} today (the newest at {max(stamps)})"})
+                              "line": f"{len(stamps)} journal entr{'ies' if len(stamps) != 1 else 'y'} today (the newest at {max(stamps)})",
+                              "path": _under_root(f"journal/{today}.md")})
     except Exception:  # noqa: BLE001
         pass
     items = [i for i in items if i.get("when")]
@@ -1407,6 +1443,8 @@ def _post(path: str, g) -> tuple[int, str, bytes]:
             return _json_reply(update(g("action")))
         if path == "/api/report":
             return _json_reply(report())
+        if path == "/api/open":
+            return _json_reply(open_file(g("path")))
         if path == "/api/pull":
             return _json_reply(pull(g("model")))
         if path == "/api/welcome":
@@ -1472,6 +1510,7 @@ a{color:var(--accent)}
 #lately{margin-top:22px}#lately h3{margin:0 0 6px;font-size:15px}#lately ul{list-style:none;margin:0;padding:0}
 #lately li{padding:6px 0;border-top:1px solid var(--line);font-size:14px;display:flex;gap:12px}#lately li:last-child{border-bottom:1px solid var(--line)}
 #lately .when{color:var(--muted);white-space:nowrap;min-width:9em;font-size:13px}#lately .kind{color:var(--accent);min-width:4.5em;font-size:13px}
+#lately li.open{cursor:pointer}#lately li.open:hover{background:var(--chip)}
 .tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
 .tile h2{margin:0;font-size:17px;font-weight:normal}
 .tiles.care{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));margin-bottom:18px}
@@ -1570,8 +1609,8 @@ function whenWords(w){const d=w.slice(0,10),t=w.slice(11,16),now=new Date(),td=n
   return (d===tl?'today':d===yd?'yesterday':d)+(t?' '+t:'')}
 async function lately(){let r;try{r=await (await fetch('/api/lately')).json()}catch(e){return}
   const box=$('lately');if(!r.items||!r.items.length){box.hidden=true;return}
-  box.replaceChildren(el('h3',{},'Lately'),el('ul',{},r.items.map(i=>el('li',{},el('span',{class:'when'},whenWords(i.when)),el('span',{class:'kind'},KINDS[i.kind]||i.kind),el('span',{},i.line)))),
-    el('p',{class:'muted'},'what they did, newest first — pieces, songs, pages, nights; the journal as a count, never a line of it'));
+  box.replaceChildren(el('h3',{},'Lately'),el('ul',{},r.items.map(i=>el('li',i.path?{class:'open',title:'open '+i.path,onclick:async()=>{const o=await post('/api/open',{path:i.path});say(o.note,o.ok?'':'warn')}}:{},el('span',{class:'when'},whenWords(i.when)),el('span',{class:'kind'},KINDS[i.kind]||i.kind),el('span',{},i.line)))),
+    el('p',{class:'muted'},'what they did, newest first — pieces, songs, pages, nights; the journal as a count, never a line of it. A line with a file behind it opens it when clicked.'));
   box.hidden=false}
 setInterval(()=>{if(view==='home'&&!document.hidden&&built)lately()},60000);
 function lights(){for(const[d]of TILES){const st=S.doors[d],t=$('t-'+d);if(!t||!st)continue;

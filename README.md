@@ -278,7 +278,9 @@ written, continued, published or painted, songs kept, the pages rewritten
 (and from which door), the nights slept, and today's journal as a count,
 never a line of it; ten at most, from what the engine already keeps, so
 you don't dig through the folder to see what happened while you were
-away.
+away. A line with a file behind it opens it when clicked (the picture,
+the piece, the page, the day's journal), with whatever your machine opens
+that kind of file with.
 
 **Settings** is `engine/config.py` laid out on tabs. Main holds what
 matters most, in order: the brain (a dropdown of what Ollama has), the

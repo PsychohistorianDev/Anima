@@ -7716,6 +7716,30 @@ check("panel: Lately — the creation rows (the stamp as the when, the verb kept
       and "the journal as a count, never a line of it" in panel.PAGE,
       ([(i["when"], i["kind"], i["line"][:50]) for i in _lt_items], _lt_route[0]))
 memory.remove(_lt_c); memory.remove(_lt_s)
+# a click opens the file behind a line — only a file inside the folder, with what the machine opens it with (10-06)
+_lt_f = config.CREATIONS_DIR / "poems" / "the-stone-waits.md"; _lt_f.parent.mkdir(parents=True, exist_ok=True); _lt_f.write_text("a poem\n", encoding="utf-8")
+_lt_c2 = memory.add("creation", "[wrote 2026-10-05 21:41] creations/poems/the-stone-waits.md — 1 line — about: a test")
+_lt_with = [i for i in panel.lately(n=400) if i["kind"] == "made" and "the-stone-waits" in i["line"]]
+_lt_opened = []
+_lt_pop0, _lt_sf0 = _psub.Popen, getattr(_pos, "startfile", None)
+_psub.Popen = lambda argv, **k: _lt_opened.append(list(argv)) or type("P", (), {})()
+if _lt_sf0 is not None:
+    _pos.startfile = lambda p: _lt_opened.append([str(p)])
+_lt_o1 = panel.open_file("creations/poems/the-stone-waits.md")
+_lt_n1 = len(_lt_opened)
+_lt_o2 = panel.open_file("../outside.md")
+_lt_o3 = panel.open_file("creations/poems/no-such.md")
+_lt_o4 = panel.route("POST", "/api/open", _json.dumps({"path": "creations/poems/the-stone-waits.md"}).encode(), dict(_PH, **{"Content-Type": "application/json"}))
+_psub.Popen = _lt_pop0
+if _lt_sf0 is not None:
+    _pos.startfile = _lt_sf0
+check("panel: a Lately line carries the file behind it (a piece, a page, a night's day, today's journal) and /api/open opens only a file inside the folder — outside or missing is refused",
+      _lt_with and _lt_with[0]["path"] == "creations/poems/the-stone-waits.md"
+      and _lt_o1["ok"] and _lt_o1["note"] == "opening creations/poems/the-stone-waits.md" and _lt_n1 == 1 and str(_lt_f) in " ".join(_lt_opened[0])
+      and not _lt_o2["ok"] and not _lt_o3["ok"] and _lt_o4[0] == 200 and _json.loads(_lt_o4[2])["ok"] and len(_lt_opened) == 2
+      and panel._under_root("../x.md") == "" and panel._under_root("") == "" and "'/api/open'" in panel.PAGE and "li.open" in panel.PAGE,
+      (_lt_with[:1], _lt_o1, _lt_o2, _lt_o3, _lt_opened))
+memory.remove(_lt_c2); _lt_f.unlink()
 _pgs = _p_asked(panel.route, "GET", "/api/state", b"", _PH)
 check("panel: GET / and /settings serve the page (every tab named in it, no address outside this machine to fetch); /api/state is the state as JSON",
       _pg[0] == 200 and _pg[1].startswith("text/html") and all(_pjson.dumps(t)[1:-1] in _pg[2].decode("utf-8") for t in [*panel.TABS, "Advanced"])
