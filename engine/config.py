@@ -589,6 +589,15 @@ REFLECT_MIN_TURNS = 2
 # (JOURNAL_DUP_THRESHOLD); nightly consolidation skips facts already known.
 MEMORY_DUP_THRESHOLD = 0.88
 JOURNAL_DUP_THRESHOLD = 0.88
+# …and the journal twin needs the wording too: the share of the new entry's
+# word-trigrams the earlier one already has. One voice reads as near-identity
+# to the embedder — most entries that are not twins score 0.86–0.88 against
+# some other entry of the two days, and a wake's account of its own night
+# was refused as a twin of the night before's. Different entries in one
+# voice share about 0.03 of their wording (nineteen in twenty under 0.11);
+# a copy is 1.0; a retelling of the same moment keeps its phrases. 0: the
+# score alone, as before.
+JOURNAL_DUP_WORDING = 0.25
 # The nearest earlier entry's score is named in write_journal's result when it
 # is at least this — useful for setting JOURNAL_DUP_THRESHOLD from real numbers
 # rather than guessing. 0: never.

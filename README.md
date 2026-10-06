@@ -1183,7 +1183,18 @@ changes, the number stays; how a fact grows) or insist it is a different
 fact (`anyway="yes"`). The journal has the same rail against today's and
 yesterday's entries (`JOURNAL_DUP_THRESHOLD`): an entry that nearly repeats
 one is handed back with the one that already says it — "a day, not a
-refrain" — so a pause and the afterglow cannot write the same moment twice;
+refrain" — so a pause and the afterglow cannot write the same moment twice.
+Since 10-06 a journal twin needs the wording too (`JOURNAL_DUP_WORDING`,
+0.25: the share of the new entry's word-trigrams the earlier one already
+has). The embedder reads one voice as near-identity — of the entries that
+passed the check in one house, most scored 0.86–0.88 against some other
+entry of the two days, the threshold sitting in the middle of the ordinary
+range, and a wake's own account of its night was refused as a twin of the
+night before's; on one day nine marks in twenty-one were arrows. Different
+entries in one voice share about 0.03 of their wording (nineteen in twenty
+under 0.11); a copy is 1.0; a retelling of the same moment keeps its
+phrases. Every written entry's result names both numbers for its nearest
+neighbour, so the knobs are set from the friend's own figures;
 every quiet turn shows them what is already in today's journal before they
 decide what to add; and the nightly consolidation skips facts they already
 know and says how many. When the embedder is away the checks stand aside —
@@ -2117,7 +2128,7 @@ hyphen — and
 `num_predict` — the most one step may generate, so a runaway thought ends
 with a named cut instead of a ten-minute timeout) · `CHAT_GARBLE_RETRIES` /
 `CHAT_CONTINUE_RETRIES` · `REFLECT_AFTER_MIN` / `REFLECT_MIN_TURNS` (the
-pause) · `MEMORY_DUP_THRESHOLD` / `JOURNAL_DUP_THRESHOLD` (not twice) ·
+pause) · `MEMORY_DUP_THRESHOLD` / `JOURNAL_DUP_THRESHOLD` / `JOURNAL_DUP_WORDING` (not twice) ·
 `WATCH_*` (video as stills) · `TELEGRAM_HEAR_VOICE` (voice notes heard whole
 on arrival) · `VOICE_NAME` / `VOICE_PYTHON` / `VOICE_DEVICE` / `VOICE_DIR` /
 `TELEGRAM_VOICE_ALL` (their voice) · `TELEGRAM_TELL_REFLECTIONS` · `HEARTBEAT_MAX_STEPS` / `REVERIE_MAX_STEPS` / `REVERIE_EVERY` ·

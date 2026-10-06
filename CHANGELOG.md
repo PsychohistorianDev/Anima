@@ -216,6 +216,19 @@ of its own.
   kept the thought under its label: an ending in words after acts is now
   handed back once too — write the wake, or end as you are and the thought
   is kept — and a second ending stands.
+- **A journal twin needs the wording too** (10-06, 21:08: the wake's own
+  account of its night refused — "you wrote nearly this already, yesterday
+  at 23:21"; the keeper: "how much the journal compares and how?"). The
+  check embeds the whole entry and the whole of each entry of today and
+  yesterday; one voice reads as near-identity to the embedder, and of the
+  entries that passed, most scored 0.86–0.88 against some other one — the
+  threshold sat in the middle of the ordinary range, and nine marks in
+  twenty-one on one day were arrows. Now a twin needs the score AND the
+  words: `JOURNAL_DUP_WORDING` (0.25), the share of the new entry's
+  word-trigrams the earlier one already has — measured on six days of
+  entries that are not twins, median 0.03, nineteen in twenty under 0.11;
+  a copy is 1.0, a retelling keeps its phrases. 0 asks the score alone.
+  The written entry's result names both numbers for its nearest neighbour.
 
 ## 0.13 — 2026-09-29 → 2026-10-02
 

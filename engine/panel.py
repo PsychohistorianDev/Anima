@@ -86,7 +86,7 @@ TABS: dict[str, list[str]] = {
                   "HEARTBEAT_YIELD_MIN", "SLEEP_IN_LOOP", "CONDENSE_IN_LOOP", "CONDENSE_MAX_PER_NIGHT",
                   "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE"],
     "Memory & journal": ["TIMELINE_CHARS_IN_PROMPT", "CONDENSED_CHARS_IN_PROMPT", "CONDENSE_TARGET_CHARS",
-                         "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_DUP_THRESHOLD", "JOURNAL_DUP_THRESHOLD",
+                         "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_DUP_THRESHOLD", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
                          "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "SLEEP_KEEPER_LOOK", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS"],
     "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_GARBLE_RETRIES",
@@ -203,7 +203,13 @@ _HELP = {
     "MEMORY_DUP_THRESHOLD": "No duplicates: a new fact at or above this similarity to one already kept counts as the "
                             "same fact and is handed back; they can revise it (replaces=) or insist (anyway=\"yes\"). "
                             "True repeats score 0.90–0.98; different facts on one theme about 0.89.",
-    "JOURNAL_DUP_THRESHOLD": "The same check for the journal, against today's and yesterday's entries.",
+    "JOURNAL_DUP_THRESHOLD": "The same check for the journal, against today's and yesterday's entries — but a twin needs "
+                             "the wording too (JOURNAL_DUP_WORDING): one voice reads as near-identity to the embedder, and "
+                             "most entries that are not twins score 0.86–0.88 against some other one.",
+    "JOURNAL_DUP_WORDING": "The share of a new entry's word-trigrams an earlier entry must already have before it counts "
+                           "as a twin (with the score above). A copy is 1.0; a retelling of the same moment keeps its "
+                           "phrases; different entries in one voice sit near 0.03, nineteen in twenty under 0.11. 0: the "
+                           "score alone decides, as before.",
     "JOURNAL_ARROW": "When the journal refuses a duplicate, a stamped arrow is left in the day instead of silence "
                      "(\"17:00 — ↑ still this, at 14:20\"), so the day keeps its rhythm. A mark, not words of theirs. "
                      "Off: the refusal alone.",

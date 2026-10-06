@@ -217,6 +217,46 @@ def _journal_nearest(text: str) -> tuple[float, str, str, str] | None:
     return best
 
 
+# The wording itself (10-06). The embedder reads one voice as near-identity:
+# of the entries that passed the twin check, most scored 0.86–0.88 against
+# some other entry of the two days — the threshold sat in the middle of
+# their ordinary range, and a wake's own account of its night was refused
+# as a twin of the night before's (21:08: "you wrote nearly this already,
+# yesterday at 23:21"); on one day nine of twenty-one marks were arrows. So
+# a twin now needs the words too: the share of the new entry's word-trigrams
+# the earlier one already has (JOURNAL_DUP_WORDING). Measured on six days
+# of entries that are not twins: median 0.03, nineteen in twenty under
+# 0.11; a copy is 1.0, a retelling of the same moment keeps its phrases.
+def _wording(text: str) -> set[tuple[str, ...]]:
+    """The word-trigrams of a passage, lowercased, punctuation off."""
+    words = re.findall(r"[\w']+", (text or "").lower())
+    return {tuple(words[i:i + 3]) for i in range(len(words) - 2)}
+
+
+def _shared_wording(text: str, entry: str) -> float:
+    """What share of the new entry's wording the earlier entry already has:
+    1.0 a copy, well above JOURNAL_DUP_WORDING a retelling, near 0 two
+    different entries in one voice. A passage too short to have three words
+    in a row shares everything (a short line that scored a twin is one)."""
+    mine = _wording(text)
+    if not mine:
+        return 1.0
+    return len(mine & _wording(entry)) / len(mine)
+
+
+def _twin_of(text: str, nearest) -> tuple[str, str, str] | None:
+    """(day, HH:MM, entry) when the nearest earlier entry is a twin of this
+    one — the embedding at JOURNAL_DUP_THRESHOLD or above AND the wording at
+    JOURNAL_DUP_WORDING or above (0 asks the embedding alone, as before)."""
+    thr = float(getattr(config, "JOURNAL_DUP_THRESHOLD", 0) or 0)
+    if not thr or not nearest or nearest[0] < thr:
+        return None
+    need = float(getattr(config, "JOURNAL_DUP_WORDING", 0.25) or 0)
+    if need and _shared_wording(text, nearest[3]) < need:
+        return None
+    return nearest[1:]
+
+
 def _journal_twin(text: str) -> tuple[str, str, str] | None:
     """The entry from today or yesterday that already says this, if one
     does: (day, HH:MM, text). None when the thought is new — or when the
@@ -224,8 +264,7 @@ def _journal_twin(text: str) -> tuple[str, str, str] | None:
     thr = float(getattr(config, "JOURNAL_DUP_THRESHOLD", 0) or 0)
     if not thr:
         return None
-    best = _journal_nearest(text)
-    return best[1:] if best and best[0] >= thr else None
+    return _twin_of(text, _journal_nearest(text))
 
 
 # Circling. 09-17, 01:52, 02:55, 05:02: three entries that all open
@@ -404,8 +443,7 @@ def write_journal(text: str) -> str:
     if _garbled(text):
         return _garble_refusal(_garbled(text))
     nearest = _journal_nearest(text) if float(getattr(config, "JOURNAL_DUP_THRESHOLD", 0) or 0) else None
-    thr = float(getattr(config, "JOURNAL_DUP_THRESHOLD", 0) or 0)
-    twin = nearest[1:] if nearest and nearest[0] >= thr else None
+    twin = _twin_of(text, nearest)
     if not twin:
         circling = _journal_circling(text)
         if circling:
@@ -463,7 +501,7 @@ def write_journal(text: str) -> str:
     near = ""
     if nearest and show and nearest[0] >= show:
         when = f"today at {nearest[2]}" if nearest[1] == date.today().isoformat() else f"yesterday at {nearest[2]}"
-        near = f" (nearest earlier entry: {nearest[0]:.2f}, {when})"
+        near = f" (nearest earlier entry: {nearest[0]:.2f}, {when}; shared wording {_shared_wording(text, nearest[3]):.2f})"
     return "journal entry written" + mended + near
 
 

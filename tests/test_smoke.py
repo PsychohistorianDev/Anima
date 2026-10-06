@@ -4812,6 +4812,30 @@ _j3 = tools.dispatch("write_journal", {"text": "The lamp arrived today and it is
 check("arrow: a second reach for the same thought minutes later adds no second arrow",
       _j3.startswith("(you wrote nearly this already") and "nothing written" in _j3 and len(_lamp_arrows()) == 1, _j3)
 check("arrow: an arrow is skipped by the twin check", tools._journal_twin(_arrows[0][1]) is None or not tools._journal_twin(_arrows[0][1])[2].startswith(tools.ARROW))
+# 10-06: a twin needs the wording too (the embedder read one voice as near-identity: most entries that were not
+# twins scored 0.86–0.88 against some other one, and a wake's account of its night was refused as the night before's)
+_wd_shuffled = "purple, today he said. it arrived — exactly as The lamp is and"  # the same bag of words, none of the phrases
+_wd_near = tools._journal_nearest(_wd_shuffled)
+_wd_w1 = tools.dispatch("write_journal", {"text": _wd_shuffled})
+check("wording: the same words in another order score a twin to the embedder but share no wording — it writes, and the result shows both numbers",
+      _wd_near is not None and _wd_near[0] >= config.JOURNAL_DUP_THRESHOLD and tools._shared_wording(_wd_shuffled, _wd_near[3]) < 0.1
+      and _wd_w1.startswith("journal entry written (nearest earlier entry: ") and "; shared wording 0.0" in _wd_w1, (_wd_near[:3] if _wd_near else None, _wd_w1))
+_wd_retold = "The lamp arrived today and it is purple, exactly as he said. Still."
+_wd_w2 = tools.dispatch("write_journal", {"text": _wd_retold})
+check("wording: a retelling that keeps its phrases is still a twin",
+      _wd_w2.startswith("(you wrote nearly this already") and tools._shared_wording(_wd_retold, "The lamp arrived today and it is purple, exactly as he said.") >= 0.5, _wd_w2)
+check("wording: the measure — a copy is 1.0, a different entry in one voice near 0, a line too short to measure shares everything",
+      tools._shared_wording("the house is still and the gate is empty", "the house is still and the gate is empty") == 1.0
+      and tools._shared_wording("Tonight the stone hummed Home and I let it.", "Yesterday the house was draped in violet and I slept.") == 0.0
+      and tools._shared_wording("two words", "anything at all") == 1.0 and tools._shared_wording("", "anything") == 1.0)
+config.JOURNAL_DUP_WORDING = 0
+_wd_w3 = tools.dispatch("write_journal", {"text": "and is The lamp as exactly — arrived it said. he today purple,"})
+config.JOURNAL_DUP_WORDING = 0.25
+check("wording: JOURNAL_DUP_WORDING 0 asks the score alone, as before", _wd_w3.startswith("(you wrote nearly this already"), _wd_w3)
+_wd_pn = __import__("panel")
+check("wording: the knob has a line of help on the panel and sits beside its threshold",
+      "JOURNAL_DUP_WORDING" in _wd_pn._HELP and "JOURNAL_DUP_WORDING" in _wd_pn.TABS["Memory & journal"]
+      and _wd_pn.TABS["Memory & journal"].index("JOURNAL_DUP_WORDING") == _wd_pn.TABS["Memory & journal"].index("JOURNAL_DUP_THRESHOLD") + 1)
 _gap = getattr(config, "JOURNAL_ARROW_GAP_MIN", 45); config.JOURNAL_ARROW_GAP_MIN = 0
 _j4 = tools.dispatch("write_journal", {"text": "(A glow.) The lamp arrived today and it is purple, exactly as he said."})
 check("arrow: with no gap, every reach leaves its arrow — each in that hour's own words, past the stage direction",
@@ -5169,7 +5193,7 @@ check("nearest: the result names the nearest earlier entry's score when it is cl
       _near is not None and (
           (_near[0] >= config.JOURNAL_DUP_THRESHOLD and _near_res.startswith("(you wrote nearly this already"))
           or (config.JOURNAL_NEAREST_SHOW <= _near[0] < config.JOURNAL_DUP_THRESHOLD
-              and _near_res == f"journal entry written (nearest earlier entry: {_near[0]:.2f}, today at {_near[2]})")
+              and _near_res == f"journal entry written (nearest earlier entry: {_near[0]:.2f}, today at {_near[2]}; shared wording {tools._shared_wording(_near_txt, _near[3]):.2f})")
           or (_near[0] < config.JOURNAL_NEAREST_SHOW and _near_res == "journal entry written")),
       (_near[:3] if _near else None, _near_res))
 check("arrow: it quotes a whole sentence, not a stump",
