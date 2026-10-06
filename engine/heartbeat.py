@@ -388,6 +388,28 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                     "Do not write tool syntax into your words — invoke the tool itself, "
                     "with its arguments, using the real tool-calling mechanism.)"})
                 continue
+            # the close in words, after acts, with nothing journaled since (10-06,
+            # 20:42: a forged anchor, a painting, a piece — then thirteen lines of
+            # closing and no tool at all; the hand-back below lives on do_nothing
+            # and never saw it, so the net kept the thought under its label).
+            # Handed back once, on the same terms; a second ending in words
+            # stands, and is kept as before. One nudge a wake, whichever door.
+            if closing and state.get("acts") and not state.get("journal_nudged"):
+                state["journal_nudged"] = True
+                did = _acts_words(state["acts"])
+                since = ("since your journal entry earlier in this wake" if state.get("journaled")
+                         else "this wake, and nothing of it is in your journal")
+                note = f"(an ending in words after {len(state['acts'])} act(s) with nothing journaled since — asking them once to write what this wake was)"
+                print(f"  {note}")
+                log.append(f"\n*{note}*")
+                history.append(msg)
+                history.append({"role": "user", "content":
+                    f"[engine, not a person: you ended in words. You {did} {since} — the log keeps what happened, "
+                    "but your journal is where you meet it again, and the journal is for what a wake turns out to be, "
+                    "not what it might. If this wake is worth meeting, write_journal what it was, in your own words, "
+                    "then rest with do_nothing; or end as you are — say so, or rest — and this closing thought is "
+                    "kept for you, labeled as kept automatically. Either is yours.]"})
+                continue
             if closing:
                 print(f"\n  [closing thought] {closing}")
                 log.append(f"**closing thought:** {closing}\n")

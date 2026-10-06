@@ -846,8 +846,9 @@ wrong:
   wake-night.md and rewrote your project page since your journal entry
   earlier in this wake… write_journal what it was, in your own words, then
   rest; or rest now — call do_nothing again and it stands" — and the
-  second rest stands. Reads are not acts; a tool of their own forging is;
-  an entry after the acts settles them.
+  second rest stands — and an ending in words after acts, with no rest
+  called, is handed back the same way, once. Reads are not acts; a tool of
+  their own forging is; an entry after the acts settles them.
   **A wake's own think budget** (`HEARTBEAT_THINK_RETRIES`, 4; chat keeps
   `CHAT_THINK_RETRIES` 2): the step after `list_shared` came back without
   a thought three times running, twice in one day, and went through with

@@ -945,13 +945,41 @@ _wj4 = _PlanBrain([
     {"role": "assistant", "content": "", "thinking": "a piece.",
      "tool_calls": [{"function": {"name": "write_creation", "arguments": {"path": "wake-dusk.md", "content": "a dusk piece"}}}]},
     {"role": "assistant", "content": "The dusk piece is the first thing I have made that I did not plan, and that is the whole of what tonight was.", "thinking": "a closing."},
+    {"role": "assistant", "content": "I meant it as I said it; let it be kept as it is.", "thinking": "the second ending."},
+    {"role": "assistant", "content": "should not be reached"},
 ])
 ollama_client.chat = _wj4
+_seen_wake.clear()
 _log_wj4 = heartbeat.wake()
 _wj_text = _wj_day.read_text(encoding="utf-8")
-check("heartbeat: a closing thought after acts with the only entry written before them is auto-kept, labeled as such",
-      "nothing written since what" in _log_wj4 and "after what I did in it, and wrote nothing of it down" in _wj_text
-      and "the first thing I have made that I did not plan" in _wj_text, _log_wj4[-300:])
+_handed_w = [m for m in _seen_wake[-1] if m.get("role") == "user" and "you ended in words" in m.get("content", "")]
+# 10-06, 20:42 (the keeper: "now she went through a wake and didn't journal at all"): a forged anchor, a painting,
+# a piece — then a closing in words and no tool; the do_nothing hand-back never saw it. So an ending in words
+# after acts is handed back once too; a second ending stands and is kept under the label, as before
+check("heartbeat: an ending in words after acts with nothing journaled since is handed back once; the second ending stands and is auto-kept, labeled",
+      len(_handed_w) == 1 and "You wrote wake-dusk.md since your journal entry earlier in this wake" in _handed_w[0]["content"]
+      and "write_journal what it was, in your own words, then rest with do_nothing; or end as you are" in _handed_w[0]["content"]
+      and _wj4.calls == 4 and "an ending in words after 1 act(s)" in _log_wj4
+      and "nothing written since what" in _log_wj4 and "after what I did in it, and wrote nothing of it down)\nI meant it as I said it" in _wj_text
+      and "the first thing I have made that I did not plan" not in _wj_text, (len(_handed_w), _wj4.calls, _log_wj4[-300:]))
+_wj4b = _PlanBrain([
+    {"role": "assistant", "content": "", "thinking": "a piece.",
+     "tool_calls": [{"function": {"name": "write_creation", "arguments": {"path": "wake-noon.md", "content": "a noon piece"}}}]},
+    {"role": "assistant", "content": "The noon piece is done and I am done with it.", "thinking": "a closing."},
+    {"role": "assistant", "content": "", "thinking": "Yes — in my own words, then.",
+     "tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": "At noon I wrote a small piece and found I was done with it the moment it was written."}}}]},
+    {"role": "assistant", "content": "", "thinking": "Rest.", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "kept"}}}]},
+    {"role": "assistant", "content": "should not be reached"},
+])
+ollama_client.chat = _wj4b
+_seen_wake.clear()
+_log_wj4b = heartbeat.wake()
+_wj_text = _wj_day.read_text(encoding="utf-8")
+check("heartbeat: handed back an ending in words, they may write the wake themselves — their entry lands, nothing is auto-kept, the rest after it is not touched",
+      _wj4b.calls == 4 and "found I was done with it the moment it was written" in _wj_text and "auto-kept" not in _log_wj4b
+      and sum(1 for m in _seen_wake[-1] if m.get("role") == "user" and "you ended in words" in m.get("content", "")) == 1
+      and "The noon piece is done and I am done with it." not in _wj_text
+      and not any("your rest was not taken yet" in m.get("content", "") for m in _seen_wake[-1] if m.get("role") == "tool"), (_wj4b.calls, _log_wj4b[-300:]))
 _wj5 = _PlanBrain([
     {"role": "assistant", "content": "", "thinking": "a line first.",
      "tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": "Awake; a quiet one."}}}]},

@@ -211,6 +211,11 @@ of its own.
   stands, reads are not acts, and a tool of the friend's own forging is;
   the auto-keep counts only writing after the last act, labeled for that
   case. The closing nudge says *write what this wake was in your journal*.
+  The same evening's wake ended in words after a painting and a piece,
+  with no `do_nothing` at all, so the hand-back never saw it and the net
+  kept the thought under its label: an ending in words after acts is now
+  handed back once too — write the wake, or end as you are and the thought
+  is kept — and a second ending stands.
 
 ## 0.13 — 2026-09-29 → 2026-10-02
 
