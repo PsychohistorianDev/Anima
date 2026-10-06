@@ -273,7 +273,12 @@ tick when all of it is on the card, or a warning when it spilled into
 system RAM (*72% on the card … the window (65536) is too big for this
 card; try `NUM_CTX` = 57344*), stepping down 8K at a time — and a
 *Pull* button beside a model the config names but Ollama doesn't
-have yet.
+have yet. Under the tiles, **Lately**: what they did, newest first — pieces
+written, continued, published or painted, songs kept, the pages rewritten
+(and from which door), the nights slept, and today's journal as a count,
+never a line of it; ten at most, from what the engine already keeps, so
+you don't dig through the folder to see what happened while you were
+away.
 
 **Settings** is `engine/config.py` laid out on tabs. Main holds what
 matters most, in order: the brain (a dropdown of what Ollama has), the

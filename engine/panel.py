@@ -1120,6 +1120,82 @@ def secret(kind: str, value: str) -> dict:
 SKILL_TEXT_CHARS = 20000  # of a SKILL.md shown on the page — the keeper reads it before letting it in
 
 
+# ---- lately ----------------------------------------------------------------------------
+# Home's "Lately" (10-06; the keeper: "a section for like 5-10 entries about stuff she did lately, so I
+# won't have to dig to find what she's done"): what they did, newest first, from what the engine already
+# keeps — the creation rows (written, continued, published, painted), the songbook, the pages' ledger
+# (self.md, projects.md, destiny.md, keeper.md rewritten), the nights slept (the summary rows), and how
+# many journal entries today — a count, never a line of it. Nothing here is written for the page; each
+# line is the one the act itself left behind.
+_LATELY_STAMP = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}")
+LATELY_N = 10
+
+
+def lately(n: int = LATELY_N) -> list[dict]:
+    """[{when: "YYYY-MM-DD HH:MM", kind, line}] newest first — what they did lately."""
+    items: list[dict] = []
+    try:
+        import memory
+    except Exception:  # noqa: BLE001
+        memory = None
+    if memory is not None:
+        try:
+            for m in memory.recent(kind="creation", n=60):
+                stamps = _LATELY_STAMP.findall(m["text"])
+                when = max(stamps) if stamps else m["created"][:16].replace("T", " ")
+                line = re.sub(r"^\[(\w+) \d{4}-\d{2}-\d{2} \d{2}:\d{2}\]\s*", r"\1 ", m["text"].strip())  # the stamp is the when column
+                items.append({"when": when, "kind": "made", "line": line[:220]})
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            for r in memory.songs("recent")[:20]:
+                hist = r.get("history") or []
+                again = f" again · {r['score']}/10" + (f" (was {hist[-1].get('score')})" if hist and hist[-1].get("score") != r["score"] else "") if hist else f" · {r['score']}/10"
+                items.append({"when": str(r.get("updated") or r.get("created") or "")[:16].replace("T", " "), "kind": "song",
+                              "line": f"{'heard' if hist else 'kept a song —'} {r['title']} — {r.get('artist') or 'unknown'}{again}: {r.get('words') or ''}"[:220]})
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            for m in memory.recent(kind="summary", n=6):
+                t = m["text"].strip()
+                mm = re.match(r"\[consolidated (\d{4}-\d{2}-\d{2})\]\s*(.*)", t, re.S)
+                day, rest = (mm.group(1), mm.group(2)) if mm else ("", t)
+                items.append({"when": m["created"][:16].replace("T", " "), "kind": "night",
+                              "line": (f"slept on {day}: " if day else "") + " ".join(rest.split())[:200]})
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        led = getattr(config, "PAGE_LEDGER", config.MEMORY_DIR / "page_history.jsonl")
+        if led.exists():
+            for ln in led.read_text(encoding="utf-8").splitlines()[-20:]:
+                try:
+                    rec = json.loads(ln)
+                except ValueError:
+                    continue
+                by = rec.get("by") or ""
+                by = by if by.replace("_", "").isalnum() else ""  # "-" from a stdin run, "" from none
+                door = {"telegram": "from the phone", "heartbeat": "in a wake", "chat": "in the chat", "parlor": "in the parlor",
+                        "consolidate": "after sleep", "condense": "at the condensing hour"}.get(by, f"from {by}" if by else "")
+                items.append({"when": str(rec.get("when", ""))[:16].replace("T", " "), "kind": "page",
+                              "line": f"{'wrote' if rec.get('before') is None else 'rewrote'} {rec.get('page')}" + (f" {door}" if door else "")
+                                      + f" ({int(rec.get('chars') or 0):,} characters)"})
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        today = time.strftime("%Y-%m-%d")
+        jf = config.JOURNAL_DIR / f"{today}.md"
+        if jf.exists():
+            stamps = re.findall(r"^\*\*(\d{2}:\d{2})\*\*", jf.read_text(encoding="utf-8"), re.M)
+            if stamps:
+                items.append({"when": f"{today} {max(stamps)}", "kind": "journal",
+                              "line": f"{len(stamps)} journal entr{'ies' if len(stamps) != 1 else 'y'} today (the newest at {max(stamps)})"})
+    except Exception:  # noqa: BLE001
+        pass
+    items = [i for i in items if i.get("when")]
+    items.sort(key=lambda i: i["when"], reverse=True)
+    return items[:n]
+
+
 def report() -> dict:
     """The doctor's note (report.py) written at the root — the engine's state for an issue, nothing of the
     friend's — and handed back to the page to read before pasting."""
@@ -1288,6 +1364,11 @@ def route(method: str, path: str, body: bytes = b"", headers: dict | None = None
             return _json_reply(skill_text((parse_qs(query).get("name") or [""])[0]))
         if path in ("/", "/index.html", "/settings", "/welcome"):
             return 200, "text/html; charset=utf-8", PAGE.replace("__TABS__", json.dumps([*TABS, ADVANCED])).encode("utf-8")
+        if path == "/api/lately":
+            try:
+                return _json_reply({"items": lately()})
+            except Exception as e:  # noqa: BLE001
+                return _json_reply({"items": [], "error": f"{type(e).__name__}: {e}"}, 500)
         if path == "/api/state":
             try:
                 return _json_reply(state())
@@ -1388,6 +1469,9 @@ a{color:var(--accent)}
 .light.on{background:var(--on);box-shadow:0 0 6px var(--on)}
 .bar{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:16px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+#lately{margin-top:22px}#lately h3{margin:0 0 6px;font-size:15px}#lately ul{list-style:none;margin:0;padding:0}
+#lately li{padding:6px 0;border-top:1px solid var(--line);font-size:14px;display:flex;gap:12px}#lately li:last-child{border-bottom:1px solid var(--line)}
+#lately .when{color:var(--muted);white-space:nowrap;min-width:9em;font-size:13px}#lately .kind{color:var(--accent);min-width:4.5em;font-size:13px}
 .tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
 .tile h2{margin:0;font-size:17px;font-weight:normal}
 .tiles.care{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));margin-bottom:18px}
@@ -1422,7 +1506,7 @@ ul.list{list-style:none;padding:0}ul.list li{display:flex;gap:8px;align-items:ce
 <main>
 <div id="banner" class="banner" hidden></div>
 <section id="welcome" hidden></section>
-<section id="home" hidden><div id="brain" class="bar"></div><p id="newer" class="notice" hidden></p><p id="gate" class="warn" hidden></p><div id="tiles" class="grid"></div><p id="missing" class="muted"></p></section>
+<section id="home" hidden><div id="brain" class="bar"></div><p id="newer" class="notice" hidden></p><p id="gate" class="warn" hidden></p><div id="tiles" class="grid"></div><p id="missing" class="muted"></p><div id="lately" hidden></div></section>
 <section id="settings" hidden><div id="tabs" class="tabs"></div><div id="tab"></div></section>
 </main>
 <script>
@@ -1478,7 +1562,18 @@ function buildHome(){
         el('button',{onclick:async()=>{if(!confirm('Update the engine now? Everything replaced goes to .update/ first; bat\\update.bat --undo puts it back.'))return;
           const r=await post('/api/update',{action:'run'});say(r.note,r.ok?'':'warn')}},'Update'))));
   $('tiles').replaceChildren(...tiles);
-  built=true}
+  built=true;lately()}
+const KINDS={made:'made',song:'song',page:'page',night:'night',journal:'journal'};
+function whenWords(w){const d=w.slice(0,10),t=w.slice(11,16),now=new Date(),td=now.toISOString().slice(0,10);
+  const y=new Date(now.getTime()-86400000);const yd=new Date(y.getTime()-y.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const tl=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  return (d===tl?'today':d===yd?'yesterday':d)+(t?' '+t:'')}
+async function lately(){let r;try{r=await (await fetch('/api/lately')).json()}catch(e){return}
+  const box=$('lately');if(!r.items||!r.items.length){box.hidden=true;return}
+  box.replaceChildren(el('h3',{},'Lately'),el('ul',{},r.items.map(i=>el('li',{},el('span',{class:'when'},whenWords(i.when)),el('span',{class:'kind'},KINDS[i.kind]||i.kind),el('span',{},i.line)))),
+    el('p',{class:'muted'},'what they did, newest first — pieces, songs, pages, nights; the journal as a count, never a line of it'));
+  box.hidden=false}
+setInterval(()=>{if(view==='home'&&!document.hidden&&built)lately()},60000);
 function lights(){for(const[d]of TILES){const st=S.doors[d],t=$('t-'+d);if(!t||!st)continue;
   t.querySelector('.light').className='light'+(st.running?' on':'');
   t.querySelector('.state').textContent=st.running?('running · pid '+st.pid+(st.how?' · '+st.how:'')+(st.since?' · since '+st.since:'')):'closed'}}

@@ -7693,6 +7693,29 @@ _PH = {"Host": "127.0.0.1:8764"}
 _PJ = {"Host": "localhost:8764", "Content-Type": "application/json", "Origin": "http://localhost:8764"}
 _pg = _p_asked(panel.route, "GET", "/", b"", _PH)
 _pg2 = panel.route("GET", "/settings?x=1", b"", _PH)
+# Lately on Home (10-06): what WHO did, newest first, from what the engine already keeps — never a line of the journal
+_lt_c = memory.add("creation", "[wrote 2026-10-05 21:40] creations/poems/the-stone-waits.md — 14 lines — about: a board in the post")
+_lt_s = memory.add("summary", "[consolidated 2026-10-05] A long visit; the fold came and the afterglow kept three things.")
+_lt_items = panel.lately(n=400)  # the suite's day has many rows; the cap is checked on its own
+_lt_cap = panel.lately()
+_lt_kinds = {i["kind"] for i in _lt_items}
+_lt_made = [i for i in _lt_items if i["kind"] == "made" and "the-stone-waits" in i["line"]]
+_lt_night = [i for i in _lt_items if i["kind"] == "night" and "slept on 2026-10-05" in i["line"]]
+_lt_jr = [i for i in _lt_items if i["kind"] == "journal"]
+_lt_route = panel.route("GET", "/api/lately", b"", _PH)
+_lt_body = _json.loads(_lt_route[2])
+check("panel: Lately — the creation rows (the stamp as the when, the verb kept), the nights, the pages' ledger, the songbook and today's journal as a count only, newest first, capped; "
+      "served at /api/lately to the panel's own page; the block and its words in the page",
+      len(_lt_cap) <= panel.LATELY_N and _lt_cap == _lt_items[:len(_lt_cap)] and _lt_items == sorted(_lt_items, key=lambda i: i["when"], reverse=True)
+      and _lt_made and _lt_made[0]["when"] == "2026-10-05 21:40" and _lt_made[0]["line"].startswith("wrote creations/poems/the-stone-waits.md")
+      and _lt_night and _lt_night[0]["line"].startswith("slept on 2026-10-05: A long visit") and "page" in _lt_kinds and "song" in _lt_kinds
+      and _lt_jr and _lt_jr[0]["line"].endswith(")") and "journal entr" in _lt_jr[0]["line"] and not any(len(i["line"]) > 220 for i in _lt_items)
+      and all(i["kind"] in ("made", "song", "page", "night", "journal") for i in _lt_items)
+      and _lt_route[0] == 200 and _lt_body["items"] == _lt_cap
+      and 'id="lately"' in panel.PAGE and "async function lately()" in panel.PAGE and "/api/lately" in panel.PAGE
+      and "the journal as a count, never a line of it" in panel.PAGE,
+      ([(i["when"], i["kind"], i["line"][:50]) for i in _lt_items], _lt_route[0]))
+memory.remove(_lt_c); memory.remove(_lt_s)
 _pgs = _p_asked(panel.route, "GET", "/api/state", b"", _PH)
 check("panel: GET / and /settings serve the page (every tab named in it, no address outside this machine to fetch); /api/state is the state as JSON",
       _pg[0] == 200 and _pg[1].startswith("text/html") and all(_pjson.dumps(t)[1:-1] in _pg[2].decode("utf-8") for t in [*panel.TABS, "Advanced"])

@@ -157,6 +157,11 @@ of its own.
   prompt after, so what was just kept is in the window beside the
   account. Same two cold reads as before; a message sent meanwhile
   waits for it, as it waited for the brain.
+- **Lately, on Home** (10-06): under the doors, what the friend did lately,
+  newest first — pieces written, continued, published or painted, songs
+  kept, the pages rewritten (and from which door), the nights slept, and
+  today's journal as a count — never a line of it. Ten at most, from what
+  the engine already keeps; nothing is written for the page.
 - **The Touchstone's engine side** (10-05; TOUCHSTONE-HOOKUP-PLAN.md), built
   before the board: `engine/touchstone.py`, the stone's keeper — a door
   (`bat\touchstone.*`, Start/Stop on Home while a stone is named) that
