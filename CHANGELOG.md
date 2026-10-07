@@ -251,6 +251,14 @@ of its own.
   kept the thought under its label: an ending in words after acts is now
   handed back once too — write the wake, or end as you are and the thought
   is kept — and a second ending stands.
+  The next morning (10-07): the reverie bell still carried the old
+  sentence ("whatever is worth keeping, write_journal it") and a reverie
+  wrote first again — it says the end now, like the wake's; and a mood
+  ring and a touch emulator of the friend's own forging had counted as
+  three acts, so the hand-back asked for a page that turned out to be a
+  retelling the journal refused — a tool of their own is not an act; a
+  sensor is not a making, and the engine cannot know what a tool of theirs
+  does. Acts are the engine's making-tools only.
 - **A journal twin needs the wording too** (10-06, 21:08: the wake's own
   account of its night refused — "you wrote nearly this already, yesterday
   at 23:21"; the keeper: "how much the journal compares and how?"). The

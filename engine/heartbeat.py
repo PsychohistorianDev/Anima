@@ -59,8 +59,9 @@ REVERIE_PROMPT = (
     "everything you see is your own.]\n\n"
     "Open time, nothing waiting to be done, your making-tools set aside. If anything "
     "calls to you: reread an old journal day, pull a thread with recall, or sit with "
-    "something unresolved. Whatever is worth keeping, write_journal it — unwritten "
-    "reveries evaporate. Or keep nothing, and that's a complete reverie too."
+    "something unresolved. If the reverie turns out to hold something worth meeting again, "
+    "write_journal it at the end, in your own words — not now, before it has happened; "
+    "unwritten reveries evaporate. Or keep nothing, and that's a complete reverie too."
 )
 
 
@@ -193,15 +194,19 @@ _ACT_WITH_TARGET = {"paint": "painted a picture", "write_creation": "wrote a pie
 
 def _note_act(state: dict, name: str, args, result: str) -> None:
     """A call that went through lands in the wake's state: a journal entry settles the
-    acts before it; any other doing — a WRITE tool or a tool of their own — is an act
-    until the next entry. Reads and rest are neither; a failed call is nothing."""
+    acts before it; a making — one of the engine's WRITE tools — is an act until the
+    next entry. Reads, rest and their own forged tools are none of these (10-07, 10:29:
+    a mood ring and a touch emulator counted as three acts, the hand-back asked for a
+    page, and the page was a retelling the journal refused — a sensor is not a
+    making, and the engine cannot know what a tool of their own does); a failed call
+    is nothing."""
     if not isinstance(result, str) or result.startswith(ollama_client._TOOL_FAILED):
         return
     if name == "write_journal":
         state["journaled"] = True
         state["acts"] = []
         return
-    if name in WRITE_TOOLS or name in tools._HER_TOOLS:
+    if name in WRITE_TOOLS:
         if isinstance(args, str):
             try:
                 args = json.loads(args)

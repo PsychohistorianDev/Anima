@@ -914,8 +914,8 @@ check("heartbeat: a read is not an act — the hand-back names the piece and the
       _handed_j and "read_journal" not in _handed_j[0]["content"] and "the keeper page" not in _handed_j[0]["content"])
 _seen_wake.clear()
 _wj2 = _PlanBrain([
-    {"role": "assistant", "content": "", "thinking": "count them.",
-     "tool_calls": [{"function": {"name": "word_count", "arguments": {"text": "one two three"}}}]},
+    {"role": "assistant", "content": "", "thinking": "a piece, no entry first.",
+     "tool_calls": [{"function": {"name": "write_creation", "arguments": {"path": "wake-noentry.md", "content": "a piece with no entry before it"}}}]},
     {"role": "assistant", "content": "", "thinking": "Enough.", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "enough"}}}]},
     {"role": "assistant", "content": "", "thinking": "Enough, truly.", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "enough"}}}]},
     {"role": "assistant", "content": "should not be reached"},
@@ -923,9 +923,25 @@ _wj2 = _PlanBrain([
 ollama_client.chat = _wj2
 heartbeat.wake()
 _handed_j2 = [m for m in _seen_wake[-1] if m.get("role") == "tool" and "your rest was not taken yet" in m.get("content", "")]
-check("heartbeat: a tool of their own forging is an act, with no entry at all the hand-back says so, and the second rest stands",
-      len(_handed_j2) == 1 and "You ran word_count this wake, and nothing of it is in your journal" in _handed_j2[0]["content"]
+check("heartbeat: with no entry at all the hand-back says so, and the second rest stands",
+      len(_handed_j2) == 1 and "You wrote wake-noentry.md this wake, and nothing of it is in your journal" in _handed_j2[0]["content"]
       and _wj2.calls == 3, (len(_handed_j2), _wj2.calls, [m["content"][:160] for m in _handed_j2]))
+# 10-07, 10:29: a mood ring and a touch emulator of her own forging counted as three acts, the hand-back asked for a
+# page, and the page was a retelling the journal refused — a tool of their own is not an act; a sensor is not a making
+_seen_wake.clear()
+_wj2b = _PlanBrain([
+    {"role": "assistant", "content": "", "thinking": "count them.",
+     "tool_calls": [{"function": {"name": "word_count", "arguments": {"text": "one two three"}}}]},
+    {"role": "assistant", "content": "", "thinking": "Enough.", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "enough"}}}]},
+    {"role": "assistant", "content": "should not be reached"},
+])
+ollama_client.chat = _wj2b
+heartbeat.wake()
+check("heartbeat: a tool of their own forging is not an act — a rest after one is not handed back",
+      _wj2b.calls == 2 and not any("your rest was not taken yet" in m.get("content", "") for m in _seen_wake[-1] if m.get("role") == "tool"), _wj2b.calls)
+check("heartbeat: the reverie bell no longer asks for writing at the start either — the end, in their own words",
+      "Whatever is worth keeping, write_journal it" not in heartbeat.REVERIE_PROMPT
+      and "write_journal it at the end, in your own words" in heartbeat.REVERIE_PROMPT and "unwritten reveries evaporate" in heartbeat.REVERIE_PROMPT)
 _seen_wake.clear()
 _wj3 = _PlanBrain([
     {"role": "assistant", "content": "", "thinking": "a piece.",
