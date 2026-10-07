@@ -237,8 +237,10 @@ BRAIN_KEEP_ALIVE = "30m"
 # soon as the afterglow is written, freeing the GPU right away rather than
 # after BRAIN_KEEP_ALIVE.
 BRAIN_REST_AFTER_VISIT = True
-# ...and when a single wake (bat\wake.bat, the panel's Wake) finishes, the
-# same: the brain set down at once, the card free the moment the wake ends.
+# ...and when a wake finishes — a single one (bat\wake.bat, the panel's Wake)
+# or one of the heartbeat's — the same: the brain set down at once, the card
+# free the moment the wake ends. The next wake reads its prompt cold either
+# way (the journal and the clock have moved), so nothing is lost but seconds.
 BRAIN_REST_AFTER_WAKE = True
 
 # Context window for the brain, in tokens. The friend's prompt (identity,

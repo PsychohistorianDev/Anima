@@ -726,6 +726,13 @@ def _main(loop: bool, minutes: float) -> None:
                 print(f"[brain offline, will retry next beat] {e}")
             except Exception as e:
                 print(f"[wake failed, will retry next beat] {e}")
+            finally:
+                # the loop's wakes too (10-07; the keeper: "after a wake or heartbeat
+                # session the card should be freed from the brain, no reason to keep
+                # it there"): a wake's prompt is read cold either way — the journal
+                # and the clock have moved — so keeping the brain up between beats
+                # bought seconds of loading and cost the card for BRAIN_KEEP_ALIVE
+                rest_after_wake()
             try:
                 if _rest(minutes * 60):
                     print(LEAVING)
@@ -749,9 +756,9 @@ def _main(loop: bool, minutes: float) -> None:
 
 
 def rest_after_wake() -> bool:
-    """A one-off wake sets the brain down when it is done (10-03; the keeper: "a single wake should
-    release the card when it finishes running") — BRAIN_REST_AFTER_WAKE, like BRAIN_REST_AFTER_VISIT for
-    a visit: the card is free at once, not after BRAIN_KEEP_ALIVE. A loop keeps its own rhythm."""
+    """A wake sets the brain down when it is done (10-03; the keeper: "a single wake should release
+    the card when it finishes running"; 10-07, the loop's wakes too) — BRAIN_REST_AFTER_WAKE, like
+    BRAIN_REST_AFTER_VISIT for a visit: the card is free at once, not after BRAIN_KEEP_ALIVE."""
     if not getattr(config, "BRAIN_REST_AFTER_WAKE", True):
         return False
     try:

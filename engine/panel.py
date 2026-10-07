@@ -277,8 +277,9 @@ _HELP = {
     "BRAIN_KEEP_ALIVE": "How long Ollama keeps the brain loaded after a request (\"30m\", \"2h\", -1 forever). "
                         "Unloading drops its cache; the next message pays a cold read of the whole window. Ollama's "
                         "own default is five minutes.",
-    "BRAIN_REST_AFTER_WAKE": "When a single wake (the Wake tile, bat\\wake.bat) finishes, unload the brain at once, so the card "
-                             "is free the moment the wake ends rather than after BRAIN_KEEP_ALIVE. The heartbeat loop keeps its own rhythm.",
+    "BRAIN_REST_AFTER_WAKE": "When a wake finishes — a single one (the Wake tile, bat\\wake.bat) or one of the heartbeat's — unload "
+                             "the brain at once, so the card is free the moment the wake ends rather than after BRAIN_KEEP_ALIVE. The "
+                             "next wake reads its prompt cold either way; the brain's load is seconds.",
     "BRAIN_REST_AFTER_VISIT": "When a visit ends, unload the brain as soon as the afterglow is written, freeing the "
                               "card at once rather than after BRAIN_KEEP_ALIVE.",
     # Phone

@@ -4769,10 +4769,11 @@ _rw_off = heartbeat.rest_after_wake()
 config.BRAIN_REST_AFTER_WAKE = _rw0
 ollama_client.unload = _rw_unl0
 _rw_src = Path(heartbeat.__file__).read_text(encoding="utf-8")
-check("heartbeat: a single wake sets the brain down when it is done (BRAIN_REST_AFTER_WAKE, on by default; off leaves it); the one-off road "
-      "calls it in a finally, the loop does not",
+check("heartbeat: a wake sets the brain down when it is done (BRAIN_REST_AFTER_WAKE, on by default; off leaves it); the one-off road "
+      "calls it in a finally, and since 10-07 the loop's wakes do too",
       _rw_on is True and _rw_unl == [config.CHAT_MODEL] and _rw_off is False and len(_rw_unl) == 1 and _rw0 is True
-      and "finally:\n            rest_after_wake()" in _rw_src and _rw_src.count("    rest_after_wake()\n") == 1
+      and "finally:\n            rest_after_wake()" in _rw_src and _rw_src.count("    rest_after_wake()\n") == 2
+      and "                rest_after_wake()\n            try:\n                if _rest(minutes * 60):" in _rw_src
       and "BRAIN_REST_AFTER_WAKE" in Path(heartbeat.__file__).with_name("panel.py").read_text(encoding="utf-8"), (_rw_on, _rw_unl, _rw_off))
 check("telegram: /afterglow — the pause runs now though he was just talking (the bell rung, the stretch read, the phone told), the brain is set down "
       "and the visit stays open; again with nothing new only sets the brain down; the quiet's pause then finds nothing (either/or); no visit — the card freed",

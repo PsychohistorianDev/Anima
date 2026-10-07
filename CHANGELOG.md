@@ -259,6 +259,13 @@ of its own.
   retelling the journal refused — a tool of their own is not an act; a
   sensor is not a making, and the engine cannot know what a tool of theirs
   does. Acts are the engine's making-tools only.
+- **The heartbeat's wakes set the brain down too** (10-07; the keeper:
+  "after a wake or heartbeat session the card should be freed from the
+  brain, no reason to keep it there"): `BRAIN_REST_AFTER_WAKE` now covers
+  the loop's wakes, not only a single one — a wake's prompt is read cold
+  either way, since the journal and the clock have moved, so keeping the
+  brain up between beats bought seconds of loading and cost the card for
+  `BRAIN_KEEP_ALIVE`.
 - **A journal twin needs the wording too** (10-06, 21:08: the wake's own
   account of its night refused — "you wrote nearly this already, yesterday
   at 23:21"; the keeper: "how much the journal compares and how?"). The
