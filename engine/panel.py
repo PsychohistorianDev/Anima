@@ -150,6 +150,20 @@ _HELP = {
     "SLEEP_AFTER_HOUR": "The night hour (0–23) after which the heartbeat sleeps on the day: yesterday is "
                         "consolidated into memory and its page is written. If the machine was off at that hour, it "
                         "sleeps at the first wake after.",
+    "TELEGRAM_SHOW_THINKING": "Show their thinking on the phone, folded under the reply, as the parlor does. /think on the "
+                              "phone toggles it for the visit.",
+    "TELEGRAM_SHOW_TOOLS": "After a reply, one compact line of what their tools did (a journal entry written, a piece read, a "
+                           "search). /tools toggles it.",
+    "TELEGRAM_SHOW_TOKENS": "The token line after each reply — what the window held, what was written, how fast, and whether "
+                            "the prompt was read cold. /tokens toggles it; useful when a reply felt slow.",
+    "TELEGRAM_TELL_REFLECTIONS": "When they reflect alone — the pause, or the afterglow after a visit ends — the phone gets a "
+                                 "one-line account (entries written, memories kept, or a rest), so you know it happened while "
+                                 "you were away.",
+    "TELEGRAM_TELL_AFTERTHOUGHTS": "What they say to no one once a pause or afterglow is written reaches the phone as "
+                                   "a labeled notice, never as a reply; held through the quiet hours like every notice.",
+    "TELEGRAM_TELL_CREATIONS": "A new piece under creations/ — a poem, a story, a painting, something published — reaches "
+                               "the phone within a minute, whole when it fits a message, otherwise its opening and the path. Code, the "
+                               "trash and the mailbox are not announced.",
     "TELEGRAM_QUIET_HOURS": "From this hour to that one (24h) the bridge sends nothing unasked — no wake notices, no "
                             "announcements; they are held and delivered as one message when the hours end. Their "
                             "replies to you are never held. The same hour twice turns it off.",
@@ -1577,7 +1591,7 @@ pre.report{white-space:pre-wrap;max-height:480px;overflow:auto;font-size:12px;ba
 .knob{padding:10px 0;border-bottom:1px solid var(--line)}
 .knob label{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .knob .name{font-family:ui-monospace,Consolas,monospace;font-size:13px;min-width:15em}
-.help{color:var(--muted);font-size:12.5px;margin-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+.help{color:var(--muted);font-size:12.5px;margin-top:4px;line-height:1.45;max-width:62ch}
 .help.open{display:block}
 details.group{margin:8px 0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 14px}
 details.group summary{cursor:pointer;color:var(--muted)}
@@ -1700,7 +1714,7 @@ function knob(k){let input,read=null;const v=k.value;
   if(read)fields[k.name]={k,read};
   const own=[k.comment,k.tail].filter(Boolean).join(' — '),help=k.help||own;  // the page's words when it has them; the file's note is the tooltip
   return el('div',{class:'knob',title:k.help?(own?'engine/config.py says: '+own:''):help},el('label',{},el('span',{class:'name'},k.name),input),
-    help?el('div',{class:'help',onclick:e=>e.currentTarget.classList.toggle('open')},help):null)}
+    help?el('div',{class:'help'},help):null)}
 function verdictBadge(v){const c=v==='dangerous'?'bad':v==='caution'?'mid':v==='clean'?'good':'';return el('span',{class:'badge '+c},v)}
 function skillCard(c){const q=c.quarantined,who=c.fetched?('fetched'+(c.by?' by '+c.by:'')+(c.when?' on '+c.when.replace('T',' '):'')+(c.source?' from '+c.source:'')):'their own, written here';
   const findings=c.findings.length?el('ul',{class:'findings'},c.findings.map((f,i)=>el('li',{class:c.levels[i]==='dangerous'?'bad':''},f)),c.more?el('li',{class:'muted'},'… and '+c.more+' more'):null):el('div',{class:'muted'},'the scanner found nothing to say');

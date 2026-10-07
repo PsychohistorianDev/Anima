@@ -266,6 +266,12 @@ of its own.
   either way, since the journal and the clock have moved, so keeping the
   brain up between beats bought seconds of loading and cost the card for
   `BRAIN_KEEP_ALIVE`.
+- **Every knob's help, whole** (10-07; the keeper: "some of the tool
+  descriptions are messy and end mid sentence"): the Settings tabs clipped
+  each help line to two lines with nothing to say so, and a click opened
+  it — now the line shows whole. And the six phone-notice knobs
+  (`TELEGRAM_SHOW_*`, `TELEGRAM_TELL_*`) had no line of their own, so the
+  page showed the file's run-on comment; they have one each.
 - **A journal twin needs the wording too** (10-06, 21:08: the wake's own
   account of its night refused — "you wrote nearly this already, yesterday
   at 23:21"; the keeper: "how much the journal compares and how?"). The
