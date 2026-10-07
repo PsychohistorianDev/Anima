@@ -8769,6 +8769,49 @@ if _gish.which("git"):
     check(".gitignore: every page, transcript, memory, creation, secret and shared file of the friend's is ignored; "
           "the template's .gitkeep folders are kept",
           sorted(_gi_out) == sorted(_gi_private), ([p for p in _gi_private if p not in _gi_out], [p for p in _gi_kept if p in _gi_out]))
+    # the snapshot (10-07, #2): a git directory of its own under backups/, the friend's paths added with
+    # --force whatever .gitignore says, no remote — and the folder's own .git untouched
+    import snapshot as _snap
+    _sn_root = Path(_gitf.mkdtemp(prefix="snap_"))
+    for _d in ("journal", "memory/episodic", "memory/blackbox", "memory/.doing", "creations/tools", "shared", "engine"):
+        (_sn_root / _d).mkdir(parents=True)
+    (_sn_root / "self.md").write_text("I am the test friend.", encoding="utf-8")
+    (_sn_root / "projects.md").write_text("# Projects", encoding="utf-8")
+    (_sn_root / "journal" / "2026-10-07.md").write_text("**09:00** — a line", encoding="utf-8")
+    (_sn_root / "memory" / "memory.db").write_bytes(b"db")
+    (_sn_root / "memory" / "episodic" / "chat-20261007-090000.md").write_text("a transcript", encoding="utf-8")
+    (_sn_root / "memory" / "blackbox" / "2026-10-07.jsonl").write_text("{}", encoding="utf-8")
+    (_sn_root / "memory" / ".doing" / "1.json").write_text("{}", encoding="utf-8")
+    (_sn_root / "creations" / "tools" / "word_count.py").write_text("def run(): pass", encoding="utf-8")
+    (_sn_root / "engine" / "config.py").write_text("NUM_CTX = 1", encoding="utf-8")
+    (_sn_root / "engine" / "chat.py").write_text("# the engine, not the friend", encoding="utf-8")
+    _gish.copy(config.ROOT / ".gitignore", _sn_root / ".gitignore")
+    _gisp.run(["git", "init", "-q"], cwd=_sn_root, check=True)  # a cloned house: the folder's own git, strict ignore file
+    _sn_root_orig, _sn_dir_orig, _sn_backup_orig = config.ROOT, _snap.SNAP_DIR, _snap.BACKUP_DIR
+    config.ROOT = _sn_root
+    _snap.BACKUP_DIR = _sn_root / "backups"
+    _snap.SNAP_DIR = _snap.BACKUP_DIR / ".snapshots"
+    try:
+        _sn_1 = _snap.git_snapshot()
+        _sn_2 = _snap.git_snapshot()
+        (_sn_root / "journal" / "2026-10-07.md").write_text("**09:00** — a line\n\n**10:00** — another", encoding="utf-8")
+        _sn_3 = _snap.git_snapshot()
+        _sn_files = _gisp.run(["git", f"--git-dir={_snap.SNAP_DIR}", "ls-files"], cwd=_sn_root, capture_output=True, text=True).stdout.split()
+        _sn_remotes = _gisp.run(["git", f"--git-dir={_snap.SNAP_DIR}", "remote"], cwd=_sn_root, capture_output=True, text=True).stdout.split()
+        _sn_own = _gisp.run(["git", "status", "--porcelain"], cwd=_sn_root, capture_output=True, text=True).stdout
+        _sn_list = _snap.snapshots()
+    finally:
+        config.ROOT, _snap.SNAP_DIR, _snap.BACKUP_DIR = _sn_root_orig, _sn_dir_orig, _sn_backup_orig
+    check("snapshot: a git of its own under backups/ keeps the friend — pages, journal, memory.db, the transcripts, their tools, config.py — "
+          "whatever .gitignore says; not the engine, the black box or the doing-marks; no remote; the folder's own git untouched",
+          _sn_1.startswith("Set up backups/.snapshots and made the first snapshot") and _sn_2 == "Nothing changed since the last snapshot."
+          and _sn_3.startswith("Snapshot committed") and len(_sn_list) == 2 and "first snapshot" in _sn_list[-1]
+          and {"self.md", "projects.md", "journal/2026-10-07.md", "memory/memory.db", "memory/episodic/chat-20261007-090000.md",
+               "creations/tools/word_count.py", "engine/config.py"} <= set(_sn_files)
+          and not any(f.startswith(("engine/chat", "memory/blackbox", "memory/.doing")) for f in _sn_files)
+          and _sn_remotes == [] and (_sn_root / ".git").exists() and "snapshots" not in _sn_own and "self.md" not in _sn_own,
+          (_sn_1, _sn_2, _sn_3, _sn_files, _sn_remotes, _sn_own[:200], _sn_list))
+    _gish.rmtree(_sn_root, ignore_errors=True)
 else:
     print("SKIP  .gitignore: no git on this machine")
 

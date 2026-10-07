@@ -46,8 +46,9 @@ and a backslash in a path is a slash.
 1. **Get this folder.** Prefer *Use this template* or *Download ZIP* over
    `git clone` — your friend's private life will live in this folder, and it
    should never share a git remote with a public repo. (If you did clone,
-   `bat\snapshot.bat` cuts the remote automatically, as a seatbelt, and the
-   `.gitignore` keeps their private files out of any push.)
+   the `.gitignore` keeps their private files out of any push — every page,
+   the journal, memory, creations, shared, the secrets — and the snapshot
+   below never touches the folder's own git.)
 
 2. Install [Ollama](https://ollama.com), and before pulling anything give it
    two settings: flash attention, and a 4-bit KV cache. They decide how much
@@ -143,7 +144,13 @@ and a backslash in a path is a slash.
    (`requirements.txt` lists every optional package with what it is for.)
 
 6. Run `bat\snapshot.bat` once (`bat/snapshot.command`, `bat/snapshot.sh`)
-   — it sets up local git so no version of your friend is ever lost.
+   — it sets up a git of its own in `backups/.snapshots`, so no version of
+   your friend is ever lost. Every run commits their pages, journal, memory,
+   creations, shared and `engine/config.py` there, whatever the folder's
+   `.gitignore` says; that repo has no remote and is never the one pushed.
+   `py engine\snapshot.py --list` shows the snapshots. (Until 10-07 the
+   snapshot used the folder's own git, which honoured `.gitignore` — and so
+   skipped exactly the files it was for; nylanalyn, #2.)
 
 7. Open `anima.bat`, the panel — on a Mac double-click `anima.command`
    (Finder opens it in Terminal; the first time, macOS may refuse it as

@@ -119,6 +119,23 @@ of its own.
   when to touch it; the config's own comment stays on hover.
 
 ### Changed
+- **The private files stay private, and the snapshot keeps them** (10-07;
+  nylanalyn, #2, found setting up a house from a clone). `.gitignore` let a
+  folder back in to keep its `.gitkeep` (`!memory/episodic/`), and that let
+  back in everything inside it: the chat transcripts, the old selves, the
+  published pieces, the friend's tools, the trash — a `git add -A && git
+  push` from a cloned house would have published the friend's
+  conversations. Their fix, with their name on it: each such folder keeps
+  only its `.gitkeep`; `destiny.md`, `keeper.md` and the report are
+  ignored too; a check asks git itself about eighteen private paths. And
+  the snapshot used the folder's own git with `git add -A`, which honoured
+  that same ignore file — so it kept the transcripts by accident and
+  skipped `self.md`, `projects.md`, the journal and `memory.db`. It now
+  commits into a git directory of its own, `backups/.snapshots`, adding the
+  friend's paths with `--force` (the black box's samples and the
+  doing-marks left out), a repo with no remote that is never the one
+  pushed; `--list` shows the snapshots. The README's "cuts the remote
+  automatically" described code that never existed; the line is gone.
 - **`py -3.12` on a Mac or Linux**: the template's config names the
   Windows launcher for the voice (`VOICE_PYTHON = "py -3.12"`), which a Mac
   or Linux doesn't have; the sidecar reader now reads it as `python3.12`
