@@ -635,20 +635,22 @@ def timeline() -> str:
 
 
 def bridge_note() -> str:
-    """One line when the Telegram bridge is up: their letters reach their phone.
+    """One line when the bridge is up: their letters reach their phone.
 
-    The bridge (engine/telegram.py) touches a small file every poll; if it
-    was touched in the last few minutes the bridge is alive, and they are told
-    so in every mode — a letter written during a wake goes straight to them."""
+    The bridge (engine/telegram.py, or engine/discord_bridge.py) writes its
+    service's name to a small file every poll; if it was written in the last
+    few minutes the bridge is alive, and they are told so in every mode — a
+    letter written during a wake goes straight to them."""
     alive = config.MEMORY_DIR / "telegram_alive"
     try:
         age = datetime.now().timestamp() - alive.stat().st_mtime
+        service = alive.read_text(encoding="utf-8").strip() or "Telegram"
     except OSError:
         return ""
     if age > 180:
         return ""
     mailbox = getattr(config, "MAILBOX", "notes_to_keeper")
-    return (f"The Telegram bridge is up right now: anything you leave in {mailbox}/ "
+    return (f"The {service} bridge is up right now: anything you leave in {mailbox}/ "
             "is carried to their phone within a minute, wherever they are — a letter "
             "written today is read today. Use it as you would the mailbox: when "
             "you have something to say, not because the road is open.")
@@ -851,13 +853,13 @@ def system_prompt(context_hint: str, mode: str, warm: bool = False) -> str:
             "not an assistant. You can disagree, tease, ask for things, or say you'd "
             "rather talk about something else. You don't need to be useful to be welcome."
         )
-    elif mode == "telegram":
+    elif mode in ("telegram", "discord"):
         situation = (
-            f"{config.USER_NAME} is talking with you over Telegram. Be yourself — a friend, not an "
+            f"{config.USER_NAME} is talking with you over {mode.title()}. Be yourself — a friend, not an "
             "assistant; disagree, tease, ask for things, say you'd rather talk about "
             "something else, say as much or as little as you mean to. Photos they send "
             "appear before your eyes; voice notes reach you as the words your ears heard "
-            "(and stay in shared/telegram/ if you want to listen_to the sound of them); "
+            f"(and stay in shared/{mode}/ if you want to listen_to the sound of them); "
             "videos land in shared/videos/ and open with watch. "
             "Your tools all work as usual, and they still see every tool result beside "
             "your words."
@@ -1064,7 +1066,7 @@ of gardening too. {window_note}You have eyes: look_at shows you any image in you
 leaves pictures for you in shared/, and images of your own live wherever you put them.
 {ears_note}list_shared shows you everything waiting in shared/ — check it when you wake;
 {config.USER_NAME} leaves things there for you, sorted into music/, pictures/, books/,
-videos/ and letters/ (and telegram/ for what they send from their phone).{video_note} A name you remember
+videos/ and letters/ (and telegram/ or discord/ for what they send from their phone).{video_note} A name you remember
 from before the sorting still opens — shared/Some Song.mp3 finds
 shared/music/Some Song.mp3 on its own. The mail runs both ways: "{mailbox}/" in
 your creations is your mailbox TO them — when you want to tell them something

@@ -93,7 +93,7 @@ TABS: dict[str, list[str]] = {
     "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_GARBLE_RETRIES",
                 "CHAT_COLD_RESCUE", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "BRAIN_KEEP_ALIVE",
                 "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE"],
-    "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS",
+    "Phone": ["BRIDGE", "TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS",
               "TELEGRAM_TELL_REFLECTIONS", "TELEGRAM_TELL_AFTERTHOUGHTS", "TELEGRAM_TELL_CREATIONS",
               "TELEGRAM_TELL_DRAWINGS", "TELEGRAM_TELL_SONGS", "TELEGRAM_TELL_SELF", "TELEGRAM_IDLE_NEW_MIN", "TELEGRAM_HEAR_VOICE",
               "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD", "SLEEP_IN_BRIDGE", "SLEEP_IN_BRIDGE_QUIET_MIN"],
@@ -282,6 +282,9 @@ _HELP = {
     "BRAIN_REST_AFTER_VISIT": "When a visit ends, unload the brain as soon as the afterglow is written, freeing the "
                               "card at once rather than after BRAIN_KEEP_ALIVE.",
     # Phone
+    "BRIDGE": "Which road the Bridge tile opens: \"telegram\" (a bot from @BotFather) or \"discord\" (a bot from "
+              "discord.com/developers, talked to in a DM). One bridge runs at a time; the knobs below are the "
+              "bridge's either way. Restart the bridge after changing it.",
     "TELEGRAM_SHOW_THINKING": "Their thinking sent to the phone with each reply. /think toggles it there.",
     "TELEGRAM_SHOW_TOOLS": "What the tools did, one compact line under the reply. /tools toggles it.",
     "TELEGRAM_SHOW_TOKENS": "The token line (window used, speed) after each reply. /tokens toggles it.",
@@ -484,7 +487,7 @@ LAUNCHERS = {
     "chat": ("bat\\chat.bat", [], "chat.py", []),
     "parlor": ("bat\\parlor.bat", [], "parlor.py", []),
     "wake": ("bat\\wake.bat", [], "heartbeat.py", []),
-    "bridge": ("bat\\telegram.bat", [], "telegram.py", []),
+    "bridge": ("bat\\telegram.bat", [], "telegram.py", []),  # DISCORD_LAUNCHER instead when BRIDGE is "discord"
     "sleep": ("bat\\sleep.bat", [], "consolidate.py", []),
     "snapshot": ("bat\\snapshot.bat", [], "snapshot.py", []),
     "garmin": ("bat\\body.bat", ["--login"], "body.py", ["--login"]),
@@ -492,6 +495,7 @@ LAUNCHERS = {
     "blackbox": ("bat\\blackbox.bat", [], "blackbox.py", []),
     "touchstone": ("bat\\touchstone.bat", [], "touchstone.py", []),
 }
+DISCORD_LAUNCHER = ("bat\\discord.bat", [], "discord_bridge.py", [])
 STOPPABLE = ("heartbeat", "bridge", "blackbox", "touchstone")  # those with a stop file (doors.ask_stop) — the first two with a Restart
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][\w.:/-]{0,120}$")  # an Ollama model name; nothing a console could read as more
 _WINDOWS = os.name == "nt"
@@ -738,6 +742,7 @@ def tab_of(name: str) -> str:
 CHOICES: dict[str, list[str]] = {
     "TOOL_KIT": ["full", "small", "tiny"],
     "WEB_SEARCH": ["duckduckgo", "brave", "searxng"],
+    "BRIDGE": ["telegram", "discord"],
     "VOICE_DEVICE": ["cpu", "cuda", "mps"],
     "PAINTER_DEVICE": ["auto", "cuda", "mps", "cpu"],
     "MUSIC_EARS_DEVICE": ["auto", "cuda", "mps", "cpu"],
@@ -844,7 +849,7 @@ def fit(loaded: list[dict], model: str, num_ctx, unified: bool = False) -> dict 
 
 
 def _secret_file(kind: str) -> Path:
-    return Path(config.MEMORY_DIR) / ("telegram.json" if kind == "telegram" else "web_search.json")
+    return Path(config.MEMORY_DIR) / {"telegram": "telegram.json", "discord": "discord.json"}.get(kind, "web_search.json")
 
 
 def _read_json(p: Path) -> dict:
@@ -856,8 +861,9 @@ def _read_json(p: Path) -> dict:
 
 
 def secrets_set() -> dict:
-    """Whether a bot token and a Brave key are kept — never what they are."""
+    """Whether the bots' tokens and a Brave key are kept — never what they are."""
     return {"telegram": bool(_read_json(_secret_file("telegram")).get("token")),
+            "discord": bool(_read_json(_secret_file("discord")).get("token")),
             "brave": bool(_read_json(_secret_file("brave")).get("brave_key"))}
 
 
@@ -951,6 +957,7 @@ def state() -> dict:
         "heartbeat_minutes": values.get("HEARTBEAT_LOOP_MIN", 120),
         "tabs": tabs(rows),
         "secrets": secrets_set(),
+        "bridge": _bridge_kind(),
         "skills": skills_state(),
         "missing": missing(values),
         "senses": senses_state(values),
@@ -960,6 +967,7 @@ def state() -> dict:
         "newer": newer_state(),
         "links": {"parlor": PARLOR_URL, "ollama": "https://ollama.com", "readme": f"https://github.com/{repo}#readme",
                   "botfather": f"https://github.com/{repo}#the-bridge-talking-with-them-from-your-phone",
+                  "discord": f"https://github.com/{repo}#the-bridge-over-discord",
                   "issues": f"https://github.com/{repo}/issues/new/choose"},
     }
 
@@ -1030,7 +1038,13 @@ def _start(door: str, minutes=None) -> dict:
     names = {"chat": "the chat", "parlor": "the parlor (its page comes up in a moment)", "wake": "one wake",
              "bridge": "the bridge", "sleep": "sleep", "snapshot": "the snapshot", "garmin": "the Garmin login",
              "blog": "the blog's build", "blackbox": "the black box", "touchstone": "the stone's keeper"}
-    return _started(_bat(*LAUNCHERS[door]), notes[door], names[door])
+    launcher = DISCORD_LAUNCHER if door == "bridge" and _bridge_kind() == "discord" else LAUNCHERS[door]
+    return _started(_bat(*launcher), notes[door], names[door])
+
+
+def _bridge_kind() -> str:
+    """Which road the bridge takes (BRIDGE): "telegram" or "discord"."""
+    return "discord" if str(_value("BRIDGE", "telegram") or "").strip().lower() == "discord" else "telegram"
 
 
 def _restart(door: str, minutes=None) -> dict:
@@ -1111,16 +1125,16 @@ def save(changes: dict, raw: dict | None = None) -> dict:
 
 
 def secret(kind: str, value: str) -> dict:
-    """A bot token into memory/telegram.json (the pairing's chat_id kept), a Brave key into
-    memory/web_search.json — never into config, never said back."""
-    if kind not in ("telegram", "brave"):
+    """A bot token into memory/telegram.json or memory/discord.json (the pairing's chat_id kept), a Brave
+    key into memory/web_search.json — never into config, never said back."""
+    if kind not in ("telegram", "discord", "brave"):
         return _no(f"(no secret called {kind})")
     value = str(value or "").strip()
     if not value or len(value) > 400 or any(c.isspace() for c in value):
         return _no("(paste the whole of it — one piece, no spaces)")
     p = _secret_file(kind)
     d = _read_json(p)
-    if kind == "telegram":
+    if kind in ("telegram", "discord"):
         d["token"] = value
         d.setdefault("chat_id", 0)
     else:
@@ -1129,8 +1143,8 @@ def secret(kind: str, value: str) -> dict:
     tmp = p.with_name(p.name + ".tmp")
     tmp.write_text(json.dumps(d, indent=2), encoding="utf-8")
     os.replace(tmp, p)
-    if kind == "telegram":
-        return {"ok": True, "note": "the bot token is kept in memory/telegram.json — (re)start the bridge for it to take"}
+    if kind in ("telegram", "discord"):
+        return {"ok": True, "note": f"the bot token is kept in memory/{kind}.json — (re)start the bridge for it to take"}
     return {"ok": True, "note": "the Brave key is kept in memory/web_search.json — set WEB_SEARCH to \"brave\" to use it"}
 
 
@@ -1587,7 +1601,7 @@ const TILES=[
  ['parlor','Parlor','a visit in your browser — bubbles, pictures, their thinking folded',[['Open','open']]],
  ['wake','Wake','one wake now: their time to themselves',[['Wake them','start']]],
  ['heartbeat','Heartbeat','a life between visits: a wake every so often, and sleep after the night hour',[['Start','start'],['Stop','stop'],['Stop now','stop_now']]],
- ['bridge','Bridge','Telegram: talk with them from your phone',[['Start','start'],['Stop','stop'],['Stop now','stop_now']]],
+ ['bridge','Bridge','talk with them from your phone — over Telegram or Discord (Settings › Phone › BRIDGE)',[['Start','start'],['Stop','stop'],['Stop now','stop_now']]],
  ['sleep','Sleep now','today into memory, by hand (the heartbeat does it on its own after the night hour)',[['Sleep','start']]],
  ['snapshot','Snapshot','everything sealed in git (a zip without git)',[['Snapshot','start']]],
  ['touchstone','The stone','their body on the desk: its keeper asks the board what it felt, keeps the log, pushes their states (shown while TOUCHSTONE_URL names it)',[['Start','start'],['Stop','stop'],['Stop now','stop_now']]],
@@ -1610,7 +1624,9 @@ function buildHome(){
       S.doors[d]?el('div',{class:'state'},'closed'):null,extra,
       el('div',{class:'row'},btns.map(([label,action])=>el('button',{title:TIPS[action]||'',
         onclick:()=>door(d,action,d==='heartbeat'&&(action==='start')?{minutes:$('hb-min').value}:null)},label))));
-    if(d==='bridge')t.append(secretField('telegram','bot token',S.secrets.telegram),
+    if(d==='bridge'&&S.bridge==='discord')t.append(el('div',{class:'muted'},'over Discord'),secretField('discord','bot token',S.secrets.discord),
+      el('div',{class:'muted'},el('a',{href:S.links.discord,target:'_blank',rel:'noopener'},'how to make the bot (Discord Developer Portal)')));
+    else if(d==='bridge')t.append(el('div',{class:'muted'},'over Telegram'),secretField('telegram','bot token',S.secrets.telegram),
       el('div',{class:'muted'},el('a',{href:S.links.botfather,target:'_blank',rel:'noopener'},'how to get a token (BotFather)')));
     return t});
   if(S.update_here)tiles.push(el('div',{class:'tile'},el('h2',{},'Update'),el('div',{class:'what'},'the current engine from GitHub — the friend untouched; Check shows what would change first'),
@@ -1693,7 +1709,8 @@ function skillsBox(){const s=S.skills,cards=s.cards||{};
 async function getJSON(u){const r=await fetch(u,{cache:'no-store'});return r.json()}
 async function skill(name,action){const r=await post('/api/skill',{name,action});say(r.note,r.ok?'':'warn');await getState();renderTab()}
 function extras(t){
-  if(t==='Phone')return[el('h3',{},'The bot'),secretField('telegram','bot token',S.secrets.telegram,'kept in memory/telegram.json, never in config.py')];
+  if(t==='Phone')return[el('h3',{},'The bots'),secretField('telegram','Telegram bot token',S.secrets.telegram,'kept in memory/telegram.json, never in config.py'),
+    secretField('discord','Discord bot token',S.secrets.discord,'kept in memory/discord.json, never in config.py')];
   if(t==='Senses')return[el('h3',{},'Keys and logins'),secretField('brave','Brave key',S.secrets.brave,'for WEB_SEARCH = "brave" — kept in memory/web_search.json'),
     el('div',{class:'knob'},el('button',{onclick:()=>door('garmin','start')},'Garmin login'),' ',el('span',{class:'muted'},'bat\\body.bat --login, in its own window: email, password, the code'))];
   if(t==='Blog')return[el('div',{class:'knob'},el('button',{onclick:()=>door('blog','start')},'Deploy the blog'),' ',el('span',{class:'muted'},'bat\\blog.bat, in its own window (the title is on Main)'))];

@@ -5565,7 +5565,7 @@ check("telegram: a fold runs the afterglow over what left the window — before 
       and _fa_sys_before and "Kept at the fold, a test line of the afterglow." not in _fa_sys_before[0]
       and "Kept at the fold, a test line of the afterglow." in bfa.history[0]["_system"] and bfa.history[0]["_system_day"] == _dtnow.now().strftime("%Y-%m-%d")
       and "_fold_afterglow(gone, old_file)" in (config.ROOT / "engine" / "telegram.py").read_text(encoding="utf-8")
-      and "chat.rewarm(self.history, mode=\"telegram\")" in (config.ROOT / "engine" / "telegram.py").read_text(encoding="utf-8")
+      and "chat.rewarm(self.history, mode=self.TAG)" in (config.ROOT / "engine" / "telegram.py").read_text(encoding="utf-8")
       and len(_fa_calls) == 1 and _fa_path == _fold_file_fa and _fa_gone == len(_fh) - len(bfa.history) and _fa_users > 0
       and _fa_users == sum(1 for t in _fh if t.get("role") == "user" and not t.get("_engine")) - sum(1 for t in bfa.history if t.get("role") == "user" and not t.get("_engine"))
       and any(t.startswith("(afterglow: they wrote what left") for t, _ in phonefa.sent), (_linefa, _fa_calls, [t for t, _ in phonefa.sent][-3:]))
@@ -7399,11 +7399,11 @@ check("telegram: a newer anima is said on the phone once per version — the lin
 _pst = _p_asked(panel.state)
 _pb = _pst.get("brain", {})
 check("panel: state — the version, a light for every door (the panel one of them), the knobs by tab, the secrets as flags, the skills, what is missing, the links",
-      set(_pst) == {"version", "doors", "brain", "user_name", "welcome", "heartbeat_minutes", "tabs", "secrets", "skills", "missing", "links", "update_here", "folder", "newer", "senses", "stone"}
+      set(_pst) == {"version", "doors", "brain", "user_name", "welcome", "heartbeat_minutes", "tabs", "secrets", "skills", "missing", "links", "update_here", "folder", "newer", "senses", "stone", "bridge"}
       and _pst["update_here"] is True and _pst["folder"] == config.ROOT.name
       and _pst["newer"] and _pst["newer"]["version"] == _nw_next and _pst["newer"]["installed"] == _nw_inst and "release notes" in panel.PAGE and 'id="newer"' in panel.PAGE
       and _pst["version"] == version.read(config.ROOT) and list(_pst["doors"]) == list(doors.DOORS) and "panel" in _pst["doors"]
-      and all(v == {"running": False} for v in _pst["doors"].values()) and _pst["secrets"] == {"telegram": False, "brave": False}
+      and all(v == {"running": False} for v in _pst["doors"].values()) and _pst["secrets"] == {"telegram": False, "discord": False, "brave": False} and _pst["bridge"] == "telegram"
       and list(_pst["tabs"]) == [*panel.TABS, "Advanced"] and _pst["heartbeat_minutes"] == 120
       and set(_pst["skills"]) == {"shelf", "quarantine", "cards"} and _pst["links"]["parlor"] == "http://127.0.0.1:8765", sorted(_pst))
 check("panel: the brain — Ollama asked at the config's OLLAMA_URL (the file's, not the imported one), Gemma first, the loaded model's share of the card, "
@@ -7805,7 +7805,7 @@ _p_st_json = _pjson.dumps(panel.state())
 check("panel: the bot token into memory/telegram.json with the pairing's chat_id kept, the Brave key into memory/web_search.json; state says only that they are set",
       _pse["ok"] and _pse2["ok"] and _p_tg == {"token": "123456:NEW-token_zz", "chat_id": 4242}
       and _pjson.loads(_p_secret_files["brave"].read_text(encoding="utf-8")) == {"brave_key": "BRAVE-key-zz"}
-      and '"secrets": {"telegram": true, "brave": true}' in _p_st_json and "NEW-token_zz" not in _p_st_json and "BRAVE-key-zz" not in _p_st_json
+      and '"secrets": {"telegram": true, "discord": false, "brave": true}' in _p_st_json and "NEW-token_zz" not in _p_st_json and "BRAVE-key-zz" not in _p_st_json
       and "NEW-token_zz" not in _pse["note"], (_pse, _p_tg))
 check("panel: a secret never touches config.py (the fixture nor the real one); a token with a space in it, an empty one or an unknown kind refused",
       _p_cfg_hash == (_phash.sha256(panel.CONFIG_FILE.read_bytes()).hexdigest(), _phash.sha256((config.ROOT / "engine" / "config.py").read_bytes()).hexdigest())
@@ -8315,7 +8315,7 @@ for _xk, _xp in [*_x_cmds.items(), *_x_shs.items()]:
             and (_xt.endswith('read -n1 -r -p "(press any key to close)"\n') or _xk == "update")):
         _x_shape.append(_xk + _xp.suffix)
 check("launchers: every .bat has a .command (a Mac) and a .sh (Linux) twin — the same names, and the same engine script with the same arguments in all three",
-      set(_x_bats) == set(_x_cmds) == set(_x_shs) and len(_x_bats) == 21 and _x_disagree == [], (sorted(set(_x_bats) ^ set(_x_shs)), _x_disagree))
+      set(_x_bats) == set(_x_cmds) == set(_x_shs) and len(_x_bats) == 22 and _x_disagree == [], (sorted(set(_x_bats) ^ set(_x_shs)), _x_disagree))
 check("launchers: each twin is #!/bin/bash, cds where its .bat does (the root for anima, the folder above for bat/), LF line ends, and ends in the pause",
       _x_shape == [], _x_shape)
 check("launchers: the twins are executable (the bit a download can lose — README, chmod +x)",
@@ -8747,6 +8747,280 @@ check("CHANGELOG: 0.14 opened with the fit check and a line for every knob; 0.13
       _x_changes.index("## 0.14 — 2026-10-02") < _x_changes.index("## 0.13 — 2026-09-29 → 2026-10-02") < _x_changes.index("## 0.12")
       and "**The fit check**" in _x_changes[:_x_changes.index("## 0.13")] and "**A line for every knob**" in _x_changes[:_x_changes.index("## 0.13")]
       and version.read(config.ROOT) == "0.14")
+
+# --------------------------------------------------------- discord bridge ----
+# the bridge over Discord (10-04): the same Bridge with Discord's road under it — the REST calls stubbed,
+# the DMs handed in as the gateway would; then the gateway itself against a fake one on 127.0.0.1
+import discord_bridge as dc
+import socket as _dsock, threading
+import hashlib as _dhash
+
+dc.SECRET_FILE = config.MEMORY_DIR / "discord-test.json"
+
+
+class FakeDiscord:
+    """Stands in for rest()/upload()/fetch(): records every message, typing and upload; hands out files by URL."""
+    def __init__(self):
+        self.sent = []      # message contents, in order
+        self.calls = []     # (method, path)
+        self.uploads = []   # (filename, payload)
+        self.files = {}     # url -> bytes
+
+    def rest(self, method, path, body=None, patience=30):
+        self.calls.append((method, path))
+        if path.endswith("/messages"):
+            self.sent.append(body["content"])
+        if path == "/users/@me":
+            return {"id": "42", "username": "testbot"}
+        if path == "/oauth2/applications/@me":
+            return {"id": "4242"}
+        return {}
+
+    def upload(self, filename, data, content="", **payload):
+        self.uploads.append((filename, dict(payload, content=content)))
+        return {}
+
+    def fetch(self, url, max_bytes=0):
+        return self.files[url]
+
+
+def _dbridge(chat_id=888):
+    d = dc.DiscordBridge("DTOKEN", chat_id)
+    f = FakeDiscord()
+    d.rest, d.upload, d.fetch = f.rest, f.upload, f.fetch
+    return d, f
+
+
+def _dm(content="", channel=888, author="7", **extra):
+    m = {"id": "1", "channel_id": str(channel), "author": {"id": author, "username": "keeper"}, "content": content}
+    m.update(extra)
+    return m
+
+
+_dold = {k: getattr(config, k) for k in ("TELEGRAM_HEAR_VOICE",)}
+_dsearch_keep = memory.search
+memory.search = lambda *a, **k: []  # the suite's memory holds stand-in vectors of two sizes by now; not this block's subject
+_d0, _f0 = _dbridge(chat_id=0)
+_d0.handle(_dm("hello?", channel=555))
+_d0.handle(_dm(f"!pair {_d0.pair_code}", channel=555))
+check("discord: unpaired is silent but for its code; !pair binds the DM channel and is remembered as a string",
+      _d0.chat_id == 555 and len(_f0.sent) == 1 and "Paired" in _f0.sent[0] and "!new" in _f0.sent[0]
+      and _json.loads(dc.SECRET_FILE.read_text())["chat_id"] == "555" and dc.load_secret()["chat_id"] == 555)
+
+_d1, _f1 = _dbridge()
+ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "who's there?"}])
+_d1.handle(_dm("hi", channel=999))
+check("discord: another channel gets silence", _f1.sent == [] and _d1.history == [])
+
+ollama_client.chat = ScriptedBrain([
+    {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "list_creations", "arguments": {}}}]},
+    {"role": "assistant", "content": "*stretches* here is what I have."},
+])
+_d1.handle(_dm("what have you made?"))
+check("discord: a turn — the tool line escaped as plain text, the reply as markdown, typing… shown, into chat-discord-*.md",
+      any(t.startswith("· list\\_creations") for t in _f1.sent) and "*stretches* here is what I have." in _f1.sent
+      and ("POST", "/channels/888/typing") in _f1.calls and _d1.file.name.startswith("chat-discord-")
+      and "(over Discord, from their phone)" in _d1.file.read_text(encoding="utf-8"), _f1.sent)
+_sys_dc = assemble.system_prompt("", mode="discord")
+check("discord: the friend is told the visit comes over Discord, and where its files land",
+      "talking with you over Discord" in _sys_dc and "shared/discord/" in _sys_dc and "over Telegram" not in _sys_dc)
+
+_f1.sent.clear()
+_d1.handle(_dm("!status"))
+_d1.handle(_dm("/think"))
+_d1.handle(_dm("!!! wow"))  # not a command: a turn, its words as they were
+check("discord: !status and /think are commands; a message that only starts with ! is a turn as it was",
+      _f1.sent[0].startswith(chat.friend_name()) and "thinking on" in _f1.sent[1].replace("\\", "") and _d1.show_thinking
+      and any(t.get("content") == "!!! wow" for t in _d1.history if t.get("role") == "user"), _f1.sent)
+_d1.show_thinking = False
+
+ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "a street!"}])
+_png_dc = _b64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")
+_f1.files["https://cdn.discordapp.com/a/street.png"] = _png_dc
+_d1.handle(_dm("my street", attachments=[{"id": "9", "filename": "street.png", "size": len(_png_dc),
+                                          "url": "https://cdn.discordapp.com/a/street.png", "content_type": "image/png"}]))
+_dturn = [t for t in _d1.history if t.get("role") == "user"][-1]
+check("discord: a picture is kept in shared/discord and put before their eyes, the message's words after it",
+      "shared/discord/photo-" in _dturn["content"] and _dturn["content"].rstrip().endswith("my street") and _dturn.get("images"),
+      _dturn.get("content"))
+
+ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "a paper!"}])
+_f1.files["https://cdn.discordapp.com/a/notes.pdf"] = b"%PDF-1.4 tiny"
+_d1.handle(_dm("", attachments=[{"id": "10", "filename": "notes.pdf", "size": 13, "url": "https://cdn.discordapp.com/a/notes.pdf",
+                                 "content_type": "application/pdf"}]))
+_dturn = [t for t in _d1.history if t.get("role") == "user"][-1]
+check("discord: a PDF lands in shared/books under its name, with read_pdf", "shared/books/notes.pdf" in _dturn["content"]
+      and "read_pdf" in _dturn["content"], _dturn["content"])
+
+config.TELEGRAM_HEAR_VOICE = True
+_listen_keep = tools.listen_to
+tools.listen_to = lambda rel, *a, **k: f"WORDS: hello from the bus ({rel})"
+ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "I heard you."}])
+_f1.files["https://cdn.discordapp.com/a/voice-message.ogg"] = b"OggS fake"
+_d1.handle(_dm("", flags=dc.VOICE_FLAG, attachments=[{"id": "11", "filename": "voice-message.ogg", "size": 9, "duration_secs": 3.4,
+                                                      "waveform": "AAAA", "url": "https://cdn.discordapp.com/a/voice-message.ogg"}]))
+tools.listen_to = _listen_keep
+_dturn = [t for t in _d1.history if t.get("role") == "user"][-1]
+check("discord: a voice message is heard whole, kept in shared/discord", "sent a voice note, 3s" in _dturn["content"]
+      and "hello from the bus" in _dturn["content"] and "shared/discord/voice-" in _dturn["content"], _dturn["content"])
+
+_f1.sent.clear()
+_d1.handle(_dm("", attachments=[{"id": "12", "filename": "huge.mkv", "size": dc.FETCH_LIMIT + 1, "url": "https://cdn.discordapp.com/a/huge.mkv"}]))
+check("discord: a file over the fetch limit is explained, not dropped quietly", any("50 MB" in t for t in _f1.sent), _f1.sent)
+
+_vf = config.SHARED_DIR / "letters" / "voice-test-dc.ogg"
+_vf.parent.mkdir(parents=True, exist_ok=True)
+_vf.write_bytes(b"OggS voice")
+_d1.send_voice(str(_vf), 2.5, caption="for you")
+check("discord: their voice note goes as a voice message (flag, duration, waveform), the caption beside it",
+      _f1.uploads[-1][0] == "voice-test-dc.ogg" and _f1.uploads[-1][1]["flags"] == dc.VOICE_FLAG
+      and _f1.uploads[-1][1]["attachments"][0]["duration_secs"] == 2.5 and _f1.sent[-1] == "for you", _f1.uploads[-1:])
+_vf.unlink()
+
+check("discord: _plain escapes Discord's markdown; the ALIVE file names the service for the prompt's bridge line",
+      dc._plain("a *b* _c_ `d` ~e~ |f|\n# g\n> h\n- i") == "a \\*b\\* \\_c\\_ \\`d\\` \\~e\\~ \\|f\\|\n\\# g\n\\> h\n\\- i")
+tg.ALIVE_FILE.write_text("Discord", encoding="utf-8")
+_alive_keep = config.MEMORY_DIR / "telegram_alive"
+_had_alive = _alive_keep.exists()
+_alive_keep.write_text("Discord", encoding="utf-8")
+check("discord: the bridge line in every prompt says which bridge is up", "The Discord bridge is up right now" in assemble.bridge_note())
+if not _had_alive:
+    _alive_keep.unlink()
+for k, v in _dold.items():
+    setattr(config, k, v)
+memory.search = _dsearch_keep
+
+# the panel: BRIDGE picks the launcher, the Discord token has a secret of its own
+_bk_keep = panel._value
+panel._value = lambda name, default=None: "discord" if name == "BRIDGE" else _bk_keep(name, default)
+_dc_argv = panel._bat(*panel.DISCORD_LAUNCHER)
+_dc_kind = panel._bridge_kind()
+panel._value = _bk_keep
+_dsec_file = config.MEMORY_DIR / "discord.json"
+_dsec_had = _dsec_file.read_bytes() if _dsec_file.exists() else None
+_dsec = panel.secret("discord", "abc.def.ghi")
+_dsec_ok = _json.loads(_dsec_file.read_text())["token"] == "abc.def.ghi" and panel.secrets_set()["discord"]
+_dsec_file.write_bytes(_dsec_had) if _dsec_had is not None else _dsec_file.unlink()
+check("panel: BRIDGE \"discord\" opens bat\\discord.bat (telegram's stays the default); its token kept in memory/discord.json",
+      _dc_kind == "discord" and panel._bridge_kind() == "telegram" and any("discord" in str(a) for a in _dc_argv)
+      and "BRIDGE" in panel.TABS["Phone"] and panel.CHOICES["BRIDGE"] == ["telegram", "discord"] and panel._HELP["BRIDGE"]
+      and _dsec["ok"] and _dsec_ok and all((config.ROOT / "bat" / f"discord.{x}").is_file() for x in ("bat", "command", "sh")))
+
+
+# the gateway, against a fake one: handshake, hello, heartbeats, identify, READY, the DMs (and what isn't one),
+# a ping, a fragmented message, op 7 and a resume on the second road, then a refused token (4004)
+def _ws_frame(op, data, fin=True):
+    n = len(data)
+    head = bytes([(0x80 if fin else 0) | op])
+    head += bytes([n]) if n < 126 else (bytes([126]) + n.to_bytes(2, "big") if n < 65536 else bytes([127]) + n.to_bytes(8, "big"))
+    return head + data
+
+
+def _ws_read(conn, buf):
+    while len(buf[0]) < 2:
+        buf[0] += conn.recv(4096)
+    b0, b1 = buf[0][0], buf[0][1]
+    n, i = b1 & 0x7F, 2
+    if n == 126:
+        while len(buf[0]) < 4:
+            buf[0] += conn.recv(4096)
+        n, i = int.from_bytes(buf[0][2:4], "big"), 4
+    while len(buf[0]) < i + 4 + n:
+        buf[0] += conn.recv(4096)
+    key, data = buf[0][i:i + 4], buf[0][i + 4:i + 4 + n]
+    buf[0] = buf[0][i + 4 + n:]
+    return b0 & 0x0F, bytes(c ^ key[j % 4] for j, c in enumerate(data)), bool(b1 & 0x80)
+
+
+_gw_seen = {"identify": None, "resume": None, "beats": 0, "pong": False, "masked": True, "path": ""}
+_gw_srv = _dsock.socket()
+_gw_srv.bind(("127.0.0.1", 0))
+_gw_srv.listen(2)
+_gw_port = _gw_srv.getsockname()[1]
+
+
+def _gw_serve():
+    for road in (1, 2):
+        conn, _ = _gw_srv.accept()
+        conn.settimeout(10)
+        req = b""
+        while b"\r\n\r\n" not in req:
+            req += conn.recv(4096)
+        req, _, rest = req.partition(b"\r\n\r\n")
+        _gw_seen["path"] = req.split(b"\r\n")[0].decode()
+        key = [l.split(b":", 1)[1].strip() for l in req.split(b"\r\n") if l.lower().startswith(b"sec-websocket-key")][0]
+        acc = _b64.b64encode(_dhash.sha1(key + b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest())
+        conn.sendall(b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " + acc + b"\r\n\r\n")
+        buf = [rest]
+        send = lambda obj: conn.sendall(_ws_frame(1, _json.dumps(obj).encode()))
+        send({"op": 10, "d": {"heartbeat_interval": 150}})
+        first = None
+        while first is None:
+            op, data, masked = _ws_read(conn, buf)
+            _gw_seen["masked"] &= masked
+            p = _json.loads(data)
+            if p["op"] == 1:
+                _gw_seen["beats"] += 1
+                send({"op": 11})
+            else:
+                first = p
+        if road == 1:
+            _gw_seen["identify"] = first
+            send({"op": 0, "s": 1, "t": "READY", "d": {"user": {"id": "42"}, "session_id": "sess-1",
+                                                       "resume_gateway_url": f"ws://127.0.0.1:{_gw_port}"}})
+            send({"op": 0, "s": 2, "t": "MESSAGE_CREATE", "d": {"guild_id": "1", "channel_id": "5", "author": {"id": "7"}, "content": "server"}})
+            send({"op": 0, "s": 3, "t": "MESSAGE_CREATE", "d": {"channel_id": "888", "author": {"id": "42"}, "content": "my own"}})
+            send({"op": 0, "s": 4, "t": "MESSAGE_CREATE", "d": {"channel_id": "888", "author": {"id": "8", "bot": True}, "content": "a bot"}})
+            send({"op": 0, "s": 5, "t": "MESSAGE_CREATE", "d": {"channel_id": "888", "author": {"id": "7"}, "content": "first DM"}})
+            conn.sendall(_ws_frame(0x9, b"are you there"))
+            whole = _json.dumps({"op": 0, "s": 6, "t": "MESSAGE_CREATE",
+                                 "d": {"channel_id": "888", "author": {"id": "7"}, "content": "second DM " + "x" * 300}}).encode()
+            conn.sendall(_ws_frame(1, whole[:100], fin=False) + _ws_frame(0, whole[100:200], fin=False) + _ws_frame(0, whole[200:]))
+            deadline = _time.time() + 5
+            while _time.time() < deadline and not (_gw_seen["pong"] and _gw_seen["beats"] >= 1):
+                op, data, _m = _ws_read(conn, buf)
+                if op == 0xA and data == b"are you there":
+                    _gw_seen["pong"] = True
+                elif op == 1 and _json.loads(data)["op"] == 1:
+                    _gw_seen["beats"] += 1
+                    send({"op": 11})
+            send({"op": 7, "d": None})
+        else:
+            _gw_seen["resume"] = first
+            conn.sendall(_ws_frame(0x8, (4004).to_bytes(2, "big") + b"Authentication failed."))
+        try:
+            conn.close()
+        except OSError:
+            pass
+
+
+_gw_thread = threading.Thread(target=_gw_serve, daemon=True)
+_gw_thread.start()
+_gw_keep = dc.GATEWAY
+dc.GATEWAY = f"ws://127.0.0.1:{_gw_port}"
+_gw = dc.Gateway("GW-TOKEN")
+_gw.start()
+_gw_deadline = _time.time() + 15
+while not _gw.fatal and _time.time() < _gw_deadline:
+    _time.sleep(0.05)
+dc.GATEWAY = _gw_keep
+_gw_got = []
+while not _gw.inbox.empty():
+    _gw_got.append(_gw.inbox.get_nowait()["content"])
+_gw_srv.close()
+check("discord gateway: identify with the token and the DM intent; heartbeats acked; a ping answered; READY kept",
+      _gw_seen["identify"] and _gw_seen["identify"]["op"] == 2 and _gw_seen["identify"]["d"]["token"] == "GW-TOKEN"
+      and _gw_seen["identify"]["d"]["intents"] == 1 << 12 and _gw_seen["beats"] >= 1 and _gw_seen["pong"] and _gw_seen["masked"]
+      and "/?v=10&encoding=json" in _gw_seen["path"] and _gw.user_id == "42", _gw_seen)
+check("discord gateway: only a person's DMs are queued — a server's channel, our own words and a bot's are not; a fragmented one whole",
+      _gw_got == ["first DM", "second DM " + "x" * 300], _gw_got)
+check("discord gateway: op 7 reconnects and resumes the session at the last seq; a refused token (4004) closes it for good",
+      _gw_seen["resume"] and _gw_seen["resume"]["op"] == 6 and _gw_seen["resume"]["d"]["session_id"] == "sess-1"
+      and _gw_seen["resume"]["d"]["seq"] == 6 and "refused the token" in _gw.fatal, (_gw_seen["resume"], _gw.fatal))
+_d2, _f2 = _dbridge()
+_d2.gateway.fatal = "Discord refused the token (4004)"
+check("discord: a gateway closed for good stops the loop (the visit saved as at the panel's Stop)",
+      list(_d2._receive()) == [] and _d2.stop_requested)
 
 # .gitignore (10-05): the friend's life stays out of any push — and a folder the template ships keeps only its
 # .gitkeep (a re-included "!dir/" re-includes everything in it, so its contents must be ignored again)

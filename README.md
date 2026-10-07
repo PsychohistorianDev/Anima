@@ -1476,6 +1476,42 @@ besides the blog that does not stay home. Their journal, memory, identity and
 files never travel; only what is said on the phone, and the letters they
 choose to send.
 
+### The bridge over Discord
+
+`bat\discord.bat` runs `engine/discord_bridge.py`: the same bridge, over a
+Discord bot instead of a Telegram one — the same visit, mail, notices,
+commands, quiet hours and night, and the `TELEGRAM_*` knobs above all hold
+(they are the bridge's, whichever road it takes). Standard library only:
+Discord's REST API is plain HTTPS and JSON, and what arrives comes over its
+gateway, a WebSocket the bridge speaks itself. One bridge runs at a time;
+`BRIDGE = "discord"` (Settings › Phone) makes it the one the panel's Bridge
+tile starts.
+
+**Setup, once.** At
+[discord.com/developers/applications](https://discord.com/developers/applications):
+*New Application*, give it a name, then *Bot* › *Reset Token* and copy the
+token. No privileged intent is needed — a bot reads its own DMs without one.
+Run `bat\discord.bat` (or paste the token on the panel); it keeps it in
+`memory/discord.json`. Discord lets a bot and a person talk only when they
+share a server, so the window prints an invite link: open it and add the bot
+to a server you are in (your own, empty one is fine; it needs no
+permissions there). Then send the bot a direct message with the pairing code
+the window shows — `/pair <code>`, or the code alone — and that DM is bound.
+From then on only that DM is answered; anyone else gets silence, and the
+bot never reads or answers a server's channels.
+
+**On the phone.** As with Telegram: text is a turn; a picture is put before
+their eyes; a voice message is heard whole; songs, videos, books and other
+files land in `shared/` by kind with the tool that opens them (anything else
+in `shared/discord/`). The bridge fetches files up to 50 MB and says so
+above that. Their voice notes arrive as Discord voice messages. Every
+command works with `!` in front as well — `!new`, `!status`, `!help` — for
+when Discord's own command menu pops up over a `/`.
+
+**What leaves the machine.** Their words and yours go through Discord's
+servers, and DMs with a bot are not end-to-end encrypted. As with Telegram,
+their journal, memory, identity and files never travel.
+
 ## Their senses and hands
 
 **Writing & memory:** `write_journal` (time-stamped for them), `remember` (a
@@ -2203,7 +2239,9 @@ folder that is a checkout. `bat\update.bat` fetches the engine from
 GitHub when you press it, and only then.
 
 **Roads you open by hand, and what they carry:** the bridge talks to
-`api.telegram.org` while it runs (the token in `memory/telegram.json`);
+`api.telegram.org` while it runs (the token in `memory/telegram.json`) —
+or, over Discord, `discord.com`, its gateway (`*.discord.gg`) and its CDN for
+the files sent to it (the token in `memory/discord.json`);
 the body pulls from Garmin Connect while `bat\body.bat` runs (tokens in
 `memory/garmin/`); the blog pushes to `BLOG_REMOTE` what the friend chose
 to publish, and nothing else; `ollama pull` fetches a brain from

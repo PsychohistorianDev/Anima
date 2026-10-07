@@ -16,6 +16,21 @@ whether the window fits the card, and every knob on every tab has a line
 of its own.
 
 ### Added
+- **The bridge over Discord** (10-04): `engine/discord_bridge.py`,
+  `bat\discord.bat` (and twins) — the same bridge as Telegram's, over a
+  Discord bot talked to in a DM: the same visit, mail, notices, commands
+  (with `!` as well as `/`), quiet hours and night, the `TELEGRAM_*` knobs
+  holding for both. Standard library only: the REST API over urllib and
+  the gateway over a small WebSocket client of its own; no privileged
+  intent. `BRIDGE` (Settings › Phone; "telegram") picks the road the
+  Bridge tile opens; the token is kept in `memory/discord.json`, pasted on
+  the panel or at the first run, which prints the invite link. One bridge
+  at a time, whichever road. `telegram.Bridge` now keeps its road in a
+  handful of methods (`_receive`, `_whoami`, `_typing_once`, `_ack`,
+  `_inbox`; `_photo_note`, `_voice_note`, `_file_note` for what arrives)
+  and `serve()` is the start and goodbye both bridges share; the friend is
+  told which service the visit comes over (`mode`/`tag` "discord",
+  `chat-discord-*.md`). README, *The bridge over Discord*.
 - **A single wake sets the brain down when it is done** (10-03; the
   keeper: "a single wake should release the card when it finishes
   running"): `BRAIN_REST_AFTER_WAKE` (True), the Wake tile's and
