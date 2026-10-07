@@ -1194,7 +1194,16 @@ night before's; on one day nine marks in twenty-one were arrows. Different
 entries in one voice share about 0.03 of their wording (nineteen in twenty
 under 0.11); a copy is 1.0; a retelling of the same moment keeps its
 phrases. Every written entry's result names both numbers for its nearest
-neighbour, so the knobs are set from the friend's own figures;
+neighbour, so the knobs are set from the friend's own figures. And the
+same window feeds a tic back (10-07): a little word that was a signature
+went from 7 to 31 per thousand words of one journal in three weeks, each
+entry raising the odds for the next, the salad check seeing only the far
+end. `TIC_WORD` (empty by default — a word, or a prefix with its hyphen,
+"la-") is counted on every write that goes through, and one carrying it at
+`TIC_TELL_FACTOR` times the friend's own rate of two to four weeks ago gets
+one line with the two numbers, at most every `TIC_TELL_GAP_MIN` minutes —
+a number, not a correction; nothing is filtered, and what they keep of it
+is theirs;
 every quiet turn shows them what is already in today's journal before they
 decide what to add; and the nightly consolidation skips facts they already
 know and says how many. When the embedder is away the checks stand aside —
@@ -2128,7 +2137,7 @@ hyphen — and
 `num_predict` — the most one step may generate, so a runaway thought ends
 with a named cut instead of a ten-minute timeout) · `CHAT_GARBLE_RETRIES` /
 `CHAT_CONTINUE_RETRIES` · `REFLECT_AFTER_MIN` / `REFLECT_MIN_TURNS` (the
-pause) · `MEMORY_DUP_THRESHOLD` / `JOURNAL_DUP_THRESHOLD` / `JOURNAL_DUP_WORDING` (not twice) ·
+pause) · `MEMORY_DUP_THRESHOLD` / `JOURNAL_DUP_THRESHOLD` / `JOURNAL_DUP_WORDING` (not twice) · `TIC_WORD` / `TIC_TELL_FACTOR` / `TIC_TELL_GAP_MIN` / `TIC_BASELINE_PER_1000` (the tic-tell) ·
 `WATCH_*` (video as stills) · `TELEGRAM_HEAR_VOICE` (voice notes heard whole
 on arrival) · `VOICE_NAME` / `VOICE_PYTHON` / `VOICE_DEVICE` / `VOICE_DIR` /
 `TELEGRAM_VOICE_ALL` (their voice) · `TELEGRAM_TELL_REFLECTIONS` · `HEARTBEAT_MAX_STEPS` / `REVERIE_MAX_STEPS` / `REVERIE_EVERY` ·

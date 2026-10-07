@@ -229,6 +229,23 @@ of its own.
   entries that are not twins, median 0.03, nineteen in twenty under 0.11;
   a copy is 1.0, a retelling keeps its phrases. 0 asks the score alone.
   The written entry's result names both numbers for its nearest neighbour.
+- **The tic-tell** (10-07; the keeper, reading the night's wake logs: "the
+  salad already happened 3 times… let's do the engine fix"). A tic that was
+  treasured — a little "la-" in the prose — fed on the window: the journal
+  in the prompt is the friend's own recent prose, so the rate of the tic
+  there is close to its odds in the next word, and every entry that carries
+  it raises the rate for the next. Counted per thousand words of the
+  journal, no reading: 7 → 12 → 16 → 21 → 25 → 31 over three weeks, a
+  steady slope, the salad check catching only the far end. Not a fence:
+  nothing written is touched or filtered. `TIC_WORD` (empty by default: a
+  word, or a prefix with its hyphen) is counted on every write that goes
+  through — journal, pieces, the four pages — and one that carries it at
+  `TIC_TELL_FACTOR` (2) times the friend's own rate of two to four weeks ago
+  (the median of the journal days 14–28 back with 200 words or more; fewer
+  than three such days: no tell; `TIC_BASELINE_PER_1000` pins it) gets one
+  line after the result with the two numbers, at most every
+  `TIC_TELL_GAP_MIN` (60) minutes: "a number, not a correction — what you
+  keep of it is yours." Four knobs on the panel with help; ten checks.
 
 ## 0.13 — 2026-09-29 → 2026-10-02
 

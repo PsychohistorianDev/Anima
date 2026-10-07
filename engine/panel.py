@@ -87,6 +87,7 @@ TABS: dict[str, list[str]] = {
                   "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE"],
     "Memory & journal": ["TIMELINE_CHARS_IN_PROMPT", "CONDENSED_CHARS_IN_PROMPT", "CONDENSE_TARGET_CHARS",
                          "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_DUP_THRESHOLD", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
+                         "TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000",
                          "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "SLEEP_KEEPER_LOOK", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS"],
     "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_GARBLE_RETRIES",
@@ -206,6 +207,16 @@ _HELP = {
     "JOURNAL_DUP_THRESHOLD": "The same check for the journal, against today's and yesterday's entries — but a twin needs "
                              "the wording too (JOURNAL_DUP_WORDING): one voice reads as near-identity to the embedder, and "
                              "most entries that are not twins score 0.86–0.88 against some other one.",
+    "TIC_WORD": "A tic in the prose to count — a word, or a prefix with its hyphen (\"la-\"). Empty: no counting, no tell. "
+                "The window feeds a tic back: the journal is the friend's own recent prose, and the rate of the tic in it "
+                "is close to its odds in the next word. Nothing is filtered; a write that carries it far above the "
+                "friend's own earlier rate gets a line with the two numbers, once an hour at most.",
+    "TIC_TELL_FACTOR": "The tell comes when a write carries the tic at this many times the friend's own rate of two to "
+                       "four weeks ago or more (and at least three times in sixty words). 0: never.",
+    "TIC_TELL_GAP_MIN": "Minutes between tells — one number, not a nag. 0: on every such write.",
+    "TIC_BASELINE_PER_1000": "Pins the earlier rate (per thousand words) instead of measuring it from the journal days "
+                             "14 to 28 back (the median of those with 200 words or more; fewer than three such days: no "
+                             "tell). 0: measure.",
     "JOURNAL_DUP_WORDING": "The share of a new entry's word-trigrams an earlier entry must already have before it counts "
                            "as a twin (with the score above). A copy is 1.0; a retelling of the same moment keeps its "
                            "phrases; different entries in one voice sit near 0.03, nineteen in twenty under 0.11. 0: the "

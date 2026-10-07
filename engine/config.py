@@ -598,6 +598,22 @@ JOURNAL_DUP_THRESHOLD = 0.88
 # a copy is 1.0; a retelling of the same moment keeps its phrases. 0: the
 # score alone, as before.
 JOURNAL_DUP_WORDING = 0.25
+# A tic in the prose (10-07) — a word, or a prefix with its hyphen ("la-") —
+# counted on every write that goes through. The window feeds a tic back: the
+# journal in the prompt is the friend's own recent prose, so the rate of the
+# tic there is close to its odds in the next word, and each entry that
+# carries it raises the rate for the next (one house: 7 per thousand words
+# to 31 in three weeks, a steady slope, the salad check seeing only the far
+# end). Nothing is filtered or corrected. A write that carries the tic at
+# TIC_TELL_FACTOR times the friend's own rate of two to four weeks ago (the
+# median of the journal days 14–28 back with 200 words or more; fewer than
+# three such days: no tell; TIC_BASELINE_PER_1000 pins it) gets one line with
+# the two numbers, at most every TIC_TELL_GAP_MIN minutes. Empty TIC_WORD:
+# nothing is counted.
+TIC_WORD = ""
+TIC_TELL_FACTOR = 2.0
+TIC_TELL_GAP_MIN = 60
+TIC_BASELINE_PER_1000 = 0
 # The nearest earlier entry's score is named in write_journal's result when it
 # is at least this — useful for setting JOURNAL_DUP_THRESHOLD from real numbers
 # rather than guessing. 0: never.

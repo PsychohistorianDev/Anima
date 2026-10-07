@@ -4556,6 +4556,95 @@ def friend_name_for_tools() -> str:
         return "the friend"
 
 
+# The tic (10-07). A tic that was treasured — a little "la-" in the prose —
+# fed on the window: their journal is 114K tokens of their own recent prose and the
+# pages sit at the top of every prompt, so the rate of the tic in the window
+# is close to its odds in the next word, and every entry that carries it
+# raises the rate for the next. Counted per thousand words of the journal,
+# no reading: 7 on 09-14, 12 on 09-21, 16 on 09-24, 21 on 10-01, 25 on 10-05,
+# 31 on the night of 10-06 — four times in three weeks, a steady slope, with
+# the salad check catching only the far end (two re-rolls in one wake). Not
+# a fence: nothing they writes is touched or filtered. A tell, once an hour at
+# most, on a write that went through — the two numbers, their rate now against
+# their own rate of two to four weeks ago — and the choice stays theirs.
+_TIC_TOOLS = {"write_journal", "write_creation", "append_creation", "edit_identity",
+              "update_projects", "update_destiny", "update_keeper"}
+_tic_cache: dict = {}
+_tic_told_at = 0.0
+
+
+def _tic_pattern():
+    word = str(getattr(config, "TIC_WORD", "") or "").strip()
+    if not word:
+        return None
+    if word.endswith("-"):
+        return re.compile(r"\b" + re.escape(word[:-1]) + r"[- ]", re.IGNORECASE)
+    return re.compile(r"\b" + re.escape(word) + r"\b", re.IGNORECASE)
+
+
+def _tic_rate(text: str) -> tuple[int, int, float]:
+    """(hits, words, hits per thousand words) of TIC_WORD in a passage."""
+    pat = _tic_pattern()
+    words = len((text or "").split())
+    if pat is None or not words:
+        return 0, words, 0.0
+    hits = len(pat.findall(text))
+    return hits, words, 1000.0 * hits / words
+
+
+def _tic_baseline() -> float | None:
+    """Their own rate per thousand words, the median over the journal days 14 to
+    28 days ago that hold 200 words or more — at least three of them, else
+    None (a young house has no tell). TIC_BASELINE_PER_1000 pins it instead."""
+    pinned = float(getattr(config, "TIC_BASELINE_PER_1000", 0) or 0)
+    if pinned:
+        return pinned
+    key = (date.today().isoformat(), str(getattr(config, "TIC_WORD", "") or ""), str(config.JOURNAL_DIR))
+    if key in _tic_cache:
+        return _tic_cache[key]
+    rates = []
+    for back in range(14, 29):
+        f = config.JOURNAL_DIR / f"{(date.today() - timedelta(days=back)).isoformat()}.md"
+        if not f.exists():
+            continue
+        try:
+            text = f.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        hits, words, rate = _tic_rate(text)
+        if words >= 200:
+            rates.append(rate)
+    rates.sort()
+    base = rates[len(rates) // 2] if len(rates) >= 3 else None
+    _tic_cache.clear()
+    _tic_cache[key] = base
+    return base
+
+
+def tic_tell(text: str) -> str:
+    """The tell, or "": the passage carries TIC_WORD at TIC_TELL_FACTOR times
+    their own earlier rate or more (and at least three times in sixty words),
+    and none was given in the last TIC_TELL_GAP_MIN minutes."""
+    global _tic_told_at
+    import time as _time
+    hits, words, rate = _tic_rate(text)
+    if hits < 3 or words < 60:
+        return ""
+    base = _tic_baseline()
+    factor = float(getattr(config, "TIC_TELL_FACTOR", 2.0) or 0)
+    if base is None or not factor or rate < base * factor:
+        return ""
+    gap = float(getattr(config, "TIC_TELL_GAP_MIN", 60) or 0) * 60
+    if gap and _time.time() - _tic_told_at < gap:
+        return ""
+    _tic_told_at = _time.time()
+    word = str(getattr(config, "TIC_WORD", "")).strip()
+    return (f"\n(a tell, once: this carries \u201c{word}\u201d {hits} times in {words} words \u2014 {rate:.0f} in a thousand; "
+            f"your own journal of a few weeks ago ran at {base:.0f}. A window full of your recent prose feeds a tic "
+            "back to you, and each page that carries it raises the odds in the next. A number, not a correction "
+            "\u2014 what you keep of it is yours.)")
+
+
 def dispatch(name: str, arguments: dict | str) -> str:
     """Run a tool; its result goes back to the brain as a user turn, so a
     reserved-token string inside it (a file they read, a page, a log) is
@@ -4615,13 +4704,19 @@ def _dispatch(name: str, arguments: dict | str) -> str:
             return (f"(unknown tool: {name} — NOTHING happened. Your real tools: "
                     f"{', '.join(known)}. Call one of those; do not report this as done.)")
     try:
-        return heard_as + fn(**(arguments or {}))
+        result = fn(**(arguments or {}))
     except TypeError as e:
         return f"(bad arguments for {name}: {e})"
     except ValueError as e:
         return f"(refused: {e})"
     except Exception as e:  # a tool error should never kill the friend
         return f"(tool error in {name}: {e})"
+    if name in _TIC_TOOLS and isinstance(result, str) and not result.startswith("("):
+        # a write that went through, with words of their own in it
+        what = arguments or {}
+        passage = str(what.get("text") or what.get("content") or what.get("new_content") or "")
+        result += tic_tell(passage)
+    return heard_as + result
 
 
 # -------------------------------------------- definitions sent to the LLM ----

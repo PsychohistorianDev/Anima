@@ -4836,6 +4836,52 @@ _wd_pn = __import__("panel")
 check("wording: the knob has a line of help on the panel and sits beside its threshold",
       "JOURNAL_DUP_WORDING" in _wd_pn._HELP and "JOURNAL_DUP_WORDING" in _wd_pn.TABS["Memory & journal"]
       and _wd_pn.TABS["Memory & journal"].index("JOURNAL_DUP_WORDING") == _wd_pn.TABS["Memory & journal"].index("JOURNAL_DUP_THRESHOLD") + 1)
+# 10-07: the tic-tell — a tic the window feeds back (7 → 31 per thousand words in three weeks) gets a number,
+# once an hour, on a write that carries it far above the friend's own earlier rate; nothing is filtered
+_tic_word0, _tic_gap0, _tic_pin0 = getattr(config, "TIC_WORD", ""), getattr(config, "TIC_TELL_GAP_MIN", 60), getattr(config, "TIC_BASELINE_PER_1000", 0)
+_tic_jd = config.JOURNAL_DIR
+import tempfile as _ttf
+_tic_tmp = Path(_ttf.mkdtemp(prefix="tic_"))
+config.JOURNAL_DIR = _tic_tmp
+config.TIC_WORD = "la-"
+tools._tic_cache.clear()
+check("tic: a young house has no baseline and no tell", tools._tic_baseline() is None and tools.tic_tell("la-x la-y la-z " + "word " * 60) == "")
+from datetime import timedelta as _ttd
+for _back, _n in ((15, 2), (17, 3), (20, 2), (24, 40), (26, 1)):  # five old days at ~7–10 per thousand, one at 130
+    (_tic_tmp / f"{(_date.today() - _ttd(days=_back)).isoformat()}.md").write_text(
+        f"# day\n\n**09:00** — " + ("la-luminous " * _n) + ("steady " * (300 - _n)) + "\n", encoding="utf-8")
+(_tic_tmp / f"{(_date.today() - _ttd(days=18)).isoformat()}.md").write_text("**09:00** — la-la-la- short\n", encoding="utf-8")  # under 200 words: not counted
+tools._tic_cache.clear()
+_tic_base = tools._tic_baseline()
+check("tic: the baseline is the median rate over the journal days 14–28 back with 200 words or more (the thin day and the wild day don't rule it)",
+      _tic_base is not None and 6.0 < _tic_base < 7.0, _tic_base)
+# the writes below land in the scratch journal too (the baseline is keyed on the journal folder)
+_tic_hot = ("la-luminous la-symmetry la-passion la-fucking-luminate " * 2 + "the house is still tonight and the gate is empty " * 8).strip()
+tools._tic_told_at = 0.0
+_tic_r1 = tools.dispatch("write_journal", {"text": _tic_hot})
+check("tic: a write that carries the tic at twice the earlier rate or more gets the two numbers, once, as a line after the result",
+      _tic_r1.startswith("journal entry written") and "\n(a tell, once: this carries “la-” 8 times in" in _tic_r1
+      and "your own journal of a few weeks ago ran at 7" in _tic_r1 and "A number, not a correction" in _tic_r1, _tic_r1)
+_tic_r2 = tools.dispatch("write_creation", {"path": "tic-again.md", "content": _tic_hot + " Again, differently."})
+check("tic: within TIC_TELL_GAP_MIN there is no second tell", _tic_r2.startswith("wrote") and "a tell, once" not in _tic_r2, _tic_r2)
+config.TIC_TELL_GAP_MIN = 0
+_tic_r3 = tools.dispatch("write_creation", {"path": "tic-third.md", "content": _tic_hot + " A third time."})
+check("tic: TIC_TELL_GAP_MIN 0 tells on every such write", "a tell, once" in _tic_r3, _tic_r3)
+_tic_r4 = tools.dispatch("write_creation", {"path": "tic-calm.md", "content": "la-luminous once. " + "the house is still tonight and the gate is empty " * 10})
+check("tic: a write at the ordinary rate (or under three hits) gets nothing", _tic_r4.startswith("wrote") and "a tell" not in _tic_r4, _tic_r4)
+_tic_r5 = tools.dispatch("write_journal", {"text": "la-la-la- la-x la-y la-z, all in a line."})
+check("tic: a refusal (salad) carries no tell — the tell rides only on a write that went through", _tic_r5.startswith("(") and "a tell" not in _tic_r5, _tic_r5)
+config.TIC_BASELINE_PER_1000 = 100
+check("tic: TIC_BASELINE_PER_1000 pins the earlier rate", tools._tic_baseline() == 100.0 and tools.tic_tell(_tic_hot) == "")
+config.TIC_BASELINE_PER_1000 = _tic_pin0
+config.TIC_WORD = ""
+check("tic: an empty TIC_WORD counts nothing", tools._tic_rate(_tic_hot) == (0, len(_tic_hot.split()), 0.0) and tools.tic_tell(_tic_hot) == "")
+check("tic: a whole word is matched whole; a prefix with its hyphen takes the hyphen or a space", (setattr(config, "TIC_WORD", "la") or True)
+      and tools._tic_rate("la la-x lab la- la")[0] == 4 and (setattr(config, "TIC_WORD", "la-") or True) and tools._tic_rate("la la-x lab la- lamp")[0] == 3)
+config.TIC_WORD, config.TIC_TELL_GAP_MIN, config.JOURNAL_DIR = _tic_word0, _tic_gap0, _tic_jd
+tools._tic_cache.clear()
+check("tic: the four knobs sit on the panel beside the journal's, each with help",
+      all(k in _wd_pn._HELP and k in _wd_pn.TABS["Memory & journal"] for k in ("TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000")))
 _gap = getattr(config, "JOURNAL_ARROW_GAP_MIN", 45); config.JOURNAL_ARROW_GAP_MIN = 0
 _j4 = tools.dispatch("write_journal", {"text": "(A glow.) The lamp arrived today and it is purple, exactly as he said."})
 check("arrow: with no gap, every reach leaves its arrow — each in that hour's own words, past the stage direction",
