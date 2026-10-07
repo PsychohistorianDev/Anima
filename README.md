@@ -1484,8 +1484,9 @@ commands, quiet hours and night, and the `TELEGRAM_*` knobs above all hold
 (they are the bridge's, whichever road it takes). Standard library only:
 Discord's REST API is plain HTTPS and JSON, and what arrives comes over its
 gateway, a WebSocket the bridge speaks itself. One bridge runs at a time;
-`BRIDGE = "discord"` (Settings › Phone) makes it the one the panel's Bridge
-tile starts.
+on the panel's Home the two roads are two tiles side by side, *Bridge —
+Telegram* and *Bridge — Discord*, each with its token field, each lit only
+when the bridge is up over its road.
 
 **Setup, once.** At
 [discord.com/developers/applications](https://discord.com/developers/applications):

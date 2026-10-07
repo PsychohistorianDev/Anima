@@ -879,8 +879,7 @@ TELEGRAM_INBOX = SHARED_DIR / "telegram"
 # direct message. Same visit, mail and notices; the TELEGRAM_* knobs above are
 # the bridge's, whichever road it takes. The token and the paired DM are kept
 # in memory/discord.json (env var DISCORD_BOT_TOKEN also works). One bridge
-# runs at a time; BRIDGE picks which one the panel's Bridge tile starts.
-BRIDGE = "telegram"              # "telegram" or "discord"
+# runs at a time; on the panel's Home each road has a tile of its own.
 DISCORD_INBOX = SHARED_DIR / "discord"
 
 # ------------------------------------------------------------------ blog ----

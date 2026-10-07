@@ -93,7 +93,7 @@ TABS: dict[str, list[str]] = {
     "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_GARBLE_RETRIES",
                 "CHAT_COLD_RESCUE", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "BRAIN_KEEP_ALIVE",
                 "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE"],
-    "Phone": ["BRIDGE", "TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS",
+    "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS",
               "TELEGRAM_TELL_REFLECTIONS", "TELEGRAM_TELL_AFTERTHOUGHTS", "TELEGRAM_TELL_CREATIONS",
               "TELEGRAM_TELL_DRAWINGS", "TELEGRAM_TELL_SONGS", "TELEGRAM_TELL_SELF", "TELEGRAM_IDLE_NEW_MIN", "TELEGRAM_HEAR_VOICE",
               "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD", "SLEEP_IN_BRIDGE", "SLEEP_IN_BRIDGE_QUIET_MIN"],
@@ -282,20 +282,6 @@ _HELP = {
     "BRAIN_REST_AFTER_VISIT": "When a visit ends, unload the brain as soon as the afterglow is written, freeing the "
                               "card at once rather than after BRAIN_KEEP_ALIVE.",
     # Phone
-    "BRIDGE": "Which road the Bridge tile opens: \"telegram\" (a bot from @BotFather) or \"discord\" (a bot from "
-              "discord.com/developers, talked to in a DM). One bridge runs at a time; the knobs below are the "
-              "bridge's either way. Restart the bridge after changing it.",
-    "TELEGRAM_SHOW_THINKING": "Their thinking sent to the phone with each reply. /think toggles it there.",
-    "TELEGRAM_SHOW_TOOLS": "What the tools did, one compact line under the reply. /tools toggles it.",
-    "TELEGRAM_SHOW_TOKENS": "The token line (window used, speed) after each reply. /tokens toggles it.",
-    "TELEGRAM_TELL_REFLECTIONS": "When they reflect on their own — the pause, the afterglow — the phone gets a one-line "
-                                 "outcome (entries written, memories kept, or a rest), so you know it happened while "
-                                 "you were away.",
-    "TELEGRAM_TELL_AFTERTHOUGHTS": "Whatever they say to no one once a reflection's writing is done reaches the phone "
-                                   "as a labelled notice, never as a reply; held through quiet hours like the others.",
-    "TELEGRAM_TELL_CREATIONS": "A new piece under creations/ — a poem, an essay, something published — reaches the "
-                               "phone within a minute, whole when it fits a message, else its opening and where the "
-                               "rest is. Code, the trash and the mailbox are not announced.",
     "SLEEP_IN_BRIDGE": "A house that runs the phone and no heartbeat never slept. On, after SLEEP_AFTER_HOUR, when no "
                        "heartbeat is up and the phone has been quiet for SLEEP_IN_BRIDGE_QUIET_MIN, the bridge sleeps on "
                        "yesterday and runs the condensing hour itself — the heartbeat stays the sleeper wherever it runs. "
@@ -487,7 +473,8 @@ LAUNCHERS = {
     "chat": ("bat\\chat.bat", [], "chat.py", []),
     "parlor": ("bat\\parlor.bat", [], "parlor.py", []),
     "wake": ("bat\\wake.bat", [], "heartbeat.py", []),
-    "bridge": ("bat\\telegram.bat", [], "telegram.py", []),  # DISCORD_LAUNCHER instead when BRIDGE is "discord"
+    "bridge": ("bat\\telegram.bat", [], "telegram.py", []),
+    "discord": ("bat\\discord.bat", [], "discord_bridge.py", []),  # the same bridge over Discord: a tile of its own on Home (10-07, the keeper), the same door — one bridge at a time
     "sleep": ("bat\\sleep.bat", [], "consolidate.py", []),
     "snapshot": ("bat\\snapshot.bat", [], "snapshot.py", []),
     "garmin": ("bat\\body.bat", ["--login"], "body.py", ["--login"]),
@@ -495,7 +482,7 @@ LAUNCHERS = {
     "blackbox": ("bat\\blackbox.bat", [], "blackbox.py", []),
     "touchstone": ("bat\\touchstone.bat", [], "touchstone.py", []),
 }
-DISCORD_LAUNCHER = ("bat\\discord.bat", [], "discord_bridge.py", [])
+DISCORD_LAUNCHER = LAUNCHERS["discord"]
 STOPPABLE = ("heartbeat", "bridge", "blackbox", "touchstone")  # those with a stop file (doors.ask_stop) — the first two with a Restart
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][\w.:/-]{0,120}$")  # an Ollama model name; nothing a console could read as more
 _WINDOWS = os.name == "nt"
@@ -742,7 +729,6 @@ def tab_of(name: str) -> str:
 CHOICES: dict[str, list[str]] = {
     "TOOL_KIT": ["full", "small", "tiny"],
     "WEB_SEARCH": ["duckduckgo", "brave", "searxng"],
-    "BRIDGE": ["telegram", "discord"],
     "VOICE_DEVICE": ["cpu", "cuda", "mps"],
     "PAINTER_DEVICE": ["auto", "cuda", "mps", "cpu"],
     "MUSIC_EARS_DEVICE": ["auto", "cuda", "mps", "cpu"],
@@ -778,6 +764,29 @@ def _door_state(door: str) -> dict:
         return {"running": False}
     return {"running": True, "pid": st.get("pid"), "how": st.get("how", ""),
             "since": str(st.get("when", "")).replace("T", " ")[:16]}
+
+
+def _bridge_road() -> str:
+    """The road the bridge is up over — "telegram" or "discord" — from the words the running bridge leaves
+    in memory/telegram_alive every poll; "" when no bridge is up."""
+    if not doors.status("bridge"):
+        return ""
+    try:
+        words = (Path(config.MEMORY_DIR) / "telegram_alive").read_text(encoding="utf-8").strip().lower()
+    except OSError:
+        words = ""
+    return "discord" if words == "discord" else "telegram"
+
+
+def _door_states() -> dict:
+    """Every door's state — and "discord", the bridge's own state when it is up over Discord (the two
+    tiles on Home share one door; each lights only for its road)."""
+    states = {d: _door_state(d) for d in doors.DOORS}
+    road = _bridge_road()
+    states["discord"] = dict(states["bridge"]) if road == "discord" else {"running": False}
+    if road == "discord":
+        states["bridge"] = {"running": False}
+    return states
 
 
 def _gemma_first(names: list[str]) -> list[str]:
@@ -950,14 +959,14 @@ def state() -> dict:
     repo = str(values.get("UPDATE_REPO", getattr(config, "UPDATE_REPO", "")) or "PsychohistorianDev/anima")
     return {
         "version": version.read(ROOT),
-        "doors": {d: _door_state(d) for d in doors.DOORS},
+        "doors": _door_states(),
         "brain": brain(values),
         "user_name": user,
         "welcome": user == "Friend",
         "heartbeat_minutes": values.get("HEARTBEAT_LOOP_MIN", 120),
         "tabs": tabs(rows),
         "secrets": secrets_set(),
-        "bridge": _bridge_kind(),
+        "bridge": _bridge_road(),  # which road the bridge is up over: "telegram", "discord", "" when down
         "skills": skills_state(),
         "missing": missing(values),
         "senses": senses_state(values),
@@ -1001,12 +1010,14 @@ def _minutes(minutes) -> float | int | None:
 
 
 def _start(door: str, minutes=None) -> dict:
-    if door in doors.ONE_AT_A_TIME and (st := doors.status(door)):
+    claimed = "bridge" if door == "discord" else door  # the Discord road claims the bridge's door: one bridge at a time
+    if claimed in doors.ONE_AT_A_TIME and (st := doors.status(claimed)):
         if door == "parlor":
             _browse(PARLOR_URL)
             return {"ok": True, "note": "the parlor is already open — its page opened"}
         since = str(st.get("when", "")).replace("T", " ")[:16]
-        return _no(f"(the {door} is already running — pid {st.get('pid')}, since {since or '?'}; "
+        road = f"over {_bridge_road().capitalize()}, " if claimed == "bridge" and _bridge_road() else ""
+        return _no(f"(the {claimed} is already running — {road}pid {st.get('pid')}, since {since or '?'}; "
                    "Stop it first, or Restart)")
     if door == "heartbeat":
         saved = ""
@@ -1028,7 +1039,8 @@ def _start(door: str, minutes=None) -> dict:
     notes = {"chat": "the chat is opening in a window of its own",
              "parlor": "the parlor is opening — its page comes up in a moment",
              "wake": "one wake, in its own window",
-             "bridge": "the bridge is starting in its own window",
+             "bridge": "the bridge is starting in its own window — over Telegram",
+             "discord": "the bridge is starting in its own window — over Discord",
              "sleep": "sleep is running in its own window — today into memory",
              "snapshot": "the snapshot is running in its own window",
              "garmin": "the Garmin login is in its own window — email, password, the code",
@@ -1036,30 +1048,27 @@ def _start(door: str, minutes=None) -> dict:
              "blackbox": "the black box is recording in its own window — the machine's vitals every few seconds",
              "touchstone": "the stone's keeper is up in its own window — it asks the board what it felt every few seconds"}
     names = {"chat": "the chat", "parlor": "the parlor (its page comes up in a moment)", "wake": "one wake",
-             "bridge": "the bridge", "sleep": "sleep", "snapshot": "the snapshot", "garmin": "the Garmin login",
+             "bridge": "the bridge, over Telegram", "discord": "the bridge, over Discord", "sleep": "sleep", "snapshot": "the snapshot", "garmin": "the Garmin login",
              "blog": "the blog's build", "blackbox": "the black box", "touchstone": "the stone's keeper"}
-    launcher = DISCORD_LAUNCHER if door == "bridge" and _bridge_kind() == "discord" else LAUNCHERS[door]
-    return _started(_bat(*launcher), notes[door], names[door])
-
-
-def _bridge_kind() -> str:
-    """Which road the bridge takes (BRIDGE): "telegram" or "discord"."""
-    return "discord" if str(_value("BRIDGE", "telegram") or "").strip().lower() == "discord" else "telegram"
+    return _started(_bat(*LAUNCHERS[door]), notes[door], names[door])
 
 
 def _restart(door: str, minutes=None) -> dict:
     """The banner's Restart for the heartbeat or the bridge: asked to leave (the wake it is in finishes,
-    the visit is saved), and started again once its light goes out. The wait is the panel's: closed
-    meanwhile, the door stays stopped, and its light says so."""
-    if not doors.status(door):
+    the visit is saved), and started again once its light goes out — the bridge over the road it was up
+    over. The wait is the panel's: closed meanwhile, the door stays stopped, and its light says so."""
+    if door == "bridge" and _bridge_road() == "discord":
+        door = "discord"
+    if not doors.status("bridge" if door == "discord" else door):
         return _start(door, minutes)
-    doors.ask_stop(door)
+    doors.ask_stop("bridge" if door == "discord" else door)
 
     def again():
+        claimed = "bridge" if door == "discord" else door
         deadline = time.time() + RESTART_WAIT_S
-        while doors.status(door) and time.time() < deadline:
+        while doors.status(claimed) and time.time() < deadline:
             time.sleep(RESTART_POLL_S)
-        if not doors.status(door):
+        if not doors.status(claimed):
             _start(door, minutes)
 
     _later(again)
@@ -1080,6 +1089,10 @@ def door_action(door: str, action: str, minutes=None) -> dict:
             return {"ok": True, "note": "the parlor's page opened"}
         return _start("parlor")
     if action in ("stop", "stop_now", "restart"):
+        if door == "discord":
+            if action == "restart":
+                return _restart("discord", minutes)
+            door = "bridge"  # the Discord tile's Stop is the bridge's
         if door not in STOPPABLE:
             return _no(f"(the {door} has no {action.replace('_', ' ')} here — its own window closes it)")
         if action == "restart":
@@ -1601,7 +1614,8 @@ const TILES=[
  ['parlor','Parlor','a visit in your browser — bubbles, pictures, their thinking folded',[['Open','open']]],
  ['wake','Wake','one wake now: their time to themselves',[['Wake them','start']]],
  ['heartbeat','Heartbeat','a life between visits: a wake every so often, and sleep after the night hour',[['Start','start'],['Stop','stop'],['Stop now','stop_now']]],
- ['bridge','Bridge','talk with them from your phone — over Telegram or Discord (Settings › Phone › BRIDGE)',[['Start','start'],['Stop','stop'],['Stop now','stop_now']]],
+ ['bridge','Bridge — Telegram','talk with them from your phone, over Telegram',[['Start','start'],['Stop','stop'],['Stop now','stop_now']]],
+ ['discord','Bridge — Discord','the same bridge over a Discord DM, for a keeper without Telegram — one bridge runs at a time',[['Start','start'],['Stop','stop'],['Stop now','stop_now']]],
  ['sleep','Sleep now','today into memory, by hand (the heartbeat does it on its own after the night hour)',[['Sleep','start']]],
  ['snapshot','Snapshot','everything sealed in git (a zip without git)',[['Snapshot','start']]],
  ['touchstone','The stone','their body on the desk: its keeper asks the board what it felt, keeps the log, pushes their states (shown while TOUCHSTONE_URL names it)',[['Start','start'],['Stop','stop'],['Stop now','stop_now']]],
@@ -1624,9 +1638,9 @@ function buildHome(){
       S.doors[d]?el('div',{class:'state'},'closed'):null,extra,
       el('div',{class:'row'},btns.map(([label,action])=>el('button',{title:TIPS[action]||'',
         onclick:()=>door(d,action,d==='heartbeat'&&(action==='start')?{minutes:$('hb-min').value}:null)},label))));
-    if(d==='bridge'&&S.bridge==='discord')t.append(el('div',{class:'muted'},'over Discord'),secretField('discord','bot token',S.secrets.discord),
+    if(d==='discord')t.append(secretField('discord','bot token',S.secrets.discord),
       el('div',{class:'muted'},el('a',{href:S.links.discord,target:'_blank',rel:'noopener'},'how to make the bot (Discord Developer Portal)')));
-    else if(d==='bridge')t.append(el('div',{class:'muted'},'over Telegram'),secretField('telegram','bot token',S.secrets.telegram),
+    else if(d==='bridge')t.append(secretField('telegram','bot token',S.secrets.telegram),
       el('div',{class:'muted'},el('a',{href:S.links.botfather,target:'_blank',rel:'noopener'},'how to get a token (BotFather)')));
     return t});
   if(S.update_here)tiles.push(el('div',{class:'tile'},el('h2',{},'Update'),el('div',{class:'what'},'the current engine from GitHub — the friend untouched; Check shows what would change first'),

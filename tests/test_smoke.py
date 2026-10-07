@@ -7402,8 +7402,8 @@ check("panel: state — the version, a light for every door (the panel one of th
       set(_pst) == {"version", "doors", "brain", "user_name", "welcome", "heartbeat_minutes", "tabs", "secrets", "skills", "missing", "links", "update_here", "folder", "newer", "senses", "stone", "bridge"}
       and _pst["update_here"] is True and _pst["folder"] == config.ROOT.name
       and _pst["newer"] and _pst["newer"]["version"] == _nw_next and _pst["newer"]["installed"] == _nw_inst and "release notes" in panel.PAGE and 'id="newer"' in panel.PAGE
-      and _pst["version"] == version.read(config.ROOT) and list(_pst["doors"]) == list(doors.DOORS) and "panel" in _pst["doors"]
-      and all(v == {"running": False} for v in _pst["doors"].values()) and _pst["secrets"] == {"telegram": False, "discord": False, "brave": False} and _pst["bridge"] == "telegram"
+      and _pst["version"] == version.read(config.ROOT) and list(_pst["doors"]) == list(doors.DOORS) + ["discord"] and "panel" in _pst["doors"]
+      and all(v == {"running": False} for v in _pst["doors"].values()) and _pst["secrets"] == {"telegram": False, "discord": False, "brave": False} and _pst["bridge"] == ""  # no bridge up: no road
       and list(_pst["tabs"]) == [*panel.TABS, "Advanced"] and _pst["heartbeat_minutes"] == 120
       and set(_pst["skills"]) == {"shelf", "quarantine", "cards"} and _pst["links"]["parlor"] == "http://127.0.0.1:8765", sorted(_pst))
 check("panel: the brain — Ollama asked at the config's OLLAMA_URL (the file's, not the imported one), Gemma first, the loaded model's share of the card, "
@@ -8890,20 +8890,34 @@ for k, v in _dold.items():
     setattr(config, k, v)
 memory.search = _dsearch_keep
 
-# the panel: BRIDGE picks the launcher, the Discord token has a secret of its own
-_bk_keep = panel._value
-panel._value = lambda name, default=None: "discord" if name == "BRIDGE" else _bk_keep(name, default)
-_dc_argv = panel._bat(*panel.DISCORD_LAUNCHER)
-_dc_kind = panel._bridge_kind()
-panel._value = _bk_keep
+# the panel: a tile of its own for the Discord road beside Telegram's (10-07), the same door — one bridge at a
+# time, each tile lit only for its road; the Discord token has a secret of its own
+_dc_argv = panel.door_action("discord", "start").get("argv") or []  # panel._launch is stubbed above; nothing starts
 _dsec_file = config.MEMORY_DIR / "discord.json"
 _dsec_had = _dsec_file.read_bytes() if _dsec_file.exists() else None
 _dsec = panel.secret("discord", "abc.def.ghi")
 _dsec_ok = _json.loads(_dsec_file.read_text())["token"] == "abc.def.ghi" and panel.secrets_set()["discord"]
 _dsec_file.write_bytes(_dsec_had) if _dsec_had is not None else _dsec_file.unlink()
-check("panel: BRIDGE \"discord\" opens bat\\discord.bat (telegram's stays the default); its token kept in memory/discord.json",
-      _dc_kind == "discord" and panel._bridge_kind() == "telegram" and any("discord" in str(a) for a in _dc_argv)
-      and "BRIDGE" in panel.TABS["Phone"] and panel.CHOICES["BRIDGE"] == ["telegram", "discord"] and panel._HELP["BRIDGE"]
+_dc_alive = config.MEMORY_DIR / "telegram_alive"
+_dc_alive_had = _dc_alive.read_bytes() if _dc_alive.exists() else None
+_dc_status0 = doors.status
+try:
+    doors.status = lambda d, _k=_dc_status0: {"pid": 4242, "when": "2026-10-07T09:00", "how": "the panel"} if d == "bridge" else _k(d)
+    _dc_alive.write_text("Discord", encoding="utf-8")
+    _dc_up_dc = (panel._bridge_road(), panel._door_states()["discord"].get("running"), panel._door_states()["bridge"].get("running"),
+                 panel._start("bridge").get("note", ""))
+    _dc_alive.write_text("Telegram", encoding="utf-8")
+    _dc_up_tg = (panel._bridge_road(), panel._door_states()["discord"].get("running"), panel._door_states()["bridge"].get("running"))
+finally:
+    doors.status = _dc_status0
+    _dc_alive.write_bytes(_dc_alive_had) if _dc_alive_had is not None else _dc_alive.unlink(missing_ok=True)
+check("panel: the Discord tile opens bat\\discord.bat; its token is kept in memory/discord.json; the two tiles share the bridge's door and each "
+      "lights only for its road (the words in telegram_alive); a start over the other road is refused while one is up",
+      any("discord" in str(a) for a in _dc_argv) and "BRIDGE" not in panel.TABS["Phone"] and "BRIDGE" not in panel._HELP
+      and "discord" in panel.LAUNCHERS and panel._bridge_road() == ""
+      and _dc_up_dc[:3] == ("discord", True, False) and "the bridge is already running — over Discord, pid 4242" in _dc_up_dc[3]
+      and _dc_up_tg == ("telegram", False, True)
+      and "'discord','Bridge — Discord'" in panel.PAGE and "'bridge','Bridge — Telegram'" in panel.PAGE
       and _dsec["ok"] and _dsec_ok and all((config.ROOT / "bat" / f"discord.{x}").is_file() for x in ("bat", "command", "sh")))
 
 

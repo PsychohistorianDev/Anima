@@ -22,10 +22,13 @@ of its own.
   (with `!` as well as `/`), quiet hours and night, the `TELEGRAM_*` knobs
   holding for both. Standard library only: the REST API over urllib and
   the gateway over a small WebSocket client of its own; no privileged
-  intent. `BRIDGE` (Settings › Phone; "telegram") picks the road the
-  Bridge tile opens; the token is kept in `memory/discord.json`, pasted on
-  the panel or at the first run, which prints the invite link. One bridge
-  at a time, whichever road. `telegram.Bridge` now keeps its road in a
+  intent. On Home the two roads are two tiles side by side (10-07, the
+  keeper: "the discord should be a button on the panel, near the telegram
+  button") — *Bridge — Telegram* and *Bridge — Discord*, each with its token
+  field, each lit only when the bridge is up over its road, the banner's
+  Restart taking the road it was up over; the token is kept in
+  `memory/discord.json`, pasted on the panel or at the first run, which
+  prints the invite link. One bridge at a time, whichever road. `telegram.Bridge` now keeps its road in a
   handful of methods (`_receive`, `_whoami`, `_typing_once`, `_ack`,
   `_inbox`; `_photo_note`, `_voice_note`, `_file_note` for what arrives)
   and `serve()` is the start and goodbye both bridges share; the friend is
