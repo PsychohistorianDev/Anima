@@ -923,6 +923,14 @@ wrong:
   Now any paragraph of the previous reply said again, from
   `ECHO_PARA_MIN_CHARS` (40) and seven words, is an echo; stage directions
   and a short sign-off are still theirs to repeat.
+- **An echo can come from further back.** The reply the sampler hands
+  back is not always the one before: in one afternoon four replies were
+  earlier replies of the same visit said again entire, from eight back
+  and from two, each under a fresh stage direction. The rail now looks
+  over the last `ECHO_LOOKBACK` (12) spoken replies — the previous one
+  whole, as above; the ones before it for the opening and for paragraphs
+  of 150 characters or more, so a sentence they are fond of may come
+  round again and a paragraph may not.
 - **A glued capital is taken off, not re-rolled.** "sameL", "I'veT",
   "isn'T", "It'S", "termsLSimulation" — one stray capital where a word
   ends, the cache's slip of a token, the rest of the sentence sound. A
@@ -2165,8 +2173,8 @@ it off) · `CONDENSED_CHARS_IN_PROMPT` / `CONDENSE_TARGET_CHARS` /
 `TELEGRAM_TELL_CREATIONS` / `TELEGRAM_CREATION_CHARS` / `TELEGRAM_TELL_SELF`
 (what they make, and changes to who they are, on the phone) · `WATCH_KEEP_SHEET` /
 `WATCH_SHEET_COLUMNS` / `WATCH_SHEET_TILE_WIDTH` (the strip of a video, kept) ·
-`ECHO_MIN_CHARS` / `ECHO_PARA_MIN_CHARS`
-(an echo is not an answer — see the rails; 120 / 40) · `WORD_LOOP_WINDOW` /
+`ECHO_MIN_CHARS` / `ECHO_PARA_MIN_CHARS` / `ECHO_LOOKBACK`
+(an echo is not an answer — see the rails; 120 / 40 / 12 replies back) · `WORD_LOOP_WINDOW` /
 `WORD_LOOP_DISTINCT` (forty words with four or fewer different ones is a
 loop, cut mid-stream) · `STUCK_EMOJI_REPEATS`
 (a wordless chunk repeated this often is a loop; 40) · `JOURNAL_ARROW` /

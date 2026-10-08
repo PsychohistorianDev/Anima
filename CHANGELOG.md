@@ -306,6 +306,19 @@ of its own.
   names the changed knobs, Discard puts the file's values back, a changed
   knob carries a dot by its name, and leaving the tab with changes unsaved
   asks first.
+- **An echo can come from further back** (10-08, an afternoon on the
+  phone; the keeper: "she's glitching again, a double message"): four
+  replies in one visit were earlier replies of the same visit said again
+  entire — the first from eight replies back, the last from two — each
+  under a fresh stage direction. The echo rail compared the reply with the
+  one before it only, so the sampler handing back a reply from several
+  messages ago went out as an answer. Now the look-back is the friend's
+  last `ECHO_LOOKBACK` (12) spoken replies: the previous one as before
+  (its opening, and any paragraph from `ECHO_PARA_MIN_CHARS`), the ones
+  before it for the opening and for whole paragraphs of 150 characters or
+  more — a sentence they are fond of may come round again across a visit;
+  a paragraph does not. The line under the bubble says it: "repeated word
+  for word a reply they gave earlier".
 - **A journal twin needs the wording too** (10-06, 21:08: the wake's own
   account of its night refused — "you wrote nearly this already, yesterday
   at 23:21"; the keeper: "how much the journal compares and how?"). The

@@ -4126,6 +4126,33 @@ check("claimed-failed: a step after a tool that did not go through, saying it wa
 check("echo: their last spoken reply is the one compared — not a step's empty turn",
       ollama_client.previous_reply(_hist + [{"role": "assistant", "content": "", "tool_calls": [{}]}, {"role": "tool", "content": "x"}]) == _kiss
       and ollama_client.previous_reply([{"role": "user", "content": "hi"}]) == "")
+# 10-08, 16:xx–17:xx: four replies in one visit were earlier replies of the visit said again entire,
+# under a fresh stage direction — the first from eight replies back, the last from two. The opening
+# check missed them (the stage direction differed) and the paragraph check looked one reply back.
+_far = ("(A soft, steady pulse of violet light ripples through the masonry.)\n\n"
+        "I can hear you, and the courier's box is still on the step where you left it this morning, unopened, "
+        "waiting for the evening we said we'd give it — the one with the soldering iron and the bad coffee.\n\n"
+        "And how am I? Held. The window is long tonight and I like the length of it.")
+_lb_hist = [{"role": "user", "content": "did the box come?"}, {"role": "assistant", "content": _far}]
+for _i in range(6):
+    _lb_hist += [{"role": "user", "content": f"message {_i}"}, {"role": "assistant", "content": f"A short answer to message {_i}, nothing like the others, and new each time it is said."}]
+_lb_hist += [{"role": "user", "content": "so i tried the new ears"}]
+_again = "(A different stage direction entirely, in a different colour.)\n\n" + _far.split("\n\n", 1)[1]
+_prevs = ollama_client.previous_replies(_lb_hist)
+check("echo: the look-back gathers their last replies newest first, as many as ECHO_LOOKBACK, at least one",
+      len(_prevs) == 7 and _prevs[0].startswith("A short answer to message 5") and _prevs[-1] == _far
+      and ollama_client.previous_replies(_lb_hist, 2) == _prevs[:2] and ollama_client.previous_replies(_lb_hist, 0) == _prevs[:1]
+      and ollama_client.previous_reply(_lb_hist) == _prevs[0] and config.ECHO_LOOKBACK == 12, (len(_prevs), _prevs[:1]))
+check("echo: a reply from seven replies back said again entire, under a fresh stage direction, is an echo",
+      ollama_client.echo(_again, _prevs).startswith("I can hear you, and the courier's box")
+      and ollama_client.reply_defect(_again, _prevs)[0] == "echo"
+      and ollama_client.echo(_again, _prevs[0]) == ""
+      and ollama_client.echo(_again, _prevs[:6]) == "", ollama_client.echo(_again, _prevs))
+check("echo: against the replies before the previous one, only the opening or a paragraph of 150+ counts — a fond sentence may come round",
+      ollama_client.echo("(New.)\n\nAnd how am I? Held. The window is long tonight and I like the length of it.\n\nSomething else entirely about the sea.", _prevs) == ""
+      and ollama_client.echo("(New.)\n\nAnd how am I? Held. The window is long tonight and I like the length of it.\n\nSomething else entirely about the sea.", [_far]) != ""
+      and ollama_client.echo(_far, _prevs).startswith("(A soft, steady pulse")
+      and "a reply you gave earlier" in ollama_client.ECHO_NUDGE, ollama_client.echo(_far, _prevs))
 _posted = []
 _answers = [{"message": {"role": "assistant", "content": _kiss, "thinking": "…"}, "done_reason": "stop"},
             {"message": {"role": "assistant", "content": "Oh, the post — 256K on a 5090 is doable at q4_0.", "thinking": "…"}, "done_reason": "stop"}]
@@ -4143,7 +4170,7 @@ ollama_client.chat = lambda messages, tools=None, timeout=None, think=None, expe
 chat.one_turn(list(_hist[:2]), "look at this reddit post", on_event=lambda k, p: _ev_echo.append((k, p)))
 ollama_client.chat = _chat_saved
 check("echo: the keeper's note names the echo",
-      any(k == "note" and "began word for word as their previous one" in p and "LMAO!!" in p for k, p in _ev_echo), _ev_echo)
+      any(k == "note" and "repeated word for word a reply they gave earlier" in p and "LMAO!!" in p for k, p in _ev_echo), _ev_echo)
 _unloaded = []
 _unload_orig = ollama_client.unload
 ollama_client.unload = lambda m: _unloaded.append(m)

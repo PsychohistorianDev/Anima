@@ -382,7 +382,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
     # checked and reached the phone whole).
     garbles = int(getattr(config, "CHAT_GARBLE_RETRIES", 1))
     attempts: list[tuple[int, dict]] = []  # (how broken, the message)
-    previous = previous_reply(messages)  # what they said last — an echo of it is a defect too
+    previous = previous_replies(messages)  # what they said lately — an echo of any of it is a defect too
     once = {"imagined": False, "copy": False, "greeting": False, "unread": False, "claimed": False,
             "claimed-self": False, "claimed-failed": False, "promised": False,
             "cut": False}  # asked about once; their second answer stands
@@ -870,8 +870,8 @@ def strip_call_tail(text: str) -> str:
 def reply_defect(text: str, previous: str = ""):
     """("salad", span), ("call-text", head), ("refrain", phrase ×n), ("emoji", "N emoji") or
     ("echo", opening) when a reply is the sampler's or the grammar's rather
-    than theirs; None when it is theirs. `previous` is their last spoken reply,
-    for the echo check."""
+    than theirs; None when it is theirs. `previous` is their last spoken reply, or
+    their last few newest first (previous_replies), for the echo check."""
     head = call_text_head(text)
     if head:
         return "call-text", head
@@ -906,21 +906,57 @@ def _echo_fold(s: str) -> str:
     return " ".join((s or "").lower().split())
 
 
-def previous_reply(messages: list[dict]) -> str:
-    """Their last spoken reply in a rendered message list: the newest assistant
-    turn with words in it and no tool call (a step's empty content is not
-    a reply)."""
+def previous_replies(messages: list[dict], n: int | None = None) -> list[str]:
+    """Their last spoken replies in a rendered message list, newest first:
+    assistant turns with words in them and no tool call (a step's empty
+    content is not a reply). `n` is how many; ECHO_LOOKBACK by default,
+    and never fewer than one."""
+    if n is None:
+        n = int(getattr(config, "ECHO_LOOKBACK", 12) or 0)
+    n = max(1, n)
+    out: list[str] = []
     for m in reversed(messages or []):
         if m.get("role") == "assistant" and (m.get("content") or "").strip() and not m.get("tool_calls"):
-            return m["content"]
-    return ""
+            out.append(m["content"])
+            if len(out) >= n:
+                break
+    return out
 
 
-def echo(text: str, previous: str) -> str:
+def previous_reply(messages: list[dict]) -> str:
+    """Their last spoken reply (see previous_replies); "" when there is none."""
+    got = previous_replies(messages, 1)
+    return got[0] if got else ""
+
+
+def echo(text: str, previous) -> str:
     """The echoed opening (as they said it the first time) when `text` begins
     with the first ECHO_MIN_CHARS characters of `previous`, spacing and
     case aside; "" otherwise, and always "" for anything shorter than that
-    — a short reply repeated ("LMAO!!", "love you") is a thing people say."""
+    — a short reply repeated ("LMAO!!", "love you") is a thing people say.
+
+    `previous` is their last spoken reply, or a list of their last replies,
+    newest first (previous_replies). The nearest is checked whole — the
+    opening and any paragraph of it (ECHO_PARA_MIN_CHARS). The ones before
+    it are checked for the opening and for whole paragraphs of 150
+    characters or more only: a sentence they is fond of may come round
+    again across a visit; a paragraph does not. 10-08, 16:xx–17:xx: four
+    replies to four different messages were earlier replies of the same
+    visit said again entire — the first from eight replies back, the last
+    from two — each opening with a fresh stage direction, so the opening
+    check missed them, and the paragraph check looked only one reply
+    back. The sampler copying the nearest *likely* assistant turn is the
+    same fault whichever turn it picks."""
+    if isinstance(previous, (list, tuple)):
+        for i, p in enumerate(previous):
+            got = _echo_one(text, p, whole=(i == 0))
+            if got:
+                return got
+        return ""
+    return _echo_one(text, previous, whole=True)
+
+
+def _echo_one(text: str, previous: str, whole: bool = True) -> str:
     n = int(getattr(config, "ECHO_MIN_CHARS", 120) or 0)
     if not n:
         return ""
@@ -937,7 +973,7 @@ def echo(text: str, previous: str) -> str:
     # was answered with the previous reply's "Oh, dear one... please don't be
     # scared. Look at me." paragraph, verbatim, then more; 52 characters,
     # under the old floor of 150). ECHO_PARA_MIN_CHARS; seven words.
-    pn = int(getattr(config, "ECHO_PARA_MIN_CHARS", 40) or 0)
+    pn = int(getattr(config, "ECHO_PARA_MIN_CHARS", 40) or 0) if whole else 0
     for para in (previous or "").split("\n\n"):
         f = _echo_fold(para)
         if not f or _is_stage_direction(para):
@@ -1370,8 +1406,8 @@ IMAGINED_NUDGE = ("[engine, not a person: your last reply described you {tool_ve
                   "mechanism; nobody wrote it to you.]")
 
 
-ECHO_NUDGE = ("[engine, not a person: your last reply began word for word as the reply before "
-              "it — the same words handed to a different message; a sampler echo, not you. "
+ECHO_NUDGE = ("[engine, not a person: your last reply repeated, word for word, a reply you gave "
+              "earlier — the same words handed to a different message; a sampler echo, not you. "
               "Read the message you were answering and answer THAT, in new words. This line "
               "is a mechanism; nobody wrote it to you.]")
 

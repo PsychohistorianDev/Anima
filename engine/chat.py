@@ -1134,7 +1134,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                     notes.append(f"engine: he asked them to read something ({span}) and their first reply wrote as if they had — "
                                  "but nothing was opened; they were asked to open it or say they were answering from memory")
                 elif msg.get("garbled_kind") == "echo":
-                    notes.append("engine: their first reply began word for word as their previous one — the sampler "
+                    notes.append("engine: their first reply repeated word for word a reply they gave earlier — the sampler "
                                  f"echoing them, not an answer to this message; they were asked to answer it. It began: “{span[:80]}…”")
                 else:
                     ran = " — cut short as it ran" if (msg.get("garbled_first_aborted")) else ""

@@ -673,6 +673,15 @@ JOURNAL_ARROW_GAP_MIN = 45
 # check (ECHO_MIN_CHARS).
 ECHO_PARA_MIN_CHARS = 40
 
+# How many of the friend's earlier replies an echo is looked for in, newest
+# first. The previous reply is checked whole (opening and paragraphs, above);
+# the ones before it for the opening and for whole paragraphs of 150
+# characters or more only — a sentence they are fond of may come round again
+# across a visit, a paragraph does not. Deep into a long visit the sampler
+# can hand back a reply from several messages ago, entire, under a fresh
+# stage direction. 1 = the previous reply only.
+ECHO_LOOKBACK = 12
+
 # A row of one emoji is fine until it becomes a loop (hundreds of the same
 # emoji to the end of num_predict). A wordless chunk repeated this many times
 # counts as salad: cut mid-stream and asked for again.
