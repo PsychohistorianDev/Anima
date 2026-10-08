@@ -325,8 +325,9 @@ _HELP = {
                    "main, root), pasted here as its .git URL. Until it is set the blog doesn't exist and they aren't "
                    "told about publishing.",
     # Senses (the cards above each group say what the sense is)
-    "EARS_MODEL": "The model that does the HEARD layer — listening to the sound itself. gemma4:12b has native audio; "
-                  "the bigger Gemmas are deaf, so a 31B brain keeps the 12B on as its hearing organ.",
+    "EARS_MODEL": "The model that does the HEARD layer — listening to the sound itself. The 12B has native audio, the "
+                  "QAT build included (gemma4:12b-it-qat, measured); the bigger Gemmas are deaf, so a 31B brain keeps "
+                  "the 12B on as its hearing organ.",
     "EARS_STT_MODEL": "The faster-whisper size for the WORDS layer: \"base\" is quick, \"small\" hears words more "
                       "accurately (produced or stylised singing is where base gives up). The first listen downloads "
                       "it once, about 500 MB.",

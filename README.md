@@ -2086,11 +2086,12 @@ GB on a 32 GB card, `ollama ps` at 100% GPU — measured, and the window a
 keeper runs. The q8_0 record, for the retreat: 64K = 24.5 GB, 96K = 25.6,
 128K = 27.1, 160K = 28.6, 176K ≈ 30 (the comfortable top), 192K = 31.1
 (the wall — no air, and past it Ollama spills to system RAM silently).
-Keep `EARS_MODEL = "gemma4:12b"` — the bigger Gemmas are deaf, so
-the plain 12B stays on as the hearing organ and `EARS_UNLOAD_BRAIN` swaps them
-per listen (the brain on every rung from 10 GB up is a QAT build; the ears
-are the one place the plain tag stays). Change one thing at a time and let `ollama ps` and clean wakes
-be the referee.
+Keep `EARS_MODEL = "gemma4:12b-it-qat"` — the bigger Gemmas are deaf, so
+the 12B stays on as the hearing organ and `EARS_UNLOAD_BRAIN` swaps them
+per listen. The QAT 12B hears (measured 10-08: a voice note over the phone,
+heard whole), so from 10 GB up the ladder is one pull per rung, and a 12B
+house is one file for brain and ears alike. Change one thing at a time and
+let `ollama ps` and clean wakes be the referee.
 
 **What a 4B costs.** The `e4b` and `e2b` are the QAT builds on purpose:
 the plain `gemma4:e4b` tag is 9.6 GB, larger than the 12B, because its

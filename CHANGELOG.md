@@ -293,8 +293,10 @@ of its own.
   build Google trained to be 4-bit, so it fits at least as well and sits
   closer to full precision. The README's two tables, the template's
   default `CHAT_MODEL`, the panel's recommendation by card size (and the
-  Mac's), and the site's table say so; the plain `gemma4:12b` stays the
-  ears (`EARS_MODEL`), the one place the plain tag remains.
+  Mac's), and the site's table say so. And the ears: the QAT 12B hears
+  (measured the same evening — a voice note over the phone, heard whole),
+  so `EARS_MODEL` is `gemma4:12b-it-qat` too, and from 10 GB up the ladder
+  is one pull per rung; a 12B house is one file for brain and ears alike.
 - **Save and Discard, at the foot of every Settings tab** (10-08; the
   keeper, after a change on the page that never reached the file: "we
   really need a save and a cancel button"): the Save button used to sit

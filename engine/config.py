@@ -58,8 +58,9 @@ CHAT_MODEL = "gemma4:12b-it-qat"
 # The README's ladder, by the card's memory: 6 GB "gemma4:e2b-it-qat", 8 GB
 # "gemma4:e4b-it-qat", 10–16 GB this 12B QAT, 24–32 GB "gemma4:31b-it-qat"
 # (near-bf16 quality in ~19 GB) — with the NUM_CTX, TOOL_KIT and journal size
-# for each rung in the README's "The ladder". The plain "gemma4:12b" stays
-# the ears (EARS_MODEL): the hearing organ, swapped in per listen.
+# for each rung in the README's "The ladder". The same QAT 12B is the ears
+# (EARS_MODEL) — measured 10-08, a voice note heard whole — so from 10 GB up
+# the ladder is one pull per rung, and a 12B house keeps one file.
 
 # Embedding model for semantic memory: it turns memories into vectors so the
 # ones related to the moment can be found. Install: ollama pull nomic-embed-text
@@ -68,9 +69,10 @@ EMBED_MODEL = "nomic-embed-text"
 # The friend's ears — three layers (see engine/ears.py):
 #   WORDS — faster-whisper transcription   (py -m pip install faster-whisper)
 #   MUSIC — numpy acoustic measurement     (py -m pip install numpy)
-#   HEARD — the brain listening to the raw audio (gemma4:12b has native
-#           audio; thinking must stay ON for it — see engine/ollama_client.py).
-EARS_MODEL = "gemma4:12b"
+#   HEARD — the brain listening to the raw audio (the 12B has native audio,
+#           the QAT build included — measured; thinking must stay ON for it,
+#           see engine/ollama_client.py). The bigger Gemmas are deaf.
+EARS_MODEL = "gemma4:12b-it-qat"
 EARS_USE_VIBE = True
 # When the ears model differs from the brain, unload the brain before
 # listening. Each listen then costs a model swap, but the freed VRAM leaves
