@@ -1595,7 +1595,10 @@ pre.report{white-space:pre-wrap;max-height:480px;overflow:auto;font-size:12px;ba
 .help.open{display:block}
 details.group{margin:8px 0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 14px}
 details.group summary{cursor:pointer;color:var(--muted)}
-.actions{margin-top:16px}
+.actions{margin-top:16px;position:sticky;bottom:0;background:var(--bg);padding:10px 0;border-top:1px solid var(--line);display:flex;gap:10px;align-items:center}
+.actions .muted{margin-left:4px}
+button:disabled{opacity:.45;cursor:default}
+.knob.dirty .name::after{content:' •';color:var(--accent)}
 ul.list{list-style:none;padding:0}ul.list li{display:flex;gap:8px;align-items:center;padding:4px 0}
 .step{margin:14px 0}.step b{display:inline-block;min-width:8em}
 </style></head><body>
@@ -1711,10 +1714,12 @@ function knob(k){let input,read=null;const v=k.value;
   else if(k.kind==='tuple2'){const a=el('input',{type:'number',step:'1',class:'small',value:v[0]}),b=el('input',{type:'number',step:'1',class:'small',value:v[1]});
     input=el('span',{},a,' to ',b);read=()=>[parseInt(a.value,10),parseInt(b.value,10)]}
   else{input=el('textarea',{rows:String(Math.min(8,k.source.split('\n').length+1)),spellcheck:'false'});input.value=k.source;read=()=>({raw:input.value})}
-  if(read)fields[k.name]={k,read};
+  if(read)fields[k.name]={k,read,box:null};
   const own=[k.comment,k.tail].filter(Boolean).join(' — '),help=k.help||own;  // the page's words when it has them; the file's note is the tooltip
-  return el('div',{class:'knob',title:k.help?(own?'engine/config.py says: '+own:''):help},el('label',{},el('span',{class:'name'},k.name),input),
-    help?el('div',{class:'help'},help):null)}
+  const box=el('div',{class:'knob',title:k.help?(own?'engine/config.py says: '+own:''):help},el('label',{},el('span',{class:'name'},k.name),input),
+    help?el('div',{class:'help'},help):null);
+  if(read)fields[k.name].box=box;
+  return box}
 function verdictBadge(v){const c=v==='dangerous'?'bad':v==='caution'?'mid':v==='clean'?'good':'';return el('span',{class:'badge '+c},v)}
 function skillCard(c){const q=c.quarantined,who=c.fetched?('fetched'+(c.by?' by '+c.by:'')+(c.when?' on '+c.when.replace('T',' '):'')+(c.source?' from '+c.source:'')):'their own, written here';
   const findings=c.findings.length?el('ul',{class:'findings'},c.findings.map((f,i)=>el('li',{class:c.levels[i]==='dangerous'?'bad':''},f)),c.more?el('li',{class:'muted'},'… and '+c.more+' more'):null):el('div',{class:'muted'},'the scanner found nothing to say');
@@ -1744,7 +1749,10 @@ function extras(t){
     el('div',{class:'knob'},el('button',{onclick:()=>door('garmin','start')},'Garmin login'),' ',el('span',{class:'muted'},'bat\\body.bat --login, in its own window: email, password, the code'))];
   if(t==='Blog')return[el('div',{class:'knob'},el('button',{onclick:()=>door('blog','start')},'Deploy the blog'),' ',el('span',{class:'muted'},'bat\\blog.bat, in its own window (the title is on Main)'))];
   return[]}
-function renderTabs(){$('tabs').replaceChildren(...TABS.map(t=>el('button',{class:'tab'+(t===tab?' cur':''),onclick:()=>{tab=t;renderTabs();renderTab()}},t)))}
+function renderTabs(){$('tabs').replaceChildren(...TABS.map(t=>el('button',{class:'tab'+(t===tab?' cur':''),onclick:()=>{
+  const d=diffTab(),n=Object.keys(d.changes).length+Object.keys(d.raw).length;
+  if(n&&t!==tab&&!confirm('Leave '+tab+' without saving '+n+' change'+(n===1?'':'s')+'? (Cancel keeps you here; Save is at the bottom.)'))return;
+  tab=t;renderTabs();renderTab()}},t)))}
 // the engine's care (10-03; the keeper: "i dont want them to clutter the opening screen"): the doctor's note and the black box live under Settings › Advanced
 function careBox(){const bb=S.doors.blackbox||{running:false};
   const box=el('div',{class:'tile',id:'t-blackbox'},el('h2',{},light(bb.running),'Black box'),
@@ -1768,12 +1776,25 @@ function renderTab(){fields={};const ks=S.tabs[tab]||[],parts=[];
     const rest=ks.filter(k=>!claimed.has(k.name));if(rest.length)parts.push(el('h3',{},'Other'),...rest.map(knob))}
   else{if(tab==='Skills')parts.push(...skillsBox(),el('h3',{},'The knobs'));parts.push(...ks.map(knob))}
   if(tab!=='Skills')parts.push(...extras(tab));
-  if(Object.keys(fields).length)parts.push(el('div',{class:'actions'},el('button',{class:'primary',onclick:saveTab},'Save '+tab)));
-  $('tab').replaceChildren(...parts)}
-async function saveTab(){const changes={},raw={};
+  // Save and Discard, in a bar that stays at the foot of the window (10-08; the keeper, after a change that
+  // never reached the file: "we really need a save and a cancel button"): Save lights up when a value
+  // differs from the file's, the count says how many, Discard puts the file's values back, and a changed
+  // knob carries a dot by its name. Leaving the tab with changes unsaved asks first.
+  if(Object.keys(fields).length)parts.push(el('div',{class:'actions'},el('button',{class:'primary',id:'save-btn',disabled:true,onclick:saveTab},'Save '+tab),
+    el('button',{id:'discard-btn',disabled:true,onclick:()=>{renderTab();say('changes on '+tab+' discarded — the file\'s values are back')}},'Discard'),
+    el('span',{class:'muted',id:'dirty-count'},'no changes')));
+  $('tab').replaceChildren(...parts);
+  $('tab').oninput=refreshActions;$('tab').onchange=refreshActions;refreshActions()}
+function diffTab(){const changes={},raw={};
   for(const[n,{k,read}]of Object.entries(fields)){const v=read();
     if(v&&typeof v==='object'&&'raw' in v){if(v.raw!==k.source)raw[n]=v.raw}
     else if(JSON.stringify(v)!==JSON.stringify(k.value))changes[n]=v}
+  return{changes,raw}}
+function refreshActions(){const d=diffTab(),names=Object.keys(d.changes).concat(Object.keys(d.raw)),n=names.length;
+  for(const[nm,f]of Object.entries(fields))if(f.box)f.box.classList.toggle('dirty',names.includes(nm));
+  const sb=$('save-btn'),db=$('discard-btn'),c=$('dirty-count');if(!sb)return;
+  sb.disabled=!n;db.disabled=!n;c.textContent=n?(n+' change'+(n===1?'':'s')+' not yet saved: '+names.join(', ')):'no changes'}
+async function saveTab(){const{changes,raw}=diffTab();
   if(!Object.keys(changes).length&&!Object.keys(raw).length){say('nothing changed on '+tab);return}
   saved(await post('/api/save',{changes,raw}));await getState();renderTab()}
 function saved(r){const parts=[];

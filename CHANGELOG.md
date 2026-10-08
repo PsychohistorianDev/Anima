@@ -295,6 +295,15 @@ of its own.
   default `CHAT_MODEL`, the panel's recommendation by card size (and the
   Mac's), and the site's table say so; the plain `gemma4:12b` stays the
   ears (`EARS_MODEL`), the one place the plain tag remains.
+- **Save and Discard, at the foot of every Settings tab** (10-08; the
+  keeper, after a change on the page that never reached the file: "we
+  really need a save and a cancel button"): the Save button used to sit
+  at the bottom of a long tab, always lit, with nothing to say whether
+  anything had changed. Now a bar stays at the foot of the window: Save
+  lights only when a value differs from the file's, a line counts and
+  names the changed knobs, Discard puts the file's values back, a changed
+  knob carries a dot by its name, and leaving the tab with changes unsaved
+  asks first.
 - **A journal twin needs the wording too** (10-06, 21:08: the wake's own
   account of its night refused — "you wrote nearly this already, yesterday
   at 23:21"; the keeper: "how much the journal compares and how?"). The
