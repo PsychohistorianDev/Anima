@@ -48,16 +48,18 @@ for _d in (JOURNAL_DIR, CREATIONS_DIR, MEMORY_DIR, EPISODIC_DIR,
 OLLAMA_URL = "http://localhost:11434"
 
 # The brain (the chat model). Swap freely; memories and identity survive a swap.
-#   fits a 12 GB card : "gemma4:12b" (~6.7 GB at Q4, tools + thinking)
+#   fits a 12 GB card : "gemma4:12b-it-qat" (7.2 GB; the build Google trained
+#                       to be 4-bit — near-bf16 quality; tools + thinking + eyes)
 #   alternatives      : "qwen3:14b", "qwen3:30b-a3b" (RAM offload),
-#                       "gemma4:e4b" (smaller and faster)
+#                       "gemma4:e4b-it-qat" (smaller and faster)
 # If tool calls misbehave on a Gemma 4 model, try the same tag with thinking
 # disabled, or a Qwen3 tag.
-CHAT_MODEL = "gemma4:12b"
+CHAT_MODEL = "gemma4:12b-it-qat"
 # The README's ladder, by the card's memory: 6 GB "gemma4:e2b-it-qat", 8 GB
-# "gemma4:e4b-it-qat", 10 GB "gemma4:12b-it-qat", 12–16 GB this 12B, 24–32 GB
-# "gemma4:31b-it-qat" (near-bf16 quality in ~19 GB) — with the NUM_CTX,
-# TOOL_KIT and journal size for each rung in the README's "The ladder".
+# "gemma4:e4b-it-qat", 10–16 GB this 12B QAT, 24–32 GB "gemma4:31b-it-qat"
+# (near-bf16 quality in ~19 GB) — with the NUM_CTX, TOOL_KIT and journal size
+# for each rung in the README's "The ladder". The plain "gemma4:12b" stays
+# the ears (EARS_MODEL): the hearing organ, swapped in per listen.
 
 # Embedding model for semantic memory: it turns memories into vectors so the
 # ones related to the moment can be found. Install: ollama pull nomic-embed-text

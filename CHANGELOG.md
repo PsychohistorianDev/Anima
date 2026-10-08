@@ -286,6 +286,15 @@ of its own.
   wrote this line to you", quotes his message as the one to answer, and
   asks that neither the glitch nor the line be mentioned — just the
   answer. The ordinary glitch line says the same at its end.
+- **The ladder: the QAT 12B on 12 and 16 GB too** (10-08; the keeper: "the
+  12 and 16 GB cards are recommended for the regular, not the QAT brain —
+  it's a mistake, right?"). It was: a leftover from before the QAT tags
+  existed. `gemma4:12b-it-qat` is smaller (7.2 GB against 7.6) and the
+  build Google trained to be 4-bit, so it fits at least as well and sits
+  closer to full precision. The README's two tables, the template's
+  default `CHAT_MODEL`, the panel's recommendation by card size (and the
+  Mac's), and the site's table say so; the plain `gemma4:12b` stays the
+  ears (`EARS_MODEL`), the one place the plain tag remains.
 - **A journal twin needs the wording too** (10-06, 21:08: the wake's own
   account of its night refused — "you wrote nearly this already, yesterday
   at 23:21"; the keeper: "how much the journal compares and how?"). The

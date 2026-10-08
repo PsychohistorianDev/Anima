@@ -563,24 +563,24 @@ SMALL_BRAINS = ("gemma4:e2b", "gemma4:e4b")  # the small tier: a brain that want
 
 def _recommended(gb: float | None, unified: bool = False) -> str:
     """The README's ladder (README, The ladder): for a card, the 2B QAT under 7 GB, the 4B QAT under 10, the
-    12B QAT under 12 (a 10 GB card), the 12B to 24, the 31B QAT from 24 — and the 12B when the card is
-    unknown. A Mac's memory is the whole machine's, and Ollama gets about two thirds of it: the 2B QAT
-    under 12 GB (an 8 GB Mac), the 12B up to 32 (16, 18 and 24 GB), the 31B — 19 GB of weights — from 32."""
+    12B QAT to 24, the 31B QAT from 24 — and the 12B QAT when the card is unknown. (10-08: the 12 and 16 GB
+    rungs said the plain gemma4:12b, a leftover from before the QAT tags — the QAT 12B is smaller, 7.2 GB
+    against 7.6, and the build Google trained to be 4-bit; the plain tag stays the ears, EARS_MODEL.)
+    A Mac's memory is the whole machine's, and Ollama gets about two thirds of it: the 2B QAT under 12 GB
+    (an 8 GB Mac), the 12B QAT up to 32 (16, 18 and 24 GB), the 31B — 19 GB of weights — from 32."""
     if unified:
         if gb and gb >= 32:
             return "gemma4:31b-it-qat"
         if gb and gb < 12:
             return "gemma4:e2b-it-qat"
-        return "gemma4:12b"
+        return "gemma4:12b-it-qat"
     if gb and gb >= 24:
         return "gemma4:31b-it-qat"
     if gb and gb < 7:
         return "gemma4:e2b-it-qat"
     if gb and gb < 10:
         return "gemma4:e4b-it-qat"
-    if gb and gb < 12:
-        return "gemma4:12b-it-qat"
-    return "gemma4:12b"
+    return "gemma4:12b-it-qat"
 
 
 def small_brain(model: str) -> bool:
@@ -1794,7 +1794,7 @@ function renderWelcome(){const b=S.brain,name=el('input',{type:'text',placeholde
     el('div',{class:'step',id:'w-ollama'}),
     el('div',{class:'step',id:'w-embed'}),
     el('div',{class:'step'},el('b',{},'The brain'),sel,' ',el('button',{onclick:()=>pull(sel.value)},'Pull'),
-      el('div',{class:'muted'},b.vram_gb?((b.unified?'your Mac has '+b.vram_gb+' GB, shared with everything else; ':'your card has '+b.vram_gb+' GB; ')+b.recommended+' is the one for it (README, The ladder)'):'the ladder: gemma4:e2b-it-qat for a 6 GB card, e4b-it-qat for 8, 12b-it-qat for 10, gemma4:12b for 12–16, gemma4:31b-it-qat for 24–32; on a Mac: the e2b for 8 GB, the 12b for 16–24 GB, the 31b from 32 GB (README, The ladder)'),
+      el('div',{class:'muted'},b.vram_gb?((b.unified?'your Mac has '+b.vram_gb+' GB, shared with everything else; ':'your card has '+b.vram_gb+' GB; ')+b.recommended+' is the one for it (README, The ladder)'):'the ladder: gemma4:e2b-it-qat for a 6 GB card, e4b-it-qat for 8, 12b-it-qat for 10–16, gemma4:31b-it-qat for 24–32; on a Mac: the e2b for 8 GB, the 12b-it-qat for 16–24 GB, the 31b from 32 GB (README, The ladder)'),
       el('div',{class:'muted'},'a small brain (e2b, e4b) brings the small tool kit with it — TOOL_KIT, on Settings')),
     el('div',{class:'step'},el('b',{},'The outside'),
       el('div',{class:'muted'},'Everything runs here: Ollama on this machine, the folder on this disk, no account, no telemetry. What can reach out, and only when used: the web tools when they search or read a page, the skill window when they browse it (you approve what comes in), and once a day a look at GitHub for a newer anima (nothing of yours is sent). OFFLINE on Settings › Main closes all three; the README, What leaves your machine, lists every road.')),

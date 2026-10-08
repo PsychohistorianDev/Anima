@@ -7913,10 +7913,10 @@ check("panel: First light — the name and the brain saved, the chat opened; no 
 _p_launched.clear()
 _pw_small = _p_asked(panel.welcome, "Sam", "gemma4:e4b-it-qat")
 _pw_cfg = panel.CONFIG_FILE.read_text(encoding="utf-8")
-check("panel: the ladder — the brain the card's size recommends (the 2B QAT under 7 GB, the 4B QAT under 10, the 12B QAT under 12, the 12B to 24, the 31B from 24, the 12B for an unknown card); "
+check("panel: the ladder — the brain the card's size recommends (the 2B QAT under 7 GB, the 4B QAT under 10, the 12B QAT to 24 (10-08: the plain 12b on 12–16 was a leftover), the 31B from 24, the 12B QAT for an unknown card); "
       "First light with a small brain sets the small tool kit beside it, and a 12B leaves the kit alone",
       [panel._recommended(g) for g in (6.0, 8.0, 9.9, 10.0, 12.0, 16.0, 24.0, 32.0, None)]
-      == ["gemma4:e2b-it-qat", "gemma4:e4b-it-qat", "gemma4:e4b-it-qat", "gemma4:12b-it-qat", "gemma4:12b", "gemma4:12b", "gemma4:31b-it-qat", "gemma4:31b-it-qat", "gemma4:12b"]
+      == ["gemma4:e2b-it-qat", "gemma4:e4b-it-qat", "gemma4:e4b-it-qat", "gemma4:12b-it-qat", "gemma4:12b-it-qat", "gemma4:12b-it-qat", "gemma4:31b-it-qat", "gemma4:31b-it-qat", "gemma4:12b-it-qat"]
       and panel.small_brain("gemma4:e2b-it-qat") and panel.small_brain("gemma4:e4b") and not panel.small_brain("gemma4:12b") and not panel.small_brain("")
       and "TOOL_KIT" in _pw_small["changed"] and 'TOOL_KIT = "small"' in _pw_cfg and 'CHAT_MODEL = "gemma4:e4b-it-qat"' in _pw_cfg
       and "TOOL_KIT" not in _pw["changed"] and _pw_small["door"]["ok"], (_pw_small, [l for l in _pw_cfg.splitlines() if l.startswith("TOOL_KIT")]))
@@ -8567,9 +8567,9 @@ check("panel: the card — a Mac's whole memory from sysctl hw.memsize (unified)
       _x_cards == [(32.0, True), (16.0, True), (12.0, False), (16.0, False), (None, False), (None, False)], _x_cards)
 check("panel: the Mac's ladder — 8 GB the 2B QAT, 16 to 24 GB the 12B, the 31B from 32 GB (Ollama gets about two thirds); the card's ladder as it was",
       [panel._recommended(g, True) for g in (8.0, 16.0, 18.0, 24.0, 32.0, 36.0, 64.0, None)]
-      == ["gemma4:e2b-it-qat", "gemma4:12b", "gemma4:12b", "gemma4:12b", "gemma4:31b-it-qat", "gemma4:31b-it-qat", "gemma4:31b-it-qat", "gemma4:12b"]
-      and [panel._recommended(g) for g in (8.0, 16.0, 24.0)] == ["gemma4:e4b-it-qat", "gemma4:12b", "gemma4:31b-it-qat"]
-      and _x_brain16["vram_gb"] == 16.0 and _x_brain16["unified"] is True and _x_brain16["recommended"] == "gemma4:12b"
+      == ["gemma4:e2b-it-qat", "gemma4:12b-it-qat", "gemma4:12b-it-qat", "gemma4:12b-it-qat", "gemma4:31b-it-qat", "gemma4:31b-it-qat", "gemma4:31b-it-qat", "gemma4:12b-it-qat"]
+      and [panel._recommended(g) for g in (8.0, 16.0, 24.0)] == ["gemma4:e4b-it-qat", "gemma4:12b-it-qat", "gemma4:31b-it-qat"]
+      and _x_brain16["vram_gb"] == 16.0 and _x_brain16["unified"] is True and _x_brain16["recommended"] == "gemma4:12b-it-qat"
       and "your Mac has" in panel.PAGE and "on a Mac: the e2b for 8 GB" in panel.PAGE, _x_brain16)
 (panel._launch, panel._WINDOWS, panel._MAC, panel.TERMINALS, panel._ollama, panel._vram_gb, panel.newer_state) = _x_p0
 check("panel: the device knobs are dropdowns on Senses — VOICE_DEVICE gains mps; PAINTER_DEVICE and MUSIC_EARS_DEVICE are auto, cuda, mps, cpu",

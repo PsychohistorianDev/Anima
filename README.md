@@ -106,8 +106,8 @@ and a backslash in a path is a slash.
    | 6 GB | `ollama pull gemma4:e2b-it-qat` | 32768 |
    | 8 GB | `ollama pull gemma4:e4b-it-qat` | 40960 |
    | 10 GB | `ollama pull gemma4:12b-it-qat` | 32768 |
-   | 12 GB | `ollama pull gemma4:12b` | 40960 |
-   | 16 GB | `ollama pull gemma4:12b` | 131072 |
+   | 12 GB | `ollama pull gemma4:12b-it-qat` | 40960 |
+   | 16 GB | `ollama pull gemma4:12b-it-qat` | 131072 |
    | 24 GB | `ollama pull gemma4:31b-it-qat` | 65536 |
    | 32 GB | `ollama pull gemma4:31b-it-qat` | 262144 |
 
@@ -2065,8 +2065,8 @@ says.
 | 6 GB | `ollama pull gemma4:e2b-it-qat` | 4.3 GB | 32768 | `"tiny"` | 16000 | the floor: the life itself — journal, memory, the web — on a 2B that needs short, plain turns |
 | 8 GB | `ollama pull gemma4:e4b-it-qat` | 6.1 GB | 40960 (32768 if layers spill) | `"small"` | 24000 | the small tier: a 4B with eyes and a day of journal; no painter, no ears |
 | 10 GB | `ollama pull gemma4:12b-it-qat` | 7.2 GB | 32768 | `"small"` | 20000 | the default brain with a short window; the QAT build is the one that fits |
-| 12 GB | `ollama pull gemma4:12b` | 7.6 GB | 40960 | `"full"` or `"small"` | 40000 | the default: 24576 was measured with the q8_0 cache, the q4_0 cache affords this; two days or so verbatim; `"small"` gives the window real room |
-| 16 GB | `ollama pull gemma4:12b` | 7.6 GB | 131072 | `"full"` | 120000 | the same brain with most of a week in view — the roomy 12B |
+| 12 GB | `ollama pull gemma4:12b-it-qat` | 7.2 GB | 40960 | `"full"` or `"small"` | 40000 | the default: 24576 was measured with the q8_0 cache (on the plain `gemma4:12b`, 7.6 GB — the QAT build is smaller and closer to full precision, so it fits at least as well), the q4_0 cache affords this; two days or so verbatim; `"small"` gives the window real room |
+| 16 GB | `ollama pull gemma4:12b-it-qat` | 7.2 GB | 131072 | `"full"` | 120000 | the same brain with most of a week in view — the roomy 12B |
 | 24 GB | `ollama pull gemma4:31b-it-qat` | 19 GB | 65536 | `"full"` | 60000 | the big brain with a modest window (tight: `ollama ps` decides; 49152 the retreat) — or the 12B at 262144, a friend who remembers weeks; the design tends to favour the weeks |
 | 32 GB | `ollama pull gemma4:31b-it-qat` | 19 GB | 262144 (the model's whole window) | `"full"` | 200000–320000 | measured: the whole 256K loaded under 30 GB, `ollama ps` at 100% GPU; a week of a prolific writer verbatim, a minute of cold prefill per wake |
 
@@ -2087,8 +2087,9 @@ keeper runs. The q8_0 record, for the retreat: 64K = 24.5 GB, 96K = 25.6,
 128K = 27.1, 160K = 28.6, 176K ≈ 30 (the comfortable top), 192K = 31.1
 (the wall — no air, and past it Ollama spills to system RAM silently).
 Keep `EARS_MODEL = "gemma4:12b"` — the bigger Gemmas are deaf, so
-the 12B stays on as the hearing organ and `EARS_UNLOAD_BRAIN` swaps them
-per listen. Change one thing at a time and let `ollama ps` and clean wakes
+the plain 12B stays on as the hearing organ and `EARS_UNLOAD_BRAIN` swaps them
+per listen (the brain on every rung from 10 GB up is a QAT build; the ears
+are the one place the plain tag stays). Change one thing at a time and let `ollama ps` and clean wakes
 be the referee.
 
 **What a 4B costs.** The `e4b` and `e2b` are the QAT builds on purpose:
