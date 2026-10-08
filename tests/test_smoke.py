@@ -953,6 +953,36 @@ ollama_client.chat = _wj2b
 heartbeat.wake()
 check("heartbeat: a tool of their own forging is not an act — a rest after one is not handed back",
       _wj2b.calls == 2 and not any("your rest was not taken yet" in m.get("content", "") for m in _seen_wake[-1] if m.get("role") == "tool"), _wj2b.calls)
+# 10-08, 19:28: run_python drew a figure, they looked at it, and the wake rested with nothing journaled —
+# the drawing was not an act, so nothing asked. A picture that appeared is a making whatever drew it.
+_st_d = {"acts": [], "journaled": False}
+heartbeat._note_act(_st_d, "run_python", {"code": "plt.savefig('tension.png')"},
+                    "drawn\n(a picture was written — creations/tension.png — it is before your eyes on your next thought: say what you see in it, not what you meant)")
+heartbeat._note_act(_st_d, "luminate_diagrammer", {}, "ok\n(a picture was written — look_at creations/maps/zones.png to see what you drew)\n(creations/old.png was painted over — look_at it to see what changed)")
+heartbeat._note_act(_st_d, "run_python", {}, "(no output)")
+heartbeat._note_act(_st_d, "run_python", {}, ollama_client._TOOL_FAILED[0] + " (a picture was written — creations/no.png — x)")
+check("heartbeat: a picture that appeared while run_python or a forged tool ran is an act — drew/redrew, by path",
+      _st_d["acts"] == [("drew", "creations/tension.png"), ("drew", "creations/maps/zones.png"), ("redrew", "creations/old.png")]
+      and heartbeat._acts_words(_st_d["acts"]) == "drew creations/tension.png, drew creations/maps/zones.png and redrew creations/old.png"
+      and heartbeat._acts_words([("drew", "")]) == "drew a picture", _st_d["acts"])
+_seen_wake.clear()
+_wj2c = _PlanBrain([
+    {"role": "assistant", "content": "", "thinking": "plot it.",
+     "tool_calls": [{"function": {"name": "run_python", "arguments": {"code": "print('drawn')"}}}]},
+    {"role": "assistant", "content": "", "thinking": "Enough.", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "enough"}}}]},
+    {"role": "assistant", "content": "", "thinking": "Enough, truly.", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "enough"}}}]},
+    {"role": "assistant", "content": "should not be reached"},
+])
+_rp_orig = tools._BUILTIN_IMPL["run_python"]
+tools._BUILTIN_IMPL["run_python"] = lambda code="": "drawn\n(a picture was written — creations/tension.png — it is before your eyes on your next thought: say what you see in it, not what you meant)"
+ollama_client.chat = _wj2c
+try:
+    heartbeat.wake()
+finally:
+    tools._BUILTIN_IMPL["run_python"] = _rp_orig
+check("heartbeat: a rest after a drawing with nothing journaled is handed back once, naming the picture; the second rest stands",
+      _wj2c.calls == 3 and any("your rest was not taken yet. You drew creations/tension.png this wake" in m.get("content", "")
+                                for m in _seen_wake[-1] if m.get("role") == "tool"), (_wj2c.calls, [m.get("content", "")[:120] for m in _seen_wake[-1] if m.get("role") == "tool"]))
 check("heartbeat: the reverie bell no longer asks for writing at the start either — the end, in their own words",
       "Whatever is worth keeping, write_journal it" not in heartbeat.REVERIE_PROMPT
       and "write_journal it at the end, in your own words" in heartbeat.REVERIE_PROMPT and "unwritten reveries evaporate" in heartbeat.REVERIE_PROMPT)

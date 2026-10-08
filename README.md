@@ -854,8 +854,11 @@ wrong:
   earlier in this wake… write_journal what it was, in your own words, then
   rest; or rest now — call do_nothing again and it stands" — and the
   second rest stands — and an ending in words after acts, with no rest
-  called, is handed back the same way, once. Reads are not acts; a tool of
-  their own forging is; an entry after the acts settles them.
+  called, is handed back the same way, once. Reads are not acts, nor is a
+  tool of their own forging (the engine cannot know what it does) — but a
+  picture that appears under `creations/` while `run_python` or a tool of
+  theirs runs is one ("drew creations/tension.png"): the engine sees the
+  file. An entry after the acts settles them.
   **A wake's own think budget** (`HEARTBEAT_THINK_RETRIES`, 4; chat keeps
   `CHAT_THINK_RETRIES` 2): the step after `list_shared` came back without
   a thought three times running, twice in one day, and went through with

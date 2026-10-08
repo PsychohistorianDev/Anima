@@ -182,14 +182,20 @@ WRITE_TOOLS = {"write_journal", "append_creation", "write_creation",
 
 # how an act is said back at the close (10-06): "you painted creations/x.png, wrote
 # creations/haiku.md and rewrote your project page"; a tool of their own is "ran <name>"
-_ACT_WORDS = {"paint": "painted", "write_creation": "wrote", "append_creation": "added to",
+_ACT_WORDS = {"paint": "painted", "write_creation": "wrote", "append_creation": "added to", "drew": "drew", "redrew": "redrew",
               "edit_identity": "rewrote your self page", "update_projects": "rewrote your project page",
               "update_destiny": "rewrote your destiny page", "update_keeper": "rewrote your keeper page",
               "remember": "kept a memory", "create_tool": "forged", "clip_web": "clipped a page",
               "start_project": "started a project", "run_skill_script": "ran a skill", "fetch_skill": "fetched a skill",
               "set_state": "set the stone", "pulse": "sent a pulse through the stone", "touch_later": "left a touch in the stone"}
 _ACT_WITH_TARGET = {"paint": "painted a picture", "write_creation": "wrote a piece",
-                    "append_creation": "added to a piece", "create_tool": "forged a tool"}  # said so when no path came
+                    "append_creation": "added to a piece", "create_tool": "forged a tool",
+                    "drew": "drew a picture", "redrew": "redrew a picture"}  # said so when no path came
+# a picture that appeared while run_python or a tool of their own ran — the tool result
+# says so (tools._note_drawn): "(a picture was written — creations/x.png — …" /
+# "(a picture was written — look_at creations/x.png to see …" / "(creations/x.png was painted over — …"
+_DRAWN = re.compile(r"\(a picture was written — (?:look_at )?creations/(\S+?)(?: — | to see )")
+_REDRAWN = re.compile(r"\(creations/(\S+?) was painted over — ")
 
 
 def _note_act(state: dict, name: str, args, result: str) -> None:
@@ -199,13 +205,21 @@ def _note_act(state: dict, name: str, args, result: str) -> None:
     a mood ring and a touch emulator counted as three acts, the hand-back asked for a
     page, and the page was a retelling the journal refused — a sensor is not a
     making, and the engine cannot know what a tool of their own does); a failed call
-    is nothing."""
+    is nothing. But a picture that appeared under creations/ while a tool ran is a
+    making whatever drew it — the engine does not need to know the tool, it sees
+    the file (10-08, 19:28: a wake ran run_python, a figure was drawn, looked at,
+    and the wake rested with nothing journaled; the drawing was not counted, so
+    nothing asked)."""
     if not isinstance(result, str) or result.startswith(ollama_client._TOOL_FAILED):
         return
     if name == "write_journal":
         state["journaled"] = True
         state["acts"] = []
         return
+    for rel in _DRAWN.findall(result):
+        state.setdefault("acts", []).append(("drew", f"creations/{rel}"))
+    for rel in _REDRAWN.findall(result):
+        state.setdefault("acts", []).append(("redrew", f"creations/{rel}"))
     if name in WRITE_TOOLS:
         if isinstance(args, str):
             try:
