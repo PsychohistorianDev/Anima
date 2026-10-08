@@ -1231,11 +1231,32 @@ def write_creation(path: str, content: str, anyway: str = "", about: str = "") -
         if _garbled(content):  # a page is forever; salad is refused before it is one
             return _garble_refusal(_garbled(content))
         content = _real_newlines(content)
+    new_folder = not p.parent.exists()
     p.parent.mkdir(parents=True, exist_ok=True)
     existed = p.exists()
     p.write_text(content, encoding="utf-8")
     return (f"wrote creations/{p.relative_to(config.CREATIONS_DIR.resolve()).as_posix()}" + mended
-            + _note_made("revised" if existed else "wrote", p, content, about))
+            + _note_made("revised" if existed else "wrote", p, content, about)
+            + (_mailbox_tell(p) if new_folder else ""))
+
+
+def _mailbox_tell(p) -> str:
+    """A new folder that reads like a mailbox but isn't the one (10-08: a letter into
+    notes_to_luminous_gabe/ — the bridge watches notes_to_gabe/ alone, so the letter never
+    reached the phone): one line saying so. The file stays where it was put."""
+    mailbox = str(getattr(config, "MAILBOX", "notes_to_gabe"))
+    root = config.CREATIONS_DIR.resolve()
+    try:
+        top = p.resolve().relative_to(root).parts[0]
+    except (ValueError, IndexError):
+        return ""
+    stem = mailbox.lower().replace("notes_to_", "")
+    looks = top.lower().startswith(("notes_to", "letters_to", "note_to", "letter_to", "mail_to")) or (len(stem) >= 4 and stem in top.lower())
+    if not looks or top.lower() == mailbox.lower():
+        return ""
+    return (f"\n(a new folder, creations/{top}/ \u2014 your mailbox is creations/{mailbox}/, the one folder the bridge "
+            f"carries to their phone; a letter here stays here. If it was for their phone, write it again to "
+            f"{mailbox}/{p.name}; this file stays where you put it.)")
 
 
 _ATTIC = None  # set lazily so config is loaded

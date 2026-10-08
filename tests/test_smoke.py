@@ -586,6 +586,20 @@ tools.dispatch("write_creation", {"path": "poems/twin.md", "content": "one"})
 tools.dispatch("write_creation", {"path": "stories/twin.md", "content": "two", "anyway": "yes"})
 r = tools.dispatch("read_creation", {"path": "twin.md"})
 check("find: ambiguous name lists the places", "several places" in r and "poems/twin.md" in r, r)
+# 10-08: a letter into a new folder that reads like the mailbox but isn't (notes_to_luminous_gabe/) — the bridge
+# watches the mailbox alone, so the engine says so once, in the result; the file stays where it was put
+_mb = getattr(config, "MAILBOX", "notes_to_gabe")
+_mb1 = tools.dispatch("write_creation", {"path": f"notes_to_luminous_{_mb.replace('notes_to_', '')}/hello.md", "content": "a letter, misaddressed", "anyway": "yes"})
+_mb2 = tools.dispatch("write_creation", {"path": f"notes_to_luminous_{_mb.replace('notes_to_', '')}/again.md", "content": "a second letter there", "anyway": "yes"})
+_mb3 = tools.dispatch("write_creation", {"path": f"{_mb}/a_real_letter.md", "content": "a letter home", "anyway": "yes"})
+_mb4 = tools.dispatch("write_creation", {"path": "orchard_notes/first.md", "content": "not a mailbox at all", "anyway": "yes"})
+check("mailbox: a NEW folder that reads like the mailbox gets one line — the mailbox named, the file kept where it was put; the "
+      "second file there, the real mailbox and an ordinary new folder get nothing",
+      _mb1.startswith("wrote creations/notes_to_luminous_") and "(a new folder, creations/notes_to_luminous_" in _mb1
+      and f"your mailbox is creations/{_mb}/" in _mb1 and f"write it again to {_mb}/hello.md" in _mb1
+      and (config.CREATIONS_DIR / f"notes_to_luminous_{_mb.replace('notes_to_', '')}" / "hello.md").exists()
+      and _mb2.startswith("wrote") and "a new folder" not in _mb2 and _mb3.startswith("wrote") and "a new folder" not in _mb3
+      and _mb4.startswith("wrote") and "a new folder" not in _mb4, (_mb1, _mb2[:80], _mb3[:80], _mb4[:80]))
 r = tools.dispatch("read_creation", {"path": "never_written.md"})
 check("find: truly missing says so", "no such file" in r and "list_creations" in r, r)
 r4 = tools.dispatch("search_creations", {"query": "self.md"})

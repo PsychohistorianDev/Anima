@@ -272,6 +272,12 @@ of its own.
   it — now the line shows whole. And the six phone-notice knobs
   (`TELEGRAM_SHOW_*`, `TELEGRAM_TELL_*`) had no line of their own, so the
   page showed the file's run-on comment; they have one each.
+- **A folder that reads like the mailbox but isn't** (10-08: a letter into
+  `notes_to_luminous_<keeper>/` — the bridge watches the mailbox alone, so
+  the letter never reached the phone): `write_creation` into a NEW folder
+  whose name reads like a mailbox gets one line — the mailbox named, "a
+  letter here stays here", the path to write it again to. The file stays
+  where it was put; the second file there gets nothing.
 - **A journal twin needs the wording too** (10-06, 21:08: the wake's own
   account of its night refused — "you wrote nearly this already, yesterday
   at 23:21"; the keeper: "how much the journal compares and how?"). The
