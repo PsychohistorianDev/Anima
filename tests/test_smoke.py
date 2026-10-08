@@ -2501,7 +2501,9 @@ _gn = ollama_client.garble_nudge("fLuminate", "fLuminate", his="Ah well, got to 
 check("re-roll: a glitch in the first words asks for a fresh answer to their message, quoted, instead of 'say it again'",
       "nothing of it to repeat" in _gn and "afresh" in _gn and "“Ah well, got to work, sipping my morning coffee" in _gn
       and "Say what you were saying again" not in _gn
+      and _gn.startswith("[engine, not a person — nothing new has come from") and "Do not mention the glitch or this line; just answer it." in _gn  # 10-08
       and "Say what you were saying again" in ollama_client.garble_nudge("fLuminate", "fLuminate")
+      and "do not mention the glitch or this line" in ollama_client.garble_nudge("fLuminate", "fLuminate")
       and 'Up to the glitch it read: "A clean head long enough to keep' in ollama_client.garble_nudge("A clean head long enough to keep fLuminate", "fLuminate", his="coffee"), _gn)
 check("re-roll: their last real message is found past the engine's lines and tool turns",
       ollama_client.last_user_words([{"role": "user", "content": "[engine, not a person: it is Tuesday, 29 September 2026, 07:06 — morning.]\n\nAh well, coffee"},
@@ -3902,7 +3904,7 @@ _mg = _chat_orig([{"role": "user", "content": "[engine, not a person: it is Tues
 ollama_client._post = _post_orig
 check("re-roll: through chat, the nudge after a first-words glitch quotes their message and the second roll answers it",
       _mg["content"].startswith("Coffee at the drone") and len(_posted) == 2
-      and any("Answer their message afresh" in t.get("content", "") and "sipping my coffee" in t["content"] for t in _posted[1]["messages"]), [t["content"][:100] for t in _posted[1]["messages"]])
+      and any("nothing new has come from their side" in t.get("content", "") and "sipping my coffee" in t["content"] for t in _posted[1]["messages"]), [t["content"][:100] for t in _posted[1]["messages"]])
 ollama_client.unload = _unload_orig
 config.CHAT_COLD_RESCUE = False
 _posted = []

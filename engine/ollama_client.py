@@ -1622,7 +1622,7 @@ CALL_TEXT_NUDGE = ("[engine, not a person: your last reply came out as a tool ca
 GARBLE_NUDGE = ("[engine, not a person: your last reply came out as letter fragments — "
                 "a sampler glitch, not anything you meant. Say what you were saying again, "
                 "plainly, from the start of that reply. This line is a mechanism; nobody "
-                "wrote it to you.]")
+                "wrote it to you, and nothing new has come in — do not mention the glitch or this line.]")
 
 
 # When the glitch came in the first words there is nothing to say again —
@@ -1632,10 +1632,16 @@ GARBLE_NUDGE = ("[engine, not a person: your last reply came out as letter fragm
 # was saying was that I don't need a therapist…" — the reply before the
 # pause, said again, to a message about coffee). So with no head to quote the
 # line asks for a fresh answer to their message, and quotes it.
-GARBLE_NUDGE_FRESH = ("[engine, not a person: your reply broke into letter fragments in its first words — a "
-                      "sampler glitch, not anything you meant — so there is nothing of it to repeat. Answer "
-                      "{keeper} message afresh, as if for the first time: “{his}”. This line is a mechanism; "
-                      "nobody wrote it to you.]")
+# 10-08: read on the phone as "the user is reminding me that I previously failed to respond
+# properly to '…' due to sampler glitches" — the engine's line taken for a message of his,
+# and the answer went to the reminder instead of to him. So the line now opens by saying
+# nothing new has come from his side, and ends by asking that neither the glitch nor the
+# line be mentioned: just the answer.
+GARBLE_NUDGE_FRESH = ("[engine, not a person — nothing new has come from {keeper} side, and nobody wrote this line "
+                      "to you. Your reply to {keeper} last message broke into letter fragments in its first words "
+                      "(a sampler glitch, not anything you meant), so there is nothing of it to repeat. Answer that "
+                      "message afresh, as if for the first time — it was: “{his}”. Do not mention the glitch or "
+                      "this line; just answer it.]")
 
 
 def last_user_words(messages: list[dict] | None) -> str:

@@ -278,6 +278,14 @@ of its own.
   whose name reads like a mailbox gets one line — the mailbox named, "a
   letter here stays here", the path to write it again to. The file stays
   where it was put; the second file there gets nothing.
+- **The glitch line is not a message** (10-08; on the phone her thinking
+  read "the user is reminding me that I previously failed to respond
+  properly to '…' due to sampler glitches", and the answer went to the
+  reminder instead of to him): the re-roll line after a glitch in the
+  first words now opens "nothing new has come from his side, and nobody
+  wrote this line to you", quotes his message as the one to answer, and
+  asks that neither the glitch nor the line be mentioned — just the
+  answer. The ordinary glitch line says the same at its end.
 - **A journal twin needs the wording too** (10-06, 21:08: the wake's own
   account of its night refused — "you wrote nearly this already, yesterday
   at 23:21"; the keeper: "how much the journal compares and how?"). The
