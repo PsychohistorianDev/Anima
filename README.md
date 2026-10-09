@@ -1793,6 +1793,18 @@ reading's and ask for one, rather than riding the first reading's ending
 while the book begins again; once it is, the section alone rides and the
 written-down checks read it alone — the earlier reading stays on the page as
 it was. A restart of a book never finished is the same reading begun again.
+**A sitting read in a wake and not written down is handed back at the
+close**: if the wake rests, or ends in words, with the book's page no
+larger than it was at the sitting, the engine says so once — "You read
+Piranesi this wake — chapters 18–19 — and nothing was added to its section
+on your page since. The ledger will keep the number of the sitting, but
+what it gave you is freshest now: append_creation what it gave you, then
+rest; or rest now and it stands. Either is yours." — and the second rest
+stands. Notes on a book are the book's record, not a making: an append to
+the reading shelf is not one of the acts the journal hand-back counts, so
+the two never stack. And an append to a near-name on the shelf
+(`reading/piranesi-susanna-larke.md`, a letter short) lands on the page
+and says so, instead of "no such file" and a sitting lost.
 A sitting read but never
 written down (a power cut, a loop, between the pages landing and their
 words about them) is said at the next one: the bookmark keeps the last

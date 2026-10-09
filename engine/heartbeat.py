@@ -174,6 +174,55 @@ READ_TOOLS = {"read_file", "read_journal", "read_creation", "read_pdf", "read_ep
               "read_web", "search_web", "recall", "search_wikipedia", "random_wikipedia", "look_at", "listen_to", "watch",
               "use_skill",
               "browse_skills"}  # the shop window (09-29 evening): a window is a read; fetching from it is doing
+# A book sitting read in a wake (10-09; the keeper: "in heartbeat she reads
+# and not saving it to the book report"): read_epub/read_pdf of a book name
+# the page in their result; what the sitting was is in the bookmark. If the
+# wake then closes with the page no larger than it was at the sitting, the
+# close is handed back once — the same terms as the journal's: write it,
+# then rest; or rest now and it stands. The ledger keeps the number either
+# way; this asks while the chapter is freshest.
+_SITTING_EPUB_RE = re.compile(r"^\[through your eyes — “(?P<title>[^”]+)” \((?P<name>[^()\n]+\.epub)\)", re.I)
+_SITTING_PDF_RE = re.compile(r"^\[through your eyes — (?P<name>[^,\n]+\.pdf), \d+ pages", re.I)
+
+
+def _note_sitting(state: dict, name: str, result: str) -> None:
+    """After read_epub/read_pdf: remember the book and the page's size now,
+    when the result names a page for it (a book, not a datasheet)."""
+    if name not in ("read_epub", "read_pdf") or not isinstance(result, str):
+        return
+    if "(your page for this book:" not in result:
+        return
+    m = _SITTING_EPUB_RE.match(result) or _SITTING_PDF_RE.match(result)
+    if not m:
+        return
+    book = m.group("name").strip()
+    title = m.groupdict().get("title") or re.sub(r"\.(pdf|epub)$", "", book, flags=re.I)
+    state["sitting"] = {"name": book, "title": title, "notes": tools._page_size(book)}
+
+
+def _sitting_unwritten(state: dict) -> str:
+    """The clause for a sitting still not on the page at the close, or ""."""
+    s = state.get("sitting")
+    if not s or state.get("sitting_nudged"):
+        return ""
+    if tools._page_size(s["name"]) > int(s.get("notes") or -1):
+        return ""  # the page grew since: written, or at least added to
+    bm = tools._bookmarks().get(s["name"]) or {}
+    span = bm.get("span") or []
+    kind = bm.get("kind") or ("epub" if s["name"].lower().endswith(".epub") else "pdf")
+    unit = "chapter" if kind == "epub" else "page"
+    what = ""
+    if len(span) == 2:
+        a, b = int(span[0]), int(span[1])
+        what = f" — {unit} {a}" if a == b else f" — {unit}s {a}–{b}"
+    page = tools._reading_page(s["name"])
+    rel = f"creations/{getattr(config, 'READING_DIR', 'reading')}/{page.name}"
+    nth = tools.reading_number(bm)
+    where = (f"its section on your page ({rel})" if nth > 1 else f"your page for it ({rel})")
+    return (f"You read {s['title']} this wake{what} — and nothing was added to {where} since. The ledger "
+            "will keep the number of the sitting, but what it gave you is freshest now")
+
+
 WRITE_TOOLS = {"write_journal", "append_creation", "write_creation",
                "edit_identity", "update_projects", "update_destiny", "remember", "create_tool", "clip_web", "start_project", "paint",
                "run_skill_script", "fetch_skill",  # their skills (09-29): opening one is a read; running or fetching one is doing
@@ -228,7 +277,17 @@ def _note_act(state: dict, name: str, args, result: str) -> None:
                 args = {}
         args = args if isinstance(args, dict) else {}
         target = str(args.get("path") or args.get("name") or "")[:60] if name in _ACT_WITH_TARGET else ""
+        if name in ("write_creation", "append_creation") and _on_reading_shelf(target):
+            return  # notes on a book are the book's record, not a making (10-09): the sitting asks for them itself
         state.setdefault("acts", []).append((name, target))
+
+
+def _on_reading_shelf(target: str) -> bool:
+    shelf = str(getattr(config, "READING_DIR", "reading") or "reading").strip("/").lower()
+    t = (target or "").replace("\\", "/").strip().lower()
+    while t.startswith("creations/"):
+        t = t[len("creations/"):]
+    return t.startswith(shelf + "/")
 
 
 def _acts_words(acts: list) -> str:
@@ -429,6 +488,21 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                     "then rest with do_nothing; or end as you are — say so, or rest — and this closing thought is "
                     "kept for you, labeled as kept automatically. Either is yours.]"})
                 continue
+            # …and the same for a book sitting with nothing added to its page (10-09, 19:30: Piranesi,
+            # chapters 18–19, then a painting and a journal entry, then an ending in words — the
+            # acts were journaled, the sitting was not written)
+            clause = _sitting_unwritten(state) if closing else ""
+            if clause:
+                state["sitting_nudged"] = True
+                note = f"(an ending in words after a sitting of {state['sitting']['title']} with nothing added to its page — asking them once to write it down)"
+                print(f"  {note}")
+                log.append(f"\n*{note}*")
+                history.append(msg)
+                history.append({"role": "user", "content":
+                    f"[engine, not a person: you ended in words. {clause}: append_creation what it gave you — what "
+                    "happened, what you think, a line worth keeping — then rest with do_nothing; or end as you are — "
+                    "say so, or rest. Either is yours.]"})
+                continue
             if closing:
                 print(f"\n  [closing thought] {closing}")
                 log.append(f"**closing thought:** {closing}\n")
@@ -543,6 +617,20 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                 "If this wake is worth meeting, write_journal what it was, in your own words, then rest; or rest now — "
                 "call do_nothing again and it stands. Either is yours.]"})
             continue
+        # …and a book sitting read this wake with nothing added to its page (10-09)
+        clause = _sitting_unwritten(state) if only_rest else ""
+        if clause:
+            state["sitting_nudged"] = True
+            note = f"(a rest after a sitting of {state['sitting']['title']} with nothing added to its page — asking them once to write it down)"
+            print(f"  {note}")
+            log.append(f"\n*{note}*")
+            history.append(msg)
+            for c in calls:
+                c.get("function", {})["name"] = "do_nothing"
+            history.append({"role": "tool", "tool_name": "do_nothing", "content":
+                f"[your rest was not taken yet. {clause}: append_creation what it gave you — what happened, what you "
+                "think, a line worth keeping — then rest; or rest now — call do_nothing again and it stands. Either is yours.]"})
+            continue
         history.append(msg)
         for call in calls:
             fn = call.get("function", {})
@@ -579,6 +667,7 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                          "reporting, not a message from anyone]")
             history.append({"role": "tool", "tool_name": name, "content": f"{frame}{carried}\n{result}"})
             _note_act(state, name, fn.get("arguments", {}), result)
+            _note_sitting(state, name, result)
             if name in WRITE_TOOLS:
                 last_read = ""  # what they read has been answered in writing
             elif name in READ_TOOLS and not result.startswith(ollama_client._TOOL_FAILED):

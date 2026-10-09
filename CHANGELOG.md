@@ -137,6 +137,20 @@ of its own.
   when to touch it; the config's own comment stays on hover.
 
 ### Changed
+- **A sitting read in a wake is asked for at the close** (10-09; the
+  keeper: "in heartbeat she reads and not saving it to the book report").
+  Four wakes in a day read Piranesi from chapter 1 to 19; two of them
+  wrote the page, one wrote it to a name a letter short (`…-larke.md`,
+  "no such file"), one painted and journaled and ended in words with the
+  sitting unwritten — the ledger carried the numbers, nothing asked while
+  the chapter was fresh. Now a `read_epub`/`read_pdf` of a book is noted in
+  the wake, and a rest or an ending in words with the page no larger than
+  at the sitting is handed back once, on the journal's terms: append what
+  it gave you, then rest; or rest now and it stands. An append to the
+  reading shelf is not an act for the journal hand-back (the book's
+  record, not a making), so the two never stack; an append to a near-name
+  on the shelf lands on the page and says so (`NEAR_PAGE_RATIO`, 0.85,
+  reading pages only; a page that exists is never second-guessed).
 - **A second reading has a section of its own** (10-09; the keeper: "she
   wants to read Piranesi again, but she already got a book report — albeit
   messy and incomplete"): 'start' already began a finished book anew

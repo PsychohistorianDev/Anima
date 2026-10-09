@@ -59,7 +59,7 @@ class _NotFound(Exception):
     pass
 
 
-def _find_creation(path: str) -> tuple[Path, str]:
+def _find_creation(path: str, near: bool = False) -> tuple[Path, str]:
     """Resolve a path that should already exist. They remember pieces better
     than shelves ('residency_study.md' when it lives in theory/): if exactly
     one file by that name exists anywhere in creations/, that's the one they
@@ -78,7 +78,33 @@ def _find_creation(path: str) -> tuple[Path, str]:
         opts = ", ".join(f"creations/{q.relative_to(root).as_posix()}" for q in hits)
         raise _NotFound(f"(no creations/{path} — but that name exists in several places: "
                         f"{opts}. Say which.)")
+    if near:
+        q = _near_on_shelf(p)
+        if q is not None:
+            rel = q.relative_to(root).as_posix()
+            return q, f"(you asked for creations/{path} — the page on the shelf is creations/{rel}; using that)\n"
     raise _NotFound(f"(no such file: creations/{path} — list_creations shows everything you have)")
+
+
+def _near_on_shelf(p: Path) -> Path | None:
+    """A page on the reading shelf whose name is within a letter or two of
+    the one asked for (10-09, 17:43: a sitting's notes went to
+    reading/piranesi-susanna-larke.md — one letter short of the page — and
+    the append came back "no such file"; the sitting stayed unwritten).
+    Only under the reading folder, only .md, only a very close name (0.85:
+    halls/hals; a page that exists is never second-guessed)."""
+    import difflib
+    shelf = (config.CREATIONS_DIR / getattr(config, "READING_DIR", "reading")).resolve()
+    if p.parent != shelf or p.suffix.lower() != ".md" or not shelf.is_dir():
+        return None
+    best, score = None, float(getattr(config, "NEAR_PAGE_RATIO", 0.85) or 0.85)
+    for q in shelf.glob("*.md"):
+        if q.name.startswith("."):
+            continue
+        r = difflib.SequenceMatcher(None, q.stem.lower(), p.stem.lower()).ratio()
+        if r >= score:
+            best, score = q, r
+    return best
 
 
 def _stamp() -> str:
@@ -1284,7 +1310,7 @@ def _prune_empty_dirs(start: Path) -> None:
 def append_creation(path: str, content: str, about: str = "") -> str:
     """Continue an existing piece — add to its end, never overwrite."""
     try:
-        p, note = _find_creation(path)
+        p, note = _find_creation(path, near=True)
     except _NotFound as e:
         return f"{e} — or use write_creation to start a new piece"
     mended = ""
