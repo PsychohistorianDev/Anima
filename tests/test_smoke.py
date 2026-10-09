@@ -1699,8 +1699,8 @@ try:
           and "remembered for years" not in r4 and not _json.loads(tools._BOOKMARKS_FILE.read_text())["book.pdf"].get("finished"), (r3[-300:], _fin))
     _rs = assemble.reading_pages()
     _rsp = assemble.system_prompt("", mode="auto")
-    check("reading: THE BOOK IN YOUR HANDS rides with where they stands and, with no page yet, says to write one",
-          _rs.startswith(f"## book — page {_after_start} of 40 ({_after_start * 100 // 40}%); last sitting today (book.pdf)") and 'no page yet — write_creation "reading/book.md"' in _rs
+    check("reading: THE BOOK IN YOUR HANDS rides with where they stands and, with no page yet, says to write one (r4 began the finished book over: reading 2)",
+          _rs.startswith(f"## book — page {_after_start} of 40 ({_after_start * 100 // 40}%), second reading; last sitting today (book.pdf)") and 'no page yet — write_creation "reading/book.md"' in _rs
           and "=== THE BOOK IN YOUR HANDS" in _rsp and _rsp.index("THE BOOK IN YOUR HANDS") < _rsp.index("YOUR RECENT JOURNAL"), _rs)
     # a page under a name near the book's but not it (09-28: piranesi-susanna-clLute.md, a scar in the path — the
     # engine saw no page for two days and they began a second one at chapter 13): the write is handed back with the
@@ -1727,15 +1727,39 @@ try:
     tools.dispatch("delete_creation", {"path": "reading/book.md"})
     tools.dispatch("delete_creation", {"path": "reading/thoughts-on-verse.md"})
     tools.dispatch("write_creation", {"path": "reading/book.md", "content": "# book\n\nSitting one: forty pages of verse; the second page turns."})
+    # a second reading (10-09; the keeper: "she wants to read Piranesi again, but she already got a book report"):
+    # r4 began the finished book over, so this is reading 2 — the page is the first reading's until a section
+    # of its own opens at the end; then that section is what rides and what the written-down checks read
     r8 = tools.dispatch("read_pdf", {"source": "shared/book.pdf", "pages": "5"})
-    check("reading: with a page written, the sitting names it with its size and asks for the append; the page rides whole",
-          "your page for this book: creations/reading/book.md, " in r8 and "append_creation what this sitting gave you" in r8
-          and "the second page turns." in assemble.reading_pages() and f"page {_after_start} of 40" in assemble.reading_pages(), (r8[-300:], assemble.reading_pages()[:200]))
+    _rs8 = assemble.reading_pages()
+    _bm8 = _json.loads(tools._BOOKMARKS_FILE.read_text())["book.pdf"]
+    check("reading: a second reading with no section of its own — the sitting says the page is the earlier reading's and asks to open one; the prompt says so instead of riding the old ending",
+          _bm8.get("reading") == 2 and _bm8.get("started") == _date.today().isoformat()
+          and "your page for this book: creations/reading/book.md, " in r8 and "all of it your earlier reading, which stays as it was. This is your second reading: open a section of its own at the end" in r8
+          and f'append_creation "## Second reading — {_date.today().strftime("%B %Y")}"' in r8
+          and _rs8.startswith(f"## book — page {_after_start} of 40 ({_after_start * 100 // 40}%), second reading; last sitting today (book.pdf)")
+          and "holds your earlier reading — " in _rs8 and f"this second reading, begun {_date.today().isoformat()}, has no notes yet" in _rs8
+          and "the second page turns." not in _rs8, (r8[-500:], _rs8[:400]))
+    tools.dispatch("append_creation", {"path": "reading/book.md", "content": "\n\n## Second reading — October 2026\n\nPage 5 again: the verse is slower the second time."})
+    r8b = tools.dispatch("read_pdf", {"source": "shared/book.pdf", "pages": "6"})
+    _rs8b = assemble.reading_pages()
+    check("reading: with the section open, the sitting names its size and the section alone rides — the first reading stays on the page but not in the prompt",
+          "your page for this book: creations/reading/book.md — your second reading's section is " in r8b and "append_creation what this sitting gave you" in r8b
+          and "## Second reading — October 2026" in _rs8b and "slower the second time" in _rs8b and "the second page turns." not in _rs8b
+          and "the second page turns." in (config.CREATIONS_DIR / "reading" / "book.md").read_text(encoding="utf-8")
+          and tools.reading_section("book.pdf", 2).startswith("## Second reading") and tools.reading_section("book.pdf", 3) is None
+          and tools.reading_section("book.pdf", 1).startswith("# book"), (r8b[-300:], _rs8b[:300]))
+    tools._bookmark("book.pdf", unwritten=[[2, 2], [5, 5]])
+    _pend, _ledg = tools.unwritten_sittings("book.pdf", "pdf")
+    check("reading: the ledger of a second reading reads its own section — a number only in the first reading's notes does not count as written",
+          _pend == [[2, 2]] and "page 2" in _ledg, (_pend, _ledg))
+    tools._bookmark("book.pdf", unwritten=[])
     r9 = tools.dispatch("read_pdf", {"source": "shared/book.pdf", "pages": "40"})
-    check("reading: reaching the end again is a second finishing — a row again, the mark set, the page riding on for a few days",
+    check("reading: reaching the end again is a second finishing — a row again, naming the reading, the mark set, the page riding on for a few days",
           "finished — remembered for years (#" in r9 and len([m for m in memory.recent(kind="note", n=200) if m["text"].startswith("[finished ")]) == 2
+          and any("book.pdf — read to the end (second reading; 40 pages)" in m["text"] for m in memory.recent(kind="note", n=200))
           and _json.loads(tools._BOOKMARKS_FILE.read_text())["book.pdf"]["finished"] == _date.today().isoformat()
-          and "## book — read to the end; last sitting today" in assemble.reading_pages(), (r9[-300:], assemble.reading_pages()[:120]))
+          and "## book — read to the end, second reading; last sitting today" in assemble.reading_pages(), (r9[-300:], assemble.reading_pages()[:120]))
     r10 = tools.dispatch("read_pdf", {"source": "shared/book.pdf", "pages": "40"})
     check("reading: finished once — a second sitting at the end adds no second row",
           "remembered for years" not in r10 and len([m for m in memory.recent(kind="note", n=200) if m["text"].startswith("[finished ")]) == 2, r10[-200:])
@@ -1933,7 +1957,7 @@ check("epub: the sitting after a folded part page is the plain next chapter; a b
       and "(a part page" not in tools.dispatch("read_epub", {"source": "shared/tiny.epub", "chapter": "contents"}), _pe4[:400])
 # starting over (09-30: "we decided we'll read Piranesi from the beginning"): chapter='1' behind the bookmark only looks;
 # 'start' begins the book anew — bookmark, finished mark and the ledger go, the page stays
-tools._bookmark("parts.epub", unwritten=[[2, 3]])
+tools._bookmark("parts.epub", unwritten=[[2, 3]], finished="")  # read to the end, not marked finished: a restart is the same reading
 _pe5 = tools.dispatch("read_epub", {"source": "shared/parts.epub", "chapter": "1"})
 _pe6 = tools.dispatch("read_epub", {"source": "shared/parts.epub", "chapter": "start"})
 _pbm = tools._bookmarks()["parts.epub"]
@@ -1943,6 +1967,15 @@ check("epub: chapter='1' behind the bookmark looks and the place stays; chapter=
       and "— Chapter 1: The First Hall —" in _pe6 and "bookmark kept after chapter 1 of 4" in _pe6
       and _pbm["chapter"] == 1 and not _pbm.get("finished") and _pbm.get("unwritten") == [] and _pbm.get("span") == [1, 1]
       and "'start' begins the book over" in tools.dispatch("read_epub", {"source": "shared/parts.epub", "chapter": "x"}), (_pe6[:400], _pbm))
+check("epub: a restart of a book never finished is not a second reading", not _pbm.get("reading") and not _pbm.get("started"), _pbm)
+tools._bookmark("parts.epub", finished="2026-09-30", chapter=4)
+_pe7 = tools.dispatch("read_epub", {"source": "shared/parts.epub", "chapter": "start"})
+_pbm7 = tools._bookmarks()["parts.epub"]
+check("epub: 'start' on a finished book is its second reading — counted in the bookmark, the heading for its section named",
+      "(starting the book over from chapter 1 — your second reading of it." in _pe7
+      and f'append_creation "## Second reading — {_date.today().strftime("%B %Y")}" after this sitting)' in _pe7
+      and _pbm7.get("reading") == 2 and _pbm7.get("started") == _date.today().isoformat() and not _pbm7.get("finished") and _pbm7["chapter"] == 1
+      and tools._reading_ordinal(2) == "second" and tools._reading_ordinal(11) == "11th" and tools.reading_number({}) == 1 and tools.reading_number({"reading": "3"}) == 3, (_pe7[:400], _pbm7))
 tools._BOOKMARKS_FILE.unlink(missing_ok=True)
 r = tools.dispatch("read_epub", {"source": "shared/dot.png"})
 check("epub: non-epub soft", "doesn't open as an EPUB" in r, r)

@@ -456,14 +456,29 @@ def reading_pages() -> str:
         title = bm.get("title") or re.sub(r"\.(pdf|epub)$", "", str(name), flags=re.I)
         unit = "chapter" if kind == "epub" else "page"
         when = "today" if age == 0 else "yesterday" if age == 1 else f"{age} days ago"
+        nth = tools.reading_number(bm)
         head = (f"## {title} — {'read to the end' if finished else f'{unit} {at} of {total}'}"
-                f"{'' if finished else f' ({100 * at // max(total, 1)}%)'}; last sitting {when}"
+                f"{'' if finished else f' ({100 * at // max(total, 1)}%)'}"
+                f"{f', {tools._reading_ordinal(nth)} reading' if nth > 1 else ''}; last sitting {when}"
                 f" ({name})")
         page = tools._reading_page(str(name))
         rel = f"creations/{getattr(config, 'READING_DIR', 'reading')}/{page.name}"
+        if page.exists() and nth > 1 and tools.reading_section(str(name), nth) is None:
+            # a second reading with no section of its own yet: the page is the earlier
+            # reading's, and the ending would ride while the book begins again
+            try:
+                n = len(page.read_text(encoding="utf-8", errors="replace"))
+            except OSError:
+                n = 0
+            body = (f"(your page {rel} holds your earlier reading — {n:,} characters, which stay as they are; this "
+                    f"{tools._reading_ordinal(nth)} reading, begun {bm.get('started') or 'lately'}, has no notes yet: open a "
+                    f"section for it at the end of the page — append_creation \"{tools.reading_heading(nth)}\" — and "
+                    "it rides here)")
+            out.append(head + "\n" + body)
+            continue
         if page.exists():
             try:
-                text = page.read_text(encoding="utf-8", errors="replace").strip()
+                text = (tools.reading_section(str(name), nth) if nth > 1 else page.read_text(encoding="utf-8", errors="replace")).strip()
             except OSError:
                 text = ""
             import ollama_client

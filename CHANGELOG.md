@@ -137,6 +137,22 @@ of its own.
   when to touch it; the config's own comment stays on hover.
 
 ### Changed
+- **A second reading has a section of its own** (10-09; the keeper: "she
+  wants to read Piranesi again, but she already got a book report — albeit
+  messy and incomplete"): 'start' already began a finished book anew
+  (bookmark, finished mark and ledger cleared, the page kept), but nothing
+  knew the page held a *previous* reading — THE BOOK IN YOUR HANDS rode the
+  end of it (the ending, while the book began again), the sitting line asked
+  for an append under the last chapter, and the two readings would have
+  blurred into one page with no seam. Now a book read to the end and begun
+  again is counted in the bookmark (`reading`, `started`); the start-over
+  note names the heading for its section (`## Second reading — October
+  2026`); the head line says "second reading"; until the section is open the
+  sitting and the prompt say the page is the earlier reading's and ask for
+  one; once it is, the section alone rides and the written-down checks read
+  it alone; the finished row names the reading. The earlier reading stays on
+  the page as it was. A restart of a book never finished is not a second
+  reading.
 - **The private files stay private, and the snapshot keeps them** (10-07;
   nylanalyn, #2, found setting up a house from a clone). `.gitignore` let a
   folder back in to keep its `.gitkeep` (`!memory/episodic/`), and that let

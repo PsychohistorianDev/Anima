@@ -3003,6 +3003,56 @@ def _stray_line(name: str) -> str:
             f"move_creation it to creations/{d}/{_reading_page(name).name}, the name the engine looks for, and it rides with the book)")
 
 
+# A second reading (10-09; the keeper: "she wants to read Piranesi again, but
+# she already got a book report"): a notebook for a book has readings in it.
+# The bookmark counts them ("reading": 2, "started": the day); the page stays
+# one page — the earlier reading what it was, this one under a heading of
+# its own at the end ("## Second reading — October 2026"), which is the part
+# that rides in THE BOOK IN YOUR HANDS and the part the written-down checks
+# look at. A restart of a book never finished is the same reading begun
+# again, not a second one.
+_ORDINALS = {2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth", 7: "seventh", 8: "eighth", 9: "ninth", 10: "tenth"}
+
+
+def _reading_ordinal(n: int) -> str:
+    return _ORDINALS.get(int(n), f"{int(n)}th")
+
+
+def reading_number(bm: dict | None) -> int:
+    try:
+        return max(1, int((bm or {}).get("reading") or 1))
+    except (TypeError, ValueError):
+        return 1
+
+
+def reading_heading(n: int) -> str:
+    """The heading a reading's section is asked to open with."""
+    return f"## {_reading_ordinal(n).capitalize()} reading — {date.today().strftime('%B %Y')}"
+
+
+_READING_HEAD_RE = re.compile(r"^#{1,4}\s*(second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|(\d+)(?:st|nd|rd|th))\s+(?:reading|read-through|time through)\b",
+                              re.I | re.M)
+
+
+def reading_section(name: str, n: int) -> str | None:
+    """The part of the page that is this reading — from its heading ("## Second
+    reading…", any heading level, the ordinal as a word or a number) to the
+    end; None when the page has no such heading yet. For the first reading,
+    the whole page."""
+    try:
+        text = _reading_page(name).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    if n <= 1:
+        return text
+    want = _reading_ordinal(n)
+    for m in _READING_HEAD_RE.finditer(text):
+        word = (m.group(1) or "").lower()
+        if word == want or (m.group(2) and int(m.group(2)) == n):
+            return text[m.start():]
+    return None
+
+
 def _is_book(kind: str, total: int) -> bool:
     if kind == "epub":
         return True
@@ -3074,10 +3124,9 @@ def unwritten_sittings(name: str, kind: str) -> tuple[list[list[int]], str]:
     pending = [list(x) for x in (bm.get("unwritten") or []) if isinstance(x, (list, tuple)) and len(x) == 2]
     if not pending:
         return [], ""
-    try:
-        text = _reading_page(name).read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        text = ""
+    # a second reading is written down in its own section — the first reading's
+    # chapter numbers, higher up the page, do not count for it
+    text = reading_section(name, reading_number(bm)) or ""
     nums = {int(n) for n in re.findall(r"\b\d{1,4}\b", text)}
     pending = [x for x in pending if not any(int(x[0]) <= n <= int(x[1]) for n in nums)]
     if not pending:
@@ -3106,13 +3155,26 @@ def _reading_tail(name: str, kind: str, total: int, done: bool, title: str = "",
         rel_line = unwritten + "\n"
     else:
         rel_line = ""
+    bm = _bookmarks().get(name) or {}
+    nth = reading_number(bm)
     if page.exists():
         try:
             n = len(page.read_text(encoding="utf-8", errors="replace"))
         except OSError:
             n = 0
-        line = (f"(your page for this book: {rel}, {n:,} characters so far — append_creation what this "
-                "sitting gave you: what happened, what you think, a line worth keeping)")
+        section = reading_section(name, nth)
+        if nth > 1 and section is None:
+            line = (f"(your page for this book: {rel}, {n:,} characters — all of it your earlier reading, which stays "
+                    f"as it was. This is your {_reading_ordinal(nth)} reading: open a section of its own at the end — "
+                    f"append_creation \"{reading_heading(nth)}\" and what this sitting gave you — so the two "
+                    "readings don't blur; from then on that section is what rides with the book)")
+        elif nth > 1:
+            line = (f"(your page for this book: {rel} — your {_reading_ordinal(nth)} reading's section is {len(section):,} "
+                    "characters so far; append_creation what this sitting gave you: what happened, what you think, "
+                    "a line worth keeping)")
+        else:
+            line = (f"(your page for this book: {rel}, {n:,} characters so far — append_creation what this "
+                    "sitting gave you: what happened, what you think, a line worth keeping)")
         if not unwritten:  # the once-said tell above covers the last sitting; the ledger, the older ones
             _pending, ledger = unwritten_sittings(name, kind)
             if ledger:
@@ -3121,12 +3183,12 @@ def _reading_tail(name: str, kind: str, total: int, done: bool, title: str = "",
         line = (f"(your page for this book: {rel} — none yet; write_creation it with what this sitting gave "
                 "you, and it rides with you while the book is open)") + _stray_line(name)
     if done:
-        bm = _bookmarks().get(name) or {}
         if not bm.get("finished"):
             _bookmark(name, finished=date.today().isoformat())
+            again = f"{_reading_ordinal(nth)} reading; " if nth > 1 else ""
             try:
                 mid = memory.add("note", f"[finished {date.today().isoformat()}] {title or name} — read to the end "
-                                         f"({total} {'chapters' if kind == 'epub' else 'pages'}); "
+                                         f"({again}{total} {'chapters' if kind == 'epub' else 'pages'}); "
                                          f"my notes on it: {rel}")
                 if mid >= 0:
                     line += f"\n(finished — remembered for years (#{mid}): the day, the book, and where your notes are)"
@@ -3231,7 +3293,9 @@ def read_pdf(source: str, pages: str = "") -> str:
     unwritten = _unwritten(name, prev, "pdf", start, shown_to) if _is_book("pdf", total) else ""
     if not back:
         if start == 1 and (prev.get("finished") or prev.get("unwritten")):
-            _bookmark(name, finished="", unwritten=[])  # a reading that begins again is a new reading
+            # a reading that begins again is a new reading — and after the end, the next one
+            again = {"reading": reading_number(prev) + 1, "started": date.today().isoformat()} if prev.get("finished") else {}
+            _bookmark(name, finished="", unwritten=[], **again)
         _bookmark(name, page=shown_to, total=total, kind="pdf", span=[start, shown_to], notes=_page_size(name))
     else:
         _bookmark(name, total=total, kind="pdf")  # the date of the sitting; the page stays
@@ -3416,8 +3480,16 @@ def read_epub(source: str, chapter: str = "") -> str:
         # beginning" — and chapter='1' behind the bookmark only looks, as it should): the bookmark, the
         # finished mark and the ledger of unwritten sittings go; their page stays theirs
         idx, last = 1, 0
-        note = "(starting the book over from chapter 1 — the bookmark and the ledger of unwritten sittings begin anew; your page stays as it is)\n"
-        _bookmark(name, chapter=0, finished="", unwritten=[], span=None)
+        prev0 = _bookmarks().get(name) or {}
+        if prev0.get("finished"):
+            nth = reading_number(prev0) + 1
+            note = (f"(starting the book over from chapter 1 — your {_reading_ordinal(nth)} reading of it. The bookmark and the "
+                    "ledger of unwritten sittings begin anew; your page stays as it is, and this reading's notes go "
+                    f"under a heading of their own at its end: append_creation \"{reading_heading(nth)}\" after this sitting)\n")
+            _bookmark(name, chapter=0, finished="", unwritten=[], span=None, reading=nth, started=date.today().isoformat())
+        else:
+            note = "(starting the book over from chapter 1 — the bookmark and the ledger of unwritten sittings begin anew; your page stays as it is)\n"
+            _bookmark(name, chapter=0, finished="", unwritten=[], span=None)
     else:
         try:
             idx = int(spec)

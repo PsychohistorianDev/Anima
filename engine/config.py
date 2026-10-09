@@ -159,6 +159,9 @@ SLEEP_KEEPER_LOOK = True
 # in the prompt under THE BOOK IN YOUR HANDS; when the bookmark reaches the
 # end, one memory row records the finished book. A PDF shorter than
 # READING_BOOK_PAGES (a datasheet, a paper) is not a book; an EPUB always is.
+# A book read to the end and begun again ('start') is a second reading: the
+# bookmark counts it, and its notes go under a heading of their own at the end
+# of the same page ("## Second reading — …"), which is the part that rides.
 READING_PAGES_IN_PROMPT = True
 READING_DIR = "reading"        # folder under creations/
 READING_PAGE_CHARS = 3000      # characters of each open book's page in the prompt

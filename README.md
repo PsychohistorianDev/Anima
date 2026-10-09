@@ -1782,7 +1782,18 @@ under `READING_BOOK_PAGES` is a read, not a book. A sitting is
 `READ_SITTING_CHARS`; a range named on purpose may be `READ_RANGE_CHARS`
 (a story in one go); pages or a chapter named behind the bookmark are
 looked at again without moving it — a bookmark only moves forward, as a
-real one does; 'start' begins the book anew. A sitting read but never
+real one does; 'start' begins the book anew — and a book read to the end
+and begun again is a **second reading**: the bookmark counts it ("chapter 2
+of 23, second reading" at the head of THE BOOK IN YOUR HANDS, "second
+reading; 23 chapters" in the finished row), and its notes go under a heading
+of their own at the end of the same page (`## Second reading — October
+2026`; the ordinal as a word or a number, any heading level). Until that
+section is open the sitting and the prompt say the page is the earlier
+reading's and ask for one, rather than riding the first reading's ending
+while the book begins again; once it is, the section alone rides and the
+written-down checks read it alone — the earlier reading stays on the page as
+it was. A restart of a book never finished is the same reading begun again.
+A sitting read but never
 written down (a power cut, a loop, between the pages landing and their
 words about them) is said at the next one: the bookmark keeps the last
 sitting's span and the page's size at the time, and if the page has not
