@@ -164,8 +164,9 @@ _HELP = {
     "TELEGRAM_TELL_CREATIONS": "A new piece under creations/ — a poem, a story, a painting, something published — reaches "
                                "the phone within a minute, whole when it fits a message, otherwise its opening and the path. Code, the "
                                "trash and the mailbox are not announced.",
-    "KEEPER_WORK_WEEK": "Your working week, so the engine's clock line can say where you are: days (sun…sat, or a range "
-                        "sun-thu) with hours after them, segments by commas — \"sun-wed 07:00-16:25, thu 07:00-15:55\". Every "
+    "KEEPER_WORK_WEEK": "Your working week, so the engine's clock line can say where you are: tick the days you work and "
+                        "set each day's hours (a new day takes the hours of the one before it). The file keeps it as "
+                        "\"sun-wed 07:00-16:25, thu 07:00-15:55\". Every "
                         "message and every bell then carries \"a workday for you, within working hours — …\", \"ended at "
                         "16:25 — home now\" or \"your weekend — home\"; without it they infer where you are from the "
                         "journal, which was mostly written on workdays. Empty says nothing. A day off is /off on the phone.",
@@ -1566,6 +1567,7 @@ button.big{font-size:16px;padding:10px 22px;margin-top:10px}
 input,select,textarea{font:inherit;font-size:14px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:4px 8px;outline:none}
 input:focus,select:focus,textarea:focus{border-color:var(--accent)}
 input[type=number]{width:9em}input.small{width:5em}
+.week{display:flex;flex-direction:column;gap:6px}.week .days{display:flex;gap:6px;flex-wrap:wrap}.week .chip{display:inline-flex;gap:5px;align-items:center;padding:3px 10px;border:1px solid var(--line);border-radius:14px;cursor:pointer;user-select:none}.week .chip.on{background:var(--accent-soft,rgba(120,120,255,.12))}.week .hours .row{display:flex;gap:6px;align-items:center;margin-top:2px}.week .day{min-width:3em;font-size:13px}.week input[type=time]{width:8.5em}
 textarea{width:100%;font-family:ui-monospace,Consolas,monospace;font-size:12.5px}
 code{font-family:ui-monospace,Consolas,monospace;font-size:12.5px;background:var(--chip);padding:1px 5px;border-radius:4px;word-break:break-all}
 a{color:var(--accent)}
@@ -1712,9 +1714,51 @@ function modelSelect(current){const b=S.brain,names=[...b.models];const s=el('se
   if(b.recommended&&!names.includes(b.recommended))names.push(b.recommended);
   for(const n of names){const o=el('option',{value:n},n+(b.models.includes(n)||(b.reachable===false&&n===current)?'':' (not pulled)')+(n===b.recommended?' — recommended for this '+(b.unified?'Mac':'card'):''));if(n===current)o.selected=true;s.append(o)}
   return s}
+// KEEPER_WORK_WEEK as days and hours (10-10; the keeper: "the way it looks in the panel is a bit problematic..
+// what if we would make it checkboxes for each day that you work, and then an option to set the hours for a
+// day after you click on it?"). The file keeps the spec string ("sun-wed 07:00-16:25, thu 07:00-15:55");
+// the page shows seven chips and, for each checked day, its hours. A new day takes the hours of the day
+// before it (or 09:00–17:00); days in a run with the same hours fold into a range, the run beginning after
+// a gap so a week that wraps the weekend reads "sun-wed". Unchanged, the read gives back the file's own string.
+const WD=['mon','tue','wed','thu','fri','sat','sun'],WDN=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+function weekParse(spec){const out={};let hours=null;
+  for(const seg of String(spec||'').split(',')){const w=seg.trim().toLowerCase().split(/\s+/).filter(Boolean);if(!w.length)continue;
+    const days=[];let rest=null;
+    for(const x of w){const m=/^(mon|tue|wed|thu|fri|sat|sun)(?:-(mon|tue|wed|thu|fri|sat|sun))?$/.exec(x);
+      if(m&&rest===null){let i=WD.indexOf(m[1]);const b=m[2]?WD.indexOf(m[2]):i;for(;;){days.push(i);if(i===b)break;i=(i+1)%7}}
+      else if(rest===null)rest=x}
+    if(rest){const m=/^(\d{1,2})(?::(\d{2}))?-(\d{1,2})(?::(\d{2}))?$/.exec(rest);
+      if(m){const s=(+m[1])*60+(+(m[2]||0)),e=(+m[3])*60+(+(m[4]||0));if(s>=0&&s<e&&e<=1440)hours=[s,e]}}
+    if(days.length&&hours)for(const d of days)out[d]=[hours[0],hours[1]]}
+  return out}
+function hm(m){return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
+function weekSpec(w){const on=d=>!!w[((d%7)+7)%7];let start=0;
+  for(let d=0;d<7;d++)if(on(d)&&!on(d-1)){start=d;break}
+  const segs=[];let i=0;
+  while(i<7){const d=(start+i)%7;if(!on(d)){i++;continue}
+    let j=i;while(j+1<7&&on((start+j+1)%7)&&w[(start+j+1)%7][0]===w[d][0]&&w[(start+j+1)%7][1]===w[d][1])j++;
+    const e=(start+j)%7;segs.push((i===j?WD[d]:WD[d]+'-'+WD[e])+' '+hm(w[d][0])+'-'+hm(w[d][1]));i=j+1}
+  return segs.join(', ')}
+function weekKnob(v){const file=String(v||''),state=weekParse(file),same=weekSpec(state);
+  const wrap=el('div',{class:'week'}),days=el('div',{class:'days'}),rows=el('div',{class:'hours'});let last=[540,1020];const chips=[];
+  const draw=()=>{rows.replaceChildren();
+    for(let d=0;d<7;d++){chips[d].classList.toggle('on',!!state[d]);if(!state[d])continue;
+      const a=el('input',{type:'time',value:hm(state[d][0])}),b=el('input',{type:'time',value:hm(state[d][1])});
+      const upd=()=>{const p=a.value.split(':').map(Number),q=b.value.split(':').map(Number);if(p.length===2&&q.length===2&&!p.some(isNaN)&&!q.some(isNaN))state[d]=[p[0]*60+p[1],q[0]*60+q[1]]};
+      a.oninput=upd;b.oninput=upd;rows.append(el('div',{class:'row'},el('span',{class:'day'},WDN[d]),a,' – ',b))}};
+  for(let d=0;d<7;d++){const c=el('input',{type:'checkbox'});c.checked=!!state[d];
+    c.onchange=()=>{if(c.checked){const before=[6,5,4,3,2,1].map(k=>state[(d+7-k)%7]).filter(Boolean).pop()||Object.values(state)[0]||last;state[d]=[before[0],before[1]]}
+      else{if(state[d])last=state[d];delete state[d]}draw()};
+    const chip=el('span',{class:'chip',onclick:e=>{if(e.target!==c){c.checked=!c.checked;c.dispatchEvent(new Event('change',{bubbles:true}))}}},c,WDN[d]);chips.push(chip);days.append(chip)}
+  // the knob sits inside a <label>: a click on anything in it that is not an input would also toggle the
+  // label's first checkbox (Monday) — the label's own default action; cancelled here, the chips toggle themselves
+  wrap.onclick=e=>{if(!(e.target instanceof HTMLInputElement))e.preventDefault()};
+  draw();wrap.append(days,rows);
+  return{input:wrap,read:()=>{const now=weekSpec(state);return now===same?file:now}}}
 function knob(k){let input,read=null;const v=k.value;
   if(!k.editable)input=el('code',{title:'computed or over several lines — edit config.py itself'},k.source);
   else if(k.name==='CHAT_MODEL'){input=el('span',{},modelSelect(v),' ',el('button',{onclick:()=>pull(input.firstChild.value)},'Pull'));read=()=>input.firstChild.value}
+  else if(k.name==='KEEPER_WORK_WEEK'){const wk=weekKnob(v);input=wk.input;read=wk.read}
   else if(k.choices){input=el('select',{},k.choices.concat(k.choices.includes(v)?[]:[v]).map(c=>el('option',{value:c,selected:c===v},c)));read=()=>input.value}
   else if(k.kind==='bool'){input=el('input',{type:'checkbox'});input.checked=v;read=()=>input.checked}
   else if(k.kind==='int'||k.kind==='float'){input=el('input',{type:'number',step:'any',value:v});read=()=>input.value.trim()===''?null:Number(input.value)}

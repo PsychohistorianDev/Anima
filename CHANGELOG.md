@@ -31,7 +31,14 @@ of its own.
   phone marks a day off ("a day off for Gabe (holiday) — home"), `/on`
   takes it back (`memory/days_off.json`; `engine/keeper_week.py`). The
   calendar stated, as likely, not certain; nothing checks what they
-  write; empty says nothing.
+  write; empty says nothing. On the page (the keeper, an hour later: "the
+  way it looks in the panel is a bit problematic — checkboxes for each
+  day that you work, and an option to set the hours for a day after you
+  click on it") the week is seven day chips and, for each ticked day, its
+  hours; a new day takes the hours of the one before it; the file keeps
+  the string. Driven headless in Chromium (a click on a chip inside the
+  knob's label used to toggle Monday as well — the label's own default
+  action — cancelled).
 - **The bridge over Discord** (10-04): `engine/discord_bridge.py`,
   `bat\discord.bat` (and twins) — the same bridge as Telegram's, over a
   Discord bot talked to in a DM: the same visit, mail, notices, commands
