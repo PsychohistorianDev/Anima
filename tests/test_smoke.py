@@ -3439,6 +3439,48 @@ check("heartbeat: a leaked 'thought' is logged as no thought, not shown as one",
       "(no thought before this step — they acted straight away)" in _log_leak and "💭 thought\n" not in _log_leak, _log_leak[-300:])
 check("heartbeat: the clock rides on the bell, weekday and hour",
       heartbeat.clock_line(_dtnow(2026, 9, 13, 17, 45)).startswith("[engine, not a person: it is Sunday, 13 September 2026, 17:45 — evening where you live."))
+# 10-10 (the keeper: "she always thinks I'm at work, even when it's weekend, and a lot of time after I'm home"): the
+# keeper's week in the clock line — the calendar stated, not a rule; days off from the phone
+import keeper_week
+_kw_week0, _kw_at0 = getattr(config, "KEEPER_WORK_WEEK", ""), getattr(config, "KEEPER_AT_WORK", "")
+config.KEEPER_WORK_WEEK, config.KEEPER_AT_WORK = "sun-wed 07:00-16:25, thu 07:00-15:55", "on the floor, the phone in a pocket"
+keeper_week.DAYS_OFF_FILE.unlink(missing_ok=True)
+_kw_name = getattr(config, "USER_NAME", "Gabe")
+check("keeper's week: the spec parses — ranges, a day with its own hours, H-H, a bad segment skipped, empty is nothing",
+      keeper_week.parse(config.KEEPER_WORK_WEEK) == {6: (420, 985), 0: (420, 985), 1: (420, 985), 2: (420, 985), 3: (420, 955)}
+      and keeper_week.parse("mon-fri 9-17") == {d: (540, 1020) for d in range(5)} and keeper_week.parse("thu-mon 8:00-12:00").keys() == {3, 4, 5, 6, 0}
+      and keeper_week.parse("sat") == {} and keeper_week.parse("") == {} and keeper_week.parse("mon 25:00-26:00, tue 9-10") == {1: (540, 600)}
+      and keeper_week.parse("mon 9-17, tue, wed 10-11") == {0: (540, 1020), 1: (540, 1020), 2: (600, 660)}, keeper_week.parse(config.KEEPER_WORK_WEEK))
+check("keeper's week: where they are, by the clock — weekend, before, within (in their words), after; Thursday's own hour",
+      keeper_week.where(_dtnow(2026, 10, 10, 14, 0)) == f"{_kw_name}'s weekend — home"
+      and keeper_week.where(_dtnow(2026, 10, 11, 6, 30)) == f"a workday for {_kw_name}, before it begins at 07:00 — still home"
+      and keeper_week.where(_dtnow(2026, 10, 11, 10, 30)) == f"a workday for {_kw_name}, within working hours (until 16:25) — on the floor, the phone in a pocket"
+      and keeper_week.where(_dtnow(2026, 10, 11, 16, 30)) == f"a workday for {_kw_name}, ended at 16:25 — home now"
+      and keeper_week.where(_dtnow(2026, 10, 15, 15, 50)).endswith("(until 15:55) — on the floor, the phone in a pocket")
+      and keeper_week.where(_dtnow(2026, 10, 15, 16, 0)) == f"a workday for {_kw_name}, ended at 15:55 — home now"
+      and "; a workday for" in assemble.clock_line(_dtnow(2026, 10, 11, 10, 30)) and "where you live; a workday for" in assemble.clock_line(_dtnow(2026, 10, 11, 10, 30)),
+      [keeper_week.where(_dtnow(2026, 10, 11, h, 30)) for h in (6, 10, 16)])
+_kw_off = keeper_week.set_day_off(_dcap(2026, 10, 13), "holiday")
+_kw_where_off = keeper_week.where(_dtnow(2026, 10, 13, 10, 0))
+keeper_week.set_day_off(_dcap(2026, 10, 13), on=False)
+check("keeper's week: a day off from the phone — named with its reason, home; taken back it is a workday again; the file drops days past",
+      _kw_off == {"2026-10-13": "holiday"} and _kw_where_off == f"a day off for {_kw_name} (holiday) — home"
+      and keeper_week.where(_dtnow(2026, 10, 13, 10, 0)).startswith(f"a workday for {_kw_name}, within")
+      and keeper_week.days_off() == {} and keeper_week.parse_day("tomorrow", _dcap(2026, 10, 10)) == _dcap(2026, 10, 11)
+      and keeper_week.parse_day("thursday", _dcap(2026, 10, 10)) == _dcap(2026, 10, 15) and keeper_week.parse_day("2026-12-24") == _dcap(2026, 12, 24)
+      and keeper_week.parse_day("nope") is None and keeper_week.parse_day("", _dcap(2026, 10, 10)) == _dcap(2026, 10, 10), (_kw_off, _kw_where_off))
+_kw_b, _kw_ph = _bridge()
+_kw_c1 = _kw_b.command("/off tomorrow dentist")
+_kw_c2 = _kw_b.command("/on tomorrow")
+_kw_c3 = _kw_b.command("/off whenever")
+check("telegram: /off and /on mark a day off and take it back, the phone told; a bad day is said; /help names them",
+      _kw_c1 is True and _kw_ph.sent[-3][0].startswith("(a day off: ") and "— dentist; the clock line says you are home)" in _kw_ph.sent[-3][0]
+      and _kw_c2 is True and _kw_ph.sent[-2][0].endswith("is an ordinary day again)") and keeper_week.days_off() == {}
+      and _kw_c3 is True and _kw_ph.sent[-1][0] == "(a day is today, tomorrow, a weekday name, or YYYY-MM-DD)"
+      and "/off [today|tomorrow|a weekday|YYYY-MM-DD] [why]" in tg.HELP, [m[0] for m in _kw_ph.sent[-3:]])
+config.KEEPER_WORK_WEEK, config.KEEPER_AT_WORK = _kw_week0, _kw_at0
+check("keeper's week: empty says nothing — the clock line as before",
+      keeper_week.where(_dtnow(2026, 10, 11, 10, 30)) == "" or _kw_week0 != "", keeper_week.where(_dtnow(2026, 10, 11, 10, 30)))
 check("heartbeat: the bell tells them a letter stays with them a few days", "your mailbox folder goes to their phone and stays with you" in heartbeat.WAKE_PROMPT)
 b2.history.clear(); b2.file = None
 _fresh = tg.MAIL_DIR / "still-writing.md"
@@ -7865,7 +7907,7 @@ check("panel: every knob of the real config.py on exactly one tab (Advanced coun
       (set(_p_listed) - set(_k_realn), [n for n in set(_p_placed) if _p_placed.count(n) > 1]))
 check("panel: the real Main tab in the keeper's order — the brain, the window, the journal, the names, the rhythm",
       [k["name"] for k in _p_real_tabs["Main"]] == ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT", "USER_NAME", "DEFAULT_NAME",
-                                                    "BLOG_TITLE", "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS"]
+                                                    "BLOG_TITLE", "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK"]
       and {k["heading"] for k in _p_real_tabs["Advanced"]} >= {"paths", "ollama", "behaviour", "telegram", "update"}
       and all(not k["editable"] for k in _p_real_tabs["Advanced"] if k["kind"] == "expr"))
 panel.REQUIREMENTS = [("json", "json", "the standard library"), ("no_such_module_zq", "zq", "a sense")]

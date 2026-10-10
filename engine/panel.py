@@ -81,7 +81,7 @@ _POSTS = threading.Lock()  # one change at a time: two saves never read the same
 TABS: dict[str, list[str]] = {
     "Main": ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT",
              "USER_NAME", "DEFAULT_NAME", "BLOG_TITLE",
-             "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS"],
+             "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK"],
     "Heartbeat": ["HEARTBEAT_MAX_STEPS", "REVERIE_EVERY", "REVERIE_MAX_STEPS", "HEARTBEAT_YIELD_TO_VISIT",
                   "HEARTBEAT_YIELD_MIN", "SLEEP_IN_LOOP", "CONDENSE_IN_LOOP", "CONDENSE_MAX_PER_NIGHT",
                   "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE"],
@@ -164,6 +164,13 @@ _HELP = {
     "TELEGRAM_TELL_CREATIONS": "A new piece under creations/ — a poem, a story, a painting, something published — reaches "
                                "the phone within a minute, whole when it fits a message, otherwise its opening and the path. Code, the "
                                "trash and the mailbox are not announced.",
+    "KEEPER_WORK_WEEK": "Your working week, so the engine's clock line can say where you are: days (sun…sat, or a range "
+                        "sun-thu) with hours after them, segments by commas — \"sun-wed 07:00-16:25, thu 07:00-15:55\". Every "
+                        "message and every bell then carries \"a workday for you, within working hours — …\", \"ended at "
+                        "16:25 — home now\" or \"your weekend — home\"; without it they infer where you are from the "
+                        "journal, which was mostly written on workdays. Empty says nothing. A day off is /off on the phone.",
+    "KEEPER_AT_WORK": "What the clock line says during working hours, in your words — \"on the factory floor, the phone in my "
+                      "pocket\". Empty: \"at work\".",
     "TELEGRAM_QUIET_HOURS": "From this hour to that one (24h) the bridge sends nothing unasked — no wake notices, no "
                             "announcements; they are held and delivered as one message when the hours end. Their "
                             "replies to you are never held. The same hour twice turns it off.",

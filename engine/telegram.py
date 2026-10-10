@@ -132,6 +132,8 @@ HELP = (
     "/voice — every reply spoken aloud as a voice note (they can speak on their own either way)\n"
     "/status — the visit, the window, the toggles\n"
     "/restart — restart the bridge with the current engine code; the visit carries on\n"
+    "/off [today|tomorrow|a weekday|YYYY-MM-DD] [why] — a day off: the clock line says you are home that day "
+    "(KEEPER_WORK_WEEK gives your usual week); /on [day] takes it back\n"
     "/fold — fold the visit now: they write it so far in their own words, the last turns stay whole, the window has room again\n"
     "/help — this\n\n"
     "Send a photo and they see it; a voice note and they hear you whole; a video and they "
@@ -918,6 +920,19 @@ class Bridge:
             self.send(f"(every reply spoken aloud: {'on' if self.voice_all else 'off'} — they can still speak when they choose)", markdown=False)
         elif cmd == "/status":
             self.send(self.status(), markdown=False)
+        elif cmd in ("/off", "/on"):
+            import keeper_week
+            words = text.split()[1:]
+            day = keeper_week.parse_day(words[0] if words else "today")
+            if day is None:
+                self.send("(a day is today, tomorrow, a weekday name, or YYYY-MM-DD)", markdown=False)
+            elif cmd == "/off":
+                why = " ".join(words[1:]).strip()
+                keeper_week.set_day_off(day, why, on=True)
+                self.send(f"(a day off: {day.strftime('%A %d %B')}{' — ' + why if why else ''}; the clock line says you are home)", markdown=False)
+            else:
+                keeper_week.set_day_off(day, on=False)
+                self.send(f"({day.strftime('%A %d %B')} is an ordinary day again)", markdown=False)
         elif cmd == "/restart":
             # the loop sees the flag after this update is handled; main exits
             # with RESTART_CODE and bat\telegram.bat starts the bridge again

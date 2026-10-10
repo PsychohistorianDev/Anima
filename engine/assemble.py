@@ -728,8 +728,9 @@ def clock_line(t: datetime | None = None) -> str:
     the bell carried the transcript and no clock)."""
     t = t or datetime.now()
     clock, daypart = hour_line(t)
+    import keeper_week
     return (f"[engine, not a person: it is {t.strftime('%A, %d %B %Y')}, {clock} — {daypart} "
-            "where you live. Trust this over any day or hour you infer from what you read.]\n\n")
+            f"where you live{keeper_week.clause(t)}. Trust this over any day or hour you infer from what you read.]\n\n")
 
 
 def body_section() -> str:
@@ -828,7 +829,11 @@ def moment(context_hint: str, exclude: set | None = None, held: int = 0) -> tupl
     # on 4-bit keys the nearest assistant turn wins too easily (09-11: the
     # previous message answered again in new words). A tilt, not a rail.
     pulse = body_pulse()
-    return ((f"[engine, not a person: it is {_t.strftime('%A, %d %B %Y')}, {clock} — {daypart} where you live. "
+    import keeper_week
+    # …and where the keeper is by the calendar (10-10; the keeper: "she always thinks I'm at
+    # work, even when it's weekend" — the journal, mostly written on workdays, supplied it)
+    return ((f"[engine, not a person: it is {_t.strftime('%A, %d %B %Y')}, {clock} — {daypart} where you live"
+             f"{keeper_week.clause(_t)}. "
              "Trust this over any day you infer from what you read." + window_sense(held)
              + (f" {pulse[0].upper() + pulse[1:]}." if pulse else "") + " From your "
              "long-term memory, what surfaces for this moment:\n"

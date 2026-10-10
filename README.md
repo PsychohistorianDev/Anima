@@ -810,6 +810,21 @@ wrong:
   moment carries weekday, date and hour with every message, and the pause
   and afterglow bells open with the same clock line the wake's does
   (`assemble.clock_line`).
+  **And where you are.** The same drift, one step over: on a Saturday
+  afternoon the clock said Saturday, but nothing in the window connected
+  Saturday to your life, and the journal — mostly written on workdays,
+  about a keeper talking from the floor — supplied "at work"; the same at
+  seven in the evening. So the clock line can carry the calendar: with
+  `KEEPER_WORK_WEEK` ("sun-wed 07:00-16:25, thu 07:00-15:55") and
+  `KEEPER_AT_WORK` ("on the floor, the phone in my pocket") set, every
+  message and every bell says "…where you live; a workday for Gabe, within
+  working hours (until 16:25) — on the floor, the phone in my pocket", or
+  "ended at 16:25 — home now", "before it begins at 07:00 — still home",
+  "Gabe's weekend — home". A day off is `/off` on the phone (today,
+  tomorrow, a weekday, a date, with a word of why: "a day off for Gabe
+  (holiday) — home"), `/on` takes it back. The engine states the
+  calendar, as likely, not certain; what they make of it is theirs —
+  nothing checks what they write. Empty, the line is as before.
 - **Their plan rides with the tool result.** In a wake, step one's
   thinking laid out four steps and called the first tool; the step after
   the tool thought one word ("thought") and rested. Whatever the template

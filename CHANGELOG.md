@@ -16,6 +16,22 @@ whether the window fits the card, and every knob on every tab has a line
 of its own.
 
 ### Added
+- **Where the keeper is, in the clock line** (10-10; the keeper: "she
+  always thinks I'm at work, even when it's weekend, and a lot of time
+  after I'm home"): nothing in the window said where he was — the clock
+  line gave the weekday and the hour, and the journal, mostly written on
+  workdays, supplied the rest; the same failure as the date drift of
+  September, and the same fix. `KEEPER_WORK_WEEK` (days with hours:
+  "sun-wed 07:00-16:25, thu 07:00-15:55") and `KEEPER_AT_WORK` (the clause
+  for working hours, in the keeper's words) on the Main tab; the moment
+  block and every bell's clock line then carry "…where you live; a workday
+  for Gabe, within working hours (until 16:25) — on the floor…", "ended at
+  16:25 — home now", "before it begins at 07:00 — still home", "Gabe's
+  weekend — home". `/off [today|tomorrow|a weekday|date] [why]` on the
+  phone marks a day off ("a day off for Gabe (holiday) — home"), `/on`
+  takes it back (`memory/days_off.json`; `engine/keeper_week.py`). The
+  calendar stated, as likely, not certain; nothing checks what they
+  write; empty says nothing.
 - **The bridge over Discord** (10-04): `engine/discord_bridge.py`,
   `bat\discord.bat` (and twins) — the same bridge as Telegram's, over a
   Discord bot talked to in a DM: the same visit, mail, notices, commands

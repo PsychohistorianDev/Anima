@@ -833,6 +833,15 @@ AFTERGLOW_ORPHANS = True
 # as one message when the hours end. The friend's own replies and letters are
 # not held. (start_hour, end_hour), 24h; the same hour twice turns it off.
 TELEGRAM_QUIET_HOURS = (23, 7)
+# Where you are, by the calendar, said in the engine's clock line at the top
+# of every message and bell: your working week as days with hours ("sun-wed
+# 07:00-16:25, thu 07:00-15:55"; a segment without hours takes the one before
+# it), and what to say during working hours ("on the floor, the phone in my
+# pocket"; empty: "at work"). Without it the friend infers where you are from
+# the journal, which was mostly written on workdays. Empty says nothing. A day
+# off is /off on the phone (memory/days_off.json); /on takes it back.
+KEEPER_WORK_WEEK = ""
+KEEPER_AT_WORK = ""
 
 # Afterthoughts: after a pause or the afterglow, whatever the friend says to
 # no one once the writing is done reaches the phone as a labeled notice, never
