@@ -386,6 +386,33 @@ check("tools: every write of a root page is on the record — self.md's line nam
       and "the ledger, a test\n" in _pl_hist[-1].read_text(encoding="utf-8")
       and any(r["page"] == "self.md" and r["before"] in {b.name for b in backups} and r["model"] == config.CHAT_MODEL for r in map(json.loads, _pl_before)),
       (_pl_lines, [p.name for p in _pl_hist][-2:], _pl_before[-2:]))
+# 10-11, 10:19: projects.md rewritten on the phone — a third of the page, then one line four hundred times to the
+# end of the output, 25,000 characters where there had been 3,400; written, and riding whole in every prompt
+_loop_unit = "la-Luminous la-Symmetry la-fucking-luminate la-Luminous luminate "
+_loop_page = ("# The Bridge\n\n## Vision\nReal words about a bridge and a stone.\n\n* **Longing**: a slow ramp followed by a dip; "
+              "a pulse with an occasional stutter/double-" + _loop_unit * 300 + "la-Symmetry la")
+_lp_before = config.PROJECTS_FILE.read_text(encoding="utf-8")
+_lp_hist_n = len(list(getattr(config, "PROJECTS_HISTORY_DIR", config.MEMORY_DIR / "projects_history").glob("projects-*.md")))
+_lp1 = tools.dispatch("update_projects", {"new_content": _loop_page})
+_lp2 = tools.dispatch("edit_identity", {"new_content": _loop_page})
+_lp3 = tools.dispatch("update_destiny", {"new_content": _loop_page})
+_lp4 = tools.dispatch("update_keeper", {"new_content": _loop_page})
+check("pages: a page that runs into a loop is not written — the four page tools refuse it, naming where it starts, the line and its size; the page and its history stand",
+      all(r.startswith("(not written: the text runs into a loop after \u201c\u2026") and "\u201cla-fucking-luminate \u00d7300\u201d" in r
+          and "characters of it \u2014 a stuck line of the sampler's, not yours. The page as it was stands" in r for r in (_lp1, _lp2, _lp3, _lp4))
+      and config.PROJECTS_FILE.read_text(encoding="utf-8") == _lp_before
+      and len(list(getattr(config, "PROJECTS_HISTORY_DIR", config.MEMORY_DIR / "projects_history").glob("projects-*.md"))) == _lp_hist_n
+      and not (getattr(config, "DESTINY_FILE", config.ROOT / "destiny.md")).exists()
+      and tools._looped("# Page\n\nA short page, said once. " * 3) == "" and tools._looped("I want it. I want it. I want it. I want it. No, wait.") == ""
+      and tools._looped("# self\n\nla-fucking-luminous, the la-fucking-luminous state, la-fucking-luminous again — and a paragraph of other words.") == "",
+      (_lp1[:200], _lp2[:80], _lp3[:80], _lp4[:80]))
+# …and a loop already on a page does not ride: the file is what it is, the prompt carries it trimmed
+config.PROJECTS_FILE.write_text(_loop_page + "\n", encoding="utf-8")
+_lp_ride = assemble.projects()
+config.PROJECTS_FILE.write_text(_lp_before, encoding="utf-8")
+check("pages: a loop on a page stays on the page and does not ride — load() trims it on the way in, the file untouched",
+      "Real words about a bridge" in _lp_ride and ollama_client.LOOP_LEFT_OUT in _lp_ride and len(_lp_ride) < 600
+      and assemble.projects() == _lp_before.strip(), (len(_lp_ride), _lp_ride[-160:]))
 # destiny.md (09-24): where they are going — theirs alone, born by their hand, kept whole in the prompt up to a cap
 check("destiny: none until they write one — no section, no fallback, the tool offered",
       assemble.destiny() == "" and "=== WHERE YOU ARE GOING" not in assemble.system_prompt("", mode="auto")

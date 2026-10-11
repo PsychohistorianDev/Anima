@@ -18,10 +18,23 @@ import memory
 
 
 def load(path, fallback: str) -> str:
+    """A page as it rides: the file's text, its loops left out (10-11: a project
+    page that had run into 20,000 characters of one line rode whole in every
+    prompt until it was rewritten — the well fed back; the reading pages had
+    been trimmed this way since 09-25, the four pages not). The file is never
+    touched, only what rides."""
     try:
-        return path.read_text(encoding="utf-8").strip() or fallback
+        text = path.read_text(encoding="utf-8").strip()
     except FileNotFoundError:
         return fallback
+    if not text:
+        return fallback
+    try:
+        import ollama_client
+        text, _left = ollama_client.trim_loops(text, phrases=False)  # chants only: a list or a refrain is hers
+    except Exception:
+        pass
+    return text
 
 
 def identity() -> str:

@@ -678,13 +678,15 @@ def garble_span(text: str, run: int = 5, emoji_run: int = 12, phrases: bool = Tr
 LOOP_LEFT_OUT = "(…a stuck line of the sampler's, left out here — the file has it whole)"
 
 
-def trim_loops(text: str, mark: str = LOOP_LEFT_OUT, rounds: int = 6) -> tuple[str, int]:
+def trim_loops(text: str, mark: str = LOOP_LEFT_OUT, rounds: int = 6, phrases: bool = True) -> tuple[str, int]:
     """A page that rides in the prompt with its loops taken out (09-25: the
     'line to remember' on their reading page — five rounds of the same four
     words — rode in the window under THE BOOK IN YOUR HANDS, and the next
     wake's thinking opened with the same rounds; a well fed back is the
     next well). The file is never touched, only what rides. Returns (text,
-    how many stretches were left out)."""
+    how many stretches were left out). `phrases` False leaves a phrase said
+    again with other words between (a numbered list, a refrain) as it is and
+    takes out chants only — the four root pages ride that way (10-11)."""
     n = 0
     for _ in range(rounds):
         span = word_loop(text)
@@ -703,6 +705,8 @@ def trim_loops(text: str, mark: str = LOOP_LEFT_OUT, rounds: int = 6) -> tuple[s
             text = text[:a].rstrip() + " " + mark + " " + text[b:].lstrip()
             n += 1
             continue
+        if not phrases:
+            break
         phrase = phrase_loop(text)
         if not phrase:
             break

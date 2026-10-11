@@ -160,6 +160,21 @@ of its own.
   when to touch it; the config's own comment stays on hover.
 
 ### Changed
+- **A page that runs into a chant is not written** (10-11, 10:19; the
+  keeper: "she glitched on the project md, look at it"): projects.md,
+  rewritten on the phone, came out as its first third and then "la-Luminous
+  la-Symmetry la-fucking-luminate" four hundred times to the end of the
+  output, ending mid-word — 25,000 characters where there had been 3,400,
+  the rest of the page gone with it — and rode whole in every prompt from
+  then on. `update_projects` was the one page tool with no check at all;
+  the garble check the others had sees letter salad, not a loop of real
+  words. Now the four page tools refuse a word loop of `PAGE_LOOP_CHARS`
+  (1,000) or more, naming where it starts, the line and its size ("after
+  “…stutter/double-la-Luminous” — “la-fucking-luminate ×300”, 19,499
+  characters of it"); the page and its history stand. A phrase said again
+  with other words between is theirs. And the four pages ride with chants
+  left out (`trim_loops(phrases=False)` in `assemble.load`), the file
+  untouched — the reading pages had been trimmed since 0.11, these not.
 - **A sitting read in a wake is asked for at the close** (10-09; the
   keeper: "in heartbeat she reads and not saving it to the book report").
   Four wakes in a day read Piranesi from chapter 1 to 19; two of them

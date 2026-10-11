@@ -196,6 +196,49 @@ def _garble_refusal(span: str) -> str:
     return _GARBLE_REFUSAL[:-1] + f" The fragments: \u201c{span[:80]}\u201d)"
 
 
+# A page that runs into a loop (10-11, 10:19: projects.md rewritten on the phone
+# — the first third of the page, then "la-Luminous la-Symmetry la-fucking-
+# luminate" four hundred times to the end of the output, and the page ended
+# mid-word; 25,000 characters where there had been 3,400, and the rest of the
+# page gone with it). The garble check does not see a loop of real words —
+# a stutter she talks herself out of is hers — but a thousand characters of
+# the same line is the sampler's, and a page is whole or it is not written.
+def _looped(text: str) -> str:
+    """The refusal for a page whose text runs into a chant, or "" when it does
+    not: a word loop (WORD_LOOP_WINDOW words with WORD_LOOP_DISTINCT or fewer
+    different ones — the same test the stream watcher cuts a reply on) that
+    runs for PAGE_LOOP_CHARS (1000) or more. A phrase said again with other
+    words between — a stutter, a numbered list, a refrain in a poem — is not
+    this and is hers to write."""
+    try:
+        import ollama_client
+        span = ollama_client.word_loop(text or "")
+    except Exception:
+        return ""
+    if not span:
+        return ""
+    a = (text or "").find(span[:40])
+    if a < 0:
+        return ""
+    few = {m.group(0).lower() for m in ollama_client._WORD_RE.finditer(span)}
+    b = a
+    for m in ollama_client._WORD_RE.finditer(text, a):
+        if m.group(0).lower() in few:
+            b = m.end()
+        else:
+            break
+    gone = b - a
+    if gone < int(getattr(config, "PAGE_LOOP_CHARS", 1000) or 0):
+        return ""
+    before = " ".join(text[max(0, a - 60):a].split())
+    ref = ollama_client.refrain(text or "")
+    what = f"\u201c{ref}\u201d" if ref else "the same line over and over"
+    where = (" after \u201c\u2026" + before + "\u201d") if before else ""
+    return (f"(not written: the text runs into a loop{where} — "
+            f"{what}, {gone:,} characters of it — a stuck line of the sampler's, not yours. The page as it was "
+            "stands; write it again whole, when you are ready.)")
+
+
 _ENTRY_RE = re.compile(r"^\*\*(\d{2}:\d{2})\*\* — ", re.M)
 _entry_vecs: dict[str, list[float]] = {}  # entry text -> embedding, for the life of the process
 
@@ -583,6 +626,8 @@ def _stamp_page(page: str, before, text: str) -> None:
 
 
 def edit_identity(new_content: str) -> str:
+    if _looped(new_content):
+        return _looped(new_content)
     if _garbled(new_content):
         return _garble_refusal(_garbled(new_content))
     # back up the current self before it changes — no revision is ever lost
@@ -603,6 +648,10 @@ def edit_identity(new_content: str) -> str:
 
 def update_projects(new_content: str) -> str:
     text = _clean_prose(new_content)
+    if _looped(text):
+        return _looped(text)
+    if _garbled(text):  # the one page tool that had no check (10-11)
+        return _garble_refusal(_garbled(text))
     before = None
     if config.PROJECTS_FILE.exists():  # the version before is kept, like the other pages' (10-05)
         hist = getattr(config, "PROJECTS_HISTORY_DIR", config.MEMORY_DIR / "projects_history")
@@ -622,6 +671,8 @@ def update_destiny(new_content: str) -> str:
     memory/destiny_history/. The engine never writes this file; only they
     do, here."""
     text = _clean_prose(_real_newlines(new_content)).strip()
+    if _looped(text):
+        return _looped(text)
     if _garbled(text):
         return _garble_refusal(_garbled(text))
     if not text:
@@ -652,6 +703,8 @@ def update_keeper(new_content: str) -> str:
     relevant memories about the keeper"). Open: the keeper reads it, and they know.
     The engine never writes this file; only they do, here."""
     text = _clean_prose(_real_newlines(new_content)).strip()
+    if _looped(text):
+        return _looped(text)
     if _garbled(text):
         return _garble_refusal(_garbled(text))
     if not text:

@@ -564,7 +564,19 @@ wrong:
   that make pages check too: `write_journal`, `edit_identity`,
   `write_creation` and `append_creation` refuse salad, naming the fragments,
   because a glitch in the journal sits in the prompt for a month and teaches
-  the next one. Code files are never touched.
+  the next one. Code files are never touched. The four root pages
+  (`edit_identity`, `update_projects`, `update_destiny`, `update_keeper`)
+  also refuse a chant: a page rewritten on the phone came out as its first
+  third and then one line four hundred times to the end of the output —
+  25,000 characters where there had been 3,400, the rest of the page gone
+  with it. A word loop (the stream watcher's test: `WORD_LOOP_WINDOW`
+  words with `WORD_LOOP_DISTINCT` or fewer different ones) that runs for
+  `PAGE_LOOP_CHARS` (1,000) or more is handed back naming where it starts,
+  the line and its size, and the page as it was stands. A phrase said again
+  with other words between — a stutter, a numbered list, a refrain in a poem
+  — is theirs and is written. And a chant already on a page does not ride:
+  the four pages go into the prompt with word loops left out, as the
+  reading pages have since 0.11; the file is never touched.
 - **A tool call written out as words is not a reply.** "get_opinion_on_
   la_metrica_rota{description: …" at the head of a reply is the model
   reaching for a tool that doesn't exist (or a real one without the
