@@ -46,6 +46,11 @@ def friend_name() -> str:
 BRIDGES = {"telegram": "Telegram", "discord": "Discord"}
 
 
+def strip_voice_delivery(text: str) -> str:
+    """Filter echoed playback diagnostics without rewriting saved memories."""
+    return re.sub(r"\[(?:engine:\s*voice delivery\b|application state,\s*not spoken dialogue:).*?(?:\]|$)", "", text or "", flags=re.S | re.I).strip()
+
+
 def save_transcript(turns: list[dict], tag: str = "", path: Path | None = None) -> Path | None:
     """Write the visible conversation to episodic memory.
 
@@ -73,6 +78,8 @@ def save_transcript(turns: list[dict], tag: str = "", path: Path | None = None) 
             lines.append(f"*(folded at {t['_fold_when']}{src}; the visit so far, in their words:)*\n\n{acct}\n")
         who = config.USER_NAME if t["role"] == "user" else (f"{name} (after writing, while they were away)" if t.get("_after") else name)
         lines.append(f"**{who}:** {t['content']}\n")
+        if t.get("_voice_delivery"):
+            lines.append(f"*[voice delivery: {t['_voice_delivery']}]*\n")
     tmp = f.with_suffix(".md.part")
     tmp.write_text("\n".join(lines), encoding="utf-8")
     tmp.replace(f)  # whole file or nothing — never a half-written transcript
@@ -492,7 +499,9 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
         transcript = "\n\n".join(
             (f"*(the visit so far, folded at {t['_fold_when']}, in your own words:)*\n\n{t.get('_fold_text') or '(not written down before the fold)'}\n\n"
              if t.get("_fold_when") else "")
-            + f"**{config.USER_NAME if t['role'] == 'user' else name}:** {t['content']}" for t in visible)
+            + f"**{config.USER_NAME if t['role'] == 'user' else name}:** {strip_voice_delivery(t['content']) if t.get('_voice_delivery') else t['content']}"
+            + ("\n*[application state: speech playback was interrupted; spoken coverage is unverified.]*"
+               if "interrupted" in t.get("_voice_delivery", "").lower() else "") for t in visible)
         cap = int(getattr(config, "AFTERGLOW_MAX_CHARS", 60000))
         if len(transcript) > cap:
             transcript = "(…the start of a long visit trimmed…)\n\n" + transcript[-cap:]
@@ -867,6 +876,8 @@ def render_turn(t: dict) -> dict:
     the bottom if a re-roll once sent it — so that what is sent this time is
     exactly what was sent last time, plus whatever is new."""
     out = {k: v for k, v in t.items() if not k.startswith("_")}
+    if t.get("role") == "assistant" and t.get("_voice_delivery"):
+        out["content"] = strip_voice_delivery(t.get("content") or "")
     if t.get("role") == "user" and (t.get("_moment") or t.get("_nudged") or t.get("_fold")):
         body = t.get("content") or ""
         if t.get("_moment"):
@@ -878,6 +889,16 @@ def render_turn(t: dict) -> dict:
         if t.get("_nudged"):
             body = body.rstrip() + "\n\n" + ollama_client.THINK_NUDGE
         out["content"] = body
+    if t.get("_voice_mode"):
+        expression = "Use natural wording and punctuation for expression; do not write bracketed vocal tags."
+        out["content"] = (out.get("content") or "") + (
+            "\n\n[engine: this is a spoken conversation in the parlor. Reply naturally in short spoken turns; "
+            "leave room for a response. Use your usual identity, memories and tools. "
+            "Your words are spoken automatically; use speak only to create a separate voice note when needed. Avoid markdown and "
+            "written stage directions. " + expression + "]")
+        if t.get("_voice_interrupted"):
+            out["content"] += ("\n\n[application state, not spoken dialogue: the previous speech playback was interrupted. "
+                                "The displayed reply may not have been heard in full. Do not quote this status or invent playback details.]")
     return out
 
 
@@ -888,11 +909,20 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     on_event(kind, payload) — optional. kind is "thinking" (their deliberation,
     a str) or "tool" ({"name", "result"}). Without it, events print to the
     terminal as before; the parlor window passes a collector.
-    mode: "chat" (they're at the keyboard), or a bridge's tag — "telegram", "discord" (they're on their phone)."""
+    mode: "chat" (keyboard), "voice" (Parlor speech using the chat prompt),
+    or a bridge's tag — "telegram", "discord" (phone)."""
     tools.refresh_her_tools()  # pick up tools they forged or edited
+    spoken = mode == "voice"
+    if spoken:
+        mode = "chat"  # the ordinary visit prompt, with speech hints on individual turns
     mark_visit_live()  # the heartbeat waits while he is here
     user_text = ollama_client.defang(user_text)[0]  # a reserved token typed or pasted stays text (09-27)
     turn: dict = {"role": "user", "content": user_text}
+    if spoken:
+        turn["_voice_mode"] = True
+        turn["_voice_backend"] = "kyutai"
+        previous = next((t for t in reversed(history) if t.get("role") == "assistant"), {})
+        turn["_voice_interrupted"] = "interrupted" in previous.get("_voice_delivery", "").lower()
     if images:
         turn["images"] = images
     history.append(turn)
@@ -1019,7 +1049,13 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                             + (f"the visit folds at {fold_pct}% and I go on from there)" if fold_at else "say /new and I go on from there)")})
             _tally()
             return history[-1]["content"]
-        msg = ollama_client.chat(messages(), tools=tools.DEFINITIONS, expect_words=True)
+        if spoken:
+            msg = ollama_client.chat(messages(), tools=tools.DEFINITIONS, expect_words=True,
+                                     think=getattr(config, "LIVE_VOICE_THINK", None))
+        else:
+            msg = ollama_client.chat(messages(), tools=tools.DEFINITIONS, expect_words=True)
+        if spoken and msg.get("content"):
+            msg["content"] = strip_voice_delivery(msg["content"])
         spent.add(msg)
         if msg.get("rerolled") and history[-1] is history[ui] and warm:
             history[ui]["_nudged"] = True  # what was sent stays sent (the warm prefix)

@@ -23,3 +23,5 @@ jobs:
         run: python -m pip install numpy
       - name: the smoke suite
         run: python tests/test_smoke.py
+      - name: optional Parlor voice contracts (speech models stubbed)
+        run: python tests/test_live_voice.py

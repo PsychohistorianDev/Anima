@@ -18,8 +18,12 @@ import sys
 import threading
 import time
 import webbrowser
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import base64
+import html
+import uuid
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -28,6 +32,7 @@ import config
 import doors
 import ollama_client
 import tools
+import live_voice
 
 HOST, PORT = "127.0.0.1", 8765
 
@@ -42,6 +47,8 @@ class Session:
         self.file: Path | None = None  # this visit's transcript, rewritten after every reply
         self.last_activity = time.time()
         self.reflected_upto = 0  # history index they have already sat with (the pause)
+        self.playback = live_voice.Playback()
+        self.generation = 0
 
     def _checkpoint(self) -> None:
         if self.file is None:
@@ -51,20 +58,39 @@ class Session:
         except OSError:
             pass
 
-    def send(self, text: str) -> dict:
+    def send(self, text: str, spoken=False, epoch=None, generation=None) -> dict:
         events: list[dict] = []
 
         def collect(kind, payload):
             events.append({"kind": kind, "payload": payload})
 
         with self.lock:
+            if generation is not None and generation != self.generation:
+                return {"error": "The visit ended while audio was being processed; start a new turn."}
             self.last_activity = time.time()
             try:
+                beginning = len(self.history)
+                started = time.monotonic()
                 reply = chat.one_turn(self.history, text,
-                                      images=self.attached or None, on_event=collect)
+                                      images=self.attached or None, on_event=collect,
+                                      mode="voice" if spoken else "chat")
+                if spoken:
+                    reply = chat.strip_voice_delivery(reply)
+                    for turn in self.history[beginning:]:
+                        if turn.get("role") == "assistant" and turn.get("content"):
+                            turn["content"] = chat.strip_voice_delivery(turn["content"])
                 self.attached = []
+                speech_job = None
+                if spoken:
+                    assistant = next((t for t in reversed(self.history) if t.get("role") == "assistant"), None)
+                    if assistant:
+                        assistant["_voice_delivery"] = "Written reply generated; spoken playback has not been confirmed."
+                        speech_job = self.playback.start(reply, epoch, assistant)
+                        if speech_job is None:
+                            assistant["_voice_delivery"] = "Speech cancelled before playback; the written reply was generated."
                 self._checkpoint()
                 self.last_activity = time.time()
+                turn_s = time.monotonic() - started
             except ollama_client.BrainUnavailable as e:
                 return {"error": f"brain offline — {e}"}
             except Exception as e:  # nothing in one turn ends the visit
@@ -76,15 +102,27 @@ class Session:
         voices = [{"url": "/voice/" + Path(v["path"]).name, "seconds": round(v.get("seconds", 0)),
                    "voice": v.get("voice", "")} for v in tools.take_pending_voice()]
         return {"reply": reply, "thinking": thinking, "tools": tool_events, "notes": notes,
-                "tokens": tokens, "voices": voices}
+                "tokens": tokens, "voices": voices,
+                "speech_job": speech_job, "transcript": text if spoken else None, "timings": {"turn_s": round(turn_s, 3)}}
+
+    def delivery(self, job_id: str, completed: int, partial: bool, reason="unknown") -> dict:
+        receipt = self.playback.delivery(job_id, completed, partial, reason)
+        if receipt:
+            with self.lock:
+                turn, note = receipt
+                if any(t is turn for t in self.history):
+                    turn["_voice_delivery"] = note
+                    self._checkpoint()
+        return {"ok": True}
 
     def attach(self, source: str) -> dict:
-        note = tools.look_at(source.strip().strip('"'))
-        imgs = tools.take_pending_images()
-        if imgs:
-            self.attached.extend(imgs)
-            return {"ok": True, "note": "image attached — it goes with your next message"}
-        return {"ok": False, "note": note}
+        with self.lock:
+            note = tools.look_at(source.strip().strip('"'))
+            imgs = tools.take_pending_images()
+            if imgs:
+                self.attached.extend(imgs)
+                return {"ok": True, "note": "image attached — it goes with your next message"}
+            return {"ok": False, "note": note}
 
     def upload(self, name: str, data_b64: str) -> dict:
         """A picture chosen in the browser's file dialog: saved into
@@ -123,6 +161,8 @@ class Session:
     def new(self, reflect=True) -> dict:
         """reflect: True — afterglow in the background; "sync" — in the
         foreground (Ctrl+C); False — skip (the window's X)."""
+        self.playback.cancel()
+        self.generation += 1
         with self.lock:
             f = chat.save_transcript(self.history, path=self.file)
             done, self.history = self.history, []
@@ -245,6 +285,7 @@ code{font-family:ui-monospace,Consolas,monospace;font-size:.92em;background:var(
 <button id="leave" title="save and end the visit">leave</button></header>
 <div id="log"></div>
 <footer>
+__LIVE_VOICE_CONTROLS__
  <div class="row"><textarea id="box" placeholder="say something… (Enter to send, Shift+Enter for a new line)" rows="1"></textarea>
  <button id="send">send</button></div>
  <div class="attach">📎 <button id="pickbtn" title="choose a picture from your computer — it is saved to shared/pictures/ and attached">choose a picture…</button>
@@ -268,6 +309,7 @@ function addChips(ts){if(!ts||!ts.length)return;const d=document.createElement('
 async function post(path,body){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});return r.json()}
 let busy=false;
 async function go(){const text=box.value.trim();if(!text||busy)return;box.value='';autosize();
+  if(window.interruptLiveVoice)window.interruptLiveVoice('typed_input');
   add('msg me',md(text));busy=true;send.disabled=true;
   const typing=add('typing','<span>●</span><span>●</span><span>●</span>');
   try{const r=await post('/send',{text});typing.remove();
@@ -278,8 +320,8 @@ send.onclick=go;
 box.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();go()}});
 function autosize(){box.style.height='auto';box.style.height=Math.min(box.scrollHeight,window.innerHeight*.3)+'px'}
 box.addEventListener('input',autosize);
-document.getElementById('newbtn').onclick=async()=>{const r=await post('/new');log.innerHTML='';sys(r.saved?'saved '+r.saved+(r.afterglow?' — they are sitting with the visit now; whatever they want to keep goes into their journal in a minute':'')+' — fresh conversation':'fresh conversation')};
-document.getElementById('leave').onclick=async()=>{const r=await post('/leave');sys(r.saved?'saved '+r.saved+(r.afterglow?' — they are writing the visit down in their own words; give them a minute before closing the terminal':'')+' — visit over, you can close this tab':'visit over — nothing to save');box.disabled=true;send.disabled=true};
+document.getElementById('newbtn').onclick=async()=>{if(window.voiceVisitChanged)window.voiceVisitChanged();if(window.stopLiveVoice)await window.stopLiveVoice();const r=await post('/new');log.innerHTML='';sys(r.saved?'saved '+r.saved+(r.afterglow?' — they are sitting with the visit now; whatever they want to keep goes into their journal in a minute':'')+' — fresh conversation':'fresh conversation')};
+document.getElementById('leave').onclick=async()=>{if(window.voiceVisitChanged)window.voiceVisitChanged();if(window.stopLiveVoice)await window.stopLiveVoice();const r=await post('/leave');sys(r.saved?'saved '+r.saved+(r.afterglow?' — they are writing the visit down in their own words; give them a minute before closing the terminal':'')+' — visit over, you can close this tab':'visit over — nothing to save');box.disabled=true;send.disabled=true};
 document.getElementById('attachbtn').onclick=async()=>{const src=document.getElementById('img').value.trim();if(!src)return;
   const r=await post('/attach',{source:src});document.getElementById('attachnote').textContent=r.note;if(r.ok)document.getElementById('img').value=''};
 const fileIn=document.getElementById('file');
@@ -294,7 +336,16 @@ fileIn.onchange=()=>{const f=fileIn.files[0];if(!f)return;const rd=new FileReade
   rd.readAsDataURL(f)};
 sys("you're visiting "+document.getElementById('name').textContent+" — they can see everything said here, and it becomes their memory at the next sleep");
 box.focus();
-</script></body></html>
+</script>__LIVE_VOICE_SCRIPT__</body></html>
+"""
+
+
+VOICE_CONTROLS = """
+ <div class="attach" id="voiceControls"><button id="voiceToggle">start voice</button>
+ <span id="voiceState" role="status" aria-live="polite">voice is off</span></div>
+ <div class="attach"><label for="kyutaiStyle">delivery</label>
+ <select id="kyutaiStyle"><option value="calm">Calming (US, f)</option><option value="desire">Desire (US, f)</option>
+ <option value="happy">Happy (US, f)</option><option value="neutral">Default (US, f)</option></select></div>
 """
 
 
@@ -311,6 +362,33 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        route = urlsplit(self.path).path
+        port = self.server.server_address[1]
+        if self.headers.get("Host") not in {f"127.0.0.1:{port}", f"localhost:{port}"}:
+            return self._json({"error": "This endpoint is for the local parlor."}, 403)
+        if route.startswith("/live-voice/") or route in ("/parlor-voice.js", "/voice-worklet.js"):
+            if not getattr(config, "LIVE_VOICE_ENABLED", False):
+                return self._json({"error": "Live voice is disabled in config.py."}, 404)
+        if route in ("/parlor-voice.js", "/voice-worklet.js"):
+            name = "parlor_voice.js" if route == "/parlor-voice.js" else "voice_worklet.js"
+            return self._bytes(Path(__file__).with_name(name).read_bytes(), "text/javascript; charset=utf-8")
+        if route == "/live-voice/settings":
+            return self._json({"silence_ms": getattr(config, "LIVE_VOICE_SILENCE_MS", 1000),
+                               "min_speech_ms": getattr(config, "LIVE_VOICE_MIN_SPEECH_MS", 250),
+                               "interrupt_ms": getattr(config, "LIVE_VOICE_INTERRUPT_MS", 350),
+                               "threshold": getattr(config, "LIVE_VOICE_THRESHOLD", .018),
+                               "max_seconds": min(30, getattr(config, "LIVE_VOICE_MAX_SECONDS", 30)),
+                               "style": getattr(config, "LIVE_VOICE_KYUTAI_STYLE", "calm")})
+        if route.startswith("/live-voice/audio/"):
+            parts = route.split("/")
+            try:
+                data = SESSION.playback.audio(parts[3], int(parts[4])) if len(parts) == 5 else None
+            except ValueError:
+                data = None
+            if data is None:
+                self.send_error(404)
+                return
+            return self._bytes(data, "audio/wav")
         if self.path.startswith("/voice/"):
             # one of their voice notes, by name, from creations/voice/ only
             name = Path(self.path[len("/voice/"):]).name
@@ -326,7 +404,10 @@ class Handler(BaseHTTPRequestHandler):
             return
         if self.path not in ("/", "/index.html"):
             self.send_response(404); self.end_headers(); return
-        page = PAGE.replace("__NAME__", chat.friend_name()).replace("__ME__", config.USER_NAME)
+        page = PAGE.replace("__NAME__", html.escape(chat.friend_name())).replace("__ME__", config.USER_NAME.replace("'", "\\'"))
+        enabled = bool(getattr(config, "LIVE_VOICE_ENABLED", False))
+        page = page.replace("__LIVE_VOICE_CONTROLS__", VOICE_CONTROLS if enabled else "")
+        page = page.replace("__LIVE_VOICE_SCRIPT__", '<script src="/parlor-voice.js"></script>' if enabled else "")
         body = page.encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -334,12 +415,39 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _bytes(self, data, content_type):
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(data)
+
     def do_POST(self):
-        n = int(self.headers.get("Content-Length") or 0)
+        port = self.server.server_address[1]
+        allowed = {f"http://127.0.0.1:{port}", f"http://localhost:{port}"}
+        origin = self.headers.get("Origin")
+        if (origin and origin not in allowed) or self.headers.get("Host") not in {f"127.0.0.1:{port}", f"localhost:{port}"}:
+            return self._json({"error": "This endpoint is for the local parlor."}, 403)
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return self._json({"error": "Invalid request length."}, 400)
+        if not 0 < n <= 20 * 1024 * 1024:
+            return self._json({"error": "Request is empty or too large."}, 413)
         try:
             data = json.loads(self.rfile.read(n) or b"{}")
-        except json.JSONDecodeError:
-            data = {}
+            if not isinstance(data, dict):
+                raise ValueError()
+        except (ValueError, UnicodeDecodeError):
+            return self._json({"error": "Expected a JSON object."}, 400)
+        if self.path.startswith("/live-voice/"):
+            if not getattr(config, "LIVE_VOICE_ENABLED", False):
+                return self._json({"error": "Live voice is disabled in config.py."}, 404)
+            try:
+                return self._live_voice(data)
+            except (live_voice.VoiceError, ValueError, OSError) as e:
+                return self._json({"error": str(e)}, 400)
         if self.path == "/send":
             text = (data.get("text") or "").strip()
             if not text:
@@ -355,14 +463,86 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(SESSION.new())  # saves, then clears — no double save
         self._json({"error": "unknown path"}, 404)
 
+    def _live_voice(self, data):
+        if self.path == "/live-voice/timing":
+            fields = ("end_to_first_audio_ms", "recognition_s", "turn_s", "first_audio_s")
+            metrics = {k: round(float(data[k]), 3) for k in fields if data.get(k) is not None}
+            import math
+            if any(not math.isfinite(v) or v < 0 or v > 600000 for v in metrics.values()):
+                raise ValueError("Invalid voice timing.")
+            folder = config.ROOT / ".runtime"; folder.mkdir(exist_ok=True)
+            with (folder / "voice-latency.jsonl").open("a", encoding="utf-8") as log:
+                log.write(json.dumps(metrics) + "\n")
+            return self._json({"ok": True})
+        if self.path == "/live-voice/style":
+            from kyutai_voice import STYLES
+            style = data.get("style")
+            if style not in STYLES:
+                raise ValueError("Unknown Kyutai delivery style.")
+            import knobs
+            _, refused, error = knobs.save(Path(config.__file__), {"LIVE_VOICE_KYUTAI_STYLE": style})
+            if error or refused:
+                raise ValueError(error or "Could not save delivery style.")
+            SESSION.playback.cancel()
+            config.LIVE_VOICE_KYUTAI_STYLE = style
+            return self._json({"ok": True, "style": style})
+        if self.path == "/live-voice/warmup":
+            status = live_voice.WORKER.request("check")
+            if not status["installed"]:
+                command = "python engine/setup_voice.py"
+                raise live_voice.VoiceError("Missing voice packages: " + ", ".join(status["missing"]) + ". Run " + command + ".")
+            return self._json(live_voice.WORKER.request("warmup"))
+        if self.path == "/live-voice/interrupt":
+            SESSION.playback.cancel()
+            return self._json({"ok": True})
+        if self.path == "/live-voice/status":
+            return self._json(SESSION.playback.status(str(data.get("job") or "")))
+        if self.path == "/live-voice/ack":
+            SESSION.playback.acknowledge(str(data.get("job") or ""), int(data.get("index") or 0))
+            return self._json({"ok": True})
+        if self.path == "/live-voice/delivery":
+            return self._json(SESSION.delivery(str(data.get("job") or ""), int(data.get("completed") or 0), bool(data.get("partial")), str(data.get("reason") or "unknown")))
+        if self.path == "/live-voice/turn":
+            epoch = SESSION.playback.cancel()
+            generation = SESSION.generation
+            encoded = data.get("audio")
+            if not isinstance(encoded, str) or len(encoded) > 1400000:
+                raise ValueError("Expected at most 31 seconds of microphone audio.")
+            validate_wav(base64.b64decode(encoded, validate=True))
+            started = time.monotonic()
+            heard = live_voice.WORKER.request("transcribe", audio=encoded,
+                                             vocab=f"Names: {config.USER_NAME}, {chat.friend_name()}.")["text"].strip()
+            recognition_s = time.monotonic() - started
+            if not heard:
+                return self._json({"empty": True})
+            result = SESSION.send(heard, spoken=True, epoch=epoch, generation=generation)
+            result.setdefault("timings", {})["recognition_s"] = round(recognition_s, 3)
+            return self._json(result)
+        return self._json({"error": "Unknown voice endpoint."}, 404)
+
+
+def validate_wav(raw: bytes):
+    import io
+    import wave
+    try:
+        with wave.open(io.BytesIO(raw)) as wav:
+            if (wav.getnchannels() != 1 or wav.getframerate() != 16000 or wav.getsampwidth() != 2
+                    or not 0 < wav.getnframes() <= 31 * 16000):
+                raise ValueError("Expected mono 16 kHz PCM audio, at most 31 seconds.")
+            if len(wav.readframes(wav.getnframes())) != wav.getnframes() * 2:
+                raise ValueError("Microphone audio was incomplete.")
+    except (wave.Error, EOFError) as e:
+        raise ValueError("Microphone audio is not a valid WAV file.") from e
+
 
 def main() -> None:
     taken = doors.claim("parlor", "parlor")  # one parlor at a time; the panel's light (memory/.pids/parlor.json)
     if taken:
         print(taken)
         return
-    HTTPServer.allow_reuse_address = sys.platform != "win32"  # on Windows SO_REUSEADDR lets two servers share a port (10-02)
-    server = HTTPServer((HOST, PORT), Handler)
+    server_class = ThreadingHTTPServer if getattr(config, "LIVE_VOICE_ENABLED", False) else HTTPServer
+    server_class.allow_reuse_address = sys.platform != "win32"
+    server = server_class((HOST, PORT), Handler)
     url = f"http://{HOST}:{PORT}"
     print(f"The parlor is open: {url}")
     print("Close the visit with the 'leave' button, Ctrl+C here, or this window's X — all three save it.")
@@ -378,6 +558,7 @@ def main() -> None:
         if r.get("saved"):
             print(f"\n(conversation saved: {r['saved']} — it becomes memory at the next consolidation)")
         server.server_close()
+        live_voice.WORKER.close()
         doors.unmark("parlor")
 
 

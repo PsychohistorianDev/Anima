@@ -32,3 +32,6 @@ memory/episodic/*
 !memory/identity_history/
 memory/identity_history/*
 !memory/identity_history/.gitkeep
+
+# Local speech environments, model caches and runtime diagnostics.
+.runtime/

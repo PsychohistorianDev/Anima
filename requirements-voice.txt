@@ -1,0 +1,6 @@
+# Optional Parlor speech sidecar only; Python 3.12.
+moshi==0.2.11
+torch==2.7.1
+torchaudio==2.7.1
+faster-whisper==1.2.1
+soundfile>=0.13,<1

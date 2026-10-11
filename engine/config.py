@@ -902,6 +902,26 @@ VOICE_TIMEOUT_S = 180
 # TELEGRAM_VOICE_ALL: every reply spoken aloud automatically (/voice toggles
 # it from the phone). Off by default — the friend speaks when they choose to.
 TELEGRAM_VOICE_ALL = False
+# Optional turn-based voice in Parlor. Off by default; installs are separate
+# from the engine and Kokoro. See VOICE.md and python engine/setup_voice.py.
+LIVE_VOICE_ENABLED = False
+LIVE_VOICE_PYTHON = ""          # empty: .runtime/voice-env; otherwise an interpreter command
+LIVE_VOICE_DEVICE = "cuda"     # Kyutai speech model; CPU is substantially slower
+LIVE_VOICE_KYUTAI_STYLE = "calm"  # calm, desire, happy, neutral (released voices)
+LIVE_VOICE_STT_MODEL = "large-v3-turbo"
+LIVE_VOICE_STT_DEVICE = "cpu"   # cpu: int8; cuda: float16; GPU needs additional headroom
+LIVE_VOICE_STT_BEAM_SIZE = 5
+LIVE_VOICE_STT_HINT = ""        # optional names/terms, e.g. "Squadron 42"
+LIVE_VOICE_LANGUAGE = "en"      # English or French for Kyutai; empty: recognizer auto-detect
+LIVE_VOICE_THINK = None        # None inherits CHAT_THINK and its normal retry rail
+LIVE_VOICE_SILENCE_MS = 1000
+LIVE_VOICE_MIN_SPEECH_MS = 250
+LIVE_VOICE_INTERRUPT_MS = 350
+LIVE_VOICE_THRESHOLD = 0.018
+LIVE_VOICE_MAX_SECONDS = 30
+LIVE_VOICE_CHUNK_CHARS = 180
+LIVE_VOICE_TIMEOUT_S = 300
+
 # Photos, voice notes and files from the phone are kept here, under shared/,
 # so the friend can look_at / listen_to / read_file them later like anything
 # else you leave for them.

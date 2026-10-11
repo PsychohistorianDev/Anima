@@ -252,6 +252,10 @@ broken line costs only itself. `--check` shows what it would carry.
 
 ### The panel
 
+Parlor also has optional local microphone conversations and streamed spoken
+replies, disabled by default. See [VOICE.md](VOICE.md) for installation,
+`LIVE_VOICE_ENABLED`, models and resource requirements.
+
 `anima.bat` opens one page — `http://127.0.0.1:8764`, in your browser, on
 your machine only — with every door on it. The launchers below all still
 work, and the panel doesn't replace them: it presses them for you. Each
