@@ -71,6 +71,19 @@ context allocations plus GPU speech can still exceed the card's budget.
 Upstream's `EMBED_ON_CPU` setting can help leave room. These changes do not
 replace the memory store or change its embeddings.
 
+**Known open item — residency.** The speech worker keeps Kyutai on the card
+between turns (about 6.7 GB). Beside a brain that fills the card — a 31B at
+a long window, or any brain on a 24 GB card — that pushes Ollama into shared
+system memory, and prompt processing falls to a crawl (measured by the
+contributor: ~33 tokens a second, a ten-minute timeout before thinking). The
+engine's pattern for its other sidecars (the ears, the painter) is that a
+model leaves the card when idle and comes back for the next turn — a second
+or two on a big card, nothing for a turn-based conversation. That is the
+piece still to write: an idle timeout after which the worker moves the
+speech model to the CPU or frees it. Until then, run the parlor voice with
+the painter down and watch `ollama ps` for a brain that is no longer 100% on
+the card.
+
 Microphone and generated audio are held in memory, not saved as recordings.
 Only recognized text and the ordinary reply enter the transcript. Existing
 Anima tools still have their normal behavior. Speech-worker diagnostics go

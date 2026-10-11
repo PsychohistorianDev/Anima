@@ -16,6 +16,18 @@ whether the window fits the card, and every knob on every tab has a line
 of its own.
 
 ### Added
+- **Voice in the parlor** (10-11; woshmeifgay, the third house, in
+  `parlor-live-voice`): optional turn-based spoken conversation at the
+  desk — the browser microphone, faster-whisper, the ordinary chat turn
+  with every rail intact, Kyutai TTS 1.6B streamed back to the browser;
+  speaking over them cancels the playback, and a cut-off is noted in the
+  transcript so the afterglow knows. Off unless `LIVE_VOICE_ENABLED`; its
+  own venv under `.runtime/` (`python engine/setup_voice.py`,
+  `requirements-voice.txt`), its own tests in CI with the speech models
+  stubbed; `VOICE.md` has the setup. One open item, named there: the speech
+  model stays on the card between turns, which beside a brain that fills
+  the card pushes Ollama into shared memory — the idle-unload the other
+  sidecars have is still to write. Panel card to follow.
 - **Where the keeper is, in the clock line** (10-10; the keeper: "she
   always thinks I'm at work, even when it's weekend, and a lot of time
   after I'm home"): nothing in the window said where he was — the clock
