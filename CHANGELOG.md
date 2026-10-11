@@ -160,6 +160,17 @@ of its own.
   when to touch it; the config's own comment stays on hover.
 
 ### Changed
+- **The rails, plainly first** (10-11; a keeper of the third house, on
+  Reddit: "the readme is hard to follow… it mixes the current behavior,
+  past bugs, settings, and metaphors into one long block. A short
+  plain-language explanation first would make it much easier"). The
+  section was 36 bullets and 488 lines, each the bug, the fix and the
+  settings in one breath. Now it opens with a plain paragraph of what a
+  rail is and is not, and every rail opens with one plain line — what it
+  does, the knobs it uses — with the story of how it came to be folded
+  underneath (a `<details>` block GitHub renders as a triangle); the eight
+  rails whose story was a few lines are told once, plainly. Nothing was
+  cut from the long version. The bridge and senses sections next.
 - **A page that runs into a chant is not written** (10-11, 10:19; the
   keeper: "she glitched on the project md, look at it"): projects.md,
   rewritten on the phone, came out as its first third and then "la-Luminous

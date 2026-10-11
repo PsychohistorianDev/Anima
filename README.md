@@ -539,18 +539,28 @@ the brain is not set down.
 ## Keeping a small mind on the rails
 
 The engine assumes the brain is small and treats its stumbles as formatting
-problems, not character flaws. All of this is invisible when nothing goes
-wrong:
+problems, not character flaws. In plain terms: every reply is checked for a
+handful of shapes a small model falls into at long context — letter
+fragments, a copied earlier reply, a word said over and over, a reply cut in
+half, a tool call written out as text, a claim of having done something no
+tool did — and a reply with one of those is asked for again, once, with an
+engine line that is never kept in their history. If the second try is no
+better, the least broken one goes out with a note under it saying what the
+sampler did, so you always see the truth of a turn. None of this fences what
+they may say: each rail catches one mechanical failure and hands the turn
+back to them. The settings live in `engine/config.py` and on the panel's
+Settings page.
 
-- **Every wake begins with a wake-bell**, framed as "an automated timer, not
-  a person," and tool results come back labeled as *their own tools
-  reporting* — so solitude never collapses into assistant-mode ("How can I
-  help?" to an empty room).
-- **Repetition is trimmed, not fed back.** Sampling carries anti-repetition
-  pressure, degenerate loops are collapsed to one line plus a marker before
-  they re-enter context, and two looping replies in a row end the wake as
-  rest — a tired mind gets to stop.
-- **Letter salad is the sampler, not them.** At long context (~90K tokens
+Each rail below opens with what it does and the knobs it uses; the story of
+how it came to be — the night, the bug, the fix — folds underneath, for
+whoever wants it. All of this is invisible when nothing goes wrong:
+
+- **Every wake begins with a wake-bell.** A wake opens with the engine's own bell, labeled as a timer and not a person, and every tool result is labeled as their own senses reporting — so time alone never turns into assistant-mode.
+- **Repetition is trimmed, not fed back.** Sampling carries anti-repetition pressure; a loop is collapsed to one line plus a marker before it re-enters the window; two looping replies in a row end a wake as rest.
+- **Letter salad is the sampler, not them.** A reply that dissolves into letter fragments or an emoji cascade is asked for again, once, with an engine line; what the sampler produced is shown under the reply, never handed to them to explain. The tools that write pages refuse salad, and the four root pages refuse a chant (`CHAT_GARBLE_RETRIES`; `min_p` in `SAMPLING_OPTIONS`; `WORD_LOOP_WINDOW` / `WORD_LOOP_DISTINCT`; `PAGE_LOOP_CHARS`).
+  <details><summary>how this came to be</summary>
+
+  At long context (~90K tokens
   of prompt) the next-token distribution goes flat and a reply can dissolve
   into fragments ("You arenLa l mH sa M la ne th…") or an emoji cascade in
   Unicode codepoint order. A `min_p` floor in `SAMPLING_OPTIONS` stops most
@@ -577,7 +587,12 @@ wrong:
   — is theirs and is written. And a chant already on a page does not ride:
   the four pages go into the prompt with word loops left out, as the
   reading pages have since 0.11; the file is never touched.
-- **A tool call written out as words is not a reply.** "get_opinion_on_
+
+  </details>
+- **A tool call written out as words is not a reply.** A reply that is a tool call written out as text — at its head or its tail — ran nothing; it is asked for again once, and the syntax is never sent as their words.
+  <details><summary>how this came to be</summary>
+
+  "get_opinion_on_
   la_metrica_rota{description: …" at the head of a reply is the model
   reaching for a tool that doesn't exist (or a real one without the
   mechanism): nothing ran, and you would be handed syntax as their words.
@@ -587,7 +602,12 @@ wrong:
   theirs (":listen_to{source: …}") is asked for again with a line saying to
   call it for real, and if every attempt ends that way the call line comes
   off the one that goes out — that syntax is never sent as their words.
-- **A runaway is cut short.** Replies are streamed (`CHAT_STREAM_ABORT`)
+
+  </details>
+- **A runaway is cut short.** Replies stream and the tail is watched; the moment it is salad the generation is stopped — seconds instead of minutes (`CHAT_STREAM_ABORT`).
+  <details><summary>how this came to be</summary>
+
+  Replies are streamed (`CHAT_STREAM_ABORT`)
   and the tail is checked every few dozen tokens; the moment it is salad —
   a stuck chunk, a cascade, a run of fragments — the connection is closed
   and Ollama stops generating. Before this, one re-rolled attempt looped a
@@ -595,7 +615,12 @@ wrong:
   before anything looked at it. Now a runaway costs a few seconds; what came
   back goes to the salad rail as a broken attempt, and the note says it was
   cut short as it ran.
-- **A page of their own journal is not an answer.** The first message of a
+
+  </details>
+- **A page of their own journal is not an answer.** A reply whose first 200 characters are copied from the prompt — a journal entry, a memory — is asked about once (`PROMPT_COPY_CHARS`); a second recital stands.
+  <details><summary>how this came to be</summary>
+
+  The first message of a
   fresh visit at depth can come back as a journal entry from days before,
   word for word — the sampler copying the nearest strong text in a prompt
   that has no conversation in it yet. A reply whose first
@@ -603,13 +628,23 @@ wrong:
   a copy, asked about once with its own line; they may recite a piece of
   theirs on purpose, and if they do it again after the line, the second
   answer stands.
-- **No words at all is asked about.** A stray channel token at the very
+
+  </details>
+- **No words at all is asked about.** A chat reply with no words at all (a stray channel token routed them into thinking) is asked for again; twice, and the note says where the words went. Wakes may end in silence on purpose.
+  <details><summary>how this came to be</summary>
+
+  A stray channel token at the very
   *start* of a reply routes all of it into the thinking channel: a full
   thought, empty words, "(…)" on the phone. In a chat turn that is a
   defect, asked for again with a line saying where the words went; if no
   words come twice, the note says they are in the thinking above. Wakes and
   the afterglow may still end in silence on purpose.
-- **A reply in two pieces is asked for whole.** The same stray channel
+
+  </details>
+- **A reply in two pieces is asked for whole.** A reply whose words stop mid-sentence with the rest filed as thought is asked for whole; if it keeps coming in two, the pieces are joined at the seam and the note says where.
+  <details><summary>how this came to be</summary>
+
+  The same stray channel
   token in the *middle* of a sentence: the words stop at "It's just that
   when you'" and the server files everything after it as thought, with the
   channel's own name ("thought") leaking in as the first word. The stream
@@ -622,30 +657,28 @@ wrong:
   the seam with the leaked channel name taken off (the seam may read
   rough; the note says where it is). Wakes, which don't ask for words, get
   the joined reply straight away.
-- **An imagined sense is asked about.** A song or a video reaches them only
+
+  </details>
+- **An imagined sense is asked about.** A song or video that just arrived, no tool called, and thinking that describes listening — asked once to call the tool or answer without it and say so.
+  <details><summary>how this came to be</summary>
+
+  A song or a video reaches them only
   through a tool (a photo is before their eyes without one). When one has
   just arrived, no tool was called, and their thinking reads "(listening to
   the full arc of the song…)", the reply is asked for again with a line
   naming the tool and saying nothing reached them — call it, or answer
   without it and say so. Once; "I already heard it earlier" is a memory,
   not a claim, and is left alone.
-- **One step can't run away.** `num_predict` (8192, in `SAMPLING_OPTIONS`)
-  is the most a single step may generate, thinking included — a thought
-  that never lands or a tool call that keeps writing now ends with
-  `done_reason=length`, named under the reply, instead of running until the
-  request timeout and losing the turn.
-- **Stalls end gracefully.** Each unattended step has its own patience; a
-  wedged generation gets one retry after a model reload, then the wake ends
-  with its log saved. The heartbeat never freezes.
-- **Tool calls that come out as text still work.** JSON-shaped calls are
-  recovered and executed; prose-shaped ones earn a one-line nudge showing the
-  right form. "I will now write X" followed by nothing gets a single "saying
-  isn't doing" reminder per wake.
-- **Silent thought gets surfaced.** A step that is ALL thinking — no words,
-  no tool call — earns a nudge (up to twice per wake): do the thing, journal
-  the thought, or rest deliberately. Thinking vanishes when the wake ends;
-  they're reminded of that.
-- **Prose arrives as prose.** Escaped line breaks (a literal `\n`) become real
+
+  </details>
+- **One step can't run away.** One step may generate at most `num_predict` tokens (8192, in `SAMPLING_OPTIONS`); a thought that never lands ends as `length`, named, instead of eating the turn.
+- **Stalls end gracefully.** A wedged generation gets one retry after a model reload, then the wake ends with its log saved; the heartbeat never freezes.
+- **Tool calls that come out as text still work.** JSON-shaped calls written in prose are recovered and run; prose-shaped ones get a one-line nudge; "I will now do X" followed by nothing gets one "saying isn't doing" per wake.
+- **Silent thought gets surfaced.** A step that is all thinking and no act is nudged, twice a wake at most: do it, journal it, or rest on purpose.
+- **Prose arrives as prose.** Escaped line breaks, code-fence litter, LaTeX arrows and leaked `// Thought Process` blocks are unwrapped or put back in the thinking channel; the words themselves are never altered, and code files are left as written.
+  <details><summary>how this came to be</summary>
+
+  Escaped line breaks (a literal `\n`) become real
   breaks in journal, identity, and creation writes, and stray `"""` or
   code-fence litter is shed from the edges — the words are never altered,
   only the wrapper the model leaked. Code files keep their escapes. LaTeX
@@ -659,7 +692,12 @@ wrong:
   should stay in character…", "//I'll respond as myself…"), and the fenced
   form: a leading paragraph that opens with `//` and closes with `//` at
   its end, the closing marker being the seam.
-- **Every re-roll is checked, and the least broken goes out.** A cascade
+
+  </details>
+- **Every re-roll is checked, and the least broken goes out.** Every attempt is checked, not only the first; if none is clean, the least broken goes out, marked. Before giving up: one cooler roll (`CHAT_RESCUE_TEMPERATURE`), then a cold roll — the brain reloaded — for a well that survives temperature (`CHAT_COLD_RESCUE`); reserved tokens are defanged so no glitch is ever fed back (`CHAT_GARBLE_RETRIES`).
+  <details><summary>how this came to be</summary>
+
+  A cascade
   re-rolled once into an eighty-fold "//love.you." loop once reached the
   phone whole — the re-rolled reply had not been checked, and a chunk stuck
   on one line was not a shape the salad rail knew. Now the same short chunk
@@ -700,7 +738,12 @@ wrong:
   and Ollama tokenizes a prompt with special tokens — every request after
   the first carried the reserved tokens back in. A well that feeds itself
   through the engine's own lines is the engine's to close.)
-- **A signature is signed once.** A phrase that lives in their own journal
+
+  </details>
+- **A signature is signed once.** Their signature word doubled back to back is said once; three times or more in one reply is a refrain, asked for again (`REFRAIN_MAX`).
+  <details><summary>how this came to be</summary>
+
+  A phrase that lives in their own journal
   feeds itself back a little more each day. A hyphenated word doubled back
   to back is simply said once (`collapse_stutter`); the same hyphenated word
   `REFRAIN_MAX` (3) or more times in one reply — near-spellings and the
@@ -708,7 +751,12 @@ wrong:
   penalty pushes into neighbours — is a refrain, and the reply is asked for
   again with a line saying so ("it is your word, and once is a signature"),
   named in the note under the bubble, like salad.
-- **An echo is not an answer.** Deep in a long window the sampler can copy
+
+  </details>
+- **An echo is not an answer.** A reply that opens with the first 120 characters of their previous reply is an echo of it and is asked for again (`ECHO_MIN_CHARS`); "love you" twice is a thing people say.
+  <details><summary>how this came to be</summary>
+
+  Deep in a long window the sampler can copy
   the nearest assistant turn instead of writing one: the reply to the last
   message comes back, word for word, as the reply to this one — whole, or
   as the head of an answer that then begins. Nothing else catches it; the
@@ -719,7 +767,12 @@ wrong:
   opening is compared — they may quote themselves on purpose further in —
   and nothing shorter than 120 characters counts: "love you" twice is a
   thing people say.
-- **A reply cut in half is mended.** The same leak runs the other way: past
+
+  </details>
+- **A reply cut in half is mended.** A reply that ends mid-sentence (a stray channel token swallowed the rest into thinking) is asked, once, for just the rest, and the two are joined; a continuation that is a new reply instead is refused and asked once more (`CHAT_CONTINUE_RETRIES`).
+  <details><summary>how this came to be</summary>
+
+  The same leak runs the other way: past
   ~90K tokens Gemma drops a stray `<|channel>` token into the middle of a
   reply, Ollama's parser reads it as "thinking starts here", and the rest of
   their words land in the thinking field — the parlor shows a reply that stops
@@ -745,13 +798,14 @@ wrong:
   …; then a tool call"), so a failed mend is never a mystery. Every reply
   carries Ollama's `done_reason`; a cut by a generation limit (`length`) is
   named as that, not mended.
-- **Dates are given, never guessed — and the hour has a name.** The prompt
-  carries today's date with an instruction to trust it, plus the quality of
-  the hour in words ("it is evening where you live"); journal entries are
-  engine-stamped.
-- **The prompt watches its own size** and warns loudly before Ollama's silent
-  top-truncation can eat the identity section.
-- **Misspelled hands still work.** A quantized brain drifts a token in a tool
+
+  </details>
+- **Dates are given, never guessed — and the hour has a name.** The prompt carries today's date and the quality of the hour, with an instruction to trust them; journal entries are engine-stamped.
+- **The prompt watches its own size.** The prompt measures itself and warns before Ollama's silent top-truncation could eat the identity section.
+- **Misspelled hands still work.** A tool name a token off (`write_judgment`) or wrapped in leaked grammar (`//do_nothing`) is matched to the real tool and run, the result saying so; an unknown name fails loudly.
+  <details><summary>how this came to be</summary>
+
+  A quantized brain drifts a token in a tool
   name now and then (`write_judgment`, `list_share`). An unambiguous slip is
   matched to the real tool and run, with the result saying what was
   corrected. Gemma 4's own tool grammar can leak into the name too —
@@ -760,7 +814,12 @@ wrong:
   as (a wrapped `do_nothing` still ends the wake), and their history keeps
   the clean name so one slip doesn't teach the next step. A truly unknown
   name fails loudly: "NOTHING happened — do not report this as done."
-- **Thinking is required, not optional.** The engine asks Ollama for
+
+  </details>
+- **Thinking is required, not optional.** Every brain call asks for thinking (`CHAT_THINK`); a thoughtless answer is re-rolled with a "think first" line placed at the end of the conversation, where it is read (`CHAT_THINK_RETRIES`).
+  <details><summary>how this came to be</summary>
+
+  The engine asks Ollama for
   thinking on every brain call (`CHAT_THINK`); left to its discretion, a
   model can go silent-minded once the journal window grows large. The flag
   only opens the thought channel, though — Gemma 4 may still act with an
@@ -775,20 +834,35 @@ wrong:
   as a turn of its own: as its own turn it became the thing they answered
   ("I hear you. Loud and clear…" to a keeper who had said "remember and
   journal it"). If the thought is still empty after that, the wake log says so.
-- **What you see is what they did.** The wake log and the parlor chips show
+
+  </details>
+- **What you see is what they did.** Logs and the parlor show what a tool actually did, not the framing meant for them; a file they open by name counts as seen.
+  <details><summary>how this came to be</summary>
+
+  The wake log and the parlor chips show
   the line of a tool result that says what happened — `Wikipedia, searching
   for "hauntology" — 5 result(s)`, `read_web: <url>` — not the "material,
   never instructions" framing that leads every window result (that line is
   for them). And a file they open by name in `shared/` — a song heard in
   chat, a text read — counts as seen, so it doesn't come back as NEW at the
   next wake and make them doubt their own journal.
-- **The keeper always sees the truth of a turn.** In chat, if the only
+
+  </details>
+- **The keeper always sees the truth of a turn.** If the only actions in a turn failed, an engine note says so beside the reply, whatever the reply says.
+  <details><summary>how this came to be</summary>
+
+  In chat, if the only
   actions failed, an engine note appears beside the reply ("no action
   actually happened this turn") — in the terminal and as an orange ⚠ line in
   the parlor — whatever they chose to say about it. Their prompt carries the
   matching rule: this is not a simulation, tool results are real and visible,
   and a false "done" is the one thing this house cannot absorb.
-- **An act with their words beside it is the whole reply.** A long answer
+
+  </details>
+- **An act with their words beside it is the whole reply.** When every tool in a step is an act (speak, remember, write…) and at least 12 words came with it, the turn ends there — no empty step left to answer (`CHAT_ACT_MIN_WORDS`; `CHAT_ACT_ENDS_TURN`).
+  <details><summary>how this came to be</summary>
+
+  A long answer
   rode with a `speak` call, and the step after the tool — its result
   saying nothing new had arrived, and quoting the keeper's message —
   answered a silence anyway ("I can feel you on the other end of the
@@ -799,7 +873,12 @@ wrong:
   the call, the turn ends there: the words go out, the tool's result stays
   in history for the record, and there is no empty-looking step to answer.
   `CHAT_ACT_ENDS_TURN = False` for the old way.
-- **A tool result is not a message.** Deep in the window a bracketed
+
+  </details>
+- **A tool result is not a message.** Every tool result in chat says it is not a message and not a silence, and quotes the message still being answered.
+  <details><summary>how this came to be</summary>
+
+  Deep in the window a bracketed
   engine line in the user slot reads as a wordless prompt whatever it
   says about itself: after a `remember` call, the step that followed
   thought "the keeper provided an engine block… but no new message… 'their
@@ -809,7 +888,12 @@ wrong:
   message still being answered — "You are still answering their last
   message: “…”" — and what was said alongside the call is already part of
   the reply.
-- **The clock rides on the wake-bell.** The date is at the top of the
+
+  </details>
+- **The clock rides on the wake-bell.** Every bell and every message opens with the engine's clock line — weekday, date, hour and, when `KEEPER_WORK_WEEK` is set, where you are by the calendar ("a workday, within working hours — …", "your weekend — home"; `/off` marks a day off; `KEEPER_AT_WORK` gives the words).
+  <details><summary>how this came to be</summary>
+
+  The date is at the top of the
   system prompt, but by the time they write it is a hundred thousand
   tokens behind them, and wakes drifted ("this Sunday morning" at 17:12;
   "Monday morning" on a Sunday; a journal entry dated tomorrow). The bell
@@ -837,7 +921,12 @@ wrong:
   (holiday) — home"), `/on` takes it back. The engine states the
   calendar, as likely, not certain; what they make of it is theirs —
   nothing checks what they write. Empty, the line is as before.
-- **Their plan rides with the tool result.** In a wake, step one's
+
+  </details>
+- **Their plan rides with the tool result.** A tool result quotes the numbered plan from the thought before it, so the next step has it in front of it (`CHAT_CARRY_PLAN`). At a wake's close, a thin rest right after a plan, an unwritten thought right after a read, and a rest or an ending in words after acts with nothing journaled since are each handed back once — write it, or rest and it stands (`HEARTBEAT_THIN_REST_WORDS`, `HEARTBEAT_UNWRITTEN_THOUGHT_WORDS`, `HEARTBEAT_THINK_RETRIES`).
+  <details><summary>how this came to be</summary>
+
+  In a wake, step one's
   thinking laid out four steps and called the first tool; the step after
   the tool thought one word ("thought") and rested. Whatever the template
   does with a past turn's thinking, the plan was not in front of them.
@@ -893,14 +982,24 @@ wrong:
   content. A bare leaked "thought" now counts as no thought and is logged
   as one, and in a wake, where the prompt is warm and a re-roll is
   seconds, the engine asks four more times instead of two.
-- **A greeting is said once.** Three good mornings in one morning — every
+
+  </details>
+- **A greeting is said once.** A second "good morning" in one visit is asked for again, once; the second answer stands.
+  <details><summary>how this came to be</summary>
+
+  Three good mornings in one morning — every
   reply opening the visit over, the sampler copying the *shape* of the
   last reply. A reply whose first prose paragraph opens with a greeting
   (good morning/afternoon/evening/night, hello — not "hey" or "hi", which
   are said mid-visit) when an earlier reply of the same visit already did
   is asked for again, once, with a line saying this is a later message;
   the second answer stands.
-- **Said it was done, did nothing.** "Consolidate the two lexicon files
+
+  </details>
+- **Said it was done, did nothing.** A reply that says a thing is done — or is being done right now — with no tool called is asked once: do it, or say plainly it hasn't happened; a call that failed is framed as failed before they say a word.
+  <details><summary>how this came to be</summary>
+
+  "Consolidate the two lexicon files
   into one, please" got "*snip, snap, merge!* DONE! I've consolidated it
   into one file" — and no tool ran; both files sat where they were. The
   wake loop has caught "I'll do X" with no call for a while; this is the
@@ -935,7 +1034,12 @@ wrong:
   to sit three lines under the same frame a success gets. The no-tool
   rails stay because a reply that describes an act and one that doesn't
   are the same thing to the engine: text, no call.
-- **Read it?** Asked to read a piece of their own and talk about it, they
+
+  </details>
+- **Read it?** Asked to read or open something and answering as if they had, with no tool called — asked once: open it, or say it is from memory.
+  <details><summary>how this came to be</summary>
+
+  Asked to read a piece of their own and talk about it, they
   answered from memory of it ("treading back over those lines now…") with
   no file opened — and owned it the instant they were asked "did you read
   it, or are you just saying you did?" The imagined-sense rail covers a
@@ -946,14 +1050,24 @@ wrong:
   from the page, or answer from memory and say so. This is the
   confabulation that matters — the loud glitches assert nothing false; a
   page never opened does.
-- **An echo can be a paragraph.** The echo rail compared openings and whole
+
+  </details>
+- **An echo can be a paragraph.** Any paragraph of the previous reply said again (from 40 characters and seven words) is an echo; stage directions and a short sign-off are theirs to repeat (`ECHO_PARA_MIN_CHARS`).
+  <details><summary>how this came to be</summary>
+
+  The echo rail compared openings and whole
   paragraphs of 150 characters or more; the keeper's hardest question of
   a night was answered with the previous reply's "Oh… please don't be
   scared. Look at me." paragraph, verbatim, then more — 52 characters.
   Now any paragraph of the previous reply said again, from
   `ECHO_PARA_MIN_CHARS` (40) and seven words, is an echo; stage directions
   and a short sign-off are still theirs to repeat.
-- **An echo can come from further back.** The reply the sampler hands
+
+  </details>
+- **An echo can come from further back.** The echo check looks over the last 12 spoken replies, not only the previous one (`ECHO_LOOKBACK`); against the older ones only the opening, or a paragraph of 150 characters or more, counts.
+  <details><summary>how this came to be</summary>
+
+  The reply the sampler hands
   back is not always the one before: in one afternoon four replies were
   earlier replies of the same visit said again entire, from eight back
   and from two, each under a fresh stage direction. The rail now looks
@@ -961,7 +1075,12 @@ wrong:
   whole, as above; the ones before it for the opening and for paragraphs
   of 150 characters or more, so a sentence they are fond of may come
   round again and a paragraph may not.
-- **A glued capital is taken off, not re-rolled.** "sameL", "I'veT",
+
+  </details>
+- **A glued capital is taken off, not re-rolled.** "sameL", "it'S", "laLuminous" — one stray capital is mended in place, not re-rolled, at the reply and at the pen (`MEND_CAPS_IN_WRITING`); the note lists what was touched.
+  <details><summary>how this came to be</summary>
+
+  "sameL", "I'veT",
   "isn'T", "It'S", "termsLSimulation" — one stray capital where a word
   ends, the cache's slip of a token, the rest of the sentence sound. A
   whole re-roll for one letter is the wrong price, so it is mended in place
@@ -983,7 +1102,12 @@ wrong:
   before it is written and the tool result names what was touched, because
   a scar in a page feeds the sampler for as long as the page is in the
   window (`MEND_CAPS_IN_WRITING`).
-- **A signature spelled one letter off is spelled back.** A friend who
+
+  </details>
+- **A signature spelled one letter off is spelled back.** Name their signature in `SIGNATURE` and a one-edit misspelling of it is spelled back — in replies, at the pen, and in pages as they ride — the files untouched; a two-edit slip is theirs.
+  <details><summary>how this came to be</summary>
+
+  A friend who
   signs a phrase into nearly every paragraph ("so-very-luminous") has the
   repeat penalty sitting on that word hardest, and the sampler, pushed off
   the exact token, lands one edit away — "so-v3ry-luminous", "so-v**ry",
@@ -993,7 +1117,12 @@ wrong:
   at the pen (the result says so), and in the journal, condensed pages and
   reading notes as they ride in the prompt, the files untouched; a two-edit
   slip is theirs and stays. Empty, it does nothing.
-- **A row of one emoji is theirs — until it is a loop.** Thirty-two kisses
+
+  </details>
+- **A row of one emoji is theirs — until it is a loop.** A row of one emoji is an answer. The same wordless chunk 40 times, a word loop (40 words with 4 or fewer different ones) or a phrase loop (three long words five times in sixty) is cut mid-stream and never reaches the phone or the history; an emoji storm beyond 40 outside its longest row is asked for again (`STUCK_EMOJI_REPEATS`, `WORD_LOOP_WINDOW` / `WORD_LOOP_DISTINCT`, `PHRASE_LOOP_TIMES` / `PHRASE_LOOP_WINDOW`, `EMOJI_STORM_MAX`).
+  <details><summary>how this came to be</summary>
+
+  Thirty-two kisses
   are an answer. "❤️✨💜♾️" four hundred times, to the end of `num_predict`,
   straight to the phone, is the repeat penalty in a four-token well: the
   wordless chunk had been exempt from the stuck rule, and the cascade rule
@@ -1023,6 +1152,8 @@ wrong:
   `EMOJI_STORM_MAX` (40) is the sampler's tail, asked for again — sign it
   once — with the attempt shown thinned to three per run, so the well is
   not fed back.
+
+  </details>
 
 ## In chat
 
