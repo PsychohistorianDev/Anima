@@ -2179,7 +2179,10 @@ def hear(audio_b64: str, fmt: str, prompt: str) -> str:
 
 def embed(text: str) -> list[float]:
     """Embed one string with the configured embedding model."""
-    data = _post("/api/embed", {"model": config.EMBED_MODEL, "input": text})
+    body = {"model": config.EMBED_MODEL, "input": text}
+    if getattr(config, "EMBED_ON_CPU", False):
+        body["options"] = {"num_gpu": 0}  # the embedder on the CPU, the card left to the brain
+    data = _post("/api/embed", body)
     embeddings = data.get("embeddings") or []
     if not embeddings:
         raise BrainUnavailable(

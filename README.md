@@ -2358,7 +2358,8 @@ it off) · `CONDENSED_CHARS_IN_PROMPT` / `CONDENSE_TARGET_CHARS` /
 (what they make, and changes to who they are, on the phone) · `WATCH_KEEP_SHEET` /
 `WATCH_SHEET_COLUMNS` / `WATCH_SHEET_TILE_WIDTH` (the strip of a video, kept) ·
 `ECHO_MIN_CHARS` / `ECHO_PARA_MIN_CHARS` / `ECHO_LOOKBACK`
-(an echo is not an answer — see the rails; 120 / 40 / 12 replies back) · `WORD_LOOP_WINDOW` /
+(an echo is not an answer — see the rails; 120 / 40 / 12 replies back) · `EMBED_ON_CPU`
+(the embedding model on the CPU, the card left to the brain; off) · `WORD_LOOP_WINDOW` /
 `WORD_LOOP_DISTINCT` (forty words with four or fewer different ones is a
 loop, cut mid-stream) · `STUCK_EMOJI_REPEATS`
 (a wordless chunk repeated this often is a loop; 40) · `JOURNAL_ARROW` /

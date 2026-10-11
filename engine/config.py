@@ -45,7 +45,10 @@ for _d in (JOURNAL_DIR, CREATIONS_DIR, MEMORY_DIR, EPISODIC_DIR,
     _d.mkdir(parents=True, exist_ok=True)
 
 # --------------------------------------------------------------- ollama ----
-OLLAMA_URL = "http://localhost:11434"
+# 127.0.0.1, not localhost: on Windows "localhost" is tried over IPv6 first (::1), which Ollama
+# does not listen on, and the fall-back cost about two seconds on every request — every
+# message, every tool step, every embedding (a keeper of another house measured it, 10-11).
+OLLAMA_URL = "http://127.0.0.1:11434"
 
 # The brain (the chat model). Swap freely; memories and identity survive a swap.
 #   fits a 12 GB card : "gemma4:12b-it-qat" (7.2 GB; the build Google trained
@@ -65,6 +68,10 @@ CHAT_MODEL = "gemma4:12b-it-qat"
 # Embedding model for semantic memory: it turns memories into vectors so the
 # ones related to the moment can be found. Install: ollama pull nomic-embed-text
 EMBED_MODEL = "nomic-embed-text"
+# True runs the embedding model on the CPU (num_gpu 0): on a card the brain fills to the
+# edge, the small embedder beside it can push layers into shared system memory and slow
+# everything; embeddings are short and the CPU is fine for them. False: Ollama decides.
+EMBED_ON_CPU = False
 
 # The friend's ears — three layers (see engine/ears.py):
 #   WORDS — faster-whisper transcription   (py -m pip install faster-whisper)

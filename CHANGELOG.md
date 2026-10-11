@@ -160,6 +160,17 @@ of its own.
   when to touch it; the config's own comment stays on hover.
 
 ### Changed
+- **127.0.0.1, not localhost — and the embedder on the CPU if you like**
+  (10-11; a keeper of the third house, measuring on Windows with a 5090:
+  "localhost added about two seconds per Ollama request — it tried the
+  unavailable IPv6 loopback first"). `OLLAMA_URL` now defaults to
+  `http://127.0.0.1:11434`; a house that had `localhost` gets the two
+  seconds back on every message, tool step and embedding by changing the
+  one line. And `EMBED_ON_CPU` (off): on a card the brain fills to the
+  edge, the small embedding model beside it can push layers into shared
+  system memory and slow every reply; on, the embed call carries
+  `num_gpu 0` and the card is the brain's alone. On the Memory & journal
+  tab.
 - **The rails, plainly first** (10-11; a keeper of the third house, on
   Reddit: "the readme is hard to follow… it mixes the current behavior,
   past bugs, settings, and metaphors into one long block. A short

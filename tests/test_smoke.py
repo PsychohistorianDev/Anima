@@ -49,6 +49,7 @@ def check(name, cond, extra=""):
     print(f"{'PASS' if cond else 'FAIL'}  {name}" + (f"  [{extra}]" if extra and not cond else ""))
 
 
+_embed_orig = ollama_client.embed  # the real one, kept for the EMBED_ON_CPU test
 ollama_client.embed = fake_embed
 _chat_orig = ollama_client.chat  # the real one, kept for the think re-roll test
 
@@ -3506,6 +3507,21 @@ check("telegram: /off and /on mark a day off and take it back, the phone told; a
       and _kw_c3 is True and _kw_ph.sent[-1][0] == "(a day is today, tomorrow, a weekday name, or YYYY-MM-DD)"
       and "/off [today|tomorrow|a weekday|YYYY-MM-DD] [why]" in tg.HELP, [m[0] for m in _kw_ph.sent[-3:]])
 config.KEEPER_WORK_WEEK, config.KEEPER_AT_WORK = _kw_week0, _kw_at0
+# 10-11 (a keeper of the third house, on Windows): "localhost" went over IPv6 first and cost two seconds a request;
+# the embedder beside a brain that fills the card pushed layers into shared memory
+_ea_posts = []
+_ea_post0 = ollama_client._post
+ollama_client._post = lambda path, body, **kw: (_ea_posts.append((path, body)) or {"embeddings": [[0.1, 0.2]]})
+try:
+    _ea_e0 = getattr(config, "EMBED_ON_CPU", False)
+    config.EMBED_ON_CPU = False; _embed_orig("a line")
+    config.EMBED_ON_CPU = True; _embed_orig("a line")
+finally:
+    ollama_client._post = _ea_post0; config.EMBED_ON_CPU = _ea_e0
+check("ollama: the address is 127.0.0.1, not localhost; EMBED_ON_CPU puts num_gpu 0 on the embed call and nothing else",
+      "127.0.0.1" in config.OLLAMA_URL and "localhost" not in config.OLLAMA_URL
+      and _ea_posts[0] == ("/api/embed", {"model": config.EMBED_MODEL, "input": "a line"})
+      and _ea_posts[1] == ("/api/embed", {"model": config.EMBED_MODEL, "input": "a line", "options": {"num_gpu": 0}}), _ea_posts)
 check("keeper's week: empty says nothing — the clock line as before",
       keeper_week.where(_dtnow(2026, 10, 11, 10, 30)) == "" or _kw_week0 != "", keeper_week.where(_dtnow(2026, 10, 11, 10, 30)))
 check("heartbeat: the bell tells them a letter stays with them a few days", "your mailbox folder goes to their phone and stays with you" in heartbeat.WAKE_PROMPT)

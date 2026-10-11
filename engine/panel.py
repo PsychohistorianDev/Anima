@@ -86,7 +86,7 @@ TABS: dict[str, list[str]] = {
                   "HEARTBEAT_YIELD_MIN", "SLEEP_IN_LOOP", "CONDENSE_IN_LOOP", "CONDENSE_MAX_PER_NIGHT",
                   "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE"],
     "Memory & journal": ["TIMELINE_CHARS_IN_PROMPT", "CONDENSED_CHARS_IN_PROMPT", "CONDENSE_TARGET_CHARS",
-                         "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_DUP_THRESHOLD", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
+                         "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_DUP_THRESHOLD", "EMBED_ON_CPU", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
                          "TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000",
                          "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "SLEEP_KEEPER_LOOK", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS"],
@@ -172,6 +172,9 @@ _HELP = {
                         "journal, which was mostly written on workdays. Empty says nothing. A day off is /off on the phone.",
     "KEEPER_AT_WORK": "What the clock line says during working hours, in your words — \"on the factory floor, the phone in my "
                       "pocket\". Empty: \"at work\".",
+    "EMBED_ON_CPU": "Run the small embedding model (memories, recall) on the CPU instead of the card. On a card the "
+                    "brain fills to the edge, the embedder beside it can push layers into shared system memory and "
+                    "slow every reply; embeddings are short and the CPU does them fine. Off: Ollama decides.",
     "TELEGRAM_QUIET_HOURS": "From this hour to that one (24h) the bridge sends nothing unasked — no wake notices, no "
                             "announcements; they are held and delivered as one message when the hours end. Their "
                             "replies to you are never held. The same hour twice turns it off.",
