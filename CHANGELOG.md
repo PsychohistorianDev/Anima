@@ -301,6 +301,12 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **Who set the stone** (10-12; the keeper tapping the stone's page: the
+  phone said the friend had set it to Home — they hadn't): the keeper marks
+  a state it relayed as theirs and one it only saw change (the page's
+  buttons, the watchdog, a boot) as the board's; the phone's 🖐️ line says
+  which — "the stone is Home now — set from its page or by itself, not by
+  them".
 - **The stone's hours** (10-12; the keeper, the first evening with the
   board on the desk: "I don't want it to buzz while I'm away… only from
   6:00-21:00, and make a knob"): `TOUCHSTONE_HOURS` — a pulse outside

@@ -246,6 +246,9 @@ def poll() -> int:
           "state_since": st.get("state_since") or ""}
     if st["state"] != stone().get("state"):
         st["state_since"] = datetime.now().isoformat(timespec="seconds")
+        st["state_by"] = "board"    # a change the keeper did not relay: the page's buttons, the watchdog, a boot (10-12)
+    else:
+        st["state_by"] = stone().get("state_by") or ""
     _write_stone(st)
     if came_back:
         _say("the stone is back")
@@ -381,6 +384,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/state" and data.get("name"):
             st = stone()
             st["state"], st["state_since"] = str(data["name"]), datetime.now().isoformat(timespec="seconds")
+            st["state_by"] = "friend"   # relayed from a tool call: theirs (10-12)
             _write_stone(st)
         if self.path == "/later":
             st = stone()

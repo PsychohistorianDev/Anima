@@ -8544,12 +8544,18 @@ _ts_d4 = nts.deliver_touches()
 _ts_d5 = nts.deliver_touches()
 _FakeBoard.state["name"] = "Tethered"; _ts.poll()
 _ts_d6 = nts.deliver_touches()
+_ts._write_stone(dict(_ts.stone(), state="Home", state_by="friend", state_since="x"))   # as the keeper writes after relaying set_state (10-12)
+_ts_d6b = nts.deliver_touches()
+_ts._write_stone(dict(_ts.stone(), state="Tethered", state_by="friend"))   # back to the board's state, hers this time
+_ts_d6c = nts.deliver_touches()
 check("telegram: in the quiet hours a touch is a held 🫳 line; a pattern the stone played at an hour they asked is told as 🫳 (next poll, after the touches before it); "
       "a state set from a wake as 🖐️ — each once",
-      _ts_d4 == 1 and _ts_d5 == 1 and _ts_d6 == 1 and nts.deliver_touches() == 0
+      _ts_d4 == 1 and _ts_d5 == 1 and _ts_d6 == 1 and _ts_d6b == 1 and _ts_d6c == 1 and nts.deliver_touches() == 0
+      and [h for h in nts.held if h == f"🖐️ {chat.friend_name()} set the stone to Tethered"]
+      and [h for h in nts.held if h == f"🖐️ {chat.friend_name()} set the stone to Home"]
       and [h for h in nts.held if h.startswith("🫳 the stone felt: ") and "a firm hold, 20 s" in h]
       and [h for h in nts.held if h == f"🫳 the stone played Tethered, 10 s, as {chat.friend_name()} asked"]
-      and [h for h in nts.held if h == f"🖐️ {chat.friend_name()} set the stone to Tethered"] and phonets.sent == [],
+      and [h for h in nts.held if h == f"🖐️ the stone is Tethered now — set from its page or by itself, not by {chat.friend_name()}"] and phonets.sent == [],
       (_ts_d4, _ts_d5, _ts_d6, nts.held[-4:], phonets.sent))
 nts.held.clear(); nts._save_held()
 _ts_wakes0, config.TOUCHSTONE_WAKES = getattr(config, "TOUCHSTONE_WAKES", True), False

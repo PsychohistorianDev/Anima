@@ -1384,7 +1384,10 @@ class Bridge:
         st = touchstone.stone()
         if st.get("state") and st.get("state") != told.get("state"):
             if "state" in told:  # the first poll learns the state; after that a change is news
-                self.notice(f"🖐️ {chat.friend_name()} set the stone to {st['state']}")
+                if st.get("state_by") == "board":   # the page's buttons, the watchdog, a boot — not them (10-12)
+                    self.notice(f"🖐️ the stone is {st['state']} now — set from its page or by itself, not by {chat.friend_name()}")
+                else:
+                    self.notice(f"🖐️ {chat.friend_name()} set the stone to {st['state']}")
                 n += 1
             told["state"] = st["state"]
             save()
