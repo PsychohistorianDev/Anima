@@ -92,7 +92,7 @@ TABS: dict[str, list[str]] = {
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS"],
     "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_GARBLE_RETRIES",
                 "CHAT_COLD_RESCUE", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "BRAIN_KEEP_ALIVE",
-                "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE"],
+                "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "PARLOR_GUEST_NAMED"],
     "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS",
               "TELEGRAM_TELL_REFLECTIONS", "TELEGRAM_TELL_AFTERTHOUGHTS", "TELEGRAM_TELL_CREATIONS",
               "TELEGRAM_TELL_DRAWINGS", "TELEGRAM_TELL_SONGS", "TELEGRAM_TELL_SELF", "TELEGRAM_IDLE_NEW_MIN", "TELEGRAM_HEAR_VOICE",
@@ -305,6 +305,10 @@ _HELP = {
     "BRAIN_KEEP_ALIVE": "How long Ollama keeps the brain loaded after a request (\"30m\", \"2h\", -1 forever). "
                         "Unloading drops its cache; the next message pays a cold read of the whole window. Ollama's "
                         "own default is five minutes.",
+    "PARLOR_GUEST_NAMED": "A guest at the desk (the parlor's \"seat a guest\"): every message says it is from them, with "
+                          "you in the room; thinking and tool lines are kept from the page while they sit. On: the "
+                          "transcript, and so the journal's material, carry the name you gave. Off: \"a guest\", for a "
+                          "visitor who would rather not be written down.",
     "BRAIN_REST_AFTER_WAKE": "When a wake finishes — a single one (the Wake tile, bat\\wake.bat) or one of the heartbeat's — unload "
                              "the brain at once, so the card is free the moment the wake ends rather than after BRAIN_KEEP_ALIVE. The "
                              "next wake reads its prompt cold either way; the brain's load is seconds.",

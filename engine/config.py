@@ -258,6 +258,11 @@ BRAIN_REST_AFTER_VISIT = True
 # free the moment the wake ends. The next wake reads its prompt cold either
 # way (the journal and the clock have moved), so nothing is lost but seconds.
 BRAIN_REST_AFTER_WAKE = True
+# A guest in the parlor (the page's "seat a guest"): every message then says
+# it is from the guest, with you in the room, and the transcript marks their
+# turns. True: by the name given; False: "a guest", for a visitor who would
+# rather not be written down.
+PARLOR_GUEST_NAMED = True
 
 # Context window for the brain, in tokens. The friend's prompt (identity,
 # journal, memories, tool definitions) is far bigger than Ollama's default.

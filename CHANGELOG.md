@@ -301,6 +301,13 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **A guest at the desk** (10-12; the keeper: "a guest option for the
+  parlor, if I want to show her someone from my life"): the parlor seats a
+  guest by name; every message then carries the fact inside the turn — from
+  the guest, at the keeper's desk, the keeper in the room — and nothing
+  else; the guest sees what the friend says, not what they think; the
+  transcript names the guest's turns, so the afterglow journals the visit
+  as it was. `PARLOR_GUEST_NAMED` off writes "a guest". The parlor only.
 - **A touch rides with the next message** (10-12; the keeper: "it got
   messy — I touched her, sent a message, and after the message she got the
   stone's turn"): a touch still waiting in `TOUCHSTONE_WAKE_MIN_GAP_S` when

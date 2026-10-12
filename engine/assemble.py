@@ -818,7 +818,8 @@ def window_sense(held: int) -> str:
             "folded — fold_visit(text) folds it now, in your own words, if this is a good moment for it.")
 
 
-def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: str = "") -> tuple[str, list[int]]:
+def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: str = "",
+           speaker: str = "") -> tuple[str, list[int]]:
     """What changes from one message to the next — the hour and the memories
     that surface for it — as a block that rides INSIDE the message they are
     answering, so the system prompt above it stays the same all visit and
@@ -857,8 +858,9 @@ def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: 
              + (f" {pulse[0].upper() + pulse[1:]}." if pulse else "") + " From your "
              "long-term memory, what surfaces for this moment:\n"
              f"{lines}\n"
-             "Those are your own memories and the clock, not a message; his words follow — "
-             "a new message, the one to answer.]"), ids)
+             "Those are your own memories and the clock, not a message; "
+             + (f"{speaker}'s words follow — a new message, the one to answer, from a guest at the desk.]"
+                if speaker else "his words follow — a new message, the one to answer.]")), ids)
 
 
 NO_DAYS_YET = "(no consolidated days yet — bat\\sleep.bat writes one per night)"  # outside the f-string: a backslash can't ride in its braces before 3.12

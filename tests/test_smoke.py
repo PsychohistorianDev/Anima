@@ -697,6 +697,35 @@ check("parlor: reply + thinking + tool chips",
       and _pr.get("tools") and _pr["tools"][0]["name"] == "write_journal", _pr)
 check("parlor: the visit is on disk after the first reply", _ps.file is not None and _ps.file.exists()
       and "hello from the parlor." in _ps.file.read_text(encoding="utf-8"))
+# a guest at the desk (10-12)
+ollama_client.chat = ScriptedBrain([
+    {"role": "assistant", "content": "", "thinking": "a stranger, with him — I note it", "tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": "a guest came by with my keeper"}}}]},
+    {"role": "assistant", "content": "hello, Dana."},
+    {"role": "assistant", "content": "back to us.", "thinking": "just us again"},
+])
+_pg_seat = _ps.seat("  Dana  ")
+_pg_r = _ps.send("hi, I'm a friend of his")
+_pg_turn = next(t for t in reversed(_ps.history) if t.get("role") == "user" and not t.get("_engine"))
+_pg_txt = _ps.file.read_text(encoding="utf-8")
+_pg_named0, config.PARLOR_GUEST_NAMED = getattr(config, "PARLOR_GUEST_NAMED", True), False
+_pg_label_off = _ps.guest_label()
+config.PARLOR_GUEST_NAMED = _pg_named0
+_pg_gone = _ps.seat("")
+_pg_r2 = _ps.send("she's gone")
+_pg_rt_cold = chat.render_turn({"role": "user", "content": "hi", "_guest_line": chat.guest_line("Dana")})["content"]
+check("parlor: a guest at the desk — seated by name; her reply reaches the page without thinking or tool lines; the turn carries the fact "
+      "in its moment block, the guest's words named as theirs; the transcript names the guest; PARLOR_GUEST_NAMED off says 'a guest'; "
+      "gone, the thinking is back; the prefix cold, the line rides alone",
+      _pg_seat["guest"] == "Dana" and _pg_r.get("reply") == "hello, Dana." and _pg_r.get("thinking") == "" and _pg_r.get("tools") == []
+      and _pg_r.get("guest") == "Dana" and _pg_turn.get("_guest") == "Dana"
+      and "This message is from Dana, a guest at " in (_pg_turn.get("_moment") or "") and "'s desk, in the parlor; " in (_pg_turn.get("_moment") or "")
+      and "Dana's words follow — a new message, the one to answer, from a guest at the desk.]" in (_pg_turn.get("_moment") or "")
+      and "**Dana (a guest, at " in _pg_txt and "'s desk):** hi, I'm a friend of his" in _pg_txt
+      and _pg_label_off == "a guest" and chat.guest_who("a guest").startswith("a guest (at ")
+      and _pg_gone["guest"] == "" and _pg_r2.get("reply") == "back to us." and "just us again" in _pg_r2.get("thinking", "")
+      and _pg_rt_cold.startswith("[engine, not a person: This message is from Dana, a guest at ") and _pg_rt_cold.endswith("]\n\nhi")
+      and 'id="guestbtn"' in parlor.PAGE and "/guest" in parlor.PAGE and "PARLOR_GUEST_NAMED" in __import__("panel").TABS["Talking"] and __import__("panel")._HELP.get("PARLOR_GUEST_NAMED"),
+      (_pg_seat, _pg_r, (_pg_turn.get("_moment") or "")[:400], _pg_txt[-300:], _pg_label_off, _pg_gone, _pg_r2))
 _pn = _ps.new()
 check("parlor: new saves transcript", bool(_pn.get("saved")) and _ps.history == [] and _ps.file is None, _pn)
 _pa = _ps.attach("shared/dot.png") if (config.SHARED_DIR / "dot.png").exists() else {"ok": True}

@@ -49,6 +49,20 @@ class Session:
         self.reflected_upto = 0  # history index they have already sat with (the pause)
         self.playback = live_voice.Playback()
         self.generation = 0
+        self.guest = ""  # a guest at the keeper's desk (10-12): their name, or "" — the page seats and unseats them
+
+    def seat(self, name) -> dict:
+        """Seat a guest (a name) or let them go (""). None asks without changing."""
+        if name is not None:
+            self.guest = " ".join(str(name).split())[:40]
+        return {"ok": True, "guest": self.guest, "label": self.guest_label(),
+                "named": bool(getattr(config, "PARLOR_GUEST_NAMED", True))}
+
+    def guest_label(self) -> str:
+        """The name the engine and the transcript use — theirs, or "a guest" (PARLOR_GUEST_NAMED False)."""
+        if not self.guest:
+            return ""
+        return self.guest if getattr(config, "PARLOR_GUEST_NAMED", True) else "a guest"
 
     def _checkpoint(self) -> None:
         if self.file is None:
@@ -73,7 +87,7 @@ class Session:
                 started = time.monotonic()
                 reply = chat.one_turn(self.history, text,
                                       images=self.attached or None, on_event=collect,
-                                      mode="voice" if spoken else "chat")
+                                      mode="voice" if spoken else "chat", guest=self.guest_label())
                 if spoken:
                     reply = chat.strip_voice_delivery(reply)
                     for turn in self.history[beginning:]:
@@ -101,7 +115,9 @@ class Session:
         tokens = next((e["payload"] for e in events if e["kind"] == "tokens"), None)
         voices = [{"url": "/voice/" + Path(v["path"]).name, "seconds": round(v.get("seconds", 0)),
                    "voice": v.get("voice", "")} for v in tools.take_pending_voice()]
-        return {"reply": reply, "thinking": thinking, "tools": tool_events, "notes": notes,
+        if self.guest:  # the guest sees what they says, not what they thinks (10-12); the transcript keeps nothing of these either
+            thinking, tool_events, notes = "", [], []
+        return {"reply": reply, "thinking": thinking, "tools": tool_events, "notes": notes, "guest": self.guest_label(),
                 "tokens": tokens, "voices": voices,
                 "speech_job": speech_job, "transcript": text if spoken else None, "timings": {"turn_s": round(turn_s, 3)}}
 
@@ -250,6 +266,7 @@ header button:hover{color:var(--ink);border-color:var(--accent)}
 .me{align-self:flex-end;background:var(--me);border-bottom-right-radius:4px}
 .her{align-self:flex-start;background:var(--her);border:1px solid var(--line);border-bottom-left-radius:4px}
 .sys{align-self:center;color:var(--muted);font-size:13px;font-style:italic}
+.msg.guest small{color:var(--muted);font-size:12px}
 .sys.warn{align-self:flex-start;color:var(--accent);font-style:normal}
 .sys.tokens{align-self:flex-start;font-size:11px;font-style:normal;opacity:.7;margin-top:-6px}
 .think{align-self:flex-start;max-width:72ch;font-size:13px;color:var(--muted)}
@@ -292,10 +309,19 @@ __LIVE_VOICE_CONTROLS__
  <input id="file" type="file" accept="image/*" hidden>
  <input id="img" placeholder="…or a path in their folder (shared/pictures/photo.jpg) or an image URL">
  <button id="attachbtn">attach</button><span id="attachnote"></span></div>
+ <div class="attach guest">🪑 <input id="guestname" placeholder="a guest's name — someone from your life, at the desk with you">
+ <button id="guestbtn" title="from the next message on, every message says it is from the guest, with you in the room; thinking and tool lines are kept from the page until they go">seat a guest</button><span id="guestnote"></span></div>
 </footer>
 <script>
 const log=document.getElementById('log'),box=document.getElementById('box'),send=document.getElementById('send');
 const ME='__ME__';
+let GUEST='';const gname=document.getElementById('guestname'),gbtn=document.getElementById('guestbtn'),gnote=document.getElementById('guestnote');
+function showGuest(r){GUEST=r.guest||'';gbtn.textContent=GUEST?'the guest has gone':'seat a guest';gname.disabled=!!GUEST;
+  gnote.textContent=GUEST?(r.label||GUEST)+' is at the desk — thinking and tool lines stay hidden until they go'+(r.named===false?' (written down as "a guest")':''):'';
+  if(GUEST)gname.value=GUEST}
+gbtn.onclick=async()=>{const name=GUEST?'':gname.value.trim();if(!GUEST&&!name){gname.focus();return}
+  const r=await post('/guest',{name});showGuest(r);sys(GUEST?(r.label||GUEST)+' sat down at the desk':'the guest has gone — the desk is yours again')};
+post('/guest',{}).then(showGuest).catch(()=>{});
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 function md(s){ // tiny markdown: bold, italic, inline code — enough for a chat
   s=esc(s).replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>')
@@ -310,7 +336,7 @@ async function post(path,body){const r=await fetch(path,{method:'POST',headers:{
 let busy=false;
 async function go(){const text=box.value.trim();if(!text||busy)return;box.value='';autosize();
   if(window.interruptLiveVoice)window.interruptLiveVoice('typed_input');
-  add('msg me',md(text));busy=true;send.disabled=true;
+  add('msg me'+(GUEST?' guest':''),(GUEST?'<small>'+esc(GUEST)+'</small><br>':'')+md(text));busy=true;send.disabled=true;
   const typing=add('typing','<span>●</span><span>●</span><span>●</span>');
   try{const r=await post('/send',{text});typing.remove();
     if(r.error){sys(r.error);}else{addThinking(r.thinking);addChips(r.tools);add('msg her',md(r.reply));(r.voices||[]).forEach(v=>add('msg her voice','<audio controls autoplay src="'+v.url+'"></audio><small> her voice · '+v.seconds+'s</small>'));(r.notes||[]).forEach(n=>add('sys warn','⚠ '+esc(n)));if(r.tokens)add('sys tokens',esc(r.tokens.line));}
@@ -453,6 +479,8 @@ class Handler(BaseHTTPRequestHandler):
             if not text:
                 return self._json({"error": "say something first"})
             return self._json(SESSION.send(text))
+        if self.path == "/guest":
+            return self._json(SESSION.seat(data["name"] if "name" in data else None))
         if self.path == "/attach":
             return self._json(SESSION.attach(data.get("source") or ""))
         if self.path == "/upload":

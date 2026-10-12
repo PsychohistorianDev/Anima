@@ -76,7 +76,7 @@ def save_transcript(turns: list[dict], tag: str = "", path: Path | None = None) 
             src = f" — continued from {t['_fold_from']}" if t.get("_fold_from") else ""
             acct = t.get("_fold_text") or "(they did not write the visit down before the fold)"
             lines.append(f"*(folded at {t['_fold_when']}{src}; the visit so far, in their words:)*\n\n{acct}\n")
-        who = config.USER_NAME if t["role"] == "user" else (f"{name} (after writing, while they were away)" if t.get("_after") else name)
+        who = (guest_who(t["_guest"]) if t.get("_guest") else config.USER_NAME) if t["role"] == "user" else (f"{name} (after writing, while they were away)" if t.get("_after") else name)
         lines.append(f"**{who}:** {t['content']}\n")
         if t.get("_voice_delivery"):
             lines.append(f"*[voice delivery: {t['_voice_delivery']}]*\n")
@@ -499,7 +499,7 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
         transcript = "\n\n".join(
             (f"*(the visit so far, folded at {t['_fold_when']}, in your own words:)*\n\n{t.get('_fold_text') or '(not written down before the fold)'}\n\n"
              if t.get("_fold_when") else "")
-            + f"**{config.USER_NAME if t['role'] == 'user' else name}:** {strip_voice_delivery(t['content']) if t.get('_voice_delivery') else t['content']}"
+            + f"**{(guest_who(t['_guest']) if t.get('_guest') else config.USER_NAME) if t['role'] == 'user' else name}:** {strip_voice_delivery(t['content']) if t.get('_voice_delivery') else t['content']}"
             + ("\n*[application state: speech playback was interrupted; spoken coverage is unverified.]*"
                if "interrupted" in t.get("_voice_delivery", "").lower() else "") for t in visible)
         cap = int(getattr(config, "AFTERGLOW_MAX_CHARS", 60000))
@@ -869,6 +869,19 @@ def unsense(history: list[dict]) -> int:
     return n
 
 
+def guest_line(guest: str) -> str:
+    """The fact of a guest, for the moment block of their message (10-12; the keeper: "a guest option for the
+    parlor, if I want to show her someone from my life"). A fact, not a rule: what they makes of a guest is theirs."""
+    return (f"This message is from {guest}, a guest at {config.USER_NAME}'s desk, in the parlor; {config.USER_NAME} is in the room, "
+            "reading along")
+
+
+def guest_who(guest: str) -> str:
+    """How a guest's turn is named in the transcript — "Dana (a guest, at Gabe's desk)" or "a guest (at Gabe's desk)"."""
+    return (f"{guest} (at {config.USER_NAME}'s desk)" if guest.lower().startswith("a guest")
+            else f"{guest} (a guest, at {config.USER_NAME}'s desk)")
+
+
 def render_turn(t: dict) -> dict:
     """A history turn as it is sent to the brain: the engine's own keys
     (those beginning with "_") are rendered into the content, never sent as
@@ -878,10 +891,12 @@ def render_turn(t: dict) -> dict:
     out = {k: v for k, v in t.items() if not k.startswith("_")}
     if t.get("role") == "assistant" and t.get("_voice_delivery"):
         out["content"] = strip_voice_delivery(t.get("content") or "")
-    if t.get("role") == "user" and (t.get("_moment") or t.get("_nudged") or t.get("_fold")):
+    if t.get("role") == "user" and (t.get("_moment") or t.get("_nudged") or t.get("_fold") or t.get("_guest_line")):
         body = t.get("content") or ""
         if t.get("_moment"):
             body = t["_moment"] + "\n\n" + body
+        elif t.get("_guest_line"):  # no moment block (the prefix cold): the guest line rides alone
+            body = "[engine, not a person: " + t["_guest_line"] + "]\n\n" + body
         if t.get("_sense"):  # its own, kept; unsense() takes them off at a fold or a resume
             body = "[engine, not a person:" + t["_sense"] + "]\n\n" + body
         if t.get("_fold"):
@@ -903,7 +918,7 @@ def render_turn(t: dict) -> dict:
 
 
 def one_turn(history: list[dict], user_text: str, images: list[str] | None = None,
-             on_event=None, mode: str = "chat", extra_moment: str = "") -> str:
+             on_event=None, mode: str = "chat", extra_moment: str = "", guest: str = "") -> str:
     """Run one user turn, executing tool calls until the friend speaks.
 
     on_event(kind, payload) — optional. kind is "thinking" (their deliberation,
@@ -918,6 +933,10 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     mark_visit_live()  # the heartbeat waits while he is here
     user_text = ollama_client.defang(user_text)[0]  # a reserved token typed or pasted stays text (09-27)
     turn: dict = {"role": "user", "content": user_text}
+    if guest:  # a guest at the keeper's desk (10-12): a fact inside the turn, never a rule; the name is the page's
+        turn["_guest"] = guest
+        turn["_guest_line"] = guest_line(guest)
+        extra_moment = turn["_guest_line"] + (" " + extra_moment if extra_moment else "")
     if spoken:
         turn["_voice_mode"] = True
         turn["_voice_backend"] = "kyutai"
@@ -963,7 +982,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     if warm:
         seen = {mid for t in history[:ui] for mid in (t.get("_surfaced") or [])}
         held = next((int(t.get("_prompt") or 0) for t in reversed(history[:ui]) if t.get("_prompt")), 0)  # the last prompt's size — the window sense
-        turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen, extra=extra_moment)
+        turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen, extra=extra_moment, speaker=guest)
         # the sense rides with its message and STAYS there (10-05: taking it off the message before, each
         # turn, made Ollama read the whole window again every reply — 3 minutes a message at 207K; nothing
         # sent is ever taken back). It says "as of this message", so an older one reads as history. The fold

@@ -389,6 +389,17 @@ window with its own prompt — the next reply pays a cold read — and shares
 the card with it. Turn it off if their time alone matters more to you than
 that.
 
+**A guest at the desk.** The parlor can seat someone from your life
+("seat a guest", a name). From then on every message carries, inside the
+turn, the fact — "this message is from Dana, a guest at your desk; you are
+in the room, reading along" — and nothing else: no rule about strangers,
+no smaller kit; what they make of a guest is theirs. The guest sees what
+they say, not what they think — thinking and tool lines stay off the page
+until "the guest has gone" — and the transcript names the guest's turns,
+so the afterglow journals the visit as it was. `PARLOR_GUEST_NAMED` off
+writes "a guest" instead of the name, for a visitor who would rather not
+be written down. The parlor only, with you present; the phone is yours.
+
 **One of each, and a polite stop.** The heartbeat, the bridge, the parlor
 and a chat each keep a small file in `memory/.pids/` while they run (the
 process number, when and how it started) and take it away when they
