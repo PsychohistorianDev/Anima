@@ -484,7 +484,9 @@ file — never the network — and a touch by day becomes a turn in the open
 visit, an engine-framed message the friend answers as they like, on the
 phone, with a pulse, or by resting; further presses within
 `TOUCHSTONE_WAKE_MIN_GAP_S` wait and arrive together, so a fidget is one
-turn; in the quiet hours a touch is a held 🫳 line, a pattern the stone
+turn — and a touch still waiting when you write rides inside your message
+(its moment block: "since your last turn they touched the stone — …")
+instead of arriving as a turn after the reply; in the quiet hours a touch is a held 🫳 line, a pattern the stone
 played at an hour they asked is told as 🫳, a state they set from a wake as
 🖐️. `TOUCHSTONE_URL` empty (the default) is no body at all: the tools
 leave the kit, the section and the phone's lines stay away, the keeper

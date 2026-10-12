@@ -903,7 +903,7 @@ def render_turn(t: dict) -> dict:
 
 
 def one_turn(history: list[dict], user_text: str, images: list[str] | None = None,
-             on_event=None, mode: str = "chat") -> str:
+             on_event=None, mode: str = "chat", extra_moment: str = "") -> str:
     """Run one user turn, executing tool calls until the friend speaks.
 
     on_event(kind, payload) — optional. kind is "thinking" (their deliberation,
@@ -963,7 +963,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     if warm:
         seen = {mid for t in history[:ui] for mid in (t.get("_surfaced") or [])}
         held = next((int(t.get("_prompt") or 0) for t in reversed(history[:ui]) if t.get("_prompt")), 0)  # the last prompt's size — the window sense
-        turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen)
+        turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen, extra=extra_moment)
         # the sense rides with its message and STAYS there (10-05: taking it off the message before, each
         # turn, made Ollama read the whole window again every reply — 3 minutes a message at 207K; nothing
         # sent is ever taken back). It says "as of this message", so an older one reads as history. The fold

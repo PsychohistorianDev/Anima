@@ -8557,6 +8557,18 @@ check("telegram: in the quiet hours a touch is a held 🫳 line; a pattern the s
       and [h for h in nts.held if h == f"🫳 the stone played Tethered, 10 s, as {chat.friend_name()} asked"]
       and [h for h in nts.held if h == f"🖐️ the stone is Tethered now — set from its page or by itself, not by {chat.friend_name()}"] and phonets.sent == [],
       (_ts_d4, _ts_d5, _ts_d6, nts.held[-4:], phonets.sent))
+_FakeBoard.events = [{"t": _ts_tick(), "kind": "press", "force": 55, "seconds": 2.5, "reply": "warm"}]
+_ts.poll()
+_ts_fold = nts.fold_touches()
+_ts_fold_again = nts.fold_touches()
+_ts_fold_told = nts.deliver_touches()
+_ts_mom = assemble.moment("x", extra="Since your last turn the stone felt a press")[0]
+check("telegram: a touch not yet told rides with his next message — fold_touches gives the sentence once and marks it told, "
+      "so no press-turn follows the reply; the moment block carries it after the pulse (10-12)",
+      _ts_fold.startswith("Since your last turn ") and "touched the stone — " in _ts_fold and "a soft press, 2.5 s" in _ts_fold
+      and _ts_fold.endswith(" words") and _ts_fold_again == "" and _ts_fold_told == 0
+      and "Since your last turn the stone felt a press." in _ts_mom and _ts_mom.index("Since your last turn") < _ts_mom.index("From your"),
+      (_ts_fold, _ts_fold_again, _ts_fold_told, _ts_mom[:300]))
 nts.held.clear(); nts._save_held()
 _ts_wakes0, config.TOUCHSTONE_WAKES = getattr(config, "TOUCHSTONE_WAKES", True), False
 nts.quiet_now = lambda: False

@@ -432,7 +432,38 @@ class Bridge:
         return f"not paired yet — from your phone, send the bot:   /pair {self.pair_code}"
 
     # ---- the visit --------------------------------------------------------
-    def turn(self, text: str) -> None:
+    def fold_touches(self) -> str:
+        """Touches the stone felt that she has not been told of yet — as one sentence for the moment block of
+        the message about to go, and told (10-12; the keeper: "it got messy, I touched her, sent a message, and
+        after the message she got the stone's turn"). A touch waiting in the gap rides with his words instead of
+        arriving as a turn of its own after the reply. "" when there is nothing, or nothing learned yet; a
+        pattern the stone played stays a notice."""
+        if not (getattr(config, "TOUCHSTONE_URL", "") or "") or not self.chat_id:
+            return ""
+        try:
+            import touchstone
+            told = json.loads(TOUCH_TOLD_FILE.read_text(encoding="utf-8")) if TOUCH_TOLD_FILE.exists() else {}
+            if not isinstance(told, dict) or "at" not in told:
+                return ""
+            evs = touchstone.read_archive(told.get("at") or "", days=2)
+            touches = []
+            for e in evs:
+                if e.get("kind") == "played":
+                    break
+                touches.append(e)
+            if not touches:
+                return ""
+            words = "; ".join(touchstone.touch_words(e) for e in touches[-12:])
+            told["at"], told["last_turn"] = touches[-1]["t"], time.time()
+            TOUCH_TOLD_FILE.parent.mkdir(parents=True, exist_ok=True)
+            TOUCH_TOLD_FILE.write_text(json.dumps(told), encoding="utf-8")
+        except Exception:  # noqa: BLE001 — never his message down
+            return ""
+        _say(f"a touch rides with the message: {words[:100]}")
+        return (f"Since your last turn {config.USER_NAME} touched the stone — {words} — the stone answered by itself with "
+                "your reply; the log, beside " + 'their' + " words")
+
+    def turn(self, text: str, extra_moment: str = "") -> None:
         """Run one turn and send back whatever the parlor would have shown."""
         events: list[tuple[str, object]] = []
         stop = threading.Event()
@@ -442,7 +473,7 @@ class Bridge:
                 try:
                     reply = chat.one_turn(self.history, text, images=self.attached or None,
                                           on_event=lambda k, p: events.append((k, p)),
-                                          mode=self.TAG)
+                                          mode=self.TAG, extra_moment=extra_moment)
                     self.attached = []
                     self._checkpoint()
                 except ollama_client.BrainUnavailable as e:
@@ -989,7 +1020,7 @@ class Bridge:
         if not text:
             return
         _say(f"{config.USER_NAME} > {text[:120]}{'…' if len(text) > 120 else ''}")
-        self.turn(text)
+        self.turn(text, extra_moment=self.fold_touches())
         self.fold_if_due()
 
     def _fold_afterglow(self, gone: list[dict], old_file) -> str:

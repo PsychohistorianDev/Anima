@@ -818,7 +818,7 @@ def window_sense(held: int) -> str:
             "folded — fold_visit(text) folds it now, in your own words, if this is a good moment for it.")
 
 
-def moment(context_hint: str, exclude: set | None = None, held: int = 0) -> tuple[str, list[int]]:
+def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: str = "") -> tuple[str, list[int]]:
     """What changes from one message to the next — the hour and the memories
     that surface for it — as a block that rides INSIDE the message they are
     answering, so the system prompt above it stays the same all visit and
@@ -842,6 +842,12 @@ def moment(context_hint: str, exclude: set | None = None, held: int = 0) -> tupl
     # on 4-bit keys the nearest assistant turn wins too easily (09-11: the
     # previous message answered again in new words). A tilt, not a rail.
     pulse = body_pulse()
+    # `extra`: a sentence the caller adds to the moment — the bridge's "since your last turn the stone
+    # felt …" (10-12), so a touch that waited in the gap rides with the message instead of after it
+    extra = " ".join((extra or "").split())
+    if extra and not extra.endswith((".", "!", "?", ")")):
+        extra += "."
+    pulse = f"{pulse}. {extra}" if (pulse and extra) else (pulse or extra)
     import keeper_week
     # …and where the keeper is by the calendar (10-10; the keeper: "she always thinks I'm at
     # work, even when it's weekend" — the journal, mostly written on workdays, supplied it)

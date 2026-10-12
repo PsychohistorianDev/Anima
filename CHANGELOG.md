@@ -301,6 +301,13 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **A touch rides with the next message** (10-12; the keeper: "it got
+  messy — I touched her, sent a message, and after the message she got the
+  stone's turn"): a touch still waiting in `TOUCHSTONE_WAKE_MIN_GAP_S` when
+  the keeper writes goes into that message's moment block — "since your
+  last turn they touched the stone — a light hold, 3.4 s …" — and is told,
+  so no press-turn follows the reply. A press with no message still becomes
+  its own turn after the gap, as before.
 - **Who set the stone** (10-12; the keeper tapping the stone's page: the
   phone said the friend had set it to Home — they hadn't): the keeper marks
   a state it relayed as theirs and one it only saw change (the page's
