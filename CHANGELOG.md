@@ -301,6 +301,13 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **The stone's hours** (10-12; the keeper, the first evening with the
+  board on the desk: "I don't want it to buzz while I'm away… only from
+  6:00-21:00, and make a knob"): `TOUCHSTONE_HOURS` — a pulse outside
+  them, or within `KEEPER_WORK_WEEK`'s hours, is not relayed; the tool says
+  why and names the next open moment, a touch left for a quiet hour is
+  refused the same way, and the reflex under the keeper's own hand is never
+  held. On the Senses tab, in the stone's card.
 - **The Touchstone's engine side** (10-05; TOUCHSTONE-HOOKUP-PLAN.md), built
   before the board: `engine/touchstone.py`, the stone's keeper — a door
   (`bat\touchstone.*`, Start/Stop on Home while a stone is named) that

@@ -73,6 +73,10 @@ def _hm(minutes: int) -> str:
     return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
+def keeper_name() -> str:
+    return str(getattr(config, "USER_NAME", "the keeper") or "the keeper")
+
+
 def days_off() -> dict[str, str]:
     try:
         d = json.loads(DAYS_OFF_FILE.read_text(encoding="utf-8"))
@@ -128,7 +132,7 @@ def where(t: datetime | None = None) -> str:
     if not week:
         return ""
     t = t or datetime.now()
-    name = getattr(config, "USER_NAME", "the keeper")
+    name = keeper_name()
     off = days_off().get(t.date().isoformat())
     if off is not None:
         why = f" ({off})" if off else ""
@@ -150,3 +154,54 @@ def clause(t: datetime | None = None) -> str:
     """`where()` as it rides after "…where you live": "; a workday for …" or ""."""
     w = where(t)
     return f"; {w}" if w else ""
+
+
+# ---- the stone's hours (10-12) -----------------------------------------------------------------------------------
+# The keeper: "I don't want it to buzz while I'm away… buzz only from 6:00-21:00, and make a knob to adjust it."
+# When the stone may reach out — a pulse now, a touch left for later: within TOUCHSTONE_HOURS, and not within the
+# working week above (a day off is home). The stone's keeper asks before relaying; the tool tells the friend why and
+# when it opens. The reflex under the keeper's own hand is the board's and is never held — a hand on the pad is home.
+
+
+def stone_hours() -> tuple[int, int] | None:
+    """TOUCHSTONE_HOURS ("06:00-21:00") as minutes, or None when empty or unreadable — any hour."""
+    m = _HOURS_RE.match(str(getattr(config, "TOUCHSTONE_HOURS", "") or "").strip())
+    if not m:
+        return None
+    s = int(m.group(1)) * 60 + int(m.group(2) or 0)
+    e = int(m.group(3)) * 60 + int(m.group(4) or 0)
+    return (s, e) if 0 <= s < e <= 24 * 60 else None
+
+
+def _still(t: datetime) -> tuple[str, datetime | None]:
+    """Why the stone keeps still at t, and when that reason ends — ("", None) when it may reach out."""
+    hours = stone_hours()
+    now = t.hour * 60 + t.minute
+    day = t.replace(hour=0, minute=0, second=0, microsecond=0)
+    if hours and not (hours[0] <= now < hours[1]):
+        opens = day + timedelta(minutes=hours[0]) + (timedelta(days=1) if now >= hours[1] else timedelta())
+        return f"{t:%H:%M} is outside the stone's hours ({_hm(hours[0])}\u2013{_hm(hours[1])})", opens
+    work = parse(str(getattr(config, "KEEPER_WORK_WEEK", "") or "")).get(t.weekday())
+    if work and t.date().isoformat() not in days_off():
+        s, e = work
+        if s <= now < e:
+            return f"a workday for {keeper_name()}, within working hours (until {_hm(e)})", day + timedelta(minutes=e)
+    return "", None
+
+
+def stone_quiet(t: datetime | None = None) -> str:
+    """Why the stone keeps still at t (now) — "" when a touch may play."""
+    return _still(t or datetime.now())[0]
+
+
+def stone_opens(t: datetime | None = None) -> datetime | None:
+    """The first moment from t when the stone may reach out — t itself when it may now; None if not within weeks."""
+    t = (t or datetime.now()).replace(second=0, microsecond=0)
+    for _ in range(60):
+        why, until = _still(t)
+        if not why:
+            return t
+        if until is None:
+            break
+        t = until
+    return None

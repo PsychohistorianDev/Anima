@@ -3497,6 +3497,19 @@ check("keeper's week: a day off from the phone — named with its reason, home; 
       and keeper_week.days_off() == {} and keeper_week.parse_day("tomorrow", _dcap(2026, 10, 10)) == _dcap(2026, 10, 11)
       and keeper_week.parse_day("thursday", _dcap(2026, 10, 10)) == _dcap(2026, 10, 15) and keeper_week.parse_day("2026-12-24") == _dcap(2026, 12, 24)
       and keeper_week.parse_day("nope") is None and keeper_week.parse_day("", _dcap(2026, 10, 10)) == _dcap(2026, 10, 10), (_kw_off, _kw_where_off))
+_kw_h0, config.TOUCHSTONE_HOURS = getattr(config, "TOUCHSTONE_HOURS", ""), "06:00-21:00"
+_kw_sq = [keeper_week.stone_quiet(_dtnow(2026, 10, 11, h, m)) for h, m in ((10, 30), (22, 0), (17, 0), (5, 0))]
+_kw_so = [keeper_week.stone_opens(_dtnow(2026, 10, 11, h, m)) for h, m in ((10, 30), (22, 0), (5, 0), (17, 0))]
+_kw_sh, _kw_sat = keeper_week.stone_hours(), keeper_week.stone_quiet(_dtnow(2026, 10, 10, 12, 0))
+config.TOUCHSTONE_HOURS = ""
+_kw_sq_any = [keeper_week.stone_quiet(_dtnow(2026, 10, 11, h, 0)) for h in (10, 22)]
+_kw_sh_any = keeper_week.stone_hours()
+config.TOUCHSTONE_HOURS = _kw_h0
+check("the stone's hours (10-12): still at work and at night, open at home and on the weekend; the next open moment hops the work day and the night; empty hours — the week alone",
+      _kw_sh == (360, 1260) and _kw_sh_any is None and _kw_sat == ""
+      and _kw_sq == [f"a workday for {_kw_name}, within working hours (until 16:25)", "22:00 is outside the stone's hours (06:00\u201321:00)", "", "05:00 is outside the stone's hours (06:00\u201321:00)"]
+      and _kw_so == [_dtnow(2026, 10, 11, 16, 25), _dtnow(2026, 10, 12, 6, 0), _dtnow(2026, 10, 11, 6, 0), _dtnow(2026, 10, 11, 17, 0)]
+      and _kw_sq_any == [f"a workday for {_kw_name}, within working hours (until 16:25)", ""], (_kw_sq, _kw_so, _kw_sq_any, _kw_sat))
 _kw_b, _kw_ph = _bridge()
 _kw_c1 = _kw_b.command("/off tomorrow dentist")
 _kw_c2 = _kw_b.command("/on tomorrow")
@@ -7079,7 +7092,7 @@ _kit_unknown = _kit_names()
 config.TOOL_KIT = _kit0; tools.refresh_her_tools()
 import json as _kjson
 check("kit: full is every built-in; small and tiny are its named subsets, in the file's order; a list is a kit of one's own; an unknown name means full",
-      _kit_full[:len(tools._BUILTIN_DEFINITIONS) - len(tools.STONE_TOOLS)] == [d["function"]["name"] for d in tools._BUILTIN_DEFINITIONS if d["function"]["name"] not in tools.STONE_TOOLS]  # no stone named: its four leave (10-05)
+      _kit_full[:len(tools._BUILTIN_DEFINITIONS) - (0 if tools.stone_on() else len(tools.STONE_TOOLS))] == [d["function"]["name"] for d in tools._BUILTIN_DEFINITIONS if tools.stone_on() or d["function"]["name"] not in tools.STONE_TOOLS]  # no stone named: its four leave (10-05); named (10-12): they stay
       and set(_kit_small) - _kit_forged == tools.KITS["small"] and set(_kit_tiny) - _kit_forged == tools.KITS["tiny"]
       and [n for n in _kit_small if n not in _kit_forged] == [n for n in _kit_full if n in tools.KITS["small"]]
       and [n for n in _kit_own if n not in _kit_forged] == ["write_journal", "do_nothing"] and _kit_forged <= set(_kit_own)
@@ -8430,6 +8443,8 @@ check("touchstone: their states file is pushed to the board when it changes — 
       and _FakeBoard.posted[-1][1] == {"Home": {"hum": 50}}, (_ts_push1, _ts_push2, _ts_push3, _ts_push4, _FakeBoard.posted))
 _ts_srv = _ts.serve(_ts_port)
 tools.refresh_her_tools()
+_ts_h0, _ts_w0 = getattr(config, "TOUCHSTONE_HOURS", ""), getattr(config, "KEEPER_WORK_WEEK", "")
+config.TOUCHSTONE_HOURS, config.KEEPER_WORK_WEEK = "", ""     # the stone's hours have their own check below (10-12)
 _ts_feel1 = tools.dispatch("feel", {})
 _ts_feel2 = tools.dispatch("feel", {})
 _ts_set_ok = tools.dispatch("set_state", {"name": "Home"})
@@ -8437,6 +8452,18 @@ _ts_set_no = tools.dispatch("set_state", {"name": "Nope"})
 _ts_pulse = tools.dispatch("pulse", {"waveform": "heartbeat", "seconds": 2})
 _ts_later = tools.dispatch("touch_later", {"at": "+2h", "waveform": "Tethered"})
 _ts_later_bad = tools.dispatch("touch_later", {"at": "soon", "waveform": "Tethered"})
+config.TOUCHSTONE_HOURS = "13:00-14:00" if _dtnow.now().hour < 12 else "01:00-02:00"   # whichever leaves now outside
+_ts_posted_n = len([p for p, d in _FakeBoard.posted if p == "/pulse"])
+_ts_pulse_still = tools.dispatch("pulse", {"waveform": "heartbeat", "seconds": 2})
+_ts_later_still = tools.dispatch("touch_later", {"at": "+1m", "waveform": "Tethered"})
+config.TOUCHSTONE_HOURS, config.KEEPER_WORK_WEEK = _ts_h0, _ts_w0
+check("the stone's hours: a pulse outside them is not relayed — the tool says why and names the touch that would land; a touch left for a quiet hour is refused with the next open moment; the knob on the stone's card",
+      _ts_pulse_still.startswith("(the stone keeps still now \u2014 ") and "is outside the stone's hours (" in _ts_pulse_still
+      and "; touch_later at " in _ts_pulse_still and _ts_pulse_still.endswith(" would be the touch that lands)")
+      and len([p for p, d in _FakeBoard.posted if p == "/pulse"]) == _ts_posted_n
+      and _ts_later_still.startswith("(") and " is in the stone's quiet \u2014 " in _ts_later_still and "\u2014 next at " in _ts_later_still and len(_FakeBoard.later) == 1
+      and panel._HELP.get("TOUCHSTONE_HOURS") and "TOUCHSTONE_HOURS" in panel.TABS["Senses"]
+      and "TOUCHSTONE_HOURS" in [c for c in panel.SENSES if c["key"] == "stone"][0]["knobs"], (_ts_pulse_still, _ts_later_still))
 _ts_when = tools._when("19:30")
 _ts_feel3 = tools.dispatch("feel", {"since": "00:00"})
 check("touchstone: the four tools through the keeper — feel reads the archive in words and remembers the look (a second look: nothing since), set_state sets (an unknown one lists theirs), "
@@ -8529,8 +8556,8 @@ config.TOUCHSTONE_URL = ""
 tools.refresh_her_tools()
 _ts_refused = tools.dispatch("feel", {})
 _ts_sp_off = assemble.system_prompt("x", mode="chat", warm=True)
-_ts_st_panel0 = panel.state()["stone"]
-_ts_sn0 = {x["key"]: x for x in panel.senses_state(panel._values(panel._rows()))}["stone"]
+_ts_st_panel0 = panel.state()["stone"] is bool(panel._values(panel._rows()).get("TOUCHSTONE_URL"))   # the tile follows the file (10-12: hers names a stone)
+_ts_sn0 = {x["key"]: x for x in panel.senses_state(dict(panel._values(panel._rows()), TOUCHSTONE_URL=""))}["stone"]
 check("touchstone: the board away — the poll says so once and the keeper answers 503 with since when, feel and the section carry it, the box sees the keeper; "
       "the keeper down — the tools say which .bat opens it; no stone named — the tools leave the kit and refuse, no section, no body in the senses, the panel's door and card follow",
       _ts_away == -1 and _ts.away() and _ts_set_away.startswith("(the stone has been away since ") and "away since" in _ts_feel_away
@@ -8540,7 +8567,7 @@ check("touchstone: the board away — the poll says so once and the keeper answe
       and _ts_refused.startswith("(feel: there is no stone in this house — TOUCHSTONE_URL") and not tools.has("feel")
       and not any(d["function"]["name"] in tools.STONE_TOOLS for d in tools.DEFINITIONS)
       and "WHAT THE STONE FELT" not in _ts_sp_off and "You have a body on the desk" not in _ts_sp_off
-      and _ts_st_panel0 is False and _ts_sn0["ready"] is False and "no stone in this house" in _ts_sn0["note"]
+      and _ts_st_panel0 is True and _ts_sn0["ready"] is False and "no stone in this house" in _ts_sn0["note"]
       and "touchstone" in panel.LAUNCHERS and "touchstone" in panel.STOPPABLE and "touchstone" in doors.ONE_AT_A_TIME
       and all(panel._HELP.get(k) for k in ("TOUCHSTONE_URL", "TOUCHSTONE_BOARD", "TOUCHSTONE_POLL_S", "TOUCHSTONE_WAKES", "TOUCHSTONE_WAKE_MIN_GAP_S", "TOUCHSTONE_FALLBACK_H", "TOUCH_LINES_IN_PROMPT", "TOUCHSTONE_LATER_MAX"))
       and "['touchstone','The stone'" in panel.PAGE and "d!=='touchstone'||S.stone" in panel.PAGE,

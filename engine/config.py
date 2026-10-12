@@ -211,6 +211,8 @@ TOUCHSTONE_WAKE_MIN_GAP_S = 600   # after a press-turn, further presses wait thi
 TOUCHSTONE_FALLBACK_H = 6         # the board falls back to Baseline after this long without a word from its keeper
 TOUCH_LINES_IN_PROMPT = 40        # today's touches in the prompt, newest kept
 TOUCHSTONE_LATER_MAX = 12         # touches that may wait in the board at once
+TOUCHSTONE_HOURS = ""             # when the stone may reach out — a pulse, a touch left for later: "06:00-21:00"; outside it, and
+                                  # within KEEPER_WORK_WEEK's hours, it keeps still and the tool says so, with the next open moment. "": any hour
 PAINTER_PYTHON = ""           # "" = the engine's own; e.g. "py -3.12" (Windows) or "python3.12" (macOS, Linux) if torch lives elsewhere
 # Where the painter paints: "auto" takes an NVIDIA (or ROCm) card, else a Mac's
 # GPU ("mps", float16), else the processor (slow); "cuda", "mps" or "cpu" names one.

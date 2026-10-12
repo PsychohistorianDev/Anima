@@ -4317,6 +4317,12 @@ def pulse(waveform: str, seconds: float = 3) -> str:
     except (TypeError, ValueError):
         secs = 3.0
     code, body = _stone_call("/pulse", {"waveform": waveform, "seconds": secs})
+    if code == 423 and body.get("opens"):       # the stone's hours (10-12): still now; the moment it opens is named
+        try:
+            opens = datetime.fromisoformat(str(body["opens"]))
+        except ValueError:
+            opens = None
+        return f"({body.get('error')}" + (f"; touch_later at {opens:%H:%M} would be the touch that lands)" if opens else ")")
     if code == 200:
         return f"the stone played {waveform} for {secs:g} s, just now — under his hand if it was there"
     return _stone_refusal(code, body)

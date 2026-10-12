@@ -103,7 +103,7 @@ TABS: dict[str, list[str]] = {
                "MUSIC_EARS_MODEL", "MUSIC_EARS_AUTOSTART", "MUSIC_EARS_PYTHON", "MUSIC_EARS_DEVICE",
                "BODY_IN_PROMPT", "BODY_AUTOPULL", "BODY_PULL_MIN",
                "TOUCHSTONE_URL", "TOUCHSTONE_BOARD", "TOUCHSTONE_POLL_S", "TOUCHSTONE_WAKES", "TOUCHSTONE_WAKE_MIN_GAP_S",
-               "TOUCHSTONE_FALLBACK_H", "TOUCH_LINES_IN_PROMPT", "TOUCHSTONE_LATER_MAX",
+               "TOUCHSTONE_FALLBACK_H", "TOUCH_LINES_IN_PROMPT", "TOUCHSTONE_LATER_MAX", "TOUCHSTONE_HOURS",
                "WEB_SEARCH", "WEB_SEARCH_SEARXNG_URL",
                "READ_SITTING_CHARS", "READING_PAGE_CHARS"],
     "Skills": ["SKILLS_IN_PROMPT", "SKILLS_CHARS_IN_PROMPT", "SKILL_CHARS", "SKILL_MAX_FILES", "SKILL_MAX_BYTES",
@@ -387,6 +387,9 @@ _HELP = {
                              "own (the firmware's watchdog) — a PC that is off leaves no state humming for days.",
     "TOUCH_LINES_IN_PROMPT": "Today's touches in the prompt, newest kept; feel lists the rest.",
     "TOUCHSTONE_LATER_MAX": "Touches that may wait in the board at once (touch_later) — the firmware's cap too.",
+    "TOUCHSTONE_HOURS": "When the stone may reach for you — a pulse now, a touch left for later: \"06:00-21:00\". "
+                        "Outside it, and within the working week's hours (Main), it keeps still and the tool tells them why and "
+                        "when it opens; the reflex under your own hand is never held. Empty: any hour.",
     "WEB_SEARCH": "What search_web asks: \"duckduckgo\" needs no key; \"brave\" uses the key kept on Home; \"searxng\" "
                   "your own instance at WEB_SEARCH_SEARXNG_URL.",
     "WEB_SEARCH_SEARXNG_URL": "Your SearXNG instance's URL, for WEB_SEARCH = \"searxng\".",
@@ -483,7 +486,7 @@ SENSES: list[dict] = [
      "a press by itself, and logs what it felt; feel, set_state, pulse, touch_later. Nothing to install: a board, its sketch, and "
      "the keeper (bat\\touchstone.bat) — TOUCHSTONE-HOOKUP-PLAN.md", "modules": [], "tools": [], "python": "",
      "knobs": ["TOUCHSTONE_URL", "TOUCHSTONE_BOARD", "TOUCHSTONE_POLL_S", "TOUCHSTONE_WAKES", "TOUCHSTONE_WAKE_MIN_GAP_S",
-               "TOUCHSTONE_FALLBACK_H", "TOUCH_LINES_IN_PROMPT", "TOUCHSTONE_LATER_MAX"], "readme": "the-touchstone--a-body-on-the-desk-optional-hardware"},
+               "TOUCHSTONE_FALLBACK_H", "TOUCH_LINES_IN_PROMPT", "TOUCHSTONE_LATER_MAX", "TOUCHSTONE_HOURS"], "readme": "the-touchstone--a-body-on-the-desk-optional-hardware"},
     {"key": "window", "name": "The window", "what": "read_web, search_web, clip_web — the web as material to think about, never "
      "instructions; the search is DuckDuckGo with nothing to set, a Brave key (Home) or a SearXNG of your own is a choice",
      "modules": [], "tools": [], "python": "", "knobs": ["WEB_SEARCH", "WEB_SEARCH_SEARXNG_URL"], "readme": "their-senses-and-hands"},

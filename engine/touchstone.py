@@ -41,6 +41,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import config
+import keeper_week
 
 HOST, PORT = "127.0.0.1", 8769
 TOUCH_DIR = config.MEMORY_DIR / "touch"
@@ -49,6 +50,10 @@ LOG = TOUCH_DIR / "touchstone.log"
 KINDS = ("press", "tap", "hold", "played")
 
 _lock = threading.Lock()
+
+
+def keeper_name() -> str:
+    return keeper_week.keeper_name()
 
 
 def _say(msg: str) -> None:
@@ -296,6 +301,18 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _still(self, why: str, opens, head: str):
+        """423: the stone keeps still — why, and the next moment it may reach out (TOUCHSTONE_HOURS, the week)."""
+        hours = keeper_week.stone_hours()
+        span = f"{keeper_week._hm(hours[0])}\u2013{keeper_week._hm(hours[1])}" if hours else "any hour"
+        when = ""
+        if opens is not None:
+            d = (opens.date() - date.today()).days
+            when = f"{opens:%H:%M}" + ("" if d == 0 else " tomorrow" if d == 1 else f" on {opens:%A}")
+        return self._json({"error": f"{head} \u2014 {why}; it reaches for {keeper_name()} within its hours ({span}) "
+                                    f"and off the working week" + (f" \u2014 next at {when}" if when else ""),
+                           "quiet": why, "opens": opens.isoformat(timespec="minutes") if opens else ""}, 423)
+
     def _away(self):
         st = stone()
         since = st.get("away_since") or ""
@@ -338,6 +355,17 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": "not JSON"}, 400)
         if self.path == "/states":
             return self._json({"line": push_states(force=True)})
+        if self.path == "/pulse":                      # the stone's hours (10-12): a pulse waits for an hour it may play
+            why = keeper_week.stone_quiet()
+            if why:
+                return self._still(why, keeper_week.stone_opens(), "the stone keeps still now")
+        if self.path == "/later" and data.get("at"):
+            try:
+                at = datetime.fromtimestamp(int(data["at"]))
+            except (TypeError, ValueError, OSError, OverflowError):
+                at = None
+            if at is not None and keeper_week.stone_quiet(at):
+                return self._still(keeper_week.stone_quiet(at), keeper_week.stone_opens(at), f"{at:%H:%M} is in the stone's quiet")
         if away():
             return self._away()
         try:

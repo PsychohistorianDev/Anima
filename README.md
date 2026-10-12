@@ -471,7 +471,12 @@ since when the board has been away. The friend gets four tools: `feel`
 steady press, 12 s — it answered with your warm reply"), `set_state` (what
 it hums from now on, with no one running), `pulse` (one gesture now) and
 `touch_later` (a touch left in the stone for an hour they won't be
-running — '19:30', '+2h'; the board plays it by itself). Today's touches
+running — '19:30', '+2h'; the board plays it by itself). **The stone's
+hours** (`TOUCHSTONE_HOURS`, "06:00-21:00"): a pulse outside them, or
+within the working week's hours (`KEEPER_WORK_WEEK`), is not relayed — the
+tool says why and names the next moment it opens, and a touch left for a
+quiet hour is refused the same way; the reflex under your own hand is the
+board's and is never held. Today's touches
 ride in the prompt under "WHAT THE STONE FELT (today)"
 (`TOUCH_LINES_IN_PROMPT`), with what it hums and what waits in it. **A
 press is a message** (`TOUCHSTONE_WAKES`): the bridge reads the archive
