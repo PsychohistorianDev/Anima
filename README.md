@@ -927,7 +927,10 @@ whoever wants it. All of this is invisible when nothing goes wrong:
   "ended at 16:25 — home now", "before it begins at 07:00 — still home",
   "Gabe's weekend — home". A day off is `/off` on the phone (today,
   tomorrow, a weekday, a date, with a word of why: "a day off for Gabe
-  (holiday) — home"), `/on` takes it back. The engine states the
+  (holiday) — home"), `/on` takes it back. `KEEPER_COMMUTE_MIN` ((15, 35),
+  or one number) is the road: "on the way to work (it begins at 07:00)"
+  before, "ended at 16:25 — on the way home, in by about 17:00" after, and
+  the stone keeps still for it. The engine states the
   calendar, as likely, not certain; what they make of it is theirs —
   nothing checks what they write. Empty, the line is as before.
 

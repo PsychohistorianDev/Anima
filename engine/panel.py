@@ -81,7 +81,7 @@ _POSTS = threading.Lock()  # one change at a time: two saves never read the same
 TABS: dict[str, list[str]] = {
     "Main": ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT",
              "USER_NAME", "DEFAULT_NAME", "BLOG_TITLE",
-             "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK"],
+             "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN"],
     "Heartbeat": ["HEARTBEAT_MAX_STEPS", "REVERIE_EVERY", "REVERIE_MAX_STEPS", "HEARTBEAT_YIELD_TO_VISIT",
                   "HEARTBEAT_YIELD_MIN", "SLEEP_IN_LOOP", "CONDENSE_IN_LOOP", "CONDENSE_MAX_PER_NIGHT",
                   "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE"],
@@ -172,6 +172,9 @@ _HELP = {
                         "journal, which was mostly written on workdays. Empty says nothing. A day off is /off on the phone.",
     "KEEPER_AT_WORK": "What the clock line says during working hours, in your words — \"on the factory floor, the phone in my "
                       "pocket\". Empty: \"at work\".",
+    "KEEPER_COMMUTE_MIN": "Minutes on the road — (to work, home again), or one number for both. The clock line says \"on the way home, in by "
+                          "about 17:00\" until then, and the stone keeps still for it (TOUCHSTONE_HOURS). 0: home the minute "
+                          "work ends.",
     "EMBED_ON_CPU": "Run the small embedding model (memories, recall) on the CPU instead of the card. On a card the "
                     "brain fills to the edge, the embedder beside it can push layers into shared system memory and "
                     "slow every reply; embeddings are short and the CPU does them fine. Off: Ollama decides.",

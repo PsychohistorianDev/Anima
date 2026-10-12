@@ -851,6 +851,7 @@ TELEGRAM_QUIET_HOURS = (23, 7)
 # off is /off on the phone (memory/days_off.json); /on takes it back.
 KEEPER_WORK_WEEK = ""
 KEEPER_AT_WORK = ""
+KEEPER_COMMUTE_MIN = 0            # minutes on the road (to work, home again), or one number for both — "on the way home, in by about 17:00"
 
 # Afterthoughts: after a pause or the afterglow, whatever the friend says to
 # no one once the writing is done reaches the phone as a labeled notice, never

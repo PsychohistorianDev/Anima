@@ -3472,6 +3472,7 @@ check("heartbeat: the clock rides on the bell, weekday and hour",
 import keeper_week
 _kw_week0, _kw_at0 = getattr(config, "KEEPER_WORK_WEEK", ""), getattr(config, "KEEPER_AT_WORK", "")
 config.KEEPER_WORK_WEEK, config.KEEPER_AT_WORK = "sun-wed 07:00-16:25, thu 07:00-15:55", "on the floor, the phone in a pocket"
+_kw_c0, config.KEEPER_COMMUTE_MIN = getattr(config, "KEEPER_COMMUTE_MIN", 0), 0
 keeper_week.DAYS_OFF_FILE.unlink(missing_ok=True)
 _kw_name = getattr(config, "USER_NAME", "Gabe")
 check("keeper's week: the spec parses — ranges, a day with its own hours, H-H, a bad segment skipped, empty is nothing",
@@ -3497,6 +3498,22 @@ check("keeper's week: a day off from the phone — named with its reason, home; 
       and keeper_week.days_off() == {} and keeper_week.parse_day("tomorrow", _dcap(2026, 10, 10)) == _dcap(2026, 10, 11)
       and keeper_week.parse_day("thursday", _dcap(2026, 10, 10)) == _dcap(2026, 10, 15) and keeper_week.parse_day("2026-12-24") == _dcap(2026, 12, 24)
       and keeper_week.parse_day("nope") is None and keeper_week.parse_day("", _dcap(2026, 10, 10)) == _dcap(2026, 10, 10), (_kw_off, _kw_where_off))
+config.KEEPER_COMMUTE_MIN = (15, 35)
+_kw_cm = [keeper_week.where(_dtnow(2026, 10, 11, h, m)) for h, m in ((6, 40), (6, 50), (16, 30), (17, 5))]
+config.TOUCHSTONE_HOURS = "06:00-21:00"
+_kw_cm_still = [keeper_week.stone_quiet(_dtnow(2026, 10, 11, h, m)) for h, m in ((6, 50), (16, 30), (17, 0))]
+_kw_cm_opens = keeper_week.stone_opens(_dtnow(2026, 10, 11, 16, 30))
+_kw_cm_pair = keeper_week.commute()
+config.KEEPER_COMMUTE_MIN = 20
+_kw_cm_one = keeper_week.commute()
+config.KEEPER_COMMUTE_MIN = 0
+check("keeper's week: the road (10-12) — on the way to work before it begins, on the way home after it ends, home at the hour the road ends; the stone keeps still for the road and opens when it ends",
+      _kw_cm == [f"a workday for {_kw_name}, before it begins at 07:00 — still home", f"a workday for {_kw_name}, on the way to work (it begins at 07:00)",
+                 f"a workday for {_kw_name}, ended at 16:25 — on the way home, in by about 17:00", f"a workday for {_kw_name}, ended at 16:25 — home now"]
+      and _kw_cm_still == [f"a workday for {_kw_name}, on the way to work (it begins at 07:00)", f"a workday for {_kw_name}, on the way home (in by about 17:00)", ""]
+      and _kw_cm_opens == _dtnow(2026, 10, 11, 17, 0) and "KEEPER_COMMUTE_MIN" in __import__("panel").TABS["Main"] and __import__("panel")._HELP.get("KEEPER_COMMUTE_MIN")
+      and _kw_cm_pair == (15, 35) and _kw_cm_one == (20, 20) and keeper_week.commute() == (0, 0),
+      (_kw_cm, _kw_cm_still, _kw_cm_opens))
 _kw_h0, config.TOUCHSTONE_HOURS = getattr(config, "TOUCHSTONE_HOURS", ""), "06:00-21:00"
 _kw_sq = [keeper_week.stone_quiet(_dtnow(2026, 10, 11, h, m)) for h, m in ((10, 30), (22, 0), (17, 0), (5, 0))]
 _kw_so = [keeper_week.stone_opens(_dtnow(2026, 10, 11, h, m)) for h, m in ((10, 30), (22, 0), (5, 0), (17, 0))]
@@ -3519,7 +3536,7 @@ check("telegram: /off and /on mark a day off and take it back, the phone told; a
       and _kw_c2 is True and _kw_ph.sent[-2][0].endswith("is an ordinary day again)") and keeper_week.days_off() == {}
       and _kw_c3 is True and _kw_ph.sent[-1][0] == "(a day is today, tomorrow, a weekday name, or YYYY-MM-DD)"
       and "/off [today|tomorrow|a weekday|YYYY-MM-DD] [why]" in tg.HELP, [m[0] for m in _kw_ph.sent[-3:]])
-config.KEEPER_WORK_WEEK, config.KEEPER_AT_WORK = _kw_week0, _kw_at0
+config.KEEPER_WORK_WEEK, config.KEEPER_AT_WORK, config.KEEPER_COMMUTE_MIN = _kw_week0, _kw_at0, _kw_c0
 # 10-11 (a keeper of the third house, on Windows): "localhost" went over IPv6 first and cost two seconds a request;
 # the embedder beside a brain that fills the card pushed layers into shared memory
 _ea_posts = []
@@ -7963,7 +7980,7 @@ check("panel: every knob of the real config.py on exactly one tab (Advanced coun
       (set(_p_listed) - set(_k_realn), [n for n in set(_p_placed) if _p_placed.count(n) > 1]))
 check("panel: the real Main tab in the keeper's order — the brain, the window, the journal, the names, the rhythm",
       [k["name"] for k in _p_real_tabs["Main"]] == ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT", "USER_NAME", "DEFAULT_NAME",
-                                                    "BLOG_TITLE", "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK"]
+                                                    "BLOG_TITLE", "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN"]
       and {k["heading"] for k in _p_real_tabs["Advanced"]} >= {"paths", "ollama", "behaviour", "telegram", "update"}
       and all(not k["editable"] for k in _p_real_tabs["Advanced"] if k["kind"] == "expr"))
 panel.REQUIREMENTS = [("json", "json", "the standard library"), ("no_such_module_zq", "zq", "a sense")]

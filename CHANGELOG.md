@@ -307,7 +307,10 @@ of its own.
   them, or within `KEEPER_WORK_WEEK`'s hours, is not relayed; the tool says
   why and names the next open moment, a touch left for a quiet hour is
   refused the same way, and the reflex under the keeper's own hand is never
-  held. On the Senses tab, in the stone's card.
+  held. On the Senses tab, in the stone's card. With it `KEEPER_COMMUTE_MIN`
+  ((to work, home again) in minutes, or one number): the clock line says "on
+  the way to work" and "on the way home, in by about 17:00", and the stone
+  keeps still for the road ("I won't get home usually at least till five").
 - **The Touchstone's engine side** (10-05; TOUCHSTONE-HOOKUP-PLAN.md), built
   before the board: `engine/touchstone.py`, the stone's keeper — a door
   (`bat\touchstone.*`, Start/Stop on Home while a stone is named) that

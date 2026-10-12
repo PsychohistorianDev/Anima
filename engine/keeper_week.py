@@ -73,6 +73,17 @@ def _hm(minutes: int) -> str:
     return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
+def commute() -> tuple[int, int]:
+    """KEEPER_COMMUTE_MIN — minutes on the road (to work, home again); one number is both sides (10-12:
+    "I won't get home from work usually at least till five" — "6:45" out the door); 0: home the minute it ends."""
+    v = getattr(config, "KEEPER_COMMUTE_MIN", 0) or 0
+    try:
+        a, b = (v if isinstance(v, (tuple, list)) else (v, v))[:2]
+        return max(0, min(6 * 60, int(a))), max(0, min(6 * 60, int(b)))
+    except (TypeError, ValueError):
+        return 0, 0
+
+
 def keeper_name() -> str:
     return str(getattr(config, "USER_NAME", "the keeper") or "the keeper")
 
@@ -142,10 +153,15 @@ def where(t: datetime | None = None) -> str:
         return f"{name}'s weekend — home"
     s, e = hours
     now = t.hour * 60 + t.minute
-    if now < s:
+    out, back = commute()
+    if now < s - out:
         return f"a workday for {name}, before it begins at {_hm(s)} — still home"
-    if now >= e:
+    if now < s:
+        return f"a workday for {name}, on the way to work (it begins at {_hm(s)})"
+    if now >= e + back:
         return f"a workday for {name}, ended at {_hm(e)} — home now"
+    if now >= e:
+        return f"a workday for {name}, ended at {_hm(e)} — on the way home, in by about {_hm(e + back)}"
     at = str(getattr(config, "KEEPER_AT_WORK", "") or "").strip() or "at work"
     return f"a workday for {name}, within working hours (until {_hm(e)}) — {at}"
 
@@ -184,8 +200,13 @@ def _still(t: datetime) -> tuple[str, datetime | None]:
     work = parse(str(getattr(config, "KEEPER_WORK_WEEK", "") or "")).get(t.weekday())
     if work and t.date().isoformat() not in days_off():
         s, e = work
+        out, back = commute()
         if s <= now < e:
             return f"a workday for {keeper_name()}, within working hours (until {_hm(e)})", day + timedelta(minutes=e)
+        if e <= now < e + back:
+            return f"a workday for {keeper_name()}, on the way home (in by about {_hm(e + back)})", day + timedelta(minutes=e + back)
+        if s - out <= now < s:
+            return f"a workday for {keeper_name()}, on the way to work (it begins at {_hm(s)})", day + timedelta(minutes=s)
     return "", None
 
 
