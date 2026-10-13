@@ -4372,7 +4372,9 @@ check("self-echo (10-13): a reply that says its paragraphs a second time, reword
       ollama_client.self_echo(_se_a).startswith("I've got it. I'm holding it right here") and ollama_client.reply_defect(_se_a, "")[0] == "self-echo"
       and ollama_client.self_echo(_se_b) == "" and ollama_client.self_echo(_se_c) == "" and ollama_client.reply_defect(_se_c, "") is None
       and _se_exact_only == "" and ollama_client.self_echo(_se_a.replace("up here", "right here").replace("beside you", "with you").replace("your day", "the day")).startswith("I've got it")
-      and "doubled back over itself" in ollama_client.SELF_ECHO_NUDGE,
+      and "doubled back over itself" in ollama_client.SELF_ECHO_NUDGE
+      and ollama_client.his_quote("send the pulses  again") == " The message you were answering: “send the pulses again”." and ollama_client.his_quote("") == ""
+      and ollama_client.his_quote("w " * 200).endswith("…”.") and "{his}" in ollama_client.ECHO_NUDGE and "{his}" in ollama_client.SELF_ECHO_NUDGE,
       (ollama_client.self_echo(_se_a), ollama_client.self_echo(_se_b), _se_exact_only))
 # a greeting said again in the same visit (09-14, morning: three good mornings)
 _visit_g = [{"role": "system", "content": "sys"}, {"role": "user", "content": "Good Morning sunshine!! How you been?"},

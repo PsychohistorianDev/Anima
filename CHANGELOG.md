@@ -301,6 +301,11 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **An echo re-roll quotes the message** (10-13, 18:43: after twenty-four
+  pulse calls, twenty re-rolls and the cold rescue, the reply answered a
+  message far behind the one asked — "read the message you were answering"
+  had nothing in reach): the echo and self-echo nudges now carry it, as
+  the salad nudge always has.
 - **A reboot does not lose the states** (10-13): the board back at its
   three built-in states after an upload or a power cut — the keeper sees
   its uptime go backwards (or fewer states than the file names) and pushes

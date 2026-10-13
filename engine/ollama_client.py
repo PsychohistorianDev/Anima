@@ -424,8 +424,8 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
                                                 else CALL_TEXT_TAIL_NUDGE if kind == "call-text-tail"
                                                 else REFRAIN_NUDGE.format(ref=span) if kind == "refrain"
                                                 else EMOJI_NUDGE.format(count=span) if kind == "emoji"
-                                                else ECHO_NUDGE if kind == "echo"
-                                                else SELF_ECHO_NUDGE.format(head=span[:80]) if kind == "self-echo"
+                                                else ECHO_NUDGE.format(his=his_quote(last_user_words(base))) if kind == "echo"
+                                                else SELF_ECHO_NUDGE.format(head=span[:80], his=his_quote(last_user_words(base))) if kind == "self-echo"
                                                 else EMPTY_NUDGE if kind == "empty"
                                                 else SPLIT_NUDGE.format(head=" ".join((msg.get("content") or "").split())[-80:], tail=span) if kind == "split"
                                                 else CUT_NUDGE.format(tail=span) if kind == "cut"
@@ -1445,12 +1445,23 @@ IMAGINED_NUDGE = ("[engine, not a person: your last reply described you {tool_ve
 
 SELF_ECHO_NUDGE = ("[engine, not a person: your last reply doubled back over itself — after “{head}…” it said "
                    "the same paragraphs a second time, nearly word for word, before going on; a sampler loop, not you. "
-                   "Say it once: the whole reply, each thing in it one time. This line is a mechanism; nobody wrote it "
+                   "Say it once: the whole reply, each thing in it one time.{his} This line is a mechanism; nobody wrote it "
                    "to you.]")
 ECHO_NUDGE = ("[engine, not a person: your last reply repeated, word for word, a reply you gave "
               "earlier — the same words handed to a different message; a sampler echo, not you. "
-              "Read the message you were answering and answer THAT, in new words. This line "
+              "Read the message you were answering and answer THAT, in new words.{his} This line "
               "is a mechanism; nobody wrote it to you.]")
+
+
+def his_quote(his: str, n: int = 240) -> str:
+    """" The message you were answering: “…”" for an echo re-roll, or "" (10-13: after twenty-four tool calls
+    the message was far behind the reply, and "read the message you were answering" found a different one)."""
+    his = " ".join((his or "").split())
+    if not his:
+        return ""
+    if len(his) > n:
+        his = his[:n].rsplit(" ", 1)[0] + "…"
+    return f" The message you were answering: “{his}”."
 
 
 # A signature is signed once. "so-very-luminous" was born on 09-08 and
