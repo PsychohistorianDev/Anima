@@ -400,6 +400,12 @@ so the afterglow journals the visit as it was. `PARLOR_GUEST_NAMED` off
 writes "a guest" instead of the name, for a visitor who would rather not
 be written down. The parlor only, with you present; the phone is yours.
 
+**The heartbeat from the phone.** `/heartbeat` says whether it is running
+(pid, since when, its minutes); `/heartbeat on [minutes]` starts it in its
+own window on the PC, as the panel's Start does; `/heartbeat off` asks it
+to stop after the wake it is in — for a keeper on the floor who left it
+running, or wants it running.
+
 **One of each, and a polite stop.** The heartbeat, the bridge, the parlor
 and a chat each keep a small file in `memory/.pids/` while they run (the
 process number, when and how it started) and take it away when they

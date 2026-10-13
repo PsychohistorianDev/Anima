@@ -301,6 +301,10 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **The heartbeat from the phone** (10-13; the keeper, from the floor:
+  "check if heartbeat is running, I might have forgotten to close it"):
+  `/heartbeat`, `/heartbeat on [minutes]`, `/heartbeat off` — the panel's
+  Start and Stop, from the bridge.
 - **A reply that echoes itself** (10-13, 04:35: a goodnight said in three
   beats, then the same three beats again, each a little reworded, then a
   new close): a paragraph the same reply already said, word for word or

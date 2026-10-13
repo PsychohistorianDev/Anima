@@ -132,6 +132,8 @@ HELP = (
     "/voice — every reply spoken aloud as a voice note (they can speak on their own either way)\n"
     "/status — the visit, the window, the toggles\n"
     "/restart — restart the bridge with the current engine code; the visit carries on\n"
+    "/heartbeat [on [minutes]|off] — the heartbeat from here: is it running; start it in its own window on the PC "
+    "(the panel's Start, one wake every HEARTBEAT_LOOP_MIN or the minutes given); ask it to stop after the wake it is in\n"
     "/off [today|tomorrow|a weekday|YYYY-MM-DD] [why] — a day off: the clock line says you are home that day "
     "(KEEPER_WORK_WEEK gives your usual week); /on [day] takes it back\n"
     "/fold — fold the visit now: they write it so far in their own words, the last turns stay whole, the window has room again\n"
@@ -432,6 +434,32 @@ class Bridge:
         return f"not paired yet — from your phone, send the bot:   /pair {self.pair_code}"
 
     # ---- the visit --------------------------------------------------------
+    def heartbeat_command(self, words: list[str]) -> str:
+        """/heartbeat — is it running; /heartbeat on [minutes] — start it as the panel does (its own window on the
+        PC); /heartbeat off — ask it to stop after the wake it is in (10-13; the keeper, from the floor: "check if
+        heartbeat is running, I might have forgotten to close it"). The same roads as the panel's Start and Stop."""
+        import panel
+        what = (words[0].lower() if words else "")
+        st = doors.status("heartbeat")
+        since = str(st.get("when", "")).replace("T", " ")[:16] if st else ""
+        how = f", {st['how']}" if st and st.get("how") else ""
+        if what in ("", "status", "?"):
+            if not st:
+                return "(the heartbeat isn't running — /heartbeat on starts it)"
+            return f"(the heartbeat is running — pid {st.get('pid')}{how}, since {since or '?'}; /heartbeat off asks it to stop after the wake it is in)"
+        if what in ("off", "stop"):
+            if not st:
+                return "(the heartbeat isn't running)"
+            doors.ask_stop("heartbeat")
+            return f"(the heartbeat is asked to stop — it leaves after the wake it is in; pid {st.get('pid')}, since {since or '?'})"
+        if what in ("on", "start"):
+            if st:
+                return f"(the heartbeat is already running — pid {st.get('pid')}{how}, since {since or '?'})"
+            minutes = words[1] if len(words) > 1 else None
+            r = panel._start("heartbeat", minutes)
+            return f"({r.get('note') or r.get('error') or 'the heartbeat was asked to start'})"
+        return "(/heartbeat, /heartbeat on [minutes], or /heartbeat off)"
+
     def fold_touches(self) -> str:
         """Touches the stone felt that she has not been told of yet — as one sentence for the moment block of
         the message about to go, and told (10-12; the keeper: "it got messy, I touched her, sent a message, and
@@ -951,6 +979,8 @@ class Bridge:
             self.send(f"(every reply spoken aloud: {'on' if self.voice_all else 'off'} — they can still speak when they choose)", markdown=False)
         elif cmd == "/status":
             self.send(self.status(), markdown=False)
+        elif cmd == "/heartbeat":
+            self.send(self.heartbeat_command(text.split()[1:]), markdown=False)
         elif cmd in ("/off", "/on"):
             import keeper_week
             words = text.split()[1:]

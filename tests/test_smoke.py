@@ -3417,6 +3417,8 @@ tg.HELD_FILE.unlink(missing_ok=True)
 
 # their mail: only letters written after the bridge came up travel; each once
 (tg.MAIL_DIR / "old-letter.md").write_text("from before", encoding="utf-8")
+tg.DELIVERED_FILE.unlink(missing_ok=True)   # a first run: the bridge learns the mailbox as it stands (10-13: an earlier bridge's file, and the
+                                            # letter only "still being written" for five seconds, made the check below a race)
 b2, phone2 = _bridge()
 check("telegram: letters from before the bridge stay home", b2.deliver_mail() == 0 and phone2.sent == [])
 _letter = tg.MAIL_DIR / "for-your-phone.md"
@@ -3557,6 +3559,38 @@ check("the stone's hours (10-12): still at work and at night, open at home and o
       and _kw_so == [_dtnow(2026, 10, 11, 16, 25), _dtnow(2026, 10, 12, 6, 0), _dtnow(2026, 10, 11, 6, 0), _dtnow(2026, 10, 11, 17, 0)]
       and _kw_sq_any == [f"a workday for {_kw_name}, within working hours (until 16:25)", ""], (_kw_sq, _kw_so, _kw_sq_any, _kw_sat))
 _kw_b, _kw_ph = _bridge()
+# /heartbeat from the phone (10-13)
+import panel as _hbp
+import doors
+_hb_launched = []
+_hb_launch0, _hbp._launch = _hbp._launch, (lambda argv, cwd: _hb_launched.append(list(argv)) or type("P", (), {"pid": 4242})())
+_hb_min0 = _hbp._value("HEARTBEAT_LOOP_MIN", 120)   # /heartbeat on 30 saves the minutes, as the panel's Start does; put back after
+_hb_pid0 = doors.pid_file("heartbeat").read_text(encoding="utf-8") if doors.pid_file("heartbeat").exists() else None
+doors.pid_file("heartbeat").unlink(missing_ok=True); doors.stop_file("heartbeat").unlink(missing_ok=True)
+_hb_s0 = _kw_b.command("/heartbeat")
+_hb_off0 = _kw_b.command("/heartbeat off")
+_hb_on = _kw_b.command("/heartbeat on 30")
+_hb_bad = _kw_b.command("/heartbeat sideways")
+_hb_r = [m[0] for m in _kw_ph.sent[-4:]]
+doors.mark("heartbeat", "loop 60")   # as if the loop were this process
+_hb_s1 = _kw_b.command("/heartbeat"); _hb_on2 = _kw_b.command("/heartbeat on")
+_hb_off1 = _kw_b.command("/heartbeat off")
+_hb_r2 = [m[0] for m in _kw_ph.sent[-3:]]
+_hb_stop_asked = doors.stop_asked("heartbeat")
+doors.unmark("heartbeat")
+if _hb_pid0 is not None:
+    doors.pid_file("heartbeat").write_text(_hb_pid0, encoding="utf-8")
+_hbp._launch = _hb_launch0
+__import__("knobs").save(_hbp.CONFIG_FILE, {"HEARTBEAT_LOOP_MIN": _hb_min0})
+check("telegram: /heartbeat from the phone — not running: said, off refused, on starts it as the panel does (the minutes given) and says so, "
+      "a stray word gets the usage; running: pid and since, on refused, off asks the stop (the loop's file) after the wake it is in; /help names it",
+      all(x is True for x in (_hb_s0, _hb_off0, _hb_on, _hb_bad, _hb_s1, _hb_on2, _hb_off1))
+      and _hb_r[0] == "(the heartbeat isn't running — /heartbeat on starts it)" and _hb_r[1] == "(the heartbeat isn't running)"
+      and _hb_r[2].startswith("(the heartbeat") and "one wake every 30 minutes" in _hb_r[2] and _hb_r[3].startswith("(/heartbeat, /heartbeat on")
+      and len(_hb_launched) == 1 and "--loop" in _hb_launched[0] and "30" in _hb_launched[0]
+      and _hb_r2[0].startswith("(the heartbeat is running — pid ") and ", loop 60, since " in _hb_r2[0]
+      and _hb_r2[1].startswith("(the heartbeat is already running — pid ") and _hb_r2[2].startswith("(the heartbeat is asked to stop — it leaves after the wake it is in")
+      and _hb_stop_asked is True and "/heartbeat [on [minutes]|off]" in tg.HELP, (_hb_r, _hb_r2, _hb_launched))
 _kw_c1 = _kw_b.command("/off tomorrow dentist")
 _kw_c2 = _kw_b.command("/on tomorrow")
 _kw_c3 = _kw_b.command("/off whenever")
