@@ -2021,10 +2021,32 @@ def _find_moved_in_shared(p):
     still has one name. Two candidates or none: the path stands as given."""
     try:
         shared = config.SHARED_DIR.resolve()
-        if p.exists() or (shared != p.parent and shared not in p.parents):
+        bare = p.parent == config.ROOT.resolve()   # a bare file name, no folder (10-13: the book's name alone, "no such file")
+        if p.exists() or (shared != p.parent and shared not in p.parents and not bare):
             return p
         hits = [q for q in shared.rglob(p.name) if q.is_file()]
-        return hits[0] if len(hits) == 1 else p
+        if len(hits) == 1:
+            return hits[0]
+        if hits or not p.suffix:
+            return p
+        # …or by a near name anywhere under shared/ (10-13: the bare name with two underscores said as spaces)
+        import difflib
+
+        def fold(name: str) -> str:
+            return " ".join(name.lower().replace("_", " ").replace("-", " ").split())
+
+        want, suffix = fold(p.stem), p.suffix.lower()
+        best, score = None, float(getattr(config, "NEAR_FILE_RATIO", 0.85) or 0.85)
+        for q in shared.rglob("*" + p.suffix):
+            if not q.is_file() or q.name.startswith(".") or q.suffix.lower() != suffix:
+                continue
+            have = fold(q.stem)
+            if have == want:
+                return q
+            r = difflib.SequenceMatcher(None, have, want).ratio()
+            if r >= score:
+                best, score = q, r
+        return best or p
     except OSError:
         return p
 
@@ -3569,7 +3591,7 @@ def read_epub(source: str, chapter: str = "") -> str:
     thr = min(int(getattr(config, "EPUB_SLIVER_CHARS", 400) or 0), (max(sizes) if sizes else 0) // 50)
     sliver = [n < thr for n in sizes]
 
-    spec = (chapter or "").strip().lower()
+    spec = str(chapter if chapter is not None else "").strip().lower()   # a number is a chapter too (10-13: chapter=1 → 'int' has no strip)
     last = int((_bookmarks().get(name) or {}).get("chapter") or 0)
     listing = "\n".join(f"{i + 1}. {t}" + (" (a part page — reads with the next)" if sliver[i] and i + 1 < len(chapters) else "")
                         for i, (h, t) in enumerate(chapters))

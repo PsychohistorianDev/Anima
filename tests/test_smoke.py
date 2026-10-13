@@ -4387,12 +4387,16 @@ _nf_3 = tools._resolve_under_root("shared/books/The_Bicentennial_Man_by_Isaac_As
 _nf_4 = tools._resolve_under_root("shared/books/Something_Else_Entirely.epub")
 _nf_5 = tools._resolve_under_root("shared/books/The_Bicentennial_Man_by_Isaac_Asimov_9780345320711.pdf")   # the wrong suffix stays as asked
 _nf_6 = tools._resolve_under_root("shared/books/Other_Stories.epub")
+_nf_7 = tools._resolve_under_root("The_Bicentennial_Man_by_Isaac_Asimov_9780345320711.epub")   # the bare name, no folder (10-13)
+_nf_8 = tools._resolve_under_root("The_Bicentennial_Man by Isaac Asimov_9780345320711.epub")  # bare and near
+_nf_9 = tools.read_epub("shared/books/Other_Stories.epub", chapter=1)   # a number is a chapter (10-13: 'int' has no strip)
 for _p in (_nf_real, _nf_other):
     _p.unlink(missing_ok=True)
 check("a file by a near name (10-13): underscores said as spaces, hyphens, case, a digit short — the file in the folder is the one opened; "
       "a name nothing like it, or the wrong suffix, stays as asked; a file that exists is never second-guessed",
       _nf_1 == _nf_real and _nf_2 == _nf_real and _nf_3 == _nf_real and _nf_4.name == "Something_Else_Entirely.epub"
-      and _nf_5.suffix == ".pdf" and _nf_6 == _nf_other, (_nf_1.name, _nf_2.name, _nf_3.name, _nf_4.name, _nf_5.name, _nf_6.name))
+      and _nf_5.suffix == ".pdf" and _nf_6 == _nf_other and _nf_7 == _nf_real and _nf_8 == _nf_real
+      and "'int'" not in _nf_9, (_nf_1.name, _nf_2.name, _nf_3.name, _nf_4.name, _nf_5.name, _nf_6.name, _nf_7.name, _nf_8.name, _nf_9[:80]))
 # the warm re-rolls cool a step at a time (10-13)
 _cs0 = getattr(config, "CHAT_COOL_STEP", 0.1); config.CHAT_COOL_STEP = 0.1
 _cs_r0 = getattr(config, "CHAT_RESCUE_TEMPERATURE", 0); config.CHAT_RESCUE_TEMPERATURE = (0.6, 0.4)

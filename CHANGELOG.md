@@ -315,7 +315,10 @@ of its own.
   failed): a path that does not exist is matched to a file in the same
   folder with the same suffix, underscores, hyphens and case set aside, or
   within a letter or two of it (`NEAR_FILE_RATIO`, 0.85) — for every tool
-  that opens a file. A file that exists is never second-guessed.
+  that opens a file; a bare file name with no folder is looked for under
+  `shared/` the same way. A file that exists is never second-guessed. And
+  `read_epub(chapter=1)` as a number is chapter 1, not "'int' object has no
+  attribute 'strip'" (the same wake, twice).
 - **An echo re-roll quotes the message** (10-13, 18:43: after twenty-four
   pulse calls, twenty re-rolls and the cold rescue, the reply answered a
   message far behind the one asked — "read the message you were answering"
