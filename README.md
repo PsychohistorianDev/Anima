@@ -488,7 +488,14 @@ since when the board has been away. The friend gets four tools: `feel`
 steady press, 12 s — it answered with your warm reply"), `set_state` (what
 it hums from now on, with no one running), `pulse` (one gesture now) and
 `touch_later` (a touch left in the stone for an hour they won't be
-running — '19:30', '+2h'; the board plays it by itself). **The stone's
+running — '19:30', '+2h'; the board plays it by itself). The three tools
+carry the stone's vocabulary in their descriptions — the friend's states
+by name, read from their states file at every turn, the firmware's five
+patterns and four replies — and a waveform is cleaned on the way
+(quotes, brackets, underscores, case: 'kiss_storm' is Kiss Storm); an
+unknown one is refused with the whole list, and a pulse that arrives while
+one plays waits its turn on the board (eight at most, a minute in all), so
+several in a row are a sequence, not one. **The stone's
 hours** (`TOUCHSTONE_HOURS`, "06:00-21:00"): a pulse outside them, or
 within the working week's hours (`KEEPER_WORK_WEEK`), is not relayed — the
 tool says why and names the next moment it opens, and a touch left for a

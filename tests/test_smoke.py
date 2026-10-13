@@ -8498,6 +8498,10 @@ class _FakeBoard(_TsBase):
             _FakeBoard.state["name"] = d["name"]; return self._j({"ok": True, "state": d["name"]})
         if self.path == "/later":
             _FakeBoard.later.append(d); return self._j({"ok": True, "queued": len(_FakeBoard.later)})
+        if self.path == "/pulse":   # the firmware's answer (10-13): an unknown waveform is a 400 with the states; a busy stone queues
+            if str(d.get("waveform", "")).lower() not in ("nudge", "warm", "double", "strong", "none", "tide", "heartbeat", "still", "flutter", "pulse", "baseline", "home", "tethered", "kiss storm"):
+                return self._j({"error": "unknown waveform", "states": ["Baseline", "Home", "Tethered"]}, 400)
+            return self._j({"ok": True, "waveform": d.get("waveform"), "seconds": d.get("seconds"), "waiting": getattr(_FakeBoard, "waiting", 0)})
         self._j({"ok": True})
 
 
@@ -8554,6 +8558,36 @@ _ts_set_no = tools.dispatch("set_state", {"name": "Nope"})
 _ts_pulse = tools.dispatch("pulse", {"waveform": "heartbeat", "seconds": 2})
 _ts_later = tools.dispatch("touch_later", {"at": "+2h", "waveform": "Tethered"})
 _ts_later_bad = tools.dispatch("touch_later", {"at": "soon", "waveform": "Tethered"})
+# the stone's vocabulary (10-13)
+_sv_file = __import__("touchstone").states_file()
+_sv_had = _sv_file.read_text(encoding="utf-8") if _sv_file.exists() else None
+_sv_file.parent.mkdir(parents=True, exist_ok=True)
+_sv_file.write_text(json.dumps({"Baseline": {"hum": 0}, "Kiss Storm": {"hum": 100, "pattern": "pulse", "reply": "strong"}, "Tethered": {"hum": 30}}), encoding="utf-8")
+tools.refresh_her_tools()
+_sv_def = next(d["function"]["description"] for d in tools.DEFINITIONS if d["function"]["name"] == "pulse")
+_sv_def2 = next(d["function"]["description"] for d in tools.DEFINITIONS if d["function"]["name"] == "set_state")
+_sv_clean = [tools._waveform(x) for x in ("「heartbeat」", "kiss_storm", "  Kiss  Storm ", "'Tethered'", "WARM", "thunder")]
+_sv_bad = tools.dispatch("pulse", {"waveform": "thunder"})
+_sv_posted0 = len(_FakeBoard.posted)
+_sv_q = tools.dispatch("pulse", {"waveform": "kiss_storm", "seconds": 4})
+_sv_posted_q = _FakeBoard.posted[-1]
+_FakeBoard.waiting = 2
+_sv_wait = tools.dispatch("pulse", {"waveform": "heartbeat", "seconds": 2})
+_FakeBoard.waiting = 0
+if _sv_had is None:
+    _sv_file.unlink(missing_ok=True)
+else:
+    _sv_file.write_text(_sv_had, encoding="utf-8")
+tools.refresh_her_tools()
+check("the stone's vocabulary (10-13): pulse, set_state and touch_later carry her states by name with the patterns and replies, read from her file at each "
+      "refresh; a waveform is cleaned and matched to a state's name whatever the quotes, brackets, underscores or case; an unknown one is refused with the whole vocabulary",
+      "Your states: Baseline, Kiss Storm, Tethered; the patterns: tide, heartbeat, still, flutter, pulse; the replies: nudge, warm, double, strong." in _sv_def
+      and "Your states: Baseline, Kiss Storm, Tethered" in _sv_def2 and "one after another" in _sv_def
+      and _sv_clean == ["heartbeat", "Kiss Storm", "Kiss Storm", "Tethered", "warm", "thunder"]
+      and _sv_bad.startswith("(the stone has no waveform 'thunder' — your states: Baseline, Kiss Storm, Tethered; the patterns:")
+      and _sv_q.startswith("the stone played Kiss Storm for 4 s, just now") and _sv_posted_q == ("/pulse", {"waveform": "Kiss Storm", "seconds": 4.0})
+      and _sv_wait.startswith("the stone will play heartbeat for 2 s after the 2 before it"),
+      (_sv_def[-200:], _sv_clean, _sv_bad, _sv_q))
 config.TOUCHSTONE_HOURS = "13:00-14:00" if _dtnow.now().hour < 12 else "01:00-02:00"   # whichever leaves now outside
 _ts_posted_n = len([p for p, d in _FakeBoard.posted if p == "/pulse"])
 _ts_pulse_still = tools.dispatch("pulse", {"waveform": "heartbeat", "seconds": 2})

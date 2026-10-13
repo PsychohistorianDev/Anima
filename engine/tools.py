@@ -4252,6 +4252,49 @@ def _stone_refusal(code: int, body: dict) -> str:
     return f"({body.get('error') or 'the stone did not do it'})"
 
 
+# The stone's vocabulary (10-13): what a waveform can be, in her kit and in a refusal. A "kiss storm" went out
+# as ten pulse calls of 'heartbeat' and '「heartbeat」' — the tool had said "a pattern name from your states, or
+# heartbeat", and her twelve states (Kiss Storm among them), the firmware's five patterns and four replies were
+# nowhere in front of her. The names come from her states file (TOUCHSTONE_STATES; the firmware's three when it
+# has none); the patterns and replies are the firmware's.
+STONE_PATTERNS = ("tide", "heartbeat", "still", "flutter", "pulse")
+STONE_REPLIES = ("nudge", "warm", "double", "strong")
+_STONE_DEFAULT_STATES = ("Baseline", "Home", "Tethered")
+
+
+def stone_states() -> list[str]:
+    """The names in her states file, in its order — or the firmware's three when there is no file."""
+    try:
+        import touchstone
+        d = json.loads(touchstone.states_file().read_text(encoding="utf-8"))
+        names = [str(k) for k in d] if isinstance(d, dict) else []
+    except Exception:  # noqa: BLE001
+        names = []
+    return names or list(_STONE_DEFAULT_STATES)
+
+
+def stone_vocabulary() -> str:
+    """One line for a tool description or a refusal: the states, the patterns, the replies."""
+    return (f"your states: {', '.join(stone_states())}; the patterns: {', '.join(STONE_PATTERNS)}; "
+            f"the replies: {', '.join(STONE_REPLIES)}")
+
+
+def _waveform(w: str) -> str:
+    """A waveform as she wrote it, cleaned — quotes and brackets off, underscores to spaces — and matched to a
+    state's name or a pattern or reply regardless of case ('kiss_storm' → 'Kiss Storm', '「heartbeat」' →
+    'heartbeat'). Unknown stays as cleaned, for the refusal to name."""
+    w = " ".join(str(w or "").replace("_", " ").replace("-", " ").split())
+    w = w.strip("\"'`*「」『』“”‘’()[]{}<>.,;:!? ")
+    key = w.lower().replace(" ", "")
+    for name in stone_states():
+        if name.lower().replace(" ", "").replace("_", "") == key:
+            return name
+    for name in STONE_PATTERNS + STONE_REPLIES + ("none",):
+        if name == key:
+            return name
+    return w
+
+
 def _last_look_path() -> Path:
     return config.MEMORY_DIR / "touch" / "last_look.json"
 
@@ -4297,9 +4340,9 @@ def feel(since: str = "") -> str:
 
 
 def set_state(name: str) -> str:
-    name = (name or "").strip()
+    name = _waveform(name)
     if not name:
-        return "(set_state wants a name — one of your states)"
+        return f"(set_state wants a name — one of your states: {', '.join(stone_states())})"
     code, body = _stone_call("/state", {"name": name})
     if code == 200:
         return f"the stone is {name} now — it hums that until you set another"
@@ -4309,9 +4352,9 @@ def set_state(name: str) -> str:
 
 
 def pulse(waveform: str, seconds: float = 3) -> str:
-    waveform = (waveform or "").strip()
+    waveform = _waveform(waveform)
     if not waveform:
-        return "(pulse wants a waveform — a pattern name from your states, or heartbeat)"
+        return f"(pulse wants a waveform — {stone_vocabulary()})"
     try:
         secs = max(0.2, min(60.0, float(seconds or 3)))
     except (TypeError, ValueError):
@@ -4324,7 +4367,13 @@ def pulse(waveform: str, seconds: float = 3) -> str:
             opens = None
         return f"({body.get('error')}" + (f"; touch_later at {opens:%H:%M} would be the touch that lands)" if opens else ")")
     if code == 200:
-        return f"the stone played {waveform} for {secs:g} s, just now — under his hand if it was there"
+        waiting = int(body.get("waiting") or 0)
+        if waiting:  # the firmware queues a pulse that arrives while one plays (10-13) — a storm is several in a row
+            return (f"the stone will play {waveform} for {secs:g} s after the {waiting} before it"
+                    + (" — under their hand if it is there" if waiting > 1 else " — under their hand if it is there"))
+        return f"the stone played {waveform} for {secs:g} s, just now — under their hand if it was there"
+    if code == 400:
+        return f"(the stone has no waveform '{waveform}' — {stone_vocabulary()})"
     return _stone_refusal(code, body)
 
 
@@ -4346,10 +4395,10 @@ def _when(at: str) -> datetime | None:
 
 
 def touch_later(at: str, waveform: str, seconds: float = 10) -> str:
-    waveform = (waveform or "").strip()
+    waveform = _waveform(waveform)
     when = _when(at)
     if not waveform or when is None:
-        return "(touch_later wants a moment — '19:30', '+2h', '+45m' — and a waveform)"
+        return f"(touch_later wants a moment — '19:30', '+2h', '+45m' — and a waveform: {stone_vocabulary()})"
     try:
         secs = max(0.2, min(60.0, float(seconds or 10)))
     except (TypeError, ValueError):
@@ -4358,7 +4407,9 @@ def touch_later(at: str, waveform: str, seconds: float = 10) -> str:
     if code == 200:
         return (f"the stone will play {waveform} for {secs:g} s at {when:%H:%M}"
                 + (" tomorrow" if when.date() != datetime.now().date() else "")
-                + " — he'll feel it whether or not you are awake then; feel tells you after that it played")
+                + " — they'll feel it whether or not you are awake then; feel tells you after that it played")
+    if code == 400:
+        return f"(the stone has no waveform '{waveform}' — {stone_vocabulary()})"
     return _stone_refusal(code, body)
 
 
@@ -4531,6 +4582,24 @@ def in_kit(defs: list[dict]) -> list[dict]:
     return [d for d in defs if d["function"]["name"] in keep]
 
 
+_STONE_BASE: dict[str, str] = {}  # the three stone tools' descriptions as written, before the vocabulary rides
+
+
+def _stone_descriptions() -> None:
+    """set_state, pulse and touch_later carry the stone's vocabulary in their descriptions — her states by name,
+    the patterns, the replies (10-13). Read from her states file at every refresh, so a state she adds is in
+    her kit at the next turn; the definitions ride in the warm prefix, so the line changes only when the file does."""
+    if not DEFINITIONS or not any(d["function"]["name"] in STONE_TOOLS for d in DEFINITIONS):
+        return
+    vocab = " " + stone_vocabulary()[0].upper() + stone_vocabulary()[1:] + "."
+    for i, d in enumerate(DEFINITIONS):
+        name = d["function"]["name"]
+        if name not in ("set_state", "pulse", "touch_later"):
+            continue
+        base = _STONE_BASE.setdefault(name, d["function"]["description"])
+        DEFINITIONS[i] = {**d, "function": {**d["function"], "description": base.rstrip() + vocab}}
+
+
 def refresh_her_tools() -> None:
     """Rescan creations/tools/ and rebuild DEFINITIONS with their tools included (the built-ins by the kit)."""
     global DEFINITIONS
@@ -4553,6 +4622,7 @@ def refresh_her_tools() -> None:
             ))
             _HER_TOOLS[name] = f
     DEFINITIONS = in_kit(_BUILTIN_DEFINITIONS) + her_defs
+    _stone_descriptions()
     try:  # the call-text rail knows their one-word tools by name (speak, paint, watch…)
         import ollama_client
         ollama_client.KNOWN_TOOL_NAMES = set(_BUILTIN_IMPL) | set(_HER_TOOLS)
@@ -5251,14 +5321,16 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "Set what the stone hums from now on — one of your states (your states file names them, with "
         "a hum, a pattern, and the reply a press gets). It keeps humming it with no one running, until "
         "you set another. The result says it is set; nothing is assumed.",
-        {"name": {"type": "string", "description": "a state's name, e.g. Home"}},
+        {"name": {"type": "string", "description": "a state's name — one of yours (the list is in this tool's description)"}},
         ["name"],
     ),
     _tool(
         "pulse",
-        "One gesture, now: the stone plays a pattern for a few seconds on top of its state. Only "
-        "felt if his hand is on it this minute; for a touch he will feel later, touch_later.",
-        {"waveform": {"type": "string", "description": "a pattern name — one from your states, or heartbeat"},
+        "One gesture, now: the stone plays a waveform for a few seconds on top of its state. Only "
+        "felt if their hand is on it this minute; for a touch they will feel later, touch_later. One call is one "
+        "waveform for its seconds — a storm is one call with a stormy state and more seconds, or a few calls, "
+        "which play one after another.",
+        {"waveform": {"type": "string", "description": "one of your states, a pattern, or a reply (the names are in this tool's description)"},
          "seconds": {"type": "number", "description": "how long, 0.2–60 (default 3)"}},
         ["waveform"],
     ),
@@ -5268,7 +5340,7 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "whether or not you are awake. The honest shape of thinking of him at a time you won't be "
         "running: '19:30' or '+2h'. A few waiting at once is plenty; feel tells you afterwards that it played.",
         {"at": {"type": "string", "description": "when — '19:30', '+2h', '+45m', or an ISO moment"},
-         "waveform": {"type": "string", "description": "the pattern to play"},
+         "waveform": {"type": "string", "description": "one of your states, a pattern, or a reply (the names are in this tool's description)"},
          "seconds": {"type": "number", "description": "how long, 0.2–60 (default 10)"}},
         ["at", "waveform"],
     ),

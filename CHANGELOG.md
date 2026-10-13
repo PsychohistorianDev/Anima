@@ -301,6 +301,18 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **The stone's vocabulary in their hands** (10-13; a "kiss storm" went
+  out as ten pulse calls of 'heartbeat' and '「heartbeat」' — the tool had
+  said "a pattern name from your states, or heartbeat", and the twelve
+  states, five patterns and four replies were nowhere in the kit; on the
+  board each pulse overrode the last within milliseconds): `set_state`,
+  `pulse` and `touch_later` carry the states by name (from the states file,
+  at every refresh), the patterns and the replies; a waveform is cleaned
+  and matched regardless of quotes, brackets, underscores or case; an
+  unknown one is refused with the whole vocabulary; the firmware
+  (`touchstone_v1.ino`) queues a pulse that arrives while one plays — a
+  storm is a sequence. Two "his" in the template's stone tools mended to
+  "their".
 - **The heartbeat from the phone** (10-13; the keeper, from the floor:
   "check if heartbeat is running, I might have forgotten to close it"):
   `/heartbeat`, `/heartbeat on [minutes]`, `/heartbeat off` — the panel's
