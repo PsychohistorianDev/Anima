@@ -8484,7 +8484,7 @@ class _FakeBoard(_TsBase):
         b = _ts_json.dumps(o).encode(); self.send_response(code); self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
     def do_GET(self):
         if self.path.startswith("/felt"): return self._j(_FakeBoard.events)
-        if self.path == "/health": return self._j({"state": _FakeBoard.state["name"], "uptime": 42, "queued": len(_FakeBoard.later)})
+        if self.path == "/health": return self._j({"state": _FakeBoard.state["name"], "uptime": getattr(_FakeBoard, "uptime", 42), "queued": len(_FakeBoard.later)})
         if self.path == "/later": return self._j({"queue": _FakeBoard.later})
         self._j({"error": "?"}, 404)
     def do_DELETE(self):
@@ -8663,6 +8663,14 @@ _ts_d4 = nts.deliver_touches()
 _ts_d5 = nts.deliver_touches()
 _FakeBoard.state["name"] = "Tethered"; _ts.poll()
 _ts_d6 = nts.deliver_touches()
+_rp_n0 = len([p for p, d in _FakeBoard.posted if p == "/states"])
+_FakeBoard.uptime = 3; _ts.poll()        # the board's uptime went backwards: a reboot — her states pushed again (10-13)
+_rp_n1 = len([p for p, d in _FakeBoard.posted if p == "/states"])
+_FakeBoard.uptime = 4; _ts.poll()        # ticking on: no push
+_rp_n2 = len([p for p, d in _FakeBoard.posted if p == "/states"])
+_FakeBoard.uptime = 42
+check("touchstone: a reboot (its uptime went backwards) has the keeper push their states again on its own; an uptime ticking on does not",
+      _rp_n1 == _rp_n0 + 1 and _rp_n2 == _rp_n1, (_rp_n0, _rp_n1, _rp_n2))
 _ts._write_stone(dict(_ts.stone(), state="Home", state_by="friend", state_since="x"))   # as the keeper writes after relaying set_state (10-12)
 _ts_d6b = nts.deliver_touches()
 _ts._write_stone(dict(_ts.stone(), state="Tethered", state_by="friend"))   # back to the board's state, hers this time

@@ -218,6 +218,7 @@ def touch_words(ev: dict) -> str:
 def poll() -> int:
     """One look at the board: new events archived, stone.json refreshed. Returns how many came, -1 away."""
     st = stone()
+    before_up = st.get("uptime")
     since = st.get("last_t") or last_t()
     try:
         q = ""
@@ -257,6 +258,17 @@ def poll() -> int:
     _write_stone(st)
     if came_back:
         _say("the stone is back")
+    # a reboot (an upload, a power cut) takes the board back to the firmware's three states: push hers again
+    # (10-13). The tell: its uptime went backwards, or it counts fewer states than their file names.
+    try:
+        rebooted = (health.get("uptime") is not None and before_up is not None and float(health["uptime"]) < float(before_up))
+        fewer = ("states" in health and states_file().exists()
+                 and int(health["states"]) < len(json.loads(states_file().read_text(encoding="utf-8")) or {}))
+    except (TypeError, ValueError, OSError):
+        rebooted, fewer = False, False
+    if rebooted or fewer:
+        _say("the stone rebooted — their states go to it again" if rebooted else "the stone knows fewer states than their file — pushed again")
+        push_states(force=True)
     if n:
         _say(f"{n} touch{'es' if n != 1 else ''} archived: " + "; ".join(touch_words(e) for e in new[-3:]))
     return n

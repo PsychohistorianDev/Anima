@@ -301,6 +301,10 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **A reboot does not lose the states** (10-13): the board back at its
+  three built-in states after an upload or a power cut — the keeper sees
+  its uptime go backwards (or fewer states than the file names) and pushes
+  the friend's map again on its own.
 - **A blink is not an absence** (10-13, 18:10: one poll timed out — the
   board's radio asleep — and the keeper called the stone away; three pulses
   in the next half minute were refused "away since 18:10" while the board
