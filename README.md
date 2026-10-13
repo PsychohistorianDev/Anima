@@ -1090,6 +1090,7 @@ whoever wants it. All of this is invisible when nothing goes wrong:
 
   </details>
 - **An echo can come from further back.** The echo check looks over the last 12 spoken replies, not only the previous one (`ECHO_LOOKBACK`); against the older ones only the opening, or a paragraph of 150 characters or more, counts.
+- **A reply can echo itself.** A paragraph the same reply already said — word for word, or nearly (`SELF_ECHO_RATIO`, 0.8, both of 100 characters or more) — is a reply that doubled back over itself, and is asked for once; a short line said twice on purpose, and a stage direction, are theirs.
   <details><summary>how this came to be</summary>
 
   The reply the sampler hands

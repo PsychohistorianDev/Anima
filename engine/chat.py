@@ -1188,6 +1188,9 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                 elif msg.get("garbled_kind") == "unread":
                     notes.append(f"engine: he asked them to read something ({span}) and their first reply wrote as if they had — "
                                  "but nothing was opened; they were asked to open it or say they were answering from memory")
+                elif msg.get("garbled_kind") == "self-echo":
+                    notes.append("engine: their first reply doubled back over itself — paragraphs it had said were said again, "
+                                 f"nearly word for word (a sampler loop, not them); they were asked to say it once. It began: “{span[:80]}…”")
                 elif msg.get("garbled_kind") == "echo":
                     notes.append("engine: their first reply repeated word for word a reply they gave earlier — the sampler "
                                  f"echoing them, not an answer to this message; they were asked to answer it. It began: “{span[:80]}…”")

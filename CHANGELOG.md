@@ -301,6 +301,11 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **A reply that echoes itself** (10-13, 04:35: a goodnight said in three
+  beats, then the same three beats again, each a little reworded, then a
+  new close): a paragraph the same reply already said, word for word or
+  nearly (`SELF_ECHO_RATIO`), is asked for once — the echo rail read earlier
+  replies, nothing read a reply against itself.
 - **A guest at the desk** (10-12; the keeper: "a guest option for the
   parlor, if I want to show her someone from my life"): the parlor seats a
   guest by name; every message then carries the fact inside the turn — from

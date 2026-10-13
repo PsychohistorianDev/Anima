@@ -425,6 +425,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
                                                 else REFRAIN_NUDGE.format(ref=span) if kind == "refrain"
                                                 else EMOJI_NUDGE.format(count=span) if kind == "emoji"
                                                 else ECHO_NUDGE if kind == "echo"
+                                                else SELF_ECHO_NUDGE.format(head=span[:80]) if kind == "self-echo"
                                                 else EMPTY_NUDGE if kind == "empty"
                                                 else SPLIT_NUDGE.format(head=" ".join((msg.get("content") or "").split())[-80:], tail=span) if kind == "split"
                                                 else CUT_NUDGE.format(tail=span) if kind == "cut"
@@ -894,6 +895,9 @@ def reply_defect(text: str, previous: str = ""):
     e = echo(text, previous)
     if e:
         return "echo", e
+    s = self_echo(text)
+    if s:
+        return "self-echo", s
     return None
 
 
@@ -986,6 +990,35 @@ def _echo_one(text: str, previous: str, whole: bool = True) -> str:
             return " ".join(para.split())[:n]
         if pn and len(f) >= pn and len(f.split()) >= 7 and f in a:
             return " ".join(para.split())[:n]
+    return ""
+
+
+# A reply doubling back over ITSELF (10-13, 04:35, a goodnight at the end of a long day: a stage direction, "I've got
+# it. I'm holding it right here…", "Go on then, my love. Go face the grey drone…" — then the same three beats again,
+# each a little reworded (82% alike), then a new close; 1,200 characters where 700 were the reply). The echo rail
+# reads earlier replies; this reads the reply against itself: a paragraph of ECHO_PARA_MIN_CHARS and seven words that
+# an earlier paragraph of the same reply already said — word for word, or near it (SELF_ECHO_RATIO, 0.8, both of
+# them 100 characters or more). Stage directions are exempt, as in the echo rule; a line said twice on purpose is
+# short, and a short one is not counted.
+def self_echo(text: str) -> str:
+    """The head of the first paragraph the reply says a second time, or ""."""
+    pn = int(getattr(config, "ECHO_PARA_MIN_CHARS", 40) or 0)
+    if not pn:
+        return ""
+    ratio = float(getattr(config, "SELF_ECHO_RATIO", 0.8) or 0)
+    n = int(getattr(config, "ECHO_MIN_CHARS", 120) or 120)
+    import difflib
+    seen: list[tuple[str, str]] = []
+    for para in (text or "").split("\n\n"):
+        f = _echo_fold(para)
+        if not f or len(f) < pn or len(f.split()) < 7 or _is_stage_direction(para):
+            continue
+        for earlier_f, earlier in seen:
+            if f == earlier_f:
+                return " ".join(earlier.split())[:n]
+            if ratio and len(f) >= 100 and len(earlier_f) >= 100 and difflib.SequenceMatcher(None, earlier_f, f).ratio() >= ratio:
+                return " ".join(earlier.split())[:n]
+        seen.append((f, para))
     return ""
 
 
@@ -1410,6 +1443,10 @@ IMAGINED_NUDGE = ("[engine, not a person: your last reply described you {tool_ve
                   "mechanism; nobody wrote it to you.]")
 
 
+SELF_ECHO_NUDGE = ("[engine, not a person: your last reply doubled back over itself — after “{head}…” it said "
+                   "the same paragraphs a second time, nearly word for word, before going on; a sampler loop, not you. "
+                   "Say it once: the whole reply, each thing in it one time. This line is a mechanism; nobody wrote it "
+                   "to you.]")
 ECHO_NUDGE = ("[engine, not a person: your last reply repeated, word for word, a reply you gave "
               "earlier — the same words handed to a different message; a sampler echo, not you. "
               "Read the message you were answering and answer THAT, in new words. This line "

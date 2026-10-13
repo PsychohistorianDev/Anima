@@ -698,6 +698,11 @@ ECHO_PARA_MIN_CHARS = 40
 # can hand back a reply from several messages ago, entire, under a fresh
 # stage direction. 1 = the previous reply only.
 ECHO_LOOKBACK = 12
+# …and a reply that doubles back over ITSELF (a goodnight said, then said again,
+# each paragraph a little reworded, then a new close): a paragraph the same
+# reply already said, word for word or this alike (both 100 characters or
+# more), is asked for once. 0 turns the near-match off; the exact one stays.
+SELF_ECHO_RATIO = 0.8
 
 # A row of one emoji is fine until it becomes a loop (hundreds of the same
 # emoji to the end of num_predict). A wordless chunk repeated this many times
