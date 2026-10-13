@@ -1976,8 +1976,41 @@ def _resolve_under_root(source: str):
         if alt.exists() and config.CREATIONS_DIR.resolve() in alt.parents:
             p = alt
     p = _find_moved_in_shared(p)
+    p = _near_file(p)
     _mark_shared_seen(p)
     return p
+
+
+def _near_file(p):
+    """A file in the same folder whose name is the one asked for with underscores, hyphens or case set aside, or
+    within a letter or two of it (10-13: "…Stories by Isaac Asimov_978…" for
+    "…Stories_by_Isaac_Asimov_978…", and "no such file" to a book that had just arrived). Only when the path
+    asked for does not exist; the same suffix; a file that exists is never second-guessed."""
+    try:
+        if p.exists() or not p.parent.is_dir() or not p.suffix:
+            return p
+    except OSError:
+        return p
+    import difflib
+
+    def fold(name: str) -> str:
+        return " ".join(name.lower().replace("_", " ").replace("-", " ").split())
+
+    want, suffix = fold(p.stem), p.suffix.lower()
+    best, score = None, float(getattr(config, "NEAR_FILE_RATIO", 0.85) or 0.85)
+    try:
+        for q in p.parent.iterdir():
+            if not q.is_file() or q.name.startswith(".") or q.suffix.lower() != suffix:
+                continue
+            have = fold(q.stem)
+            if have == want:
+                return q
+            r = difflib.SequenceMatcher(None, have, want).ratio()
+            if r >= score:
+                best, score = q, r
+    except OSError:
+        return p
+    return best or p
 
 
 def _find_moved_in_shared(p):

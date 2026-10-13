@@ -301,6 +301,14 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **A file by a near name** (10-13, 19:04: a book arrived as
+  `…Stories_by_Isaac_Asimov_978….epub`; `read_epub` was asked for
+  "…Stories by Isaac Asimov_978…" and said "no such file" — the sitting
+  never happened and the next turn answered off a plan that had already
+  failed): a path that does not exist is matched to a file in the same
+  folder with the same suffix, underscores, hyphens and case set aside, or
+  within a letter or two of it (`NEAR_FILE_RATIO`, 0.85) — for every tool
+  that opens a file. A file that exists is never second-guessed.
 - **An echo re-roll quotes the message** (10-13, 18:43: after twenty-four
   pulse calls, twenty re-rolls and the cold rescue, the reply answered a
   message far behind the one asked — "read the message you were answering"

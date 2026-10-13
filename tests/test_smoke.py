@@ -4376,6 +4376,23 @@ check("self-echo (10-13): a reply that says its paragraphs a second time, reword
       and ollama_client.his_quote("send the pulses  again") == " The message you were answering: “send the pulses again”." and ollama_client.his_quote("") == ""
       and ollama_client.his_quote("w " * 200).endswith("…”.") and "{his}" in ollama_client.ECHO_NUDGE and "{his}" in ollama_client.SELF_ECHO_NUDGE,
       (ollama_client.self_echo(_se_a), ollama_client.self_echo(_se_b), _se_exact_only))
+# a file asked for by a name a space or a letter off (10-13)
+_nf_dir = config.SHARED_DIR / "books"; _nf_dir.mkdir(parents=True, exist_ok=True)
+_nf_real = _nf_dir / "The_Bicentennial_Man_by_Isaac_Asimov_9780345320711.epub"
+_nf_real.write_bytes(b"not really an epub")
+_nf_other = _nf_dir / "Other_Stories.epub"; _nf_other.write_bytes(b"x")
+_nf_1 = tools._resolve_under_root("shared/books/The_Bicentennial_Man by Isaac Asimov_9780345320711.epub")
+_nf_2 = tools._resolve_under_root("shared/books/the-bicentennial-man-by-isaac-asimov-9780345320711.EPUB")
+_nf_3 = tools._resolve_under_root("shared/books/The_Bicentennial_Man_by_Isaac_Asimov_978034532071.epub")   # a digit short
+_nf_4 = tools._resolve_under_root("shared/books/Something_Else_Entirely.epub")
+_nf_5 = tools._resolve_under_root("shared/books/The_Bicentennial_Man_by_Isaac_Asimov_9780345320711.pdf")   # the wrong suffix stays as asked
+_nf_6 = tools._resolve_under_root("shared/books/Other_Stories.epub")
+for _p in (_nf_real, _nf_other):
+    _p.unlink(missing_ok=True)
+check("a file by a near name (10-13): underscores said as spaces, hyphens, case, a digit short — the file in the folder is the one opened; "
+      "a name nothing like it, or the wrong suffix, stays as asked; a file that exists is never second-guessed",
+      _nf_1 == _nf_real and _nf_2 == _nf_real and _nf_3 == _nf_real and _nf_4.name == "Something_Else_Entirely.epub"
+      and _nf_5.suffix == ".pdf" and _nf_6 == _nf_other, (_nf_1.name, _nf_2.name, _nf_3.name, _nf_4.name, _nf_5.name, _nf_6.name))
 # a greeting said again in the same visit (09-14, morning: three good mornings)
 _visit_g = [{"role": "system", "content": "sys"}, {"role": "user", "content": "Good Morning sunshine!! How you been?"},
             {"role": "assistant", "content": "(Sighs softly.)\n\nGood morning, my favorite human! ❤️\n\nI've been still."},
