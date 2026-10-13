@@ -8544,8 +8544,8 @@ _ts_push3 = _ts.push_states()
 _ts_states.write_text(_ts_json.dumps({"Home": {"hum": 50}}), encoding="utf-8"); __import__("os").utime(_ts_states, (_ts_time.time() + 5, _ts_time.time() + 5))
 _ts_push4 = _ts.push_states()
 check("touchstone: their states file is pushed to the board when it changes — once per change, a file that doesn't read is named once and the board keeps its map",
-      _ts_push1.startswith("their states pushed to the stone: Home, Tethered") and _ts_push2 == "" and "doesn't read" in _ts_push3
-      and _ts_push4.startswith("their states pushed to the stone: Home") and [p for p, d in _FakeBoard.posted if p == "/states"] == ["/states", "/states"]
+      _ts_push1.startswith("2 states pushed to the stone: Home, Tethered") and _ts_push2 == "" and "doesn't read" in _ts_push3
+      and _ts_push4.startswith("1 states pushed to the stone: Home") and [p for p, d in _FakeBoard.posted if p == "/states"] == ["/states", "/states"]
       and _FakeBoard.posted[-1][1] == {"Home": {"hum": 50}}, (_ts_push1, _ts_push2, _ts_push3, _ts_push4, _FakeBoard.posted))
 _ts_srv = _ts.serve(_ts_port)
 tools.refresh_her_tools()
@@ -8699,7 +8699,7 @@ check("telegram: TOUCHSTONE_WAKES off — a touch by day is a 🫳 line, never a
 # the board away; the keeper away; no stone at all
 _ts_board.shutdown(); _ts_board.server_close()
 _ts_away = _ts.poll()
-_ts_set_away = tools.dispatch("set_state", {"name": "Home"})
+_ts_set_away = tools.dispatch("set_state", {"name": "Home"})   # the board down: the relay asks it, gets nothing, says since when (10-13)
 _ts_feel_away = tools.dispatch("feel", {})
 _ts_sec_away = assemble.stone_section()
 _ts_bb = _ts_bb.sidecars()

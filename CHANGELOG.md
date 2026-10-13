@@ -301,6 +301,13 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **A blink is not an absence** (10-13, 18:10: one poll timed out — the
+  board's radio asleep — and the keeper called the stone away; three pulses
+  in the next half minute were refused "away since 18:10" while the board
+  was there): a relay (pulse, state, later) now asks the board itself and
+  answers from that, the poll's mark only saying since when; a single miss
+  is asked again at once, two in a row is away. The sketch turns the
+  ESP32's modem sleep off (`WiFi.setSleep(false)`).
 - **The stone's vocabulary in their hands** (10-13; a "kiss storm" went
   out as ten pulse calls of 'heartbeat' and '「heartbeat」' — the tool had
   said "a pattern name from your states, or heartbeat", and the twelve

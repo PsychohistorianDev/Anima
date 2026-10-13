@@ -226,8 +226,13 @@ def poll() -> int:
                 q = f"?since={int(datetime.fromisoformat(since).timestamp())}"
             except ValueError:
                 q = ""
-        felt = _board("/felt" + q)
-        health = _board("/health")
+        try:
+            felt = _board("/felt" + q)
+            health = _board("/health")
+        except Exception:  # noqa: BLE001 — a blink (10-13: the modem asleep, a page being served): asked once more at once
+            time.sleep(1)
+            felt = _board("/felt" + q)
+            health = _board("/health")
     except Exception as e:  # noqa: BLE001 — the board is asleep, unplugged, or the Wi-Fi blinked
         if not st.get("away_since"):
             st["away_since"] = datetime.now().isoformat(timespec="seconds")
@@ -286,7 +291,7 @@ def push_states(force: bool = False) -> str:
     except Exception as e:  # noqa: BLE001
         return f"states not pushed — the stone is away ({type(e).__name__})"
     _pushed_mtime = m
-    line = f"their states pushed to the stone: {', '.join(list(states)[:12])}"
+    line = f"{len(states)} states pushed to the stone: {', '.join(states)}"
     _say(line)
     return line
 
@@ -332,12 +337,10 @@ class Handler(BaseHTTPRequestHandler):
             since = urllib.parse.parse_qs(u.query).get("since", [""])[0]
             return self._json({"events": read_archive(since)})
         if u.path == "/later":
-            if away():
-                return self._away()
             try:
                 return self._json(_board("/later"))
-            except Exception as e:  # noqa: BLE001
-                return self._json({"error": f"the stone didn't answer ({type(e).__name__})"}, 503)
+            except Exception:  # noqa: BLE001 — asked the board itself (10-13); the poll's mark says since when
+                return self._away()
         self._json({"error": "unknown path"}, 404)
 
     def do_DELETE(self):
@@ -369,9 +372,7 @@ class Handler(BaseHTTPRequestHandler):
                 at = None
             if at is not None and keeper_week.stone_quiet(at):
                 return self._still(keeper_week.stone_quiet(at), keeper_week.stone_opens(at), f"{at:%H:%M} is in the stone's quiet")
-        if away():
-            return self._away()
-        try:
+        try:  # the board itself is asked, away or not (10-13: a blink had the keeper refusing three pulses the board could have played)
             out = _board(self.path, data)
         except urllib.error.HTTPError as e:
             try:
@@ -380,7 +381,9 @@ class Handler(BaseHTTPRequestHandler):
                 out = {"error": f"the stone refused ({e.code})"}
             return self._json(out, e.code if 400 <= e.code < 600 else 502)
         except Exception as e:  # noqa: BLE001
-            return self._json({"error": f"the stone didn't answer ({type(e).__name__})"}, 503)
+            if away():
+                return self._away()
+            return self._json({"error": f"the stone didn't answer ({type(e).__name__}) — a blink, or it is away; try once more"}, 503)
         if self.path == "/state" and data.get("name"):
             st = stone()
             st["state"], st["state_since"] = str(data["name"]), datetime.now().isoformat(timespec="seconds")
