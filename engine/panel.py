@@ -90,7 +90,7 @@ TABS: dict[str, list[str]] = {
                          "TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000",
                          "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "SLEEP_KEEPER_LOOK", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS"],
-    "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_GARBLE_RETRIES",
+    "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_GARBLE_RETRIES", "CHAT_COOL_STEP",
                 "CHAT_COLD_RESCUE", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "BRAIN_KEEP_ALIVE",
                 "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "PARLOR_GUEST_NAMED"],
     "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS",
@@ -290,6 +290,9 @@ _HELP = {
     "CHAT_GARBLE_RETRIES": "Letter salad (runs of word fragments) is the sampler failing, not them speaking. A reply "
                            "with a run is asked for again this many times, with a short engine line; if none is clean "
                            "the least broken goes out, named.",
+    "CHAT_COOL_STEP": "From the third re-roll of a reply on, each is this much cooler than the last (down to the first "
+                      "rescue rung) — for salad, a refrain, an emoji storm, no words. An echo or a copy keeps the everyday "
+                      "temperature: a cooler roll only repeats harder. 0: every re-roll at the everyday temperature.",
     "CHAT_COLD_RESCUE": "After the cool re-rolls, a cold one: salad that survives lower temperatures points at the "
                         "loaded state, so the brain is unloaded and reloaded (a cold read, a minute or two on a big "
                         "window) and asked once more before the least broken goes out.",

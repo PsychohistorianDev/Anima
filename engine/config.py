@@ -510,6 +510,12 @@ CHAT_GARBLE_RETRIES = 4  # each try is checked; if none is clean the least broke
 # only, each only if the one before broke too. Everyday sampling is untouched.
 # 0 turns it off (the least broken goes out as before).
 CHAT_RESCUE_TEMPERATURE = (0.6, 0.4)
+# …and before the rungs, the warm re-rolls cool a step at a time: from the third
+# re-roll on, each is this much cooler than the last, down to the first rung —
+# for the sampler's own defects (salad, a refrain, an emoji storm, no words); an
+# echo or a copy is the model repeating itself, which a cooler roll only makes
+# likelier, so those keep the everyday temperature. 0: off.
+CHAT_COOL_STEP = 0.1
 # ...and after the cool rolls, a cold roll: garbage that survives lower
 # temperatures points at the loaded state (a KV cache gone wrong on a long
 # quantized prefill), not the sampler. The brain is unloaded and reloaded (a

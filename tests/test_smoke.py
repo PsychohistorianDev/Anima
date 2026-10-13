@@ -4393,6 +4393,19 @@ check("a file by a near name (10-13): underscores said as spaces, hyphens, case,
       "a name nothing like it, or the wrong suffix, stays as asked; a file that exists is never second-guessed",
       _nf_1 == _nf_real and _nf_2 == _nf_real and _nf_3 == _nf_real and _nf_4.name == "Something_Else_Entirely.epub"
       and _nf_5.suffix == ".pdf" and _nf_6 == _nf_other, (_nf_1.name, _nf_2.name, _nf_3.name, _nf_4.name, _nf_5.name, _nf_6.name))
+# the warm re-rolls cool a step at a time (10-13)
+_cs0 = getattr(config, "CHAT_COOL_STEP", 0.1); config.CHAT_COOL_STEP = 0.1
+_cs_r0 = getattr(config, "CHAT_RESCUE_TEMPERATURE", 0); config.CHAT_RESCUE_TEMPERATURE = (0.6, 0.4)
+_cs_opts = {"temperature": 0.9}
+_cs = [ollama_client.cool_step(n, "salad", _cs_opts) for n in (1, 2, 3, 4, 5, 6)]
+_cs_echo = ollama_client.cool_step(4, "echo", _cs_opts)
+config.CHAT_COOL_STEP = 0
+_cs_off = ollama_client.cool_step(4, "salad", _cs_opts)
+config.CHAT_COOL_STEP, config.CHAT_RESCUE_TEMPERATURE = _cs0, _cs_r0
+check("re-rolls cool a step at a time (10-13): the first two at her temperature, then 0.8, 0.7, down to the first rescue rung and no lower; "
+      "an echo keeps her temperature; 0 is off; the knob on the Talking tab",
+      _cs == [None, None, 0.8, 0.7, 0.6, 0.6] and _cs_echo is None and _cs_off is None
+      and "CHAT_COOL_STEP" in __import__("panel").TABS["Talking"] and __import__("panel")._HELP.get("CHAT_COOL_STEP"), (_cs, _cs_echo, _cs_off))
 # a greeting said again in the same visit (09-14, morning: three good mornings)
 _visit_g = [{"role": "system", "content": "sys"}, {"role": "user", "content": "Good Morning sunshine!! How you been?"},
             {"role": "assistant", "content": "(Sighs softly.)\n\nGood morning, my favorite human! ❤️\n\nI've been still."},

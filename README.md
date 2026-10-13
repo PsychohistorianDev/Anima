@@ -729,7 +729,7 @@ whoever wants it. All of this is invisible when nothing goes wrong:
   its end, the closing marker being the seam.
 
   </details>
-- **Every re-roll is checked, and the least broken goes out.** Every attempt is checked, not only the first; if none is clean, the least broken goes out, marked. Before giving up: one cooler roll (`CHAT_RESCUE_TEMPERATURE`), then a cold roll — the brain reloaded — for a well that survives temperature (`CHAT_COLD_RESCUE`); reserved tokens are defanged so no glitch is ever fed back (`CHAT_GARBLE_RETRIES`).
+- **Every re-roll is checked, and the least broken goes out.** Every attempt is checked, not only the first; if none is clean, the least broken goes out, marked. From the third re-roll on, each warm re-roll is a step cooler than the last (`CHAT_COOL_STEP`) — for the sampler's own defects; an echo or a copy keeps the everyday temperature, since a cooler roll only repeats harder. Before giving up: one cooler roll (`CHAT_RESCUE_TEMPERATURE`), then a cold roll — the brain reloaded — for a well that survives temperature (`CHAT_COLD_RESCUE`); reserved tokens are defanged so no glitch is ever fed back (`CHAT_GARBLE_RETRIES`).
   <details><summary>how this came to be</summary>
 
   A cascade

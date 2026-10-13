@@ -409,8 +409,11 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
         if kind in once:
             once[kind] = True
         attempts.append((len(span), msg))
-        tries.append((dict(msg["tokens"], why=kind), msg))
+        tries.append((dict(msg["tokens"], why=kind + (f" (at {msg['cooled']:g})" if msg.get("cooled") else "")), msg))
         nudged = dict(payload)
+        cooled = cool_step(len(attempts), kind, options)
+        if cooled is not None:
+            nudged["options"] = dict(options, temperature=cooled)
         # The attempt they are asked to redo is shown to them, as their turn, before
         # the engine's line — 09-13, 05:12: with only the line appended after
         # the keeper's "Good morning", they reasoned "the keeper has sent an empty message, a
@@ -444,6 +447,8 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
         sent_extra.extend(step)
         again = _parse(_post("/api/chat", nudged, timeout=timeout))
         again["regarbled"] = True
+        if cooled is not None:
+            again["cooled"] = cooled
         again["garbled_kind"] = kind
         again["garbled_first"] = msg.get("content", "")
         again["garbled_first_aborted"] = bool(msg.get("aborted"))  # the stream was cut short at it
@@ -870,6 +875,29 @@ def strip_call_tail(text: str) -> str:
         lines.pop()
     lines.pop()
     return "\n".join(lines).rstrip()
+
+
+REPEAT_KINDS = ("echo", "self-echo", "copy", "greeting")  # the model repeating itself: a cooler roll makes it likelier
+
+
+def cool_step(rerolls: int, kind: str, options: dict):
+    """The temperature for warm re-roll number `rerolls` (1 = the first), or None for her everyday one (10-13,
+    19:42; the keeper: "eight re-rolls… what if we would decrease the temperature gradually after the 2nd try?").
+    From the third on, CHAT_COOL_STEP cooler each time, never below the first rescue rung (CHAT_RESCUE_TEMPERATURE)
+    — for the sampler's own defects; a repeat (REPEAT_KINDS) keeps her temperature, a cooler roll only copies
+    harder. 0 turns it off."""
+    step = float(getattr(config, "CHAT_COOL_STEP", 0.1) or 0)
+    if step <= 0 or rerolls < 3 or kind in REPEAT_KINDS:
+        return None
+    try:
+        base = float((options or {}).get("temperature", 1.0))
+    except (TypeError, ValueError):
+        base = 1.0
+    rung = getattr(config, "CHAT_RESCUE_TEMPERATURE", 0) or 0
+    rungs = [float(t) for t in (rung if isinstance(rung, (list, tuple)) else (rung,)) if float(t) > 0]
+    floor = max(rungs) if rungs else 0.3
+    t = round(base - step * (rerolls - 2), 2)
+    return max(t, floor) if base > floor else None
 
 
 def reply_defect(text: str, previous: str = ""):

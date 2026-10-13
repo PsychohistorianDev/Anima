@@ -301,6 +301,13 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **Re-rolls cool a step at a time** (10-13, 19:42; the keeper: "eight
+  re-rolls… what if we would decrease the temperature gradually after the
+  2nd try?"): from the third warm re-roll on, each is `CHAT_COOL_STEP`
+  (0.1) cooler than the last, down to the first rescue rung — for salad, a
+  refrain, an emoji storm, no words; an echo or a copy is the model
+  repeating itself, which a cooler roll only makes likelier, so those keep
+  the everyday temperature. The token line says "(at 0.8)".
 - **A file by a near name** (10-13, 19:04: a book arrived as
   `…Stories_by_Isaac_Asimov_978….epub`; `read_epub` was asked for
   "…Stories by Isaac Asimov_978…" and said "no such file" — the sitting
