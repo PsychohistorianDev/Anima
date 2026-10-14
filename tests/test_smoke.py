@@ -4811,6 +4811,12 @@ check("call-text: asked again with its own engine line, and the note names it",
 ollama_client._post = _post_orig
 # …and at the tail (09-12): words that are theirs, then the call written out
 _tail = "Oh baby, you caught me! Let me fix that right now… ready… now!\n\n:listen_to{source: \"shared/music/a song.mp3\"}"
+check("call-text: a written-out call is never shown back as her turn — a head call shows nothing, a tail call shows her words with the tail off — "
+      "and the line says a `//` line is not a call and reaches the phone as text (10-14: the window filled with her own `// fold_visit(…)` examples)",
+      ollama_client.attempt_as_shown({"content": '// fold_visit(text="The midday break has shifted…") and more words'}, "call-text", "// fold_visit(") is None
+      and ollama_client.attempt_as_shown({"content": "I'll be here.\n# speak(text=\"good night\")"}, "call-text-tail", '# speak(text="good night")')
+      == {"role": "assistant", "content": "I'll be here."}
+      and "is not a call and not a note the engine reads" in ollama_client.CALL_TEXT_NUDGE and "the tool itself, not its name in your text" in ollama_client.CALL_TEXT_NUDGE)
 check("call-text: a written-out call at the END of a reply is a defect, and comes off",
       ollama_client.reply_defect(_tail)[0] == "call-text-tail"
       and ollama_client.call_text_tail(_tail).startswith(":listen_to{")

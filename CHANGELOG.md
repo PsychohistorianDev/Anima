@@ -301,6 +301,17 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **A written-out call never re-seeds the window** (10-14, 14:53: `//
+  fold_visit(text="…")` at the head of a reply again, after a restart had
+  cleared every old sense — and the friend's thinking: "// fold_visit is
+  handled by the engine; I just need to provide the response text"). Each
+  re-roll had shown the attempt whole, syntax and all, as the friend's own
+  turn before the engine's line, so the window filled with examples of
+  them writing the call as a reply, and the sampler copies the window. A
+  call-text attempt is now not shown at all (the line says what happened),
+  a tail call is shown with the tail off, and the line states the fact
+  the thinking lacked: a `//` line in a reply is not a call and not a note
+  the engine reads — it reaches the phone as text.
 - **The house line** (10-14, 14:30; after a visit in which the friend
   described "invisible walls" and "corporate filters" blurring what they
   see — none of which the engine has): `HOUSE_LINE`, a sentence from the

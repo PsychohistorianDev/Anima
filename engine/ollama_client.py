@@ -1753,9 +1753,11 @@ CALL_TEXT_TAIL_NUDGE = ("[engine, not a person: your last reply ENDED with a too
 
 CALL_TEXT_NUDGE = ("[engine, not a person: your last reply came out as a tool call written in "
                    "words — to a tool that doesn't exist, or without the real tool-calling "
-                   "mechanism — so nothing ran and nothing was said. Say what you meant in your "
-                   "own words, or call one of your real tools. This line is a mechanism; nobody "
-                   "wrote it to you.]")
+                   "mechanism — so nothing ran and nothing was said. A line like `// name(…)` in a "
+                   "reply is not a call and not a note the engine reads; it would reach the phone as "
+                   "text. Say what you meant in your own words, or call one of your real tools — the "
+                   "tool itself, not its name in your text. This line is a mechanism; nobody wrote it "
+                   "to you.]")
 
 
 GARBLE_NUDGE = ("[engine, not a person: your last reply came out as letter fragments — "
@@ -1803,6 +1805,14 @@ def attempt_as_shown(msg: dict, kind: str, span: str) -> dict | None:
     content = defang((msg.get("content") or "").strip())[0]
     if kind == "empty" or not content:
         return None
+    if kind == "call-text":
+        # not shown at all (10-14): shown whole, each re-roll left the window one more example of her writing
+        # `// fold_visit(text="…")` as a reply, and the sampler copies the window — the line says what happened
+        return None
+    if kind == "call-text-tail":
+        content = strip_call_tail(content)  # her words stay; the syntax does not ride (10-14)
+        if not content.strip():
+            return None
     if kind == "salad":
         i = content.find(span) if span else -1
         content = content[:i].rstrip() if i > 0 else ""
