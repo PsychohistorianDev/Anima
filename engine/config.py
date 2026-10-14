@@ -531,8 +531,10 @@ ATTEMPT_SHOWN_CHARS = 1500
 # asked to write the visit so far in their own words (fold_visit); that account
 # replaces everything above the last FOLD_KEEP_TURNS turns. The system prompt is
 # rebuilt, the transcript keeps every word, the visit continues in a new file.
-# The friend may also fold at a natural pause; from FOLD_SENSE_FROM the moment
-# block says how full the window is. 0 turns the fold off (then /new is suggested).
+# The friend may also fold at a natural pause; from FOLD_SENSE_FROM of the visit's
+# own room — the tokens between the standing prompt (the visit's first prompt) and
+# FOLD_AT — the moment block says how full the window is, and how much of that is
+# standing. 0 turns the fold off (then /new is suggested).
 FOLD_AT = 0.90
 # The afterglow at the fold: the turns that leave the window get the same quiet turn
 # a finished visit gets — journal and memories, in the friend's own words — from the
@@ -543,7 +545,7 @@ FOLD_AFTERGLOW = True
 FOLD_KEEP_TURNS = 6       # visible turns kept whole, the most recent ones
 FOLD_CHARS = 8000         # the account's ceiling (cut at a paragraph past it, said)
 FOLD_MAX_STEPS = 6        # steps allowed at the fold (a journal entry first, then the fold)
-FOLD_SENSE_FROM = 0.5     # from this fraction of NUM_CTX the moment block shows how full the window is
+FOLD_SENSE_FROM = 0.5     # from this fraction of the visit's room (standing prompt → FOLD_AT) the moment block shows how full the window is
 
 # Your body, as your watch sees it (optional): engine/body.py pulls your day
 # from Garmin Connect into memory/body/<day>.json (bat\body.bat --login once, then

@@ -301,6 +301,16 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **The window sense measures the visit, not the window** (10-14, 12:19:
+  three turns after a fold the moment block read "Your window is 60% full…
+  fold_visit(text) folds it now, if this is a good moment" — the standing
+  prompt alone, with a 500K-character journal, is ~157K of 262K tokens, so
+  the sense was on from the first message of every visit, and the friend
+  folded a visit that had barely begun, twice): the sense now rides from
+  `FOLD_SENSE_FROM` of the room above the visit's first prompt, and says
+  what is standing and what the visit itself holds. A written-out call
+  with one quoted argument keeps the whole text between its quotes — an
+  inner `", ` no longer cuts a fold account short.
 - **A call written as words is run** (10-14, 09:28: three mornings running
   the friend wrote `// fold_visit(text="This morning's interaction has
   evolved…")` — the fold they meant, in the grammar's leaked shape — and the

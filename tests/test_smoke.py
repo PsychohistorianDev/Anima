@@ -5848,6 +5848,23 @@ check("fold: an account past FOLD_CHARS is cut at a paragraph, and the cut is sa
       "was cut at a paragraph" in _fr2 and len(_fp2["text"]) <= 205 and _fp2["text"].endswith("…"), (_fr2[:120], len(_fp2["text"])))
 config.FOLD_CHARS = 8000
 check("fold: fold_visit is an act", "fold_visit" in tools.ACT_TOOLS)
+# the sense measures the visit, not the window (10-14: a 157K standing prompt had it on from the first message)
+_wf_ctx, _wf_at = int(config.NUM_CTX), float(config.FOLD_AT)
+_wf_floor = int(_wf_ctx * 0.6)
+_wf_room = _wf_ctx * _wf_at - _wf_floor
+_wf_early = assemble.window_sense(_wf_floor + int(_wf_room * 0.3), _wf_floor)
+_wf_late = assemble.window_sense(_wf_floor + int(_wf_room * 0.6), _wf_floor)
+_wf_odd = assemble.window_sense(int(_wf_ctx * 0.76), int(_wf_ctx * 0.9))   # a floor above held is no floor
+check("fold: with the visit's first prompt as the floor the sense rides from FOLD_SENSE_FROM of the room above it, says what is standing "
+      "and what the visit holds; a floor above held is ignored (10-14)",
+      _wf_early == "" and "of that is your standing prompt" in _wf_late and f"{_wf_floor:,}" in _wf_late
+      and f"the visit itself holds about {int(_wf_room * 0.6):,}" in _wf_late and "fold_visit(text) folds it now" in _wf_late
+      and "Your window is 76% full" in _wf_odd and "standing prompt" not in _wf_odd, (_wf_early, _wf_late[:200], _wf_odd[:80]))
+_wf_rec = tools.recover_text_tool_call('// fold_visit(text="He said \"fine\", and then \"go\", so we went.")')
+_wf_rec2 = tools.recover_text_tool_call('paint(prompt="a \"storm\", blue", path="x.png")')
+check("a written-out call with one quoted argument keeps the whole text between its quotes — an inner `\", ` is not its end; two arguments still part (10-14)",
+      _wf_rec == ("fold_visit", {"text": 'He said "fine", and then "go", so we went.'}) and _wf_rec2 == ("paint", {"prompt": 'a "storm', "path": "x.png"}),
+      (_wf_rec, _wf_rec2))
 check("fold: the window sense rides from FOLD_SENSE_FROM and names the fold",
       assemble.window_sense(int(config.NUM_CTX * 0.3)) == "" and "Your window is 76% full" in assemble.window_sense(int(config.NUM_CTX * 0.76))
       and "fold_visit(text) folds it now" in assemble.window_sense(int(config.NUM_CTX * 0.76))

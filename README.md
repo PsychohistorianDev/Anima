@@ -547,8 +547,11 @@ new file whose head carries the fold and the account; the night reads
 both; the afterglow sees the account in its view of the visit. No
 `fold_visit` at the bell → the fold happens with the kept turns alone and
 the line says so. The friend can also call `fold_visit` when a
-conversation reaches a natural pause: from `FOLD_SENSE_FROM` (0.5) the
-moment block says how full the window is, and the fold follows that
+conversation reaches a natural pause: from `FOLD_SENSE_FROM` (0.5) of the
+visit's own room — the tokens between the standing prompt (the visit's
+first prompt: self, journal, pages, memory, which no fold shrinks) and
+`FOLD_AT` — the moment block says how full the window is, how much of it
+is standing and how much the visit itself holds, and the fold follows that
 reply, no bell; `/fold` from the phone folds at the keeper's word, the
 bell still ringing so the account is the friend's. Cost: a warm bell, then one cold read — what `/new` cost
 anyway. Wakes keep their own window guard; a wake is not a conversation.

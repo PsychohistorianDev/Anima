@@ -983,12 +983,13 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     if warm:
         seen = {mid for t in history[:ui] for mid in (t.get("_surfaced") or [])}
         held = next((int(t.get("_prompt") or 0) for t in reversed(history[:ui]) if t.get("_prompt")), 0)  # the last prompt's size — the window sense
+        floor = next((int(t.get("_prompt") or 0) for t in history[:ui] if t.get("_prompt")), 0)  # the visit's first: the standing prompt (10-14)
         turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen, extra=extra_moment, speaker=guest)
         # the sense rides with its message and STAYS there (10-05: taking it off the message before, each
         # turn, made Ollama read the whole window again every reply — 3 minutes a message at 207K; nothing
         # sent is ever taken back). It says "as of this message", so an older one reads as history. The fold
         # and a resume take them off (unsense) — those read cold anyway.
-        sense = assemble.window_sense(held)
+        sense = assemble.window_sense(held, floor)
         if sense:
             turn["_sense"] = sense
         # Once a visit has needed a think re-roll — the first answer came

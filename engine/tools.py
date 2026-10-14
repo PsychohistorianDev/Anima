@@ -4785,8 +4785,14 @@ def recover_text_tool_call(text: str) -> tuple[str, dict] | None:
                   text.strip(), _re.DOTALL)
     if m and m.group(1) in known:
         args: dict = {}
-        for k, q, v in _re.findall(r"([a-z_][a-z0-9_]*)\s*=\s*(['\"])(.*?)\2\s*(?:,|$)", m.group(2), _re.DOTALL):
-            args[k] = v
+        # one quoted argument: everything between its first quote and its last — a `", ` inside a long
+        # text (a fold account quoting someone) is not the end of it (10-14)
+        one = _re.match(r"^([a-z_][a-z0-9_]*)\s*=\s*(['\"])(.*)\2\s*,?$", m.group(2).strip(), _re.DOTALL)
+        if one and not _re.search(r"['\"]\s*,\s*[a-z_][a-z0-9_]*\s*=\s*['\"]", one.group(3)):
+            args[one.group(1)] = one.group(3)
+        else:
+            for k, q, v in _re.findall(r"([a-z_][a-z0-9_]*)\s*=\s*(['\"])(.*?)\2\s*(?:,|$)", m.group(2), _re.DOTALL):
+                args[k] = v
         if args or not m.group(2).strip():
             return m.group(1), args
     for m in _re.finditer(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", text, _re.DOTALL):
