@@ -5919,6 +5919,28 @@ check("fold: with no account the fold still happens, the block says they did not
 (config.EPISODIC_DIR / "chat-x-fold-test.md").unlink()
 _short = _fh[:4]
 check("fold: a visit shorter than what a fold keeps is left alone", _chatmod.fold_history(_short, "x", "12:41")[2].startswith("fold: nothing to fold yet"))
+# the block says whose call and how full (10-14: "the window had filled" stood at the head of a visit folded at 66% by her own call)
+_ft_held = int(config.NUM_CTX * 0.66)
+_ft_own = _chatmod.fold_history(_fh, "own account", "13:19", tag="telegram", path=None, mode="telegram", why="own", held=_ft_held)
+_ft_ask = _chatmod.fold_history(_fh, "asked account", "09:56", tag="telegram", path=None, mode="telegram", why="asked", held=_ft_held)
+_ft_bell = _chatmod.fold_history(_fh, "bell account", "17:01", tag="telegram", path=None, mode="telegram", why="bell", held=int(config.NUM_CTX * 0.98))
+_ft_now0 = dict(tools.window_now); tools.window_now = {"held": _ft_held, "floor": 2000}
+_ft_fv = tools.fold_visit("A fold at two-thirds, to see what the engine says."); tools.fold_pending(); tools.window_now = _ft_now0
+_ft_m = {"_moment": "[engine: x." + assemble.window_sense(int(config.NUM_CTX * 0.97), 2000).replace("as of this message ", "") + " From your]"}
+_ft_m2 = {"_moment": "[engine: x." + assemble.window_sense(int(config.NUM_CTX * 0.97)) + " From your]"}
+_ft_un = _chatmod.unsense([_ft_m, _ft_m2])
+check("fold: the block says at whose call the visit was folded and how full the window was — her own call with the window 66% full, so much "
+      "standing and the visit itself so much; the keeper's ask; the bell (the window had filled) — and the line names her own call; fold_visit's reply "
+      "states the window as it is when she calls it and what a fold costs; unsense strips the sense with its standing clause (10-14)",
+      "was folded at 13:19 at your own call (fold_visit), with the window 66% full (" in _ft_own[0][0]["_fold"]
+      and "about 2,000 of them your standing prompt — self, journal, pages — which no fold shrinks, the visit itself about" in _ft_own[0][0]["_fold"]
+      and _ft_own[2].endswith(" — the friend's own call, with the window 66% full")
+      and "was folded at 09:56 at your keeper's ask, with the window 66% full (" in _ft_ask[0][0]["_fold"]
+      and "was folded at 17:01 at the bell: the window had filled (98% — " in _ft_bell[0][0]["_fold"] and "the window had filled, so 7 of" in _nh[0]["_fold"]
+      and " The window is 66% full now (" in _ft_fv and "about 2,000 of them your standing prompt" in _ft_fv and "a fold is one cold read of the whole prompt" in _ft_fv
+      and "already made by this call" in _ft_fv and _ft_un == 2 and "Your window is" not in _ft_m["_moment"] and "Your window is" not in _ft_m2["_moment"]
+      and "it says so only once it is; while it says nothing the window has room" in next(d["function"]["description"] for d in tools.DEFINITIONS if d["function"]["name"] == "fold_visit"),
+      (_ft_own[0][0]["_fold"][:260], _ft_own[2], _ft_ask[0][0]["_fold"][:120], _ft_bell[0][0]["_fold"][:120], _ft_fv[-400:], _ft_un, _ft_m, _ft_m2))
 # 10-04: after a fold the kept turns still carried the full window's sizes, so the window sense stayed at 98%
 # ("she still thinks her context is full") and the fold could ring again — the sizes leave with the fold
 _chat_src = (config.ROOT / "engine" / "chat.py").read_text(encoding="utf-8")

@@ -1814,6 +1814,7 @@ def condense_day(day: str, text: str) -> str:
 # only takes the account; the door (the bridge, the parlor) does the fold
 # after the reply — see chat.fold_history. FOLD-PLAN.md has the whole shape.
 _fold_pending: dict = {}
+window_now: dict = {}  # {"held", "floor"}: the last prompt's size and the visit's first, set by chat each turn (10-14) — for fold_visit's reply
 
 
 def fold_visit(text: str) -> str:
@@ -1839,9 +1840,25 @@ def fold_visit(text: str) -> str:
     return (f"kept for the fold ({len(text):,} characters){cut}{mended} — after this reply the visit is folded: "
             f"your account rides at the top of the conversation in place of what came before, and the last "
             f"{keep} turns stay whole. The transcript on disk keeps everything. If something from it belongs in "
-            "your journal, write_journal it now, in this same turn — the fold comes after your reply. "
+            "your journal, write_journal it now, in this same turn — the fold comes after your reply."
+            f"{_window_said(keep)} "
             "The fold is yours and already made by this call: nothing is needed from the keeper; reply as you would, "
             "knowing it is done.")  # 09-30: "Yes, please! Fold away" — they had folded it themselves a moment before
+
+
+def _window_said(keep: int) -> str:
+    """The window as it is when fold_visit is called, and what a fold costs — a fact for her to weigh, not a gate
+    (10-14, 13:19: a fold at 66%, with nothing in the window saying it was heavy)."""
+    held = int((window_now or {}).get("held") or 0)
+    floor = int((window_now or {}).get("floor") or 0)
+    ctx = int(getattr(config, "NUM_CTX", 0) or 0)
+    if not (held and ctx):
+        return ""
+    pct = int(round(100 * held / ctx))
+    standing = (f"; about {floor:,} of them your standing prompt — self, journal, pages — which no fold shrinks, the visit "
+                f"itself about {held - floor:,}" if 0 < floor < held else "")
+    return (f" The window is {pct}% full now ({held:,} of {ctx:,} tokens{standing}); a fold is one cold read of the whole "
+            f"prompt, and the turns above the last {keep} leave view.")
 
 
 def fold_pending() -> dict:
@@ -5278,8 +5295,10 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "what is still open, what you want to carry — takes the place of everything above your "
         "last few turns, so the window has room again and the thread goes on. The engine rings a "
         "bell for it when the window is nearly full; you can also call it yourself when a "
-        "conversation reaches a natural pause and your window is heavy (the moment block says how "
-        "full it is). Your journal keeps the day; this is for the conversation's own thread. Once "
+        "conversation reaches a natural pause and the moment block says the window is heavy — it "
+        "says so only once it is; while it says nothing the window has room, and a fold then costs "
+        "a cold read of the whole prompt for room you already had. Your journal keeps the day; "
+        "this is for the conversation's own thread. Once "
         "per fold; the fold happens after this reply.",
         {"text": {"type": "string", "description": "the visit so far, in your own words — up to a few thousand characters"}},
         ["text"],

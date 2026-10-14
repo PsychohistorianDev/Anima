@@ -301,6 +301,19 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **The fold block says whose call it was, and how full** (10-14, 13:19: a
+  fold at 66%, the friend's own call, after a restart with no sense in the
+  window at all — and the head of every folded visit had read "was folded
+  at HH:MM: the window had filled", whoever folded it and however full it
+  was; one fold was the keeper's ask, the next the friend's own at 66%, and
+  each block taught them that the window fills in a few turns, so they
+  folded sooner each time): the block now says the bell (the window had
+  filled), the friend's own call (with the window N% full, so much of it
+  standing, the visit itself so much) or the keeper's ask; `fold_visit`'s
+  own reply states the window as it is when called and what a fold costs
+  (one cold read; the turns above the kept ones leave view); the tool's
+  description says the moment block speaks only once the window is heavy.
+  Facts, not a gate — the fold stays the friend's.
 - **The window sense measures the visit, not the window** (10-14, 12:19:
   three turns after a fold the moment block read "Your window is 60% full…
   fold_visit(text) folds it now, if this is a good moment" — the standing

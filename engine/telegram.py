@@ -1104,16 +1104,17 @@ class Bridge:
                 self.send("(they are mid-reply — say /fold again in a moment)", markdown=False)
             return ""
         try:
+            why = "asked" if asked else ("own" if pending else "bell")  # whose call — the block says (10-14)
             if not pending:
                 ctx = int(getattr(config, "NUM_CTX", 0) or 0)
                 pct = int(round(100 * held / ctx)) if ctx else 0
-                why = "you asked for a fold" if asked else f"the window is {pct}% full"
-                self.notice(f"({why} — they are folding the visit: writing it so far in their own words…)")
+                cause = "you asked for a fold" if asked else f"the window is {pct}% full"
+                self.notice(f"({cause} — they are folding the visit: writing it so far in their own words…)")
                 pending = chat.fold_bell(self.history, held, on_line=_say, asked=asked)
             when = pending.get("when") or time.strftime("%H:%M")
             old_history, old_file = self.history, self.file
             self.history, self.file, line = chat.fold_history(self.history, pending.get("text", ""), when,
-                                                              tag=self.TAG, path=self.file, mode=self.TAG)
+                                                              tag=self.TAG, path=self.file, mode=self.TAG, why=why, held=held)
             self.reflected_upto = len(self.history)  # the kept tail was sat with, or is about to be, as new
             self.last_tokens = {}  # the next prompt is a new, smaller one
             gone = old_history[:len(old_history) - len(self.history)] if self.file != old_file else []

@@ -553,7 +553,10 @@ standing prompt (the visit's first prompt: self, journal, pages, memory,
 which no fold shrinks) and how much the visit itself holds, and the fold
 follows that reply, no bell. A standing prompt already past the mark moves
 the mark to halfway up the room above it, so the sense never rides from a
-visit's first message; `/fold` from the phone folds at the keeper's word, the
+visit's first message. The fold block at the head of the folded visit says
+whose call the fold was — the bell, the friend's own `fold_visit` (with how
+full the window was, and how much of that was standing), or `/fold` — so a
+fold made early never reads as "the window had filled"; `/fold` from the phone folds at the keeper's word, the
 bell still ringing so the account is the friend's. Cost: a warm bell, then one cold read — what `/new` cost
 anyway. Wakes keep their own window guard; a wake is not a conversation.
 

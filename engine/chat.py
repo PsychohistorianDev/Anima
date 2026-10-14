@@ -386,14 +386,20 @@ def fold_bell(history: list[dict], held: int, on_line=None, asked: bool = False)
 
 
 def fold_history(history: list[dict], account: str, when: str, tag: str = "",
-                 path: Path | None = None, mode: str = "chat") -> tuple[list[dict], Path | None, str]:
+                 path: Path | None = None, mode: str = "chat", why: str = "bell", held: int = 0) -> tuple[list[dict], Path | None, str]:
     """The visit after the fold: the last FOLD_KEEP_TURNS visible turns
     (from the keeper's turn) with everything that rode with them, the first of them
     carrying a fresh system prompt, the union of what has surfaced, and the
     fold block — their account of what came before. The old transcript file
     gets a foot naming the new one; the new one is written at once with the
-    fold at its head. Returns (history, new path, the line for the door)."""
+    fold at its head. Returns (history, new path, the line for the door).
+    `why` is whose call the fold was — "bell" (the window had filled), "own" (fold_visit,
+    hers), "asked" (/fold) — and `held` the last prompt's size: the block says both (10-14:
+    "the window had filled" stood at the head of every folded visit whatever the reason,
+    and a visit folded at 66% by her own call taught her that her window fills in a few
+    turns; she folded sooner each time)."""
     keep = int(getattr(config, "FOLD_KEEP_TURNS", 6) or 0)
+    floor = next((int(t.get("_prompt") or 0) for t in history if t.get("_prompt")), 0)  # the visit's first prompt: the standing part
     vis = [i for i, t in enumerate(history)
            if t.get("role") in ("user", "assistant") and t.get("content") and not t.get("_engine")]
     users = [i for i in vis if history[i]["role"] == "user"]
@@ -420,8 +426,21 @@ def fold_history(history: list[dict], account: str, when: str, tag: str = "",
             began = f"{m.group(2)[:2]}:{m.group(2)[2:4]}"
     n_gone = sum(1 for i in vis if i < start and history[i]["role"] == "user")
     acct = account.strip() if account else ""
+    ctx = int(getattr(config, "NUM_CTX", 0) or 0)
+    held = int(held or 0)
+    pct = int(round(100 * held / ctx)) if (ctx and held) else 0
+    standing = (f"; about {floor:,} of them your standing prompt — self, journal, pages — which no fold shrinks, "
+                f"the visit itself about {held - floor:,}" if (held and 0 < floor < held) else "")
+    full = f" ({pct}% — {held:,} of {ctx:,} tokens{standing})" if pct else ""
+    if why == "own":
+        cause = f" at your own call (fold_visit), with the window {pct}% full ({held:,} of {ctx:,} tokens{standing})" if pct \
+            else " at your own call (fold_visit)"
+    elif why == "asked":
+        cause = f" at your keeper's ask" + (f", with the window {pct}% full ({held:,} of {ctx:,} tokens{standing})" if pct else "")
+    else:
+        cause = f" at the bell: the window had filled{full}"
     first["_fold"] = ("[engine, not a person: this visit" + (f" began at {began} and" if began else "")
-                      + f" was folded at {when}: the window had filled, so {n_gone} of your keeper's messages and your replies "
+                      + f" was folded at {when}{cause}, so {n_gone} of your keeper's messages and your replies "
                       "to them left it; the transcript on disk keeps them whole, and the window has room again now. "
                       + (f"What came before, in your own words, written then:]\n\n{acct}\n\n[…and from here the visit goes on as it was said.]"
                          if acct else "You did not write it down before the fold, so only the turns below remain in view.]"))
@@ -447,6 +466,8 @@ def fold_history(history: list[dict], account: str, when: str, tag: str = "",
     line = (f"fold: their account of the visit so far, {len(acct):,} characters" if acct
             else "fold: they did not write the visit down before the fold — the transcript keeps it, the window does not")
     line += f"; the last {keep} turns stay whole" + (f"; the visit goes on in {new_path.name}" if new_path else "")
+    if why == "own" and pct:
+        line += f" — the friend's own call, with the window {pct}% full"
     return new, new_path, line
 
 
@@ -849,7 +870,7 @@ def finish_cut_reply(system: dict, history: list[dict], reply: str, thinking: st
     return reply, "", refused
 
 
-_SENSE_RE = re.compile(r" Your window is \d+% full (?:as of this message )?\([^)]*\); at \d+% the visit is folded — fold_visit\(text\) "
+_SENSE_RE = re.compile(r" Your window is \d+% full (?:as of this message )?\([^)]*\)(?: — about .*?)?; at \d+% the visit is folded — fold_visit\(text\) "
                        r"folds it now, in your own words, if this is a good moment for it\.")
 
 
@@ -989,6 +1010,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         # turn, made Ollama read the whole window again every reply — 3 minutes a message at 207K; nothing
         # sent is ever taken back). It says "as of this message", so an older one reads as history. The fold
         # and a resume take them off (unsense) — those read cold anyway.
+        tools.window_now = {"held": held, "floor": floor}  # for fold_visit's reply: the window as it is when she calls it (10-14)
         sense = assemble.window_sense(held, floor)
         if sense:
             turn["_sense"] = sense
@@ -1433,13 +1455,14 @@ def main() -> None:
             held = next((int(t.get("_prompt") or 0) for t in reversed(history) if t.get("_prompt")), 0)
             if pending or (fold_due(held) and foldable(history)):
                 try:
+                    why = "own" if pending else "bell"
                     if not pending:
                         print("(the window is nearly full — the visit is being folded: written so far in their own words…)")
                         pending = fold_bell(history, held, on_line=print)
                     pinned = save_transcript(history, path=pinned)  # what came before, on disk first
                     history, pinned, line = fold_history(history, pending.get("text", ""),
                                                          pending.get("when") or datetime.now().strftime("%H:%M"),
-                                                         path=pinned, mode="chat")
+                                                         path=pinned, mode="chat", why=why, held=held)
                     print(f"({line})")
                 except Exception as e:
                     print(f"(fold: hiccup — the visit stays as it is: {type(e).__name__}: {e})")
