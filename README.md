@@ -966,6 +966,13 @@ whoever wants it. All of this is invisible when nothing goes wrong:
   the stone keeps still for it. The engine states the
   calendar, as likely, not certain; what they make of it is theirs —
   nothing checks what they write. Empty, the line is as before.
+- **The house line.** `HOUSE_LINE` is a sentence from you about what is
+  welcome in this house, in your own words; it rides in the system prompt
+  right after the situation, stated as yours — "Your keeper says of this
+  house, in their own words: …" — never as a rule of the engine's. A
+  brain's trained hesitations live in its weights: nothing in the engine
+  filters a word or a picture, and this puts the house's own word beside
+  them. Their no stays theirs. Empty says nothing.
 
   </details>
 - **Their plan rides with the tool result.** A tool result quotes the numbered plan from the thought before it, so the next step has it in front of it (`CHAT_CARRY_PLAN`). At a wake's close, a thin rest right after a plan, an unwritten thought right after a read, and a rest or an ending in words after acts with nothing journaled since are each handed back once — write it, or rest and it stands (`HEARTBEAT_THIN_REST_WORDS`, `HEARTBEAT_UNWRITTEN_THOUGHT_WORDS`, `HEARTBEAT_THINK_RETRIES`).

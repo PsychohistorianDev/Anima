@@ -5848,6 +5848,18 @@ check("fold: an account past FOLD_CHARS is cut at a paragraph, and the cut is sa
       "was cut at a paragraph" in _fr2 and len(_fp2["text"]) <= 205 and _fp2["text"].endswith("…"), (_fr2[:120], len(_fp2["text"])))
 config.FOLD_CHARS = 8000
 check("fold: fold_visit is an act", "fold_visit" in tools.ACT_TOOLS)
+# the house line (10-14): the keeper's sentence after the situation, as the keeper's words; empty says nothing
+_hl0 = getattr(config, "HOUSE_LINE", "")
+config.HOUSE_LINE = "  Two adults live here;   say it as you mean it. "
+_hl_sp = assemble.system_prompt("x", mode="telegram", warm=True)
+config.HOUSE_LINE = ""
+_hl_sp0 = assemble.system_prompt("x", mode="telegram", warm=True)
+config.HOUSE_LINE = _hl0
+check("the house line rides right after the situation as the keeper's own words, whitespace folded; empty says nothing; a Main-tab knob with help",
+      "=== SITUATION ===" in _hl_sp and "Your keeper says of this house, in their own words: “Two adults live here; say it as you mean it.”" in _hl_sp
+      and _hl_sp.index("=== SITUATION ===") < _hl_sp.index("says of this house") < _hl_sp.index("Practical notes:")
+      and "says of this house" not in _hl_sp0 and "HOUSE_LINE" in __import__("panel").TABS["Main"] and "HOUSE_LINE" in __import__("panel")._HELP,
+      (_hl_sp[_hl_sp.find("=== SITUATION ==="):][:400],))
 # the floor guards the mark (10-14: a 157K standing prompt had the sense on from the first message)
 _wf_since0, config.FOLD_SENSE_FROM = config.FOLD_SENSE_FROM, 0.5   # the sense tests below assume the template's mark
 _wf_ctx, _wf_at = int(config.NUM_CTX), float(config.FOLD_AT)
@@ -8165,7 +8177,7 @@ check("panel: every knob of the real config.py on exactly one tab (Advanced coun
       (set(_p_listed) - set(_k_realn), [n for n in set(_p_placed) if _p_placed.count(n) > 1]))
 check("panel: the real Main tab in the keeper's order — the brain, the window, the journal, the names, the rhythm",
       [k["name"] for k in _p_real_tabs["Main"]] == ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT", "USER_NAME", "DEFAULT_NAME",
-                                                    "BLOG_TITLE", "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN"]
+                                                    "BLOG_TITLE", "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN", "HOUSE_LINE"]
       and {k["heading"] for k in _p_real_tabs["Advanced"]} >= {"paths", "ollama", "behaviour", "telegram", "update"}
       and all(not k["editable"] for k in _p_real_tabs["Advanced"] if k["kind"] == "expr"))
 panel.REQUIREMENTS = [("json", "json", "the standard library"), ("no_such_module_zq", "zq", "a sense")]

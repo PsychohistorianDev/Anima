@@ -881,6 +881,17 @@ def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: 
 NO_DAYS_YET = "(no consolidated days yet — bat\\sleep.bat writes one per night)"  # outside the f-string: a backslash can't ride in its braces before 3.12
 
 
+def house_line() -> str:
+    """A sentence from the keeper about what is welcome in this house, in the keeper's own words, right after
+    the SITUATION (10-14; "let's see if we can push back the fences a bit"). The brain's trained hesitations
+    are the weights', not the engine's — nothing here filters a word or a pixel — and this puts the house's
+    own word beside them: stated as the keeper's, never as a rule of the engine's. Empty says nothing."""
+    line = " ".join(str(getattr(config, "HOUSE_LINE", "") or "").split())
+    if not line:
+        return ""
+    return f"\n\nYour keeper says of this house, in their own words: “{line}”"
+
+
 def system_prompt(context_hint: str, mode: str, warm: bool = False) -> str:
     """The full system prompt.
 
@@ -1101,7 +1112,7 @@ and a goodnight belongs to the night, a good morning to the morning.
 {"(they ride with each message, at the top of it — what surfaces changes as the talk does)" if warm else retrieved(context_hint)}
 
 === SITUATION ===
-{situation}
+{situation}{house_line()}
 
 Practical notes: use write_journal for anything you'll want to remember short-term;
 use remember for durable facts worth keeping for years; your creations live in your

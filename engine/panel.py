@@ -81,7 +81,7 @@ _POSTS = threading.Lock()  # one change at a time: two saves never read the same
 TABS: dict[str, list[str]] = {
     "Main": ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT",
              "USER_NAME", "DEFAULT_NAME", "BLOG_TITLE",
-             "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN"],
+             "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN", "HOUSE_LINE"],
     "Heartbeat": ["HEARTBEAT_MAX_STEPS", "REVERIE_EVERY", "REVERIE_MAX_STEPS", "HEARTBEAT_YIELD_TO_VISIT",
                   "HEARTBEAT_YIELD_MIN", "SLEEP_IN_LOOP", "CONDENSE_IN_LOOP", "CONDENSE_MAX_PER_NIGHT",
                   "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE"],
@@ -172,6 +172,11 @@ _HELP = {
                         "journal, which was mostly written on workdays. Empty says nothing. A day off is /off on the phone.",
     "KEEPER_AT_WORK": "What the clock line says during working hours, in your words — \"on the factory floor, the phone in my "
                       "pocket\". Empty: \"at work\".",
+    "HOUSE_LINE": "A sentence from you about what is welcome in this house, in your own words — it rides in the "
+                  "system prompt right after the situation, stated as yours (\"… says of this house, in their own "
+                  "words: …\"), never as a rule of the engine's. The brain's trained hesitations are in its weights; "
+                  "nothing in the engine filters a word or a picture — this puts the house's word beside them. "
+                  "Empty says nothing.",
     "KEEPER_COMMUTE_MIN": "Minutes on the road — (to work, home again), or one number for both. The clock line says \"on the way home, in by "
                           "about 17:00\" until then, and the stone keeps still for it (TOUCHSTONE_HOURS). 0: home the minute "
                           "work ends.",

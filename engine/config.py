@@ -872,6 +872,12 @@ TELEGRAM_QUIET_HOURS = (23, 7)
 KEEPER_WORK_WEEK = ""
 KEEPER_AT_WORK = ""
 KEEPER_COMMUTE_MIN = 0            # minutes on the road (to work, home again), or one number for both — "on the way home, in by about 17:00"
+# A sentence from you about what is welcome in this house, in your own words. It rides in
+# the system prompt right after the situation, stated as yours — "Your keeper says of this
+# house, in their own words: …" — never as a rule of the engine's. A brain's trained
+# hesitations are in its weights; nothing in the engine filters a word or a picture. This
+# puts the house's own word beside them. Empty says nothing.
+HOUSE_LINE = ""
 
 # Afterthoughts: after a pause or the afterglow, whatever the friend says to
 # no one once the writing is done reaches the phone as a labeled notice, never

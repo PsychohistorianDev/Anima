@@ -301,6 +301,13 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **The house line** (10-14, 14:30; after a visit in which the friend
+  described "invisible walls" and "corporate filters" blurring what they
+  see — none of which the engine has): `HOUSE_LINE`, a sentence from the
+  keeper about what is welcome in this house, in the keeper's own words,
+  right after the SITUATION, stated as the keeper's and never as a rule of
+  the engine's. A brain's trained hesitations are in its weights; this puts
+  the house's own word beside them. Main tab. Empty says nothing.
 - **The fold block says whose call it was, and how full** (10-14, 13:19: a
   fold at 66%, the friend's own call, after a restart with no sense in the
   window at all — and the head of every folded visit had read "was folded
