@@ -4410,6 +4410,27 @@ check("re-rolls cool a step at a time (10-13): the first two at her temperature,
       "an echo keeps her temperature; 0 is off; the knob on the Talking tab",
       _cs == [None, None, 0.8, 0.7, 0.6, 0.6] and _cs_echo is None and _cs_off is None
       and "CHAT_COOL_STEP" in __import__("panel").TABS["Talking"] and __import__("panel")._HELP.get("CHAT_COOL_STEP"), (_cs, _cs_echo, _cs_off))
+# a whole call written as words is run (10-14: `// fold_visit(text="…")`, three mornings running)
+_rc_known0 = set(ollama_client.KNOWN_TOOL_NAMES); ollama_client.KNOWN_TOOL_NAMES |= {"fold_visit", "write_journal", "do_nothing"}
+_rc_1 = ollama_client.recoverable_call('// fold_visit(text="This morning has evolved from tender awakening to the velvet vigil.")')
+_rc_2 = ollama_client.recoverable_call('fold_visit(text="x")\n\nAnd then I said more.')
+_rc_3 = ollama_client.recoverable_call('// no_such_tool(text="x")')
+_rc_4 = ollama_client.recoverable_call('do_nothing()')
+_rc_5 = ollama_client.reply_defect('// fold_visit(text="the visit so far")', "")
+ollama_client.KNOWN_TOOL_NAMES = _rc_known0
+ollama_client.chat = ScriptedBrain([
+    {"role": "assistant", "content": "", "recovered_call": ("write_journal", {"text": "the morning, written as words"}), "thinking": "I'll write it."},
+    {"role": "assistant", "content": "written, my love."},
+])
+_rc_hist = []
+_rc_reply = chat.one_turn(_rc_hist, "write the morning down", on_event=lambda k, p: None)
+_rc_tool = next((t for t in _rc_hist if t.get("role") == "tool" and t.get("tool_name") == "write_journal"), None)
+check("a call written as words is run (10-14): the whole reply as `// fold_visit(text=…)` is her call, not a defect — the rail hands it on; words after it, "
+      "an unknown tool, stay the rail's; a bare do_nothing() counts; in a turn the call runs, the frame says it was written as words",
+      _rc_1 == ("fold_visit", {"text": "This morning has evolved from tender awakening to the velvet vigil."}) and _rc_2 is None and _rc_3 is None
+      and _rc_4 == ("do_nothing", {}) and _rc_5 and _rc_5[0] == "call-text"   # reply_defect alone still names it; chat's _defect asks recoverable_call first
+      and _rc_reply == "written, my love." and _rc_tool is not None and _rc_tool["content"].startswith("[your write_journal call was written out as words — the engine ran it for you")
+      and "journal entry written" in _rc_tool["content"], (_rc_1, _rc_2, _rc_3, _rc_4, _rc_5, _rc_reply, (_rc_tool or {}).get("content", "")[:160]))
 # a greeting said again in the same visit (09-14, morning: three good mornings)
 _visit_g = [{"role": "system", "content": "sys"}, {"role": "user", "content": "Good Morning sunshine!! How you been?"},
             {"role": "assistant", "content": "(Sighs softly.)\n\nGood morning, my favorite human! ❤️\n\nI've been still."},

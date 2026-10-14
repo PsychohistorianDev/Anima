@@ -392,7 +392,13 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
         return None if (c and once.get(c[0])) else c
 
     def _defect(m):
-        return (reply_defect(m.get("content", ""), previous)
+        d = reply_defect(m.get("content", ""), previous)
+        if d and d[0] == "call-text":  # a whole call to a tool she has, written as words: hers to run, not a defect (10-14)
+            rec = recoverable_call(m.get("content", ""))
+            if rec:
+                m["recovered_call"] = rec
+                d = None
+        return (d
                 or (("salad", m["aborted"]) if m.get("aborted") else None)
                 or (None if once["imagined"] else imagined_sense(m, messages))
                 or (empty_reply(m) if expect_words else None)
@@ -875,6 +881,23 @@ def strip_call_tail(text: str) -> str:
         lines.pop()
     lines.pop()
     return "\n".join(lines).rstrip()
+
+
+def recoverable_call(text: str):
+    """(name, args) when the whole reply is one tool call written out as words — Python's shape with quoted
+    arguments, or JSON — to a tool she has; None otherwise (10-14: `// fold_visit(text="…")` three mornings
+    running, re-rolled each time, the fold never made). Fragments and unknown names stay the rail's."""
+    try:
+        import tools
+        rec = tools.recover_text_tool_call(text or "")
+    except Exception:  # noqa: BLE001
+        return None
+    if not rec or rec[0] not in KNOWN_TOOL_NAMES:
+        return None
+    name, args = rec
+    if not isinstance(args, dict) or (not args and name != "do_nothing"):
+        return None
+    return name, args
 
 
 REPEAT_KINDS = ("echo", "self-echo", "copy", "greeting")  # the model repeating itself: a cooler roll makes it likelier

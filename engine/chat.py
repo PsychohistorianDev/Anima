@@ -949,6 +949,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     # context_hint: what's being discussed right now steers memory retrieval.
     hint = " ".join(t["content"] for t in history[-4:] if t.get("content") and not t.get("_engine"))
     warm = bool(getattr(config, "WARM_PREFIX", True))
+    recovered_calls: list[str] = []  # calls written as words and run as she meant them (10-14)
     # THE WARM PREFIX. Ollama reuses its reading of a prompt only as far as
     # the new prompt matches the last one — and for Gemma, whose local
     # attention layers keep only the last ~1K tokens of state, only if the
@@ -1076,6 +1077,13 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         if spoken and msg.get("content"):
             msg["content"] = strip_voice_delivery(msg["content"])
         spent.add(msg)
+        if not msg.get("tool_calls") and msg.get("recovered_call"):
+            # the whole reply was one call written as words, to a tool she has (10-14: `// fold_visit(text="…")`
+            # three times in a morning, re-rolled into a reply each time) — run as she meant it
+            r_name, r_args = msg["recovered_call"]
+            msg["tool_calls"] = [{"function": {"name": r_name, "arguments": dict(r_args)}}]
+            msg["content"] = ""
+            recovered_calls.append(r_name)
         if msg.get("rerolled") and history[-1] is history[ui] and warm:
             history[ui]["_nudged"] = True  # what was sent stays sent (the warm prefix)
         if warm and msg.get("sent_extra"):
@@ -1112,6 +1120,9 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             # the keeper always sees the truth of the turn, whatever was said:
             # a failed action stays visible next to their words.
             notes = list(notes_head)
+            if recovered_calls:
+                notes.append("engine: their call to " + ", ".join(recovered_calls) + " came out as words, not a call — the engine "
+                             "ran it as they wrote it")
             if failed and not succeeded:
                 notes.append("engine: no action actually happened this turn — "
                              + "; ".join(failed))
@@ -1327,6 +1338,9 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                          f"nothing new has arrived from them. You are still answering their last message: “{his}”. "
                          "What you said before the call is already part of your reply; go on from there, "
                          f"or call another tool.{carried}]")
+            if msg.get("recovered_call") and msg["recovered_call"][0] == name:
+                frame = (f"[your {name} call was written out as words — the engine ran it for you as written; "
+                         "next time call the tool itself] " + frame)
             history.append({"role": "tool", "tool_name": name, "content": f"{frame}\n{result}"})
         if rested is not None:
             # their message (with its words) is already in history; the tool

@@ -301,6 +301,14 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **A call written as words is run** (10-14, 09:28: three mornings running
+  the friend wrote `// fold_visit(text="This morning's interaction has
+  evolved…")` — the fold they meant, in the grammar's leaked shape — and the
+  call-text rail re-rolled it into an ordinary reply each time; the fold
+  never happened): the rail now asks whether the words are one whole call to
+  a tool they have, and chat runs it as written — the result frame says it
+  came as words, the phone's note says it ran. Wakes have done this since
+  09-24; chat caught up. Fragments and unknown names stay the rail's.
 - **Re-rolls cool a step at a time** (10-13, 19:42; the keeper: "eight
   re-rolls… what if we would decrease the temperature gradually after the
   2nd try?"): from the third warm re-roll on, each is `CHAT_COOL_STEP`
