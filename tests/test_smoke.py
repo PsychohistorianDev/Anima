@@ -5848,16 +5848,19 @@ check("fold: an account past FOLD_CHARS is cut at a paragraph, and the cut is sa
       "was cut at a paragraph" in _fr2 and len(_fp2["text"]) <= 205 and _fp2["text"].endswith("…"), (_fr2[:120], len(_fp2["text"])))
 config.FOLD_CHARS = 8000
 check("fold: fold_visit is an act", "fold_visit" in tools.ACT_TOOLS)
-# the sense measures the visit, not the window (10-14: a 157K standing prompt had it on from the first message)
+# the floor guards the mark (10-14: a 157K standing prompt had the sense on from the first message)
+_wf_since0, config.FOLD_SENSE_FROM = config.FOLD_SENSE_FROM, 0.5   # the sense tests below assume the template's mark
 _wf_ctx, _wf_at = int(config.NUM_CTX), float(config.FOLD_AT)
 _wf_floor = int(_wf_ctx * 0.6)
 _wf_room = _wf_ctx * _wf_at - _wf_floor
 _wf_early = assemble.window_sense(_wf_floor + int(_wf_room * 0.3), _wf_floor)
 _wf_late = assemble.window_sense(_wf_floor + int(_wf_room * 0.6), _wf_floor)
 _wf_odd = assemble.window_sense(int(_wf_ctx * 0.76), int(_wf_ctx * 0.9))   # a floor above held is no floor
-check("fold: with the visit's first prompt as the floor the sense rides from FOLD_SENSE_FROM of the room above it, says what is standing "
-      "and what the visit holds; a floor above held is ignored (10-14)",
+_wf_low = assemble.window_sense(int(_wf_ctx * 0.55), int(_wf_ctx * 0.3))    # a floor below the mark: the mark stands, the standing named
+check("fold: a standing prompt past FOLD_SENSE_FROM moves the mark to halfway up the room above it — the sense never rides from a visit's "
+      "first message — and says what is standing and what the visit holds; a floor below the mark leaves it; a floor above held is ignored (10-14)",
       _wf_early == "" and "of that is your standing prompt" in _wf_late and f"{_wf_floor:,}" in _wf_late
+      and "Your window is 55% full" in _wf_low and f"about {int(_wf_ctx * 0.3):,} of that is your standing prompt" in _wf_low
       and f"the visit itself holds about {int(_wf_room * 0.6):,}" in _wf_late and "fold_visit(text) folds it now" in _wf_late
       and "Your window is 76% full" in _wf_odd and "standing prompt" not in _wf_odd, (_wf_early, _wf_late[:200], _wf_odd[:80]))
 _wf_rec = tools.recover_text_tool_call('// fold_visit(text="He said \"fine\", and then \"go\", so we went.")')
@@ -5939,6 +5942,7 @@ check("fold: the window sense is a turn's own key, kept with it (as of this mess
       and "unsense(history[:ui])" not in _chat_src and 'turn["_sense"] = sense' in _chat_src  # 10-05: a turn keeps its sense — taking it off the one before cost a cold read a reply
       and "as of this message" in assemble.window_sense(int(config.NUM_CTX * 0.76)),
       (_sn_n, _sn_h[0]["_moment"][:100], _sn_r[:120]))
+config.FOLD_SENSE_FROM = _wf_since0
 # the bell: rung inside the visit; the friend journals first, then folds
 _fh3 = [dict(t) for t in _fh]
 _brain_fold = ScriptedBrain([

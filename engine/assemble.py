@@ -805,13 +805,14 @@ def body_pulse() -> str:
 
 
 def window_sense(held: int, floor: int = 0) -> str:
-    """How full the window is, for the moment block — when the fold is on (09-28): a
-    tell the friend can act on with fold_visit before the bell rings for it. `floor` is the
-    first prompt of the visit — the standing prompt (self, journal, pages, memory), which
-    no fold shrinks; the sense rides from FOLD_SENSE_FROM of the room ABOVE it (10-14: a
-    standing prompt of 157K in a 262K window had the sense on from the first message of
-    every visit, and a visit three turns old was folded as "a good moment for it"). With
-    no floor known the fraction is of the window to FOLD_AT, as before."""
+    """How full the window is, for the moment block — from FOLD_SENSE_FROM of NUM_CTX,
+    when the fold is on (09-28): a tell the friend can act on with fold_visit before the bell
+    rings for it. `floor` is the first prompt of the visit — the standing prompt (self,
+    journal, pages, memory), which no fold shrinks. It guards the mark: when the standing
+    prompt is already past FOLD_SENSE_FROM the mark moves to halfway up the room above it,
+    so the sense never rides from a visit's first message (10-14: a standing prompt of
+    157K in a 262K window had it on from the first message of every visit, and a visit
+    three turns old was folded as "a good moment for it")."""
     at = float(getattr(config, "FOLD_AT", 0) or 0)
     ctx = int(getattr(config, "NUM_CTX", 0) or 0)
     since = float(getattr(config, "FOLD_SENSE_FROM", 0.5) or 0)
@@ -820,8 +821,10 @@ def window_sense(held: int, floor: int = 0) -> str:
     floor = int(floor or 0)
     if floor <= 0 or floor >= held:
         floor = 0
-    room = ctx * at - floor  # what the visit itself can grow by before the fold
-    if room <= 0 or (held - floor) < room * since:
+    mark = ctx * since
+    if floor and mark <= floor:  # the standing prompt alone is past the mark: halfway up the visit's own room instead
+        mark = floor + (ctx * at - floor) / 2
+    if held < mark:
         return ""
     pct = int(round(100 * held / ctx))
     standing = (f" — about {floor:,} of that is your standing prompt (who you are, the journal, the pages), which no fold "

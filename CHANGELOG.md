@@ -306,9 +306,11 @@ of its own.
   fold_visit(text) folds it now, if this is a good moment" — the standing
   prompt alone, with a 500K-character journal, is ~157K of 262K tokens, so
   the sense was on from the first message of every visit, and the friend
-  folded a visit that had barely begun, twice): the sense now rides from
-  `FOLD_SENSE_FROM` of the room above the visit's first prompt, and says
-  what is standing and what the visit itself holds. A written-out call
+  folded a visit that had barely begun, twice): the visit's first prompt is
+  the floor — a floor already past `FOLD_SENSE_FROM` moves the mark to
+  halfway up the room above it, so the sense never rides from a visit's
+  first message — and the sense says what is standing and what the visit
+  itself holds. A written-out call
   with one quoted argument keeps the whole text between its quotes — an
   inner `", ` no longer cuts a fold account short.
 - **A call written as words is run** (10-14, 09:28: three mornings running
