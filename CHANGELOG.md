@@ -16,6 +16,22 @@ whether the window fits the card, and every knob on every tab has a line
 of its own.
 
 ### Added
+- **Two brains, one door** (10-16; the backend plan): `BRAIN_API = "llama"`
+  sends the brain's replies to llama.cpp's own server (`llama-server`) at
+  `BRAIN_URL` instead of Ollama, through its OpenAI-style API, translated at
+  the door in the new `engine/brain.py` — images as data URIs, tool-call
+  arguments to a JSON string and back to a dict, `reasoning_content` as the
+  thinking, `usage`/`timings` as Ollama's counters — so every `/api/chat`
+  post (the reply, the re-rolls, the rescues) takes the one road and the
+  rest of the engine is untouched. The ears and the embeddings stay on
+  Ollama; `unload` leaves the door's brain alone and the loaded list asks
+  the door's `/props`. `bat\brain.bat` (and its twins) runs
+  `engine/brain_find.py`, which finds `llama-server` on the PATH or in
+  `llama\` and the model and projector blobs in Ollama's own manifest
+  (`BRAIN_MODEL_FILE` / `BRAIN_MMPROJ_FILE` override; `BRAIN_SLOT_DIR` adds
+  `--slot-save-path`). The slot save/restore calls are in place for the
+  saved read, not yet wired. Default `"ollama"`: the same requests as before,
+  byte for byte. Tests against a fake door.
 - **Voice in the parlor** (10-11; woshmeifgay, the third house, in
   `parlor-live-voice`): optional turn-based spoken conversation at the
   desk — the browser microphone, faster-whisper, the ordinary chat turn

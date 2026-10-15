@@ -5,7 +5,9 @@ Two entry points:
     embed(text)                 -> list[float]
 
 The rest of the engine talks to the brain exclusively through these two
-functions, which is what makes the brain swappable.
+functions, which is what makes the brain swappable. With BRAIN_API = "llama"
+the brain's replies come from llama-server instead, through brain.py,
+translated at the door; the ears and the embeddings stay here on Ollama.
 """
 from __future__ import annotations
 
@@ -14,6 +16,7 @@ import re
 import urllib.error
 import urllib.request
 
+import brain
 import config
 
 
@@ -22,6 +25,12 @@ class BrainUnavailable(RuntimeError):
 
 
 def _post(path: str, payload: dict, timeout: float | None = None) -> dict:
+    # BRAIN_API = "llama": the brain's /api/chat goes to llama-server, translated at the
+    # door (brain.py) — here, so every post of it in this file (the reply, the re-rolls,
+    # the rescues) takes the one road. The ears' /api/chat (another model) and every
+    # other path stay on Ollama.
+    if path == "/api/chat" and brain.api() == "llama" and payload.get("model") == config.CHAT_MODEL:
+        return brain.post_chat(payload, timeout)
     timeout = timeout or config.REQUEST_TIMEOUT_S
     req = urllib.request.Request(
         config.OLLAMA_URL + path,
@@ -2227,7 +2236,8 @@ def _parse(data: dict) -> dict:
     return msg
 
 
-def _loaded_models() -> list[str]:
+def _ollama_ps() -> list[str]:
+    """What Ollama itself holds (/api/ps)."""
     try:
         req = urllib.request.Request(config.OLLAMA_URL + "/api/ps")
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -2237,10 +2247,21 @@ def _loaded_models() -> list[str]:
         return []
 
 
+def _loaded_models() -> list[str]:
+    """What is on the card. Under BRAIN_API = "llama" the brain is the door's: named while the
+    door answers awake, whatever Ollama says of it; Ollama's list still speaks for the rest."""
+    names = _ollama_ps()
+    if brain.api() == "llama":
+        names = [n for n in names if n != config.CHAT_MODEL] + ([config.CHAT_MODEL] if brain.awake() else [])
+    return names
+
+
 def unload_all() -> list[str]:
     """Everything Ollama holds, set down (10-03, the keeper's /release: the card for something else) — the
     brain, the ears, the memory engine, whatever is loaded; each waited for. The names freed, in order."""
     names = _loaded_models()
+    if brain.api() == "llama":  # the door's brain is not Ollama's to set down, so not named as freed
+        names = [n for n in names if n != config.CHAT_MODEL]
     for name in names:
         unload(name)
     return names
@@ -2254,13 +2275,15 @@ def unload(model: str) -> None:
     /api/ps until the model disappears is what makes the handoff real."""
     import time
 
+    if model == config.CHAT_MODEL and brain.api() == "llama":
+        return  # the door holds the brain, not Ollama: nothing here to set down
     try:
         _post("/api/generate", {"model": model, "keep_alive": 0})
     except Exception:
         return  # unloading is an optimization, never a requirement
     base = model.split(":")[0]
     for _ in range(20):  # up to ~20s
-        if not any(base in name for name in _loaded_models()):
+        if not any(base in name for name in _ollama_ps()):  # Ollama's own list: the door's brain is not its to wait on
             return
         time.sleep(1)
 

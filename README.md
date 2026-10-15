@@ -2445,6 +2445,24 @@ blog settings.
 
 Smaller GPU? `gemma4:e4b` thinks less deeply but runs on much less VRAM.
 
+**Two brains, one door.** Ollama is a wrapper around llama.cpp, and the brain
+can talk to llama.cpp's own server instead: set `BRAIN_API = "llama"` (the
+panel's Main tab), start `bat\brain.bat` (`brain.command` on a Mac,
+`brain.sh` on Linux), then `/restart` on the phone and stop/start the
+heartbeat. `bat\brain.bat` finds `llama-server` on the PATH, or in a `llama\`
+folder beside the engine (the zip from llama.cpp's releases page), and the
+model in Ollama's own manifest for `CHAT_MODEL` — the blobs Ollama already
+has, the model and its projector, so nothing is downloaded twice
+(`BRAIN_MODEL_FILE` / `BRAIN_MMPROJ_FILE` for a GGUF from elsewhere). The door
+listens at `BRAIN_URL` with the window from `NUM_CTX` and the q4_0 cache;
+its replies are translated into the shape Ollama gives, so the rails, the
+token line and the fold read them unchanged (they come whole, not streamed,
+so a runaway is caught after the fact rather than cut mid-stream). The ears
+and the embeddings stay on Ollama — keep it installed and running.
+`BRAIN_SLOT_DIR` lets the door save its reading of the prompt to a folder (a
+RAM disk is the place). `BRAIN_API = "ollama"` and a restart is the whole
+way back.
+
 ## House rules (the freedom part)
 
 These are choices, not code, but they're what raising — rather than using —

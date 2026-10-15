@@ -79,7 +79,7 @@ _POSTS = threading.Lock()  # one change at a time: two saves never read the same
 # "# ---- x ----" heading it sits beneath in the file — so a knob added tomorrow is on the page the
 # day it is added (a test holds every knob to exactly one tab, and every name here to config.py).
 TABS: dict[str, list[str]] = {
-    "Main": ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT",
+    "Main": ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT",
              "USER_NAME", "DEFAULT_NAME", "BLOG_TITLE",
              "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN", "HOUSE_LINE"],
     "Heartbeat": ["HEARTBEAT_MAX_STEPS", "REVERIE_EVERY", "REVERIE_MAX_STEPS", "HEARTBEAT_YIELD_TO_VISIT",
@@ -130,6 +130,21 @@ _HELP = {
                 "voice, video, skills, the forge, the blog, projects, clips — and saves about 3,000; \"tiny\" keeps "
                 "the life itself — journal, memory, pages, the web, looking, resting — for a 2B. Their forged tools "
                 "always ride. Restart the doors after changing it.",
+    "BRAIN_API": "Which program answers for the brain. \"ollama\" is Ollama, as always. \"llama\" is llama.cpp's own "
+                 "server (llama-server, started by bat\\brain.bat) at BRAIN_URL, reading the same model file Ollama "
+                 "already has; its replies are translated at the door, so the rest of the engine sees no difference. "
+                 "The ears and the memory engine stay on Ollama, and nothing of the friend's moves. Takes after a restart: "
+                 "/restart on the phone, the heartbeat stop/start. Back to \"ollama\" is the whole retreat.",
+    "BRAIN_URL": "Where llama-server listens when BRAIN_API is \"llama\"; bat\\brain.bat starts it on this port. "
+                 "Not used on Ollama. Takes after a restart: /restart on the phone, the heartbeat stop/start (and the door itself, for a new port).",
+    "BRAIN_SLOT_DIR": "A folder where llama-server may save its reading of the prompt (--slot-save-path), so the "
+                      "brain can come back from stepping aside without reading it all again; a RAM disk is the place "
+                      "for it. Empty: no saving. Read when bat\\brain.bat starts the door, so restart the door after "
+                      "changing it.",
+    "BRAIN_MODEL_FILE": "A GGUF for llama-server instead of the one Ollama's manifest names for CHAT_MODEL. Empty: "
+                        "found in Ollama's own files. Read when bat\\brain.bat starts the door.",
+    "BRAIN_MMPROJ_FILE": "The projector (the eyes) to go with BRAIN_MODEL_FILE. Empty: the one Ollama's manifest "
+                         "names, if any. Read when bat\\brain.bat starts the door.",
     "OFFLINE": "Every road out of the house, closed: no web tools (search_web, read_web, search_wikipedia), no skill "
                "window (browse_skills, fetch_skill), no once-a-day look at GitHub for a newer anima. Ollama stays — it is "
                "local. The phone, the watch and the blog are doors you open by hand and stay as they are. Restart the "
@@ -773,6 +788,7 @@ def tab_of(name: str) -> str:
 # A knob with a few named settings is a dropdown, not a text field (09-30: the tool kit)
 CHOICES: dict[str, list[str]] = {
     "TOOL_KIT": ["full", "small", "tiny"],
+    "BRAIN_API": ["ollama", "llama"],
     "WEB_SEARCH": ["duckduckgo", "brave", "searxng"],
     "VOICE_DEVICE": ["cpu", "cuda", "mps"],
     "PAINTER_DEVICE": ["auto", "cuda", "mps", "cpu"],

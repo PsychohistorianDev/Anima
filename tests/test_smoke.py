@@ -8214,7 +8214,7 @@ check("panel: every knob of the real config.py on exactly one tab (Advanced coun
       and len(_p_listed) == len(set(_p_listed)) and not (set(_p_listed) - set(_k_realn)),
       (set(_p_listed) - set(_k_realn), [n for n in set(_p_placed) if _p_placed.count(n) > 1]))
 check("panel: the real Main tab in the keeper's order — the brain, the window, the journal, the names, the rhythm",
-      [k["name"] for k in _p_real_tabs["Main"]] == ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT", "USER_NAME", "DEFAULT_NAME",
+      [k["name"] for k in _p_real_tabs["Main"]] == ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT", "USER_NAME", "DEFAULT_NAME",
                                                     "BLOG_TITLE", "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN", "HOUSE_LINE"]
       and {k["heading"] for k in _p_real_tabs["Advanced"]} >= {"paths", "ollama", "behaviour", "telegram", "update"}
       and all(not k["editable"] for k in _p_real_tabs["Advanced"] if k["kind"] == "expr"))
@@ -8927,7 +8927,7 @@ for _xk, _xp in [*_x_cmds.items(), *_x_shs.items()]:
             and (_xt.endswith('read -n1 -r -p "(press any key to close)"\n') or _xk == "update")):
         _x_shape.append(_xk + _xp.suffix)
 check("launchers: every .bat has a .command (a Mac) and a .sh (Linux) twin — the same names, and the same engine script with the same arguments in all three",
-      set(_x_bats) == set(_x_cmds) == set(_x_shs) and len(_x_bats) == 22 and _x_disagree == [], (sorted(set(_x_bats) ^ set(_x_shs)), _x_disagree))
+      set(_x_bats) == set(_x_cmds) == set(_x_shs) and len(_x_bats) == 23 and _x_disagree == [], (sorted(set(_x_bats) ^ set(_x_shs)), _x_disagree))
 check("launchers: each twin is #!/bin/bash, cds where its .bat does (the root for anima, the folder above for bat/), LF line ends, and ends in the pause",
       _x_shape == [], _x_shape)
 check("launchers: the twins are executable (the bit a download can lose — README, chmod +x)",
@@ -9714,6 +9714,303 @@ if _gish.which("git"):
     _gish.rmtree(_sn_root, ignore_errors=True)
 else:
     print("SKIP  .gitignore: no git on this machine")
+
+# ---- the brain's door (10-16; the backend plan): llama-server through its OpenAI-style API, translated at the door ----
+import brain as _bd, brain_find as _bf, base64 as _bd_b64, os as _bd_os, tempfile as _bd_tmp, threading as _bd_thr, json as _bd_json
+import socket as _bd_sock, urllib.error as _bd_uerr, urllib.request as _bd_ureq
+from pathlib import Path as _BdPath
+from http.server import BaseHTTPRequestHandler as _BdBase, HTTPServer as _BdServer
+import panel as _bd_panel
+
+_bd_png = _bd_b64.b64encode(b"\x89PNG\r\n\x1a\n" + b"0" * 12).decode()
+_bd_jpg = _bd_b64.b64encode(b"\xff\xd8\xff\xe0" + b"0" * 12).decode()
+_bd_tools = [{"type": "function", "function": {"name": "look_at", "description": "look",
+                                               "parameters": {"type": "object", "properties": {"path": {"type": "string"}}}}}]
+_bd_payload = {"model": "gemma4:31b-it-qat", "stream": True, "keep_alive": "30m", "think": False, "tools": _bd_tools,
+               "options": {"num_ctx": 262144, "temperature": 0.9, "min_p": 0.08, "top_k": 64, "top_p": 0.95, "repeat_penalty": 1.05,
+                           "repeat_last_n": 512, "num_predict": 8192, "dry_multiplier": 0.8, "xtc_probability": 0.1, "dynatemp_range": 0.2, "num_gpu": 99},
+               "messages": [{"role": "system", "content": "you are home"},
+                            {"role": "user", "content": "look", "images": [_bd_png, _bd_jpg]},
+                            {"role": "assistant", "content": "", "thinking": "a look first", "tokens": {"prompt": 9},
+                             "tool_calls": [{"function": {"name": "look_at", "arguments": {"path": "a.png"}}}]},
+                            {"role": "tool", "tool_name": "look_at", "content": "a violet bloom"}]}
+_bd_o = _bd.to_openai(_bd_payload)
+_bd_o2 = _bd.to_openai({"model": "m", "messages": [{"role": "user", "content": "", "images": ["AAAA"]}]})
+check("brain door: to_openai — images as data URIs (png and jpeg told apart, the text first), an assistant call with its arguments a JSON "
+      "string and an id the tool result answers to, the tool's name kept; the sampler through (DRY/XTC/dynatemp too), num_predict as "
+      "max_tokens; num_ctx, keep_alive and Ollama-only options gone; not streamed, the prompt cached; think rides with the template's switch",
+      _bd_o["model"] == "gemma4:31b-it-qat" and _bd_o["stream"] is False and _bd_o["cache_prompt"] is True
+      and not {"keep_alive", "num_ctx", "options", "num_gpu", "num_predict"} & set(_bd_o)
+      and _bd_o["max_tokens"] == 8192 and _bd_o["temperature"] == 0.9 and _bd_o["min_p"] == 0.08 and _bd_o["top_k"] == 64 and _bd_o["top_p"] == 0.95
+      and _bd_o["repeat_penalty"] == 1.05 and _bd_o["repeat_last_n"] == 512
+      and _bd_o["dry_multiplier"] == 0.8 and _bd_o["xtc_probability"] == 0.1 and _bd_o["dynatemp_range"] == 0.2
+      and _bd_o["tools"] == _bd_tools and _bd_o["think"] is False and _bd_o["chat_template_kwargs"] == {"enable_thinking": False}
+      and _bd_o["messages"][0] == {"role": "system", "content": "you are home"}
+      and _bd_o["messages"][1] == {"role": "user", "content": [{"type": "text", "text": "look"},
+                                                              {"type": "image_url", "image_url": {"url": "data:image/png;base64," + _bd_png}},
+                                                              {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + _bd_jpg}}]}
+      and _bd_o["messages"][2] == {"role": "assistant", "content": "", "reasoning_content": "a look first",
+                                   "tool_calls": [{"id": "call_0", "type": "function", "function": {"name": "look_at", "arguments": '{"path": "a.png"}'}}]}
+      and _bd_o["messages"][3] == {"role": "tool", "content": "a violet bloom", "name": "look_at", "tool_call_id": "call_0"}
+      and _bd_payload["messages"][1]["images"] == [_bd_png, _bd_jpg] and _bd_payload["options"]["num_ctx"] == 262144
+      and _bd_o2["messages"][0]["content"] == [{"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}}]
+      and "think" not in _bd_o2 and "chat_template_kwargs" not in _bd_o2 and "tools" not in _bd_o2 and "max_tokens" not in _bd_o2, _bd_o)
+
+_bd_reply = {"model": "gemma4:31b-it-qat", "object": "chat.completion",
+             "choices": [{"index": 0, "finish_reason": "tool_calls", "message": {
+                 "role": "assistant", "content": "There it is.", "reasoning_content": "I should look at it first.",
+                 "tool_calls": [{"id": "x1", "type": "function", "function": {"name": "look_at", "arguments": '{"path": "creations/a.png"}'}},
+                                {"id": "x2", "type": "function", "function": {"name": "write_journal", "arguments": '{"text": "unfinish'}}]}}],
+             "usage": {"prompt_tokens": 120000, "completion_tokens": 42, "total_tokens": 120042, "prompt_tokens_details": {"cached_tokens": 119990}},
+             "timings": {"cache_n": 119990, "prompt_n": 10, "prompt_ms": 250.5, "predicted_n": 42, "predicted_ms": 1400.0,
+                         "prompt_per_second": 39.9, "predicted_per_second": 30.0}}
+_bd_f = _bd.from_openai(_bd_reply)
+_bd_f2 = _bd.from_openai({"choices": [{"finish_reason": "length", "message": {"role": "assistant", "content": None}}],
+                          "timings": {"cache_n": 3, "prompt_n": 7, "prompt_ms": 1.0, "predicted_n": 5, "predicted_ms": 2.0}})
+_bd_p = ollama_client._parse(_bd.from_openai(_bd_reply))
+check("brain door: from_openai — Ollama's shape: thinking from reasoning_content, arguments parsed to a dict (a broken string kept as _raw), "
+      "tool_calls ends as stop and length stays length; the prompt is the whole prompt (cached + read), the reply counted, durations in ns; "
+      "the engine's _parse reads it into the token line",
+      _bd_f["message"] == {"role": "assistant", "content": "There it is.", "thinking": "I should look at it first.",
+                           "tool_calls": [{"function": {"name": "look_at", "arguments": {"path": "creations/a.png"}}},
+                                          {"function": {"name": "write_journal", "arguments": {"_raw": '{"text": "unfinish'}}}]}
+      and _bd_f["done"] is True and _bd_f["done_reason"] == "stop" and _bd_f["prompt_eval_count"] == 120000 and _bd_f["eval_count"] == 42
+      and _bd_f["prompt_eval_duration"] == 250500000 and _bd_f["eval_duration"] == 1400000000 and _bd_f["load_duration"] == 0
+      and _bd_f["total_duration"] == 1650500000 and _bd_f["cache_n"] == 119990
+      and _bd_f2["done_reason"] == "length" and _bd_f2["prompt_eval_count"] == 10 and _bd_f2["eval_count"] == 5
+      and _bd_f2["message"] == {"role": "assistant", "content": "", "thinking": ""}
+      and _bd_p["content"] == "There it is." and _bd_p["thinking"] == "I should look at it first."
+      and _bd_p["tokens"]["prompt"] == 120000 and _bd_p["tokens"]["reply"] == 42 and _bd_p["tokens"]["done"] == "stop"
+      and abs(_bd_p["tokens"]["prompt_s"] - 0.2505) < 1e-9 and abs(_bd_p["tokens"]["reply_s"] - 1.4) < 1e-9 and _bd_p["tokens"]["load_s"] == 0,
+      (_bd_f, _bd_f2, _bd_p.get("tokens")))
+
+
+class _FakeLlama(_BdBase):
+    posted: list = []; got: list = []; sleeping = False
+    def log_message(self, *a): pass
+    def _j(self, o, code=200):
+        b = _bd_json.dumps(o).encode(); self.send_response(code); self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+    def do_GET(self):
+        _FakeLlama.got.append(self.path)
+        if self.path == "/props":
+            return self._j({"is_sleeping": _FakeLlama.sleeping, "model_path": "sha256-aa", "default_generation_settings": {"n_ctx": 262144}})
+        if self.path == "/slots":
+            return self._j([{"id": 0, "n_ctx": 262144, "is_processing": False}])
+        self._j({"error": {"code": 404, "message": "File Not Found", "type": "not_found_error"}}, 404)
+    def do_POST(self):
+        n = int(self.headers.get("Content-Length") or 0); d = _bd_json.loads(self.rfile.read(n) or b"{}")
+        _FakeLlama.posted.append((self.path, d))
+        if self.path == "/v1/chat/completions":
+            return self._j(_bd_reply)
+        if self.path == "/slots/0?action=save":
+            return self._j({"id_slot": 0, "filename": d.get("filename"), "n_saved": 120000, "n_written": 3_000_000_000, "timings": {"save_ms": 1500.0}})
+        if self.path == "/slots/0?action=restore":
+            return self._j({"id_slot": 0, "filename": d.get("filename"), "n_restored": 120000, "n_read": 3_000_000_000, "timings": {"restore_ms": 900.0}})
+        self._j({"error": {"code": 400, "message": "bad request"}}, 400)
+
+
+def _bd_free_port() -> int:
+    s = _bd_sock.socket(); s.bind(("127.0.0.1", 0)); p = s.getsockname()[1]; s.close(); return p
+
+
+_bd_srv = _BdServer(("127.0.0.1", 0), _FakeLlama)
+_bd_thr.Thread(target=_bd_srv.serve_forever, daemon=True).start()
+_bd_door = f"http://127.0.0.1:{_bd_srv.server_port}"
+_bd_api0, _bd_url0 = getattr(config, "BRAIN_API", "ollama"), getattr(config, "BRAIN_URL", "")
+_bd_think0, _bd_retries0 = getattr(config, "CHAT_THINK", True), getattr(config, "CHAT_THINK_RETRIES", None)
+_bd_post_is_real = ollama_client._post.__module__ == "ollama_client" and ollama_client._post.__name__ == "_post"
+_bd_urlopen0 = ollama_client.urllib.request.urlopen
+_bd_seen = []
+def _bd_urlopen_watch(req, timeout=None):  # Ollama's road, watched: the request it would send, then "not running"
+    if isinstance(req, _bd_ureq.Request) and req.full_url.startswith(config.OLLAMA_URL):
+        _bd_seen.append((req.full_url, _bd_json.loads(req.data.decode("utf-8")) if req.data else None))
+        raise _bd_uerr.URLError(ConnectionRefusedError("not running"))
+    return _bd_urlopen0(req, timeout=timeout)
+_bd_ollama_err = _bd_door_err = None
+_bd_ears_err = ""
+try:
+    config.CHAT_THINK, config.CHAT_THINK_RETRIES = True, 1
+    # the door: the whole engine path through the translation
+    config.BRAIN_API, config.BRAIN_URL = "llama", _bd_door
+    _bd_m = _chat_orig([{"role": "system", "content": "you are home"}, {"role": "user", "content": "show me the painting"}], tools=_bd_tools)
+    _bd_chat_posts = [d for p, d in _FakeLlama.posted if p == "/v1/chat/completions"]
+    # the ears' /api/chat (another model) stays on Ollama while the brain is at the door
+    ollama_client.urllib.request.urlopen = _bd_urlopen_watch
+    try:
+        ollama_client._post("/api/chat", {"model": "an-ears-model", "messages": [], "stream": False})
+    except ollama_client.BrainUnavailable as e:
+        _bd_ears_err = str(e)
+    _bd_ears_seen = list(_bd_seen)
+    # the door down: the same BrainUnavailable the rails already catch, naming the door
+    config.BRAIN_URL = f"http://127.0.0.1:{_bd_free_port()}"
+    try:
+        _chat_orig([{"role": "user", "content": "hi"}])
+    except ollama_client.BrainUnavailable as e:
+        _bd_door_err = str(e)
+    # back to Ollama: its own request, as it always was, and the door not asked
+    config.BRAIN_API, config.BRAIN_URL = "ollama", _bd_door
+    _bd_seen.clear(); _bd_n_door = len(_FakeLlama.posted)
+    try:
+        _chat_orig([{"role": "user", "content": "hi"}])
+    except ollama_client.BrainUnavailable as e:
+        _bd_ollama_err = str(e)
+    _bd_ollama_seen = list(_bd_seen)
+    _bd_door_after = len(_FakeLlama.posted) - _bd_n_door
+finally:
+    ollama_client.urllib.request.urlopen = _bd_urlopen0
+    config.BRAIN_API, config.BRAIN_URL = _bd_api0, _bd_url0
+    config.CHAT_THINK, config.CHAT_THINK_RETRIES = _bd_think0, _bd_retries0
+_bd_sent = _bd_chat_posts[0] if _bd_chat_posts else {}
+check("brain door: with BRAIN_API = \"llama\" the real chat() goes through the door — the reply's words, thought and calls (arguments a dict) "
+      "come back as Ollama's would, with the counters; the request in OpenAI's shape (no num_ctx, no keep_alive, not streamed, the tools)",
+      _bd_post_is_real and len(_bd_chat_posts) == 1 and _bd_m.get("content") == "There it is." and _bd_m.get("thinking") == "I should look at it first."
+      and [c["function"]["name"] for c in _bd_m.get("tool_calls") or []][:1] == ["look_at"]
+      and (_bd_m.get("tool_calls") or [{}])[0]["function"]["arguments"] == {"path": "creations/a.png"}
+      and _bd_m["tokens"]["prompt"] == 120000 and _bd_m["tokens"]["reply"] == 42
+      and _bd_sent.get("model") == config.CHAT_MODEL and _bd_sent.get("stream") is False and "options" not in _bd_sent
+      and "keep_alive" not in _bd_sent and _bd_sent.get("tools") == _bd_tools and _bd_sent.get("think") is True
+      and _bd_sent.get("messages", [{}])[-1] == {"role": "user", "content": "show me the painting"},
+      (_bd_post_is_real, len(_bd_chat_posts), {k: _bd_m.get(k) for k in ("content", "thinking", "tool_calls")}, _bd_sent))
+check("brain door: the ears' /api/chat stays on Ollama; a door that is down is a BrainUnavailable naming llama-server; "
+      "back on \"ollama\" the request goes to OLLAMA_URL/api/chat as before (num_ctx, keep_alive, streamed) and the door hears nothing",
+      [u for u, _ in _bd_ears_seen] == [config.OLLAMA_URL + "/api/chat"] and "Ollama" in _bd_ears_err
+      and _bd_door_err is not None and "llama-server" in _bd_door_err
+      and [u for u, _ in _bd_ollama_seen] == [config.OLLAMA_URL + "/api/chat"] and _bd_door_after == 0
+      and _bd_ollama_seen[0][1]["options"]["num_ctx"] == getattr(config, "NUM_CTX", 8192) and _bd_ollama_seen[0][1]["model"] == config.CHAT_MODEL
+      and _bd_ollama_seen[0][1].get("keep_alive", "") == getattr(config, "BRAIN_KEEP_ALIVE", "")
+      and _bd_ollama_seen[0][1]["stream"] == bool(getattr(config, "CHAT_STREAM_ABORT", True)) and _bd_ollama_err and "Can't reach Ollama" in _bd_ollama_err,
+      (_bd_ears_seen, _bd_door_err, _bd_ollama_seen[:1], _bd_door_after, _bd_ollama_err))
+
+# unload and what is loaded, under the door — on a fresh load of ollama_client, since tests above leave unload stubbed
+import importlib.util as _bd_ilu
+_bd_spec = _bd_ilu.spec_from_file_location("_bd_ollama_client", str(_BdPath(ollama_client.__file__)))
+_bd_oc = _bd_ilu.module_from_spec(_bd_spec)
+_bd_spec.loader.exec_module(_bd_oc)
+_bd_ps = []
+_bd_unl = []
+def _bd_post_rec(path, payload, timeout=None):
+    _bd_unl.append((path, payload.get("model")))
+    if path == "/api/generate" and payload.get("model") in _bd_ps:
+        _bd_ps.remove(payload["model"])
+    return {}
+_bd_oc._ollama_ps, _bd_oc._post = (lambda: list(_bd_ps)), _bd_post_rec
+try:
+    config.BRAIN_API, config.BRAIN_URL = "llama", _bd_door
+    _bd_ps[:] = [config.CHAT_MODEL, "nomic-embed-text:latest"]
+    _FakeLlama.sleeping = False
+    _bd_l_awake = _bd_oc._loaded_models()
+    _FakeLlama.sleeping = True
+    _bd_l_asleep = _bd_oc._loaded_models()
+    _FakeLlama.sleeping = False
+    config.BRAIN_URL = f"http://127.0.0.1:{_bd_free_port()}"
+    _bd_l_down = _bd_oc._loaded_models()
+    config.BRAIN_URL = _bd_door
+    _bd_oc.unload(config.CHAT_MODEL)
+    _bd_unl_brain = list(_bd_unl)
+    _bd_ps[:] = ["nomic-embed-text:latest"]
+    _bd_freed = _bd_oc.unload_all()
+    _bd_unl_all = list(_bd_unl)
+    _bd_props, _bd_slots = _bd.props(), _bd.slots()
+    _bd_save, _bd_rest = _bd.slot_save("abc123.bin"), _bd.slot_restore("abc123.bin")
+    _bd_slot_posts = [(p, d) for p, d in _FakeLlama.posted if p.startswith("/slots/")]
+    # on Ollama: the brain is Ollama's to set down, and the door is never asked
+    config.BRAIN_API = "ollama"
+    _bd_unl.clear(); _bd_ps[:] = [config.CHAT_MODEL]
+    _bd_n_got = len(_FakeLlama.got)
+    _bd_oc.unload(config.CHAT_MODEL)
+    _bd_l_ollama = (_bd_oc._loaded_models(), list(_bd_unl))
+    _bd_off = (_bd.props(), _bd.slots(), _bd.slot_save("x.bin"), _bd.slot_restore("x.bin"), len(_FakeLlama.got) - _bd_n_got)
+finally:
+    config.BRAIN_API, config.BRAIN_URL = _bd_api0, _bd_url0
+    _FakeLlama.sleeping = False
+check("brain door: under \"llama\" the brain is loaded while the door answers awake (not slept, not down), Ollama's list for the rest; "
+      "unload of the brain asks Ollama nothing, unload_all sets down only Ollama's own and names only those; on \"ollama\" all as before",
+      _bd_l_awake == ["nomic-embed-text:latest", config.CHAT_MODEL] and _bd_l_asleep == ["nomic-embed-text:latest"]
+      and _bd_l_down == ["nomic-embed-text:latest"] and _bd_unl_brain == []
+      and _bd_freed == ["nomic-embed-text:latest"] and _bd_unl_all == [("/api/generate", "nomic-embed-text:latest")]
+      and _bd_l_ollama == ([], [("/api/generate", config.CHAT_MODEL)]),
+      (_bd_l_awake, _bd_l_asleep, _bd_l_down, _bd_unl_brain, _bd_freed, _bd_unl_all, _bd_l_ollama))
+check("brain door: /props, /slots and the slot save/restore (POST /slots/0?action=…, the filename in the body) answer under \"llama\"; "
+      "every one is None on \"ollama\" and the door is not asked",
+      _bd_props and _bd_props.get("is_sleeping") is False and _bd_slots == {"items": [{"id": 0, "n_ctx": 262144, "is_processing": False}]}
+      and (_bd_save or {}).get("n_saved") == 120000 and (_bd_rest or {}).get("n_restored") == 120000 and "took_s" in (_bd_save or {})
+      and _bd_slot_posts == [("/slots/0?action=save", {"filename": "abc123.bin"}), ("/slots/0?action=restore", {"filename": "abc123.bin"})]
+      and _bd_off == (None, None, None, None, 0) and _bd.api() == ("llama" if str(_bd_api0).lower() == "llama" else "ollama"),
+      (_bd_props, _bd_slots, _bd_save, _bd_rest, _bd_slot_posts, _bd_off))
+config.BRAIN_API = "something else"
+_bd_odd = _bd.api()
+config.BRAIN_API = " Llama "
+_bd_llama = _bd.api()
+config.BRAIN_API = _bd_api0
+check("brain door: api() is \"llama\" only when the knob says so (any case, any spaces); anything else is Ollama; the URL's default is :8768",
+      _bd_odd == "ollama" and _bd_llama == "llama" and _bd.DEFAULT_URL == "http://127.0.0.1:8768", (_bd_odd, _bd_llama))
+_bd_srv.shutdown()
+
+# brain_find: the program and the model, found, not hardcoded
+_bd_td = _BdPath(_bd_tmp.mkdtemp(prefix="brainfind_"))
+_bd_env0 = {k: _bd_os.environ.get(k) for k in ("PATH", "OLLAMA_MODELS")}
+_bd_root0 = _bf.ROOT
+_bd_cfg0 = {k: getattr(config, k, None) for k in ("BRAIN_MODEL_FILE", "BRAIN_MMPROJ_FILE", "BRAIN_SLOT_DIR", "BRAIN_URL", "NUM_CTX")}
+try:
+    _bd_os.environ["OLLAMA_MODELS"] = str(_bd_td / "models")
+    _bd_os.environ["PATH"] = str(_bd_td / "empty")
+    (_bd_td / "empty").mkdir()
+    _bf.ROOT = _bd_td / "house"
+    _bd_man = _bf.manifest_path(config.CHAT_MODEL)
+    _bd_man.parent.mkdir(parents=True)
+    _bd_dm, _bd_dp = "sha256:" + "a" * 64, "sha256:" + "b" * 64
+    _bd_man.write_text(_bd_json.dumps({"schemaVersion": 2, "layers": [
+        {"mediaType": "application/vnd.ollama.image.model", "digest": _bd_dm, "size": 17},
+        {"mediaType": "application/vnd.ollama.image.projector", "digest": _bd_dp, "size": 12},
+        {"mediaType": "application/vnd.ollama.image.template", "digest": "sha256:" + "c" * 64, "size": 3}]}), encoding="utf-8")
+    (_bd_td / "models" / "blobs").mkdir(parents=True)
+    for _d in (_bd_dm, _bd_dp):
+        (_bd_td / "models" / "blobs" / _d.replace(":", "-")).write_bytes(b"gguf")
+    _bd_blobs = _bf.find_blobs(config.CHAT_MODEL)
+    _bd_none = _bf.find_blobs("gemma4:not-pulled")
+    _bd_srv_none = _bf.find_server()
+    _bd_cmd_none = _bf.command()
+    (_bd_td / "house" / "llama").mkdir(parents=True)
+    (_bd_td / "house" / "llama" / "llama-server.exe").write_bytes(b"MZ")
+    _bd_srv_found = _bf.find_server()
+    config.BRAIN_MODEL_FILE, config.BRAIN_MMPROJ_FILE, config.BRAIN_SLOT_DIR = "", "", "R:\\kv"
+    config.BRAIN_URL, config.NUM_CTX = "http://127.0.0.1:8770", 262144
+    _bd_cmd, _bd_said = _bf.command()
+    config.BRAIN_SLOT_DIR, config.BRAIN_MODEL_FILE = "", str(_bd_td / "other.gguf")
+    _bd_cmd2, _bd_said2 = _bf.command()
+    _bd_paths = (_bf.manifest_path("gemma4:31b-it-qat"), _bf.manifest_path("someone/model"), _bf.manifest_path("hf.co/org/repo:Q4_K_M"))
+finally:
+    for _k, _v in _bd_env0.items():
+        if _v is None:
+            _bd_os.environ.pop(_k, None)
+        else:
+            _bd_os.environ[_k] = _v
+    _bf.ROOT = _bd_root0
+    for _k, _v in _bd_cfg0.items():
+        setattr(config, _k, _v)
+_bd_bl = _bd_td / "models" / "blobs"
+check("brain_find: Ollama's manifest (under OLLAMA_MODELS) names the model and projector blobs; a tag never pulled is None; no llama-server "
+      "anywhere is None and the command says so; llama\\ beside the engine is found; the command carries the blobs, the window, q4_0 keys, "
+      "one slot, deepseek reasoning, BRAIN_URL's port, and --slot-save-path only when BRAIN_SLOT_DIR is set; BRAIN_MODEL_FILE wins",
+      _bd_blobs == (str(_bd_bl / ("sha256-" + "a" * 64)), str(_bd_bl / ("sha256-" + "b" * 64))) and _bd_none is None
+      and _bd_srv_none is None and _bd_cmd_none[0] is None and "llama-server not found" in _bd_cmd_none[1]
+      and _bd_srv_found == str(_bd_td / "house" / "llama" / "llama-server.exe")
+      and _bd_cmd == [_bd_srv_found, "-m", _bd_blobs[0], "--mmproj", _bd_blobs[1], "-c", "262144", "-fa", "on", "-ctk", "q4_0", "-ctv", "q4_0",
+                      "-np", "1", "--reasoning-format", "deepseek", "--port", "8770", "--host", "127.0.0.1", "--slot-save-path", "R:\\kv"]
+      and "Ollama's manifest" in _bd_said and _bd_cmd2[2] == str(_bd_td / "other.gguf") and "--slot-save-path" not in _bd_cmd2
+      and _bd_paths[0].parts[-5:] == ("manifests", "registry.ollama.ai", "library", "gemma4", "31b-it-qat")
+      and _bd_paths[1].parts[-4:] == ("registry.ollama.ai", "someone", "model", "latest")
+      and _bd_paths[2].parts[-4:] == ("hf.co", "org", "repo", "Q4_K_M"),
+      (_bd_blobs, _bd_none, _bd_srv_none, _bd_cmd_none, _bd_srv_found, _bd_cmd, _bd_said, _bd_cmd2, _bd_paths))
+__import__("shutil").rmtree(_bd_td, ignore_errors=True)
+check("brain door: BRAIN_API, BRAIN_URL and BRAIN_SLOT_DIR on Main after TOOL_KIT, each with the page's own words (the restart named); "
+      "BRAIN_API a dropdown of the two; the file knobs have words too",
+      _bd_panel.TABS["Main"][2:6] == ["TOOL_KIT", "BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR"]
+      and all(_bd_panel._HELP.get(k) for k in ("BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_MODEL_FILE", "BRAIN_MMPROJ_FILE"))
+      and "/restart" in _bd_panel._HELP["BRAIN_API"] and "heartbeat stop/start" in _bd_panel._HELP["BRAIN_URL"]
+      and _bd_panel.CHOICES["BRAIN_API"] == ["ollama", "llama"]
+      and all(hasattr(config, k) for k in ("BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_MODEL_FILE", "BRAIN_MMPROJ_FILE")))
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

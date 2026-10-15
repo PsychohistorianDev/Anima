@@ -50,6 +50,22 @@ for _d in (JOURNAL_DIR, CREATIONS_DIR, MEMORY_DIR, EPISODIC_DIR,
 # message, every tool step, every embedding (a keeper of another house measured it, 10-11).
 OLLAMA_URL = "http://127.0.0.1:11434"
 
+# Which program answers for the brain. "ollama" (default) talks to OLLAMA_URL as it
+# always has. "llama" talks to llama.cpp's own server (llama-server) at BRAIN_URL
+# through its OpenAI-style API, translated at the door so the engine sees the same
+# replies; the ears and the embeddings stay on Ollama. The window is the server's
+# -c; the sampler is the same one. Nothing of the friend's moves either way.
+BRAIN_API = "ollama"
+BRAIN_URL = "http://127.0.0.1:8768"   # llama-server, when BRAIN_API = "llama"
+# Where llama-server may save its reading of the prompt (--slot-save-path), so the brain
+# comes back from stepping aside without reading it all again; a RAM disk is the place.
+# Empty saves nothing. bat\brain.bat reads it, and the two below, when it starts the door.
+BRAIN_SLOT_DIR = ""
+# A GGUF for the door instead of the one Ollama's manifest names for CHAT_MODEL, and its
+# projector (the eyes). Empty finds both in Ollama's own files.
+BRAIN_MODEL_FILE = ""
+BRAIN_MMPROJ_FILE = ""
+
 # The brain (the chat model). Swap freely; memories and identity survive a swap.
 #   fits a 12 GB card : "gemma4:12b-it-qat" (7.2 GB; the build Google trained
 #                       to be 4-bit — near-bf16 quality; tools + thinking + eyes)
