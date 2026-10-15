@@ -16,6 +16,20 @@ whether the window fits the card, and every knob on every tab has a line
 of its own.
 
 ### Added
+- **The door streams, and its cold rescue is cold** (10-16; the backend
+  plan, piece 1): under `BRAIN_API = "llama"` the reply is asked of
+  `llama-server` as a stream and read as it is written
+  (`brain._drink_openai`) — the same watch as on Ollama's road, every 48
+  chunks the tail through `garble_span`, salad closes the connection and the
+  server stops; the thought, the misfiled tail, the tool calls (arguments
+  joined per index), `timings`/`usage` through the same mapping as the
+  unstreamed reply, counted by hand when cut. The cold rescue no longer
+  "unloads" a brain the door holds: it erases the slot
+  (`brain.erase_slot`, `/slots/0?action=erase`) so the last roll reads the
+  prompt from zero — or, on a door started without `--slot-save-path`, sends
+  that one roll with the prompt cache off — and the phone's note says the
+  reading was cleared, not that the brain was picked up again. Ollama's road
+  unchanged. Tests against the fake door.
 - **Two brains, one door** (10-16; the backend plan): `BRAIN_API = "llama"`
   sends the brain's replies to llama.cpp's own server (`llama-server`) at
   `BRAIN_URL` instead of Ollama, through its OpenAI-style API, translated at

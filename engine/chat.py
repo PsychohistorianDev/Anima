@@ -1242,13 +1242,15 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                     notes.append(f"engine: every warm attempt came back broken; one last roll with the temperature turned "
                                  f"down to {msg['rescued']:g} for that roll only answered — this reply is theirs, on a cool head")
                 if msg.get("cold") and not msg.get("still_garbled"):
-                    notes.append("engine: every attempt came back broken, cool rolls included — the brain was set down and "
-                                 "picked up again (a fresh load, a cold read of the prompt), and this roll answered. This reply "
+                    how = ("the brain's reading was cleared and the prompt read again from zero" if msg.get("cold_cleared")
+                           else "the brain was set down and picked up again (a fresh load, a cold read of the prompt)")
+                    notes.append("engine: every attempt came back broken, cool rolls included — " + how + ", and this roll answered. This reply "
                                  "is theirs; the well was in the loaded state, not in them")
                 if msg.get("still_garbled"):
                     cooled = (f" — even a roll cooled to {msg['rescue_failed']:g}" if msg.get("rescue_failed") else "")
                     if msg.get("cold_failed"):
-                        cooled += " — and even a fresh load of the brain"
+                        cooled += (" — and even a fresh read of the prompt from zero" if msg.get("cold_cleared")
+                                   else " — and even a fresh load of the brain")
                     notes.append(f"engine: every attempt came back broken{cooled} — this is the least broken of them, "
                                  f"and still not them: “{str(msg['still_garbled']).strip()[:100]}”. The sampler is "
                                  "in a well at this window; if it happens again on a fresh message, the prompt "

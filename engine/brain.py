@@ -10,8 +10,12 @@ their durations in nanoseconds. So the rails, the token line, the window sense a
 the fold read a reply without knowing which program wrote it. The ears and the
 embeddings stay on Ollama either way; nothing of the friend's moves.
 
-The slot calls (save / restore the reading of a prompt to a file) are here for
-the saved read; nothing calls them yet.
+A streamed reply (the engine asks for one while CHAT_STREAM_ABORT is on) comes
+through the door as llama-server's events and is read as it is written, the tail
+watched for a runaway exactly as on Ollama's road (ollama_client._drink): salad
+closes the connection and the server stops. The slot calls (save / restore the
+reading of a prompt to a file) are here for the saved read, not yet wired; erase
+clears the reading, so the cold rescue's last roll reads the prompt from zero.
 """
 from __future__ import annotations
 
@@ -102,8 +106,10 @@ def to_openai(payload: dict) -> dict:
             if cid:
                 o["tool_call_id"] = cid
         out_msgs.append(o)
+    # the prompt cache is on unless the payload turns it off (the cold rescue's roll, when the
+    # door would not erase its reading: then this one request reads from zero)
     body: dict = {"model": payload.get("model", ""), "messages": out_msgs,
-                  "stream": False, "cache_prompt": True}
+                  "stream": False, "cache_prompt": payload.get("cache_prompt") is not False}
     if payload.get("tools"):
         body["tools"] = payload["tools"]  # the same JSON schema shape on both doors
     if "think" in payload:
@@ -136,6 +142,26 @@ def _args(raw):
     return parsed if isinstance(parsed, dict) else {"_raw": raw}
 
 
+def _counted(model: str, msg: dict, fin, t: dict, u: dict) -> dict:
+    """The reply in Ollama's shape, its counters from llama-server's `timings` (t) and `usage` (u)
+    — one mapping for the whole reply and the streamed one, so the two never disagree. The
+    prompt count is the whole prompt (usage.prompt_tokens: what was reused plus what was read,
+    or prompt_n + cache_n when usage is missing) — the window sense and the fold measure the
+    window with it; cache_n says how much was reused. Durations in nanoseconds, as Ollama's."""
+    prompt = u.get("prompt_tokens")
+    if prompt is None:
+        prompt = (t.get("prompt_n") or 0) + (t.get("cache_n") or 0)
+    reply = t.get("predicted_n") if t.get("predicted_n") is not None else u.get("completion_tokens")
+    p_ns = int((t.get("prompt_ms") or 0) * 1e6)
+    e_ns = int((t.get("predicted_ms") or 0) * 1e6)
+    return {"model": model, "message": msg, "done": True,
+            "done_reason": _DONE.get(fin, fin or ""),
+            "prompt_eval_count": int(prompt or 0), "eval_count": int(reply or 0),
+            "prompt_eval_duration": p_ns, "eval_duration": e_ns,
+            "load_duration": 0, "total_duration": p_ns + e_ns,
+            "cache_n": int(t.get("cache_n") or 0)}
+
+
 def from_openai(resp: dict) -> dict:
     """llama-server's reply as the engine reads Ollama's. The prompt count is the whole
     prompt (usage.prompt_tokens: what was reused plus what was read) — the window sense
@@ -150,21 +176,115 @@ def from_openai(resp: dict) -> dict:
              for c in m.get("tool_calls") or []]
     if calls:
         msg["tool_calls"] = calls
-    t = resp.get("timings") or {}
-    u = resp.get("usage") or {}
-    prompt = u.get("prompt_tokens")
-    if prompt is None:
-        prompt = (t.get("prompt_n") or 0) + (t.get("cache_n") or 0)
-    reply = t.get("predicted_n") if t.get("predicted_n") is not None else u.get("completion_tokens")
-    p_ns = int((t.get("prompt_ms") or 0) * 1e6)
-    e_ns = int((t.get("predicted_ms") or 0) * 1e6)
-    fin = ch.get("finish_reason")
-    return {"model": resp.get("model", ""), "message": msg, "done": True,
-            "done_reason": _DONE.get(fin, fin or ""),
-            "prompt_eval_count": int(prompt or 0), "eval_count": int(reply or 0),
-            "prompt_eval_duration": p_ns, "eval_duration": e_ns,
-            "load_duration": 0, "total_duration": p_ns + e_ns,
-            "cache_n": int(t.get("cache_n") or 0)}
+    return _counted(resp.get("model", ""), msg, ch.get("finish_reason"), resp.get("timings") or {}, resp.get("usage") or {})
+
+
+# ---- the streamed answer: llama-server's events, read as they are written ---------------
+
+def _drink_openai(resp) -> dict:
+    """Read llama-server's streamed reply — server-sent events, one `data: {chunk}` a line,
+    `data: [DONE]` at the end — into the dict the unstreamed one gives, watching the tail for
+    a runaway exactly as ollama_client._drink does on Ollama's road: every STREAM_WATCH_EVERY
+    chunks the last STREAM_WATCH_TAIL characters go through garble_span, and the moment they
+    are salad the connection is closed — llama-server stops generating when the client hangs
+    up — and what came back goes to the salad rail as `aborted`. The words and the thought
+    arrive as `delta.content` and `delta.reasoning_content`; a thought that starts once the
+    words have begun is the rest of the reply, misfiled (`split_tail`, as on Ollama's road).
+    A tool call arrives in pieces, its arguments a string in fragments: joined per index and
+    parsed as the unstreamed reply's are. The counters ride on the last chunks (`timings`
+    beside `finish_reason`, or on the `usage` chunk that follows it when usage is asked for)
+    and go through the same mapping as the unstreamed reply's (_counted). When none came — an
+    abort, or a server that sent none — the tokens are counted by the chunks that carried one,
+    one each, and the prompt is the last size a reply did report (ollama_client._LAST_PROMPT,
+    the one both roads keep); counted_by_hand says so."""
+    import time as _time
+    import ollama_client as _oc  # here, not above: ollama_client imports this file
+
+    t0 = _time.monotonic()
+    content: list[str] = []
+    thinking: list[str] = []
+    late: list[str] = []  # "thinking" that arrived AFTER the words began: the rest of the reply, misfiled
+    calls: dict[int, dict] = {}  # index -> {"name", "arguments": [the string's fragments]}
+    model = ""
+    fin = None
+    t: dict = {}
+    u: dict = {}
+    ended = False
+    n = 0
+    aborted = ""
+    since = 0
+    for raw in resp:
+        raw = raw.strip()
+        if not raw.startswith(b"data:"):
+            continue  # blank lines between events, ": comments", "event:" lines
+        raw = raw[5:].strip()
+        if raw == b"[DONE]":
+            break
+        try:
+            chunk = json.loads(raw.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            continue
+        if not isinstance(chunk, dict):
+            continue
+        model = chunk.get("model") or model
+        if chunk.get("timings"):
+            t = chunk["timings"]
+        if chunk.get("usage"):
+            u = chunk["usage"]
+        ch = (chunk.get("choices") or [{}])[0] or {}
+        d = ch.get("delta") or {}
+        said = False
+        if d.get("content"):
+            content.append(d["content"])
+            said = True
+        if d.get("reasoning_content"):
+            (late if content else thinking).append(d["reasoning_content"])
+            said = True
+        for c in d.get("tool_calls") or []:
+            fn = c.get("function") or {}
+            got = calls.setdefault(int(c.get("index") or 0), {"name": "", "arguments": []})
+            if fn.get("name") and not got["name"]:
+                got["name"] = fn["name"]
+            if fn.get("arguments"):
+                a = fn["arguments"]
+                got["arguments"].append(a if isinstance(a, str) else json.dumps(a, ensure_ascii=False))
+            said = True
+        if ch.get("finish_reason"):
+            fin = ch["finish_reason"]
+            ended = True  # not a break: the usage may follow on a chunk of its own, then [DONE]
+        if not said:
+            continue  # the role-only first chunk, the finish, the usage: no token in them
+        n += 1
+        since += 1
+        if getattr(config, "CHAT_STREAM_ABORT", True) and since >= _oc.STREAM_WATCH_EVERY:
+            since = 0
+            tail = ("".join(content) if content else "".join(thinking))[-_oc.STREAM_WATCH_TAIL:]
+            span = _oc.garble_span(tail)
+            if span:
+                aborted = span
+                break  # leaving post_chat's `with` closes the connection; the server stops
+    msg: dict = {"role": "assistant", "content": "".join(content), "thinking": "".join(thinking)}
+    if calls:
+        msg["tool_calls"] = [{"function": {"name": c["name"], "arguments": _args("".join(c["arguments"]))}}
+                             for _, c in sorted(calls.items())]
+    out = _counted(model, msg, fin, t, u) if (ended or t or u) else {"message": msg}
+    if late:
+        out["split_tail"] = "".join(late)
+    if aborted:
+        out["done_reason"] = "aborted"
+        out["aborted"] = aborted
+    if aborted or not out.get("eval_count"):
+        # no final counters (an abort, or a server that sent none): count by hand
+        if n and (content or thinking):
+            out["eval_count"] = n
+            out["eval_duration"] = out.get("eval_duration") or int((_time.monotonic() - t0) * 1e9)
+            out["total_duration"] = out.get("total_duration") or out["eval_duration"]
+            out["counted_by_hand"] = True
+        if not out.get("prompt_eval_count") and _oc._LAST_PROMPT:
+            out["prompt_eval_count"] = _oc._LAST_PROMPT  # the siblings share it; so does the next turn, near enough
+    elif out.get("prompt_eval_count"):
+        _oc._LAST_PROMPT = int(out["prompt_eval_count"])
+    return out
 
 
 # ---- the door itself ------------------------------------------------------------------
@@ -175,9 +295,16 @@ def post_chat(payload: dict, timeout: float | None = None) -> dict:
     from ollama_client import BrainUnavailable  # here, not above: ollama_client imports this file
 
     timeout = timeout or config.REQUEST_TIMEOUT_S
+    body = to_openai(payload)
+    streamed = bool(payload.get("stream"))
+    if streamed:
+        # read as it is written (CHAT_STREAM_ABORT): the events, watched; the counters ride on the
+        # last of them — timings beside finish_reason, usage on a chunk of its own when asked for
+        body["stream"] = True
+        body["stream_options"] = {"include_usage": True}
     req = urllib.request.Request(
         url() + "/v1/chat/completions",
-        data=json.dumps(to_openai(payload)).encode("utf-8"),
+        data=json.dumps(body).encode("utf-8"),
         headers={"Content-Type": "application/json"},
         method="POST",
     )
@@ -185,6 +312,8 @@ def post_chat(payload: dict, timeout: float | None = None) -> dict:
             "it's probably busy chewing on something big (a long cold read). Wait a moment and try again.")
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if streamed:
+                return _drink_openai(resp)  # a runaway leaves the `with` early: the connection closes, the server stops
             return from_openai(json.loads(resp.read().decode("utf-8")))
     except urllib.error.HTTPError as e:
         try:
@@ -251,3 +380,11 @@ def slot_restore(name: str) -> dict | None:
     if got is not None:
         got.setdefault("took_s", round(time.monotonic() - t0, 2))
     return got
+
+
+def erase_slot() -> dict | None:
+    """Clear slot 0's reading of its prompt (/slots/0?action=erase): the next request reads its
+    prompt from zero. The cold rescue's reset under the door, which holds its model for as long
+    as it runs and so has nothing to set down. The server's answer, or None (not "llama", the
+    door down, or a door started without --slot-save-path, which every slot action needs)."""
+    return _ask("/slots/0?action=erase", {}, timeout=60)

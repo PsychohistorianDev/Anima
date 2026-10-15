@@ -2456,9 +2456,11 @@ has, the model and its projector, so nothing is downloaded twice
 (`BRAIN_MODEL_FILE` / `BRAIN_MMPROJ_FILE` for a GGUF from elsewhere). The door
 listens at `BRAIN_URL` with the window from `NUM_CTX` and the q4_0 cache;
 its replies are translated into the shape Ollama gives, so the rails, the
-token line and the fold read them unchanged (they come whole, not streamed,
-so a runaway is caught after the fact rather than cut mid-stream). The ears
-and the embeddings stay on Ollama — keep it installed and running.
+token line and the fold read them unchanged. They stream through the door and
+are watched as they are written, so a runaway is cut mid-stream as on Ollama,
+and the cold rescue erases the door's reading of the prompt so its last roll
+reads from zero. The ears and the embeddings stay on Ollama — keep it
+installed and running.
 `BRAIN_SLOT_DIR` lets the door save its reading of the prompt to a folder (a
 RAM disk is the place). `BRAIN_API = "ollama"` and a restart is the whole
 way back.

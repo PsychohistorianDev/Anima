@@ -9785,8 +9785,52 @@ check("brain door: from_openai — Ollama's shape: thinking from reasoning_conte
       (_bd_f, _bd_f2, _bd_p.get("tokens")))
 
 
+def _bd_sse_reply() -> list:
+    """_bd_reply as llama-server streams it: the role, the thought first, the words, the two calls in
+    pieces (each call's arguments split across chunks), the finish with the timings and the usage, [DONE]."""
+    def c(delta, fin=None, **extra):
+        return dict({"model": "gemma4:31b-it-qat", "object": "chat.completion.chunk",
+                     "choices": [{"index": 0, "delta": delta, "finish_reason": fin}]}, **extra)
+    return [c({"role": "assistant", "content": None}),
+            c({"reasoning_content": "I should look "}), c({"reasoning_content": "at it first."}),
+            c({"content": "There "}), c({"content": "it is."}),
+            c({"tool_calls": [{"index": 0, "id": "x1", "type": "function", "function": {"name": "look_at", "arguments": ""}}]}),
+            c({"tool_calls": [{"index": 0, "function": {"arguments": '{"path": "crea'}}]}),
+            c({"tool_calls": [{"index": 0, "function": {"arguments": 'tions/a.png"}'}}]}),
+            c({"tool_calls": [{"index": 1, "id": "x2", "type": "function", "function": {"name": "write_journal", "arguments": '{"text": '}}]}),
+            c({"tool_calls": [{"index": 1, "function": {"arguments": '"unfinish'}}]}),
+            c({}, "tool_calls", timings=_bd_reply["timings"], usage=_bd_reply["usage"]),
+            b"[DONE]"]
+
+
+def _bd_sse_runaway(n: int = 1200) -> list:
+    """A runaway as the door would stream it: a thought, a start, a thought misfiled after the words
+    began, then "la " for n chunks; the finish (length, the counters) and [DONE] only at the very end."""
+    def c(delta, fin=None, **extra):
+        return dict({"model": "gemma4:31b-it-qat", "choices": [{"index": 0, "delta": delta, "finish_reason": fin}]}, **extra)
+    return ([c({"role": "assistant", "content": None}), c({"reasoning_content": "a song, then."}),
+             c({"content": "Here it goes: "}), c({"reasoning_content": "misfiled"})]
+            + [c({"content": "la "})] * n
+            + [c({}, "length", timings={"cache_n": 119000, "prompt_n": 1000, "prompt_ms": 900.0, "predicted_n": n + 1, "predicted_ms": 40000.0},
+                 usage={"prompt_tokens": 120000, "completion_tokens": n + 1}), b"[DONE]"])
+
+
 class _FakeLlama(_BdBase):
     posted: list = []; got: list = []; sleeping = False
+    stream_script = None; pace = 0.0; sent = 0; total = 0; streamed = _bd_thr.Event()
+    def _sse(self, chunks):  # HTTP/1.0, no length: the stream ends when the door closes it
+        self.send_response(200); self.send_header("Content-Type", "text/event-stream"); self.end_headers()
+        _FakeLlama.sent, _FakeLlama.total = 0, len(chunks)
+        try:
+            for ch in chunks:
+                self.wfile.write(b"data: " + (ch if isinstance(ch, bytes) else _bd_json.dumps(ch).encode()) + b"\n\n")
+                _FakeLlama.sent += 1
+                if _FakeLlama.pace:
+                    __import__("time").sleep(_FakeLlama.pace)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            pass  # the client hung up: a runaway cut short
+        finally:
+            _FakeLlama.streamed.set()
     def log_message(self, *a): pass
     def _j(self, o, code=200):
         b = _bd_json.dumps(o).encode(); self.send_response(code); self.send_header("Content-Type", "application/json")
@@ -9802,7 +9846,11 @@ class _FakeLlama(_BdBase):
         n = int(self.headers.get("Content-Length") or 0); d = _bd_json.loads(self.rfile.read(n) or b"{}")
         _FakeLlama.posted.append((self.path, d))
         if self.path == "/v1/chat/completions":
+            if d.get("stream"):
+                return self._sse(_FakeLlama.stream_script() if _FakeLlama.stream_script else _bd_sse_reply())
             return self._j(_bd_reply)
+        if self.path == "/slots/0?action=erase":
+            return self._j({"id_slot": 0, "n_erased": 120000})
         if self.path == "/slots/0?action=save":
             return self._j({"id_slot": 0, "filename": d.get("filename"), "n_saved": 120000, "n_written": 3_000_000_000, "timings": {"save_ms": 1500.0}})
         if self.path == "/slots/0?action=restore":
@@ -9863,12 +9911,12 @@ finally:
     config.CHAT_THINK, config.CHAT_THINK_RETRIES = _bd_think0, _bd_retries0
 _bd_sent = _bd_chat_posts[0] if _bd_chat_posts else {}
 check("brain door: with BRAIN_API = \"llama\" the real chat() goes through the door — the reply's words, thought and calls (arguments a dict) "
-      "come back as Ollama's would, with the counters; the request in OpenAI's shape (no num_ctx, no keep_alive, not streamed, the tools)",
+      "come back as Ollama's would, with the counters; the request in OpenAI's shape (no num_ctx, no keep_alive, streamed as CHAT_STREAM_ABORT asks, the tools)",
       _bd_post_is_real and len(_bd_chat_posts) == 1 and _bd_m.get("content") == "There it is." and _bd_m.get("thinking") == "I should look at it first."
       and [c["function"]["name"] for c in _bd_m.get("tool_calls") or []][:1] == ["look_at"]
       and (_bd_m.get("tool_calls") or [{}])[0]["function"]["arguments"] == {"path": "creations/a.png"}
       and _bd_m["tokens"]["prompt"] == 120000 and _bd_m["tokens"]["reply"] == 42
-      and _bd_sent.get("model") == config.CHAT_MODEL and _bd_sent.get("stream") is False and "options" not in _bd_sent
+      and _bd_sent.get("model") == config.CHAT_MODEL and _bd_sent.get("stream") is bool(getattr(config, "CHAT_STREAM_ABORT", True)) and "options" not in _bd_sent
       and "keep_alive" not in _bd_sent and _bd_sent.get("tools") == _bd_tools and _bd_sent.get("think") is True
       and _bd_sent.get("messages", [{}])[-1] == {"role": "user", "content": "show me the painting"},
       (_bd_post_is_real, len(_bd_chat_posts), {k: _bd_m.get(k) for k in ("content", "thinking", "tool_calls")}, _bd_sent))
@@ -9945,6 +9993,122 @@ _bd_llama = _bd.api()
 config.BRAIN_API = _bd_api0
 check("brain door: api() is \"llama\" only when the knob says so (any case, any spaces); anything else is Ollama; the URL's default is :8768",
       _bd_odd == "ollama" and _bd_llama == "llama" and _bd.DEFAULT_URL == "http://127.0.0.1:8768", (_bd_odd, _bd_llama))
+
+# the door streams (10-16, piece 1): the same reply streamed and whole, a runaway cut mid-stream, the watch off
+_bd_cfg1 = {k: getattr(config, k, None) for k in ("BRAIN_API", "BRAIN_URL", "CHAT_THINK", "CHAT_THINK_RETRIES", "CHAT_STREAM_ABORT",
+                                                  "CHAT_GARBLE_RETRIES", "CHAT_RESCUE_TEMPERATURE", "CHAT_COLD_RESCUE")}
+_bd_last0 = ollama_client._LAST_PROMPT
+_bd_n0 = len(_FakeLlama.posted)
+_bd_st_cut = _bd_st_full = {}
+_bd_cut_sent = _bd_full_sent = (0, 0)
+try:
+    config.BRAIN_API, config.BRAIN_URL = "llama", _bd_door
+    config.CHAT_THINK, config.CHAT_THINK_RETRIES = True, 1
+    ollama_client._LAST_PROMPT = 0
+    _bd_raw_whole = _bd.post_chat({"model": config.CHAT_MODEL, "messages": [{"role": "user", "content": "show me"}], "stream": False})
+    _bd_raw_streamed = _bd.post_chat({"model": config.CHAT_MODEL, "messages": [{"role": "user", "content": "show me"}], "stream": True})
+    _bd_last_after = ollama_client._LAST_PROMPT
+    config.CHAT_STREAM_ABORT = True
+    _bd_ms = _chat_orig([{"role": "user", "content": "show me the painting"}], tools=_bd_tools)
+    config.CHAT_STREAM_ABORT = False
+    _bd_mw = _chat_orig([{"role": "user", "content": "show me the painting"}], tools=_bd_tools)
+    _bd_bodies = [d for p, d in _FakeLlama.posted[_bd_n0:] if p == "/v1/chat/completions"]
+    # a runaway: cut at the watch, the connection closed long before the door would have finished
+    _FakeLlama.stream_script, _FakeLlama.pace = _bd_sse_runaway, 0.001
+    config.CHAT_STREAM_ABORT = True
+    _FakeLlama.streamed.clear()
+    _bd_st_cut = _bd.post_chat({"model": config.CHAT_MODEL, "messages": [{"role": "user", "content": "sing"}], "stream": True})
+    _FakeLlama.streamed.wait(15)
+    _bd_cut_sent = (_FakeLlama.sent, _FakeLlama.total)
+    _bd_st_cut_p = ollama_client._parse(dict(_bd_st_cut))
+    # the watch off: the same stream runs to its end
+    config.CHAT_STREAM_ABORT = False
+    _FakeLlama.streamed.clear()
+    _bd_st_full = _bd.post_chat({"model": config.CHAT_MODEL, "messages": [{"role": "user", "content": "sing"}], "stream": True})
+    _FakeLlama.streamed.wait(15)
+    _bd_full_sent = (_FakeLlama.sent, _FakeLlama.total)
+finally:
+    _FakeLlama.stream_script, _FakeLlama.pace = None, 0.0
+    for _k, _v in _bd_cfg1.items():
+        setattr(config, _k, _v)
+_bd_tok = ("prompt", "reply", "by_hand", "done", "prompt_s", "reply_s", "load_s", "total_s")
+check("brain door, streamed: the same reply streamed and whole is the same dict (words, thought, the calls' split arguments joined and "
+      "parsed, the counters, ns durations, cache_n); through chat() the message and its token line match; stream_options asks for usage",
+      _bd_raw_streamed == _bd_raw_whole and _bd_raw_whole.get("eval_count") == 42 and _bd_raw_streamed.get("prompt_eval_count") == 120000
+      and _bd_raw_streamed["message"].get("tool_calls") == [{"function": {"name": "look_at", "arguments": {"path": "creations/a.png"}}},
+                                                           {"function": {"name": "write_journal", "arguments": {"_raw": '{"text": "unfinish'}}}]
+      and _bd_raw_streamed.get("prompt_eval_duration") == 250500000 and _bd_raw_streamed.get("eval_duration") == 1400000000
+      and "counted_by_hand" not in _bd_raw_streamed and _bd_last_after == 120000
+      and {k: _bd_ms.get(k) for k in ("content", "thinking", "tool_calls")} == {k: _bd_mw.get(k) for k in ("content", "thinking", "tool_calls")}
+      and _bd_ms.get("content") == "There it is." and _bd_ms.get("thinking") == "I should look at it first."
+      and {k: _bd_ms["tokens"].get(k) for k in _bd_tok} == {k: _bd_mw["tokens"].get(k) for k in _bd_tok}
+      and _bd_ms["tokens"]["prompt"] == 120000 and _bd_ms["tokens"]["reply"] == 42 and _bd_ms["tokens"]["by_hand"] is False
+      and [b.get("stream") for b in _bd_bodies] == [False, True, True, False]
+      and _bd_bodies[1].get("stream_options") == {"include_usage": True} and "stream_options" not in _bd_bodies[0],
+      (_bd_raw_streamed, _bd_raw_whole, _bd_ms.get("tokens"), _bd_mw.get("tokens"), [b.get("stream") for b in _bd_bodies]))
+check("brain door, streamed: a runaway (\"la la la…\") is cut at the watch — aborted names the salad, done_reason aborted, the tokens "
+      "counted by hand, the prompt the last one reported, the misfiled thought kept apart — and the door had sent only a fraction",
+      "la la la la la" in (_bd_st_cut.get("aborted") or "") and _bd_st_cut.get("done_reason") == "aborted"
+      and _bd_st_cut.get("counted_by_hand") is True and 0 < (_bd_st_cut.get("eval_count") or 0) < 200
+      and _bd_st_cut.get("prompt_eval_count") == 120000 and _bd_st_cut.get("split_tail") == "misfiled"
+      and _bd_st_cut["message"]["thinking"] == "a song, then." and _bd_st_cut["message"]["content"].startswith("Here it goes: la la")
+      and _bd_st_cut_p.get("aborted") and _bd_st_cut_p["tokens"]["by_hand"] is True and _bd_st_cut_p["tokens"]["done"] == "aborted"
+      and 0 < _bd_cut_sent[0] < _bd_cut_sent[1] // 4,
+      ({k: v for k, v in _bd_st_cut.items() if k != "message"}, _bd_cut_sent))
+check("brain door, streamed: with CHAT_STREAM_ABORT = False the same runaway runs to its end — every chunk sent, no abort, "
+      "the server's counters (length, its own count, the whole prompt), nothing counted by hand",
+      _bd_full_sent[0] == _bd_full_sent[1] > 1000 and not _bd_st_full.get("aborted") and _bd_st_full.get("done_reason") == "length"
+      and _bd_st_full.get("eval_count") == 1201 and _bd_st_full.get("prompt_eval_count") == 120000 and _bd_st_full.get("cache_n") == 119000
+      and "counted_by_hand" not in _bd_st_full and _bd_st_full["message"]["content"].count("la ") == 1200,
+      ({k: v for k, v in _bd_st_full.items() if k != "message"}, _bd_full_sent))
+
+# the cold rescue under the door: the reading erased (not Ollama's keep_alive:0); a door that won't erase reads with the cache off
+_bd_cold_posts: list = []
+_bd_cold_answers: list = []
+def _bd_cold_post(path, payload, timeout=None):
+    _bd_cold_posts.append((path, dict(payload)))
+    return _bd_cold_answers.pop(0) if path == "/api/chat" else {}
+def _bd_cold_run():
+    _bd_cold_posts.clear()
+    _bd_cold_answers[:] = [{"message": {"role": "assistant", "content": "la l a l l a la l la la la wait", "thinking": "…"}, "done_reason": "stop"},
+                           {"message": {"role": "assistant", "content": "la l a l l a la l la la la wait", "thinking": "…"}, "done_reason": "stop"},
+                           {"message": {"role": "assistant", "content": "Here I am, whole again.", "thinking": "…"}, "done_reason": "stop"}]
+    return _bd_oc.chat([{"role": "user", "content": "hello?"}]), list(_bd_cold_posts)
+_bd_post_rec0 = _bd_oc._post
+_bd_n1 = len(_FakeLlama.posted)
+try:
+    config.CHAT_THINK, config.CHAT_GARBLE_RETRIES, config.CHAT_RESCUE_TEMPERATURE, config.CHAT_COLD_RESCUE = False, 1, 0, True
+    _bd_oc._post = _bd_cold_post
+    _bd_ps[:] = []
+    config.BRAIN_API, config.BRAIN_URL = "llama", _bd_door
+    _bd_erased = _bd.erase_slot()
+    _bd_cl, _bd_cl_posts = _bd_cold_run()
+    _bd_erase_posts = [(p, d) for p, d in _FakeLlama.posted[_bd_n1:] if p.startswith("/slots/")]
+    config.BRAIN_URL = f"http://127.0.0.1:{_bd_free_port()}"  # a door that will not erase
+    _bd_cl_off, _bd_cl_off_posts = _bd_cold_run()
+    config.BRAIN_API, config.BRAIN_URL = "ollama", _bd_door
+    _bd_n2 = len(_FakeLlama.posted)
+    _bd_cl_ol, _bd_cl_ol_posts = _bd_cold_run()
+    _bd_erase_off = (_bd.erase_slot(), len(_FakeLlama.posted) - _bd_n2)
+finally:
+    _bd_oc._post = _bd_post_rec0
+    for _k, _v in _bd_cfg1.items():
+        setattr(config, _k, _v)
+    ollama_client._LAST_PROMPT = _bd_last0
+check("brain door: the cold rescue under \"llama\" erases the door's reading (POST /slots/0?action=erase) and never sends Ollama's "
+      "keep_alive:0; the roll is marked cleared; a door that won't erase gets the roll with cache_prompt off; on \"ollama\" it unloads as before",
+      (_bd_erased or {}).get("n_erased") == 120000
+      and _bd_erase_posts == [("/slots/0?action=erase", {}), ("/slots/0?action=erase", {})]
+      and [p for p, _ in _bd_cl_posts] == ["/api/chat"] * 3 and _bd_cl.get("content") == "Here I am, whole again."
+      and _bd_cl.get("cold") and _bd_cl.get("cold_cleared") and "cache_prompt" not in _bd_cl_posts[2][1]
+      and [p for p, _ in _bd_cl_off_posts] == ["/api/chat"] * 3 and _bd_cl_off.get("cold_cleared")
+      and _bd_cl_off_posts[2][1].get("cache_prompt") is False and "cache_prompt" not in _bd_cl_off_posts[1][1]
+      and _bd.to_openai(_bd_cl_off_posts[2][1])["cache_prompt"] is False and _bd.to_openai(_bd_cl_off_posts[1][1])["cache_prompt"] is True
+      and [p for p, _ in _bd_cl_ol_posts] == ["/api/chat", "/api/chat", "/api/generate", "/api/chat"]
+      and _bd_cl_ol_posts[2][1] == {"model": config.CHAT_MODEL, "keep_alive": 0} and _bd_cl_ol.get("cold") and not _bd_cl_ol.get("cold_cleared")
+      and "cache_prompt" not in _bd_cl_ol_posts[3][1] and _bd_erase_off == (None, 0),
+      (_bd_erased, _bd_erase_posts, [p for p, _ in _bd_cl_posts], [p for p, _ in _bd_cl_ol_posts], _bd_erase_off,
+       {k: _bd_cl.get(k) for k in ("content", "cold", "cold_cleared")}))
 _bd_srv.shutdown()
 
 # brain_find: the program and the model, found, not hardcoded

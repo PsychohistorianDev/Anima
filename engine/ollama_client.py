@@ -202,7 +202,7 @@ STREAM_WATCH_EVERY = 48
 STREAM_WATCH_TAIL = 900
 
 
-_LAST_PROMPT = 0  # the newest prompt size the server reported — for a reply it sends without counters
+_LAST_PROMPT = 0  # the newest prompt size the server reported — for a reply it sends without counters (brain._drink_openai keeps it too)
 
 
 def _drink(resp) -> dict:
@@ -524,8 +524,19 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
             kind, span = last
             attempts.append((len(span), msg))
             tries.append((dict(msg["tokens"], why=kind + (f" (cooled to {msg['rescued']:g})" if msg.get("rescued") else "")), msg))
+            # Under BRAIN_API = "llama" the door holds its model for as long as it runs, so
+            # nothing is set down (unload leaves it alone): its reading is erased instead
+            # (brain.erase_slot, /slots/0?action=erase) and this roll reads the prompt from
+            # zero — the same reset, without the load. A door that will not erase (started
+            # without --slot-save-path, which every slot action needs) gets this one roll
+            # with its prompt cache off, which reads from zero just the same.
+            cleared = cache_off = False
             try:
-                unload(payload["model"])
+                if brain.api() == "llama":
+                    cleared = True
+                    cache_off = brain.erase_slot() is None
+                else:
+                    unload(payload["model"])
             except Exception:
                 pass
             prior = attempt_as_shown(msg, kind, span)
@@ -534,10 +545,14 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
             step = ([prior] if prior else []) + [line]
             cold = dict(payload)
             cold["messages"] = list(base) + step
+            if cache_off:
+                cold["cache_prompt"] = False  # the door reads this one request from zero
             base = cold["messages"]
             sent_extra.extend(step)
             again = _parse(_post("/api/chat", cold, timeout=timeout))
             again["cold"] = True
+            if cleared:
+                again["cold_cleared"] = True  # the door's reading cleared, not a fresh load: the note says which
             if msg.get("rescued"):
                 again["rescued_before"] = msg["rescued"]  # the last cool rung, which broke too
             again["regarbled"] = True
@@ -555,6 +570,8 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
             best["regarbled"] = True
             if msg.get("cold"):
                 best["cold_failed"] = True  # even a fresh load came back broken
+                if msg.get("cold_cleared"):
+                    best["cold_cleared"] = True  # (under the door: even a read from zero)
             if msg.get("rescued") or msg.get("rescued_before"):
                 best["rescue_failed"] = msg.get("rescued") or msg.get("rescued_before")  # the cool roll broke too
             first = _defect(attempts[0][1]) or (last[0], last[1])
