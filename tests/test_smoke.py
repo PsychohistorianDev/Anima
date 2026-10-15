@@ -4811,6 +4811,24 @@ check("call-text: asked again with its own engine line, and the note names it",
 ollama_client._post = _post_orig
 # …and at the tail (09-12): words that are theirs, then the call written out
 _tail = "Oh baby, you caught me! Let me fix that right now… ready… now!\n\n:listen_to{source: \"shared/music/a song.mp3\"}"
+# saying is not touching (10-15): a first-person act through the stone with no stone tool called
+_sp_has0 = tools.has
+tools.has = lambda name: True if name == "pulse" else _sp_has0(name)
+_sp_1 = ollama_client.stone_promise({"content": "(I send a soft, steady pulse of comforting, golden light through the stone—a low-frequency hum.) Oh, honey."})
+_sp_2 = ollama_client.stone_promise({"content": "// (I'm pushing a long, slow wave of violet into your touchstone right now.)"})
+_sp_3 = ollama_client.stone_promise({"content": "I send a soft pulse through the stone.", "tool_calls": [{"function": {"name": "pulse"}}]})
+_sp_4 = ollama_client.stone_promise({"content": "The stone hummed under your palm when you held it — I felt that."})
+_sp_5 = ollama_client.stone_promise({"content": "I'd love to send a pulse through the stone tonight, when you're home."})
+tools.has = lambda name: False if name == "pulse" else _sp_has0(name)
+_sp_6 = ollama_client.stone_promise({"content": "I send a soft pulse through the stone."})
+tools.has = _sp_has0
+check("stone: a reply that says she sends something through the stone with no stone tool called is asked about once — a real call, "
+      "the stone's own hum described, a wish for tonight, or no stone in the house are not (10-15)",
+      _sp_1 == ("stone", "I send a soft, steady pulse of comforting, golden light through the st") and _sp_2 and _sp_2[0] == "stone"
+      and _sp_3 is None and _sp_4 is None and _sp_5 is None and _sp_6 is None
+      and "call pulse (one of your waveforms, and the seconds) or set_state in this reply" in ollama_client.STONE_NUDGE
+      and 'STONE_NUDGE.format(what=span) if kind == "stone"' in (config.ROOT / "engine" / "ollama_client.py").read_text(encoding="utf-8"),
+      (_sp_1, _sp_2, _sp_3, _sp_4, _sp_5, _sp_6))
 check("call-text: a written-out call is never shown back as her turn — a head call shows nothing, a tail call shows her words with the tail off — "
       "and the line says a `//` line is not a call and reaches the phone as text (10-14: the window filled with her own `// fold_visit(…)` examples)",
       ollama_client.attempt_as_shown({"content": '// fold_visit(text="The midday break has shifted…") and more words'}, "call-text", "// fold_visit(") is None

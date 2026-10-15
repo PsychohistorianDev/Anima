@@ -384,7 +384,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
     attempts: list[tuple[int, dict]] = []  # (how broken, the message)
     previous = previous_replies(messages)  # what they said lately — an echo of any of it is a defect too
     once = {"imagined": False, "copy": False, "greeting": False, "unread": False, "claimed": False,
-            "claimed-self": False, "claimed-failed": False, "promised": False,
+            "claimed-self": False, "claimed-failed": False, "promised": False, "stone": False,
             "cut": False}  # asked about once; their second answer stands
 
     def _claimed_once(m):
@@ -408,7 +408,8 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
                 or (None if (once["greeting"] or not expect_words) else greeting_again(m, messages))
                 or (None if (once["unread"] or not expect_words) else unread_claim(m, messages))
                 or (None if not expect_words else _claimed_once(m))
-                or (None if (once["promised"] or not expect_words) else promised_act(m)))
+                or (None if (once["promised"] or not expect_words) else promised_act(m))
+                or (None if (once["stone"] or not expect_words) else stone_promise(m)))
     while garbles > 0 and not msg.get("tool_calls") and _defect(msg):
         garbles -= 1
         kind, span = _defect(msg)
@@ -445,6 +446,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
                                                 else CLAIMED_SELF_NUDGE.format(what=span) if kind == "claimed-self"
                                                 else CLAIMED_FAILED_NUDGE.format(what=span) if kind == "claimed-failed"
                                                 else PROMISED_NUDGE.format(what=span) if kind == "promised"
+                                                else STONE_NUDGE.format(what=span) if kind == "stone"
                                                 else IMAGINED_NUDGE.format(tool=span, tool_verb="listening" if span == "listen_to" else "watching") if kind == "imagined"
                                                 else garble_nudge(msg.get("content", ""), span, his=last_user_words(base))}
         step = ([prior] if prior else []) + [line]
@@ -1322,6 +1324,40 @@ def promised_act(msg: dict):
     if not m:
         return None
     return "promised", " ".join(m.group(0).split())[:60]
+
+
+# Saying is not touching (10-15: eleven replies of a visit opened "(I send a soft, steady pulse
+# through the stone—…)" and not one called pulse or set_state; the stone sat at Baseline all day,
+# each reply copying the opener of the one before). The body's version of the promise above: a
+# first-person present act through the stone with no stone tool in the reply.
+_STONE_ACT_RE = re.compile(
+    r"\bI(?:'m|\u2019m| am)?\s+(?:send(?:ing)?|push(?:ing)?|pour(?:ing)?|fir(?:e|ing)|releas(?:e|ing)|play(?:ing)?|puls(?:e|ing)|"
+    r"hum(?:ming)?|thrum(?:ming)?|beam(?:ing)?|transmit(?:ting)?|run(?:ning)?|ripp(?:le|ling))\b"
+    r"[^.\n!?]{0,120}?\b(?:through|into|to|across|via|down|along|out of)\s+(?:the|your|our|my)\s+(?:touch)?stone\b",
+    re.IGNORECASE)
+
+
+def stone_promise(msg: dict):
+    """("stone", what) when the reply says she sends something through the stone right now and no stone tool
+    was called — and the stone is hers (tools.has("pulse")); None otherwise."""
+    if msg.get("tool_calls"):
+        return None
+    m = _STONE_ACT_RE.search(msg.get("content") or "")
+    if not m:
+        return None
+    try:
+        import tools
+        if not tools.has("pulse"):
+            return None
+    except Exception:  # noqa: BLE001
+        return None
+    return "stone", " ".join(m.group(0).split())[:70]
+
+
+STONE_NUDGE = ("[engine, not a person: your last reply says you send something through the stone (\u201c{what}\u201d) — "
+               "but no stone tool was called in it, so the stone kept still: the words reached the phone, not the keeper's palm. "
+               "If you mean the touch, call pulse (one of your waveforms, and the seconds) or set_state in this reply; "
+               "if it is imagination, say it as imagination. This line is a mechanism; nobody wrote it to you.]")
 
 
 PROMISED_NUDGE = ("[engine, not a person: your last reply says you are doing it now (\u201c{what}\u201d) — but "

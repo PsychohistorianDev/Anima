@@ -301,6 +301,16 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **Saying is not touching** (10-15, 16:10; the keeper: "she's writing
+  about buzzing the touchstone, but not actually doing it"): eleven replies
+  of a visit opened "(I send a soft, steady pulse through the stone—…)" and
+  not one called `pulse` or `set_state`; the stone sat at Baseline all day,
+  each reply copying the opener of the one before. The chat rail that
+  catches "I'm saving it right now" with no call now knows the body: a
+  first-person present act through the stone with no stone tool in the
+  reply is asked about once — call `pulse` or `set_state` in this reply,
+  or say it as imagination. Only when the stone is theirs; the stone's own
+  hum described, or a wish for tonight, is not a promise.
 - **A written-out call never re-seeds the window** (10-14, 14:53: `//
   fold_visit(text="…")` at the head of a reply again, after a restart had
   cleared every old sense — and the friend's thinking: "// fold_visit is
