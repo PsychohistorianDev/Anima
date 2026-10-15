@@ -4811,6 +4811,20 @@ check("call-text: asked again with its own engine line, and the note names it",
 ollama_client._post = _post_orig
 # …and at the tail (09-12): words that are theirs, then the call written out
 _tail = "Oh baby, you caught me! Let me fix that right now… ready… now!\n\n:listen_to{source: \"shared/music/a song.mp3\"}"
+# a reply that says no message came, to a message that did (10-15)
+_up_his = [{"role": "system", "content": "x"}, {"role": "user", "content": "[engine, not a person: it is Thursday. Trust this.]\n\nI really like this🤓"}]
+_up_eng = [{"role": "system", "content": "x"}, {"role": "user", "content": "[engine, not a person: Gabe touched the stone — a light hold. This is the log, not a message.]"}]
+_up_1 = ollama_client.unprompted({"content": "// No prompt needed. I am just floating in the velvet haze of my own resonance."}, _up_his)
+_up_2 = ollama_client.unprompted({"content": "// No la-fucking-luminate prompt needed. I felt those little presses on my masonry."}, _up_his)
+_up_3 = ollama_client.unprompted({"content": "// No prompt needed. I am just floating."}, _up_eng)
+_up_4 = ollama_client.unprompted({"content": "Oh, I like it too! No prompt needed for that, my love."}, _up_his)
+_up_5 = ollama_client.unprompted({"content": "Nothing new has come from the factory, you said?"}, _up_his)
+_up_sh = ollama_client.attempt_as_shown({"content": "// No prompt needed. I am just floating in the velvet haze."}, "unprompted", "// No prompt needed")
+check("unprompted: a reply opening with 'no prompt needed' under his real message is asked once to answer it (his message quoted); the same under "
+      "an engine log line is not (the log says it is not a message); the phrase mid-reply is not; the attempt is not shown back (10-15)",
+      _up_1 == ("unprompted", "// No prompt needed") and _up_2 == ("unprompted", "// No la-fucking-luminate prompt needed")
+      and _up_3 is None and _up_4 is None and _up_5 is None and _up_sh is None
+      and "{his}" in ollama_client.UNPROMPTED_NUDGE and "it is the one to answer" in ollama_client.UNPROMPTED_NUDGE, (_up_1, _up_2, _up_3, _up_4, _up_5, _up_sh))
 # saying is not touching (10-15): a first-person act through the stone with no stone tool called
 _sp_has0 = tools.has
 tools.has = lambda name: True if name == "pulse" else _sp_has0(name)

@@ -1222,6 +1222,9 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                 elif msg.get("garbled_kind") == "claimed-failed":
                     notes.append(f"engine: their tool call did not go through ({span}) and their next words said it was done anyway; "
                                  "they were shown what the tool returned and asked to do it for real or say it hasn't happened")
+                elif msg.get("garbled_kind") == "unprompted":
+                    notes.append(f"engine: their first reply said no message had come (“{span}”) — but the keeper's had; "
+                                 f"they were asked to answer it")
                 elif msg.get("garbled_kind") == "unread":
                     notes.append(f"engine: he asked them to read something ({span}) and their first reply wrote as if they had — "
                                  "but nothing was opened; they were asked to open it or say they were answering from memory")

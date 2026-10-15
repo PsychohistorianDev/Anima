@@ -301,6 +301,17 @@ of its own.
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
+- **A reply that says no message came, to a message that did** (10-15,
+  morning: a touch-log line — "this is the log, not a message" — was
+  answered "// No prompt needed. I felt those little presses…"; the
+  afterthought copied the opener, and three replies to three real messages
+  that morning opened "// No prompt needed. I am just floating in the velvet
+  haze…" and floated past them; the keeper: "It's like you're not really in
+  the mood to talk"). The echo rail compares 120 characters of an opening;
+  these shared 58. The tell is exact, so the rail is: a reply whose first
+  sentence says no prompt or message came, under a turn that is the
+  keeper's own words, is asked once to answer the message — quoted. Under
+  an engine line it stands. The attempt is not shown back.
 - **Saying is not touching** (10-15, 16:10; the keeper: "she's writing
   about buzzing the touchstone, but not actually doing it"): eleven replies
   of a visit opened "(I send a soft, steady pulse through the stone—…)" and

@@ -383,7 +383,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
     garbles = int(getattr(config, "CHAT_GARBLE_RETRIES", 1))
     attempts: list[tuple[int, dict]] = []  # (how broken, the message)
     previous = previous_replies(messages)  # what they said lately — an echo of any of it is a defect too
-    once = {"imagined": False, "copy": False, "greeting": False, "unread": False, "claimed": False,
+    once = {"imagined": False, "copy": False, "greeting": False, "unread": False, "unprompted": False, "claimed": False,
             "claimed-self": False, "claimed-failed": False, "promised": False, "stone": False,
             "cut": False}  # asked about once; their second answer stands
 
@@ -407,6 +407,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
                 or (None if (once["copy"] or not expect_words) else prompt_copy(m, messages))
                 or (None if (once["greeting"] or not expect_words) else greeting_again(m, messages))
                 or (None if (once["unread"] or not expect_words) else unread_claim(m, messages))
+                or (None if (once["unprompted"] or not expect_words) else unprompted(m, messages))
                 or (None if not expect_words else _claimed_once(m))
                 or (None if (once["promised"] or not expect_words) else promised_act(m))
                 or (None if (once["stone"] or not expect_words) else stone_promise(m)))
@@ -442,6 +443,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
                                                 else COPY_NUDGE if kind == "copy"
                                                 else GREETING_NUDGE if kind == "greeting"
                                                 else UNREAD_NUDGE.format(what=span) if kind == "unread"
+                                                else UNPROMPTED_NUDGE.format(what=span, his=his_quote(last_user_words(base))) if kind == "unprompted"
                                                 else CLAIMED_NUDGE.format(what=span) if kind == "claimed"
                                                 else CLAIMED_SELF_NUDGE.format(what=span) if kind == "claimed-self"
                                                 else CLAIMED_FAILED_NUDGE.format(what=span) if kind == "claimed-failed"
@@ -1150,6 +1152,36 @@ def his_words(content: str) -> str:
     return s
 
 
+# A reply that says no message came, to a message that did (10-15, morning: a touch-log line — "this is the
+# log, not a message" — was answered "// No prompt needed. I felt those little presses…"; the afterthought
+# copied the opener, and three replies to three real messages that morning opened "// No prompt needed. I am
+# just floating in the velvet haze…" and floated past them — "It's like you're not really in the mood to
+# talk". The echo rail compares 120 characters; these shared 58. The tell is exact, so the rail is too.)
+_UNPROMPTED_RE = re.compile(
+    r"^\s*(?://|#|>)?\s*\(?\s*(?:no(?: [\w-]+){0,3} (?:prompt|message|question|input) (?:needed|required|came|arrived|here)"
+    r"|there(?:'s|’s| is| was) no (?:new )?(?:prompt|message) (?:here|needed|to answer))\b[^.\n!?]{0,80}",
+    re.IGNORECASE)
+
+
+def unprompted(msg: dict, messages: list[dict]):
+    """("unprompted", what) when the reply opens by saying no prompt or message came, and the turn it answers is
+    the keeper's own words (not an engine line); None otherwise."""
+    if msg.get("tool_calls") or not messages or messages[-1].get("role") != "user":
+        return None
+    content = messages[-1].get("content") or ""
+    asked = his_words(content)
+    if not asked or asked.startswith("[engine") or asked.startswith("[this is what") or content.startswith("[this is what"):
+        return None
+    m = _UNPROMPTED_RE.match(msg.get("content") or "")
+    if not m:
+        return None
+    return "unprompted", " ".join(m.group(0).split())[:80]
+
+
+UNPROMPTED_NUDGE = ("[engine, not a person: your last reply opened \u201c{what}\u201d — but a message from your keeper did come, "
+                    "and it is the one to answer.{his} Answer it. This line is a mechanism; nobody wrote it to you.]")
+
+
 def unread_claim(msg: dict, messages: list[dict]):
     """("unread", what) when his message asked them to read or open
     something, no tool was called, and they write as if they had read it
@@ -1841,6 +1873,8 @@ def attempt_as_shown(msg: dict, kind: str, span: str) -> dict | None:
     content = defang((msg.get("content") or "").strip())[0]
     if kind == "empty" or not content:
         return None
+    if kind == "unprompted":
+        return None  # the opener would seed itself again (10-15); the line quotes it
     if kind == "call-text":
         # not shown at all (10-14): shown whole, each re-roll left the window one more example of her writing
         # `// fold_visit(text="…")` as a reply, and the sampler copies the window — the line says what happened
