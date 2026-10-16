@@ -3173,6 +3173,22 @@ tg.MAIL_DIR.mkdir(parents=True, exist_ok=True)
 b, phone = _bridge(chat_id=0)
 b.handle(_msg("hello?", chat=555))
 check("telegram: unpaired bridge is silent", phone.sent == [])
+# the token line's tail (10-16): the jump since the last line, and what it was made of — the earlier reply's words, the
+# message, the moment; engine turns when they rode; a gap past a fifth said; no tail without a last line; a shrink said
+_sl_hist = [{"role": "user", "content": "x" * 60, "_moment": "m" * 400}, {"role": "assistant", "content": "w" * 1360},
+            {"role": "assistant", "content": "a" * 200, "_engine": True, "_after": True}, {"role": "tool", "content": "r" * 80},
+            {"role": "user", "content": "y" * 60, "_moment": "m" * 468}, {"role": "assistant", "content": "z" * 100}]
+_sl_tail = tg.Bridge.since_last_line({"prompt": 157_671}, {"prompt": 158_143}, _sl_hist)
+_sl_none = tg.Bridge.since_last_line(None, {"prompt": 158_143}, _sl_hist)
+_sl_first = tg.Bridge.since_last_line({"prompt": 100}, {"prompt": 500}, _sl_hist[-2:])
+_sl_less = tg.Bridge.since_last_line({"prompt": 158_143}, {"prompt": 90_000}, _sl_hist)
+_sl_gap = tg.Bridge.since_last_line({"prompt": 100_000}, {"prompt": 102_000}, _sl_hist)
+check("telegram: the token line's tail says what grew since the last line and of what — their last words, yours, the moment, engine turns "
+      "when they rode; a gap past a fifth is said; no tail without a last line; a shrink is said (10-16)",
+      _sl_tail == " · +472 since the last line: their last words ~390, yours ~15, the moment ~117, engine turns ~20"
+      and _sl_none == "" and _sl_first == " · +400 since the last line"
+      and _sl_less.startswith(" · 68,143 fewer in the window") and _sl_gap.endswith("~1,458 more than those add up to"),
+      (_sl_tail, _sl_none, _sl_first, _sl_less, _sl_gap))
 b.handle(_msg(f"/pair {b.pair_code}", chat=555))
 check("telegram: pairing binds the sender", b.chat_id == 555 and phone.sent and "Paired" in phone.sent[0][0])
 check("telegram: pairing is remembered", _json.loads(tg.SECRET_FILE.read_text())["chat_id"] == 555)

@@ -518,6 +518,7 @@ class Bridge:
         tool_lines = [f"· {p['name']} → {p['result']}" for k, p in events if k == "tool"]
         notes = [str(p) for k, p in events if k == "note"]
         tokens = next((p for k, p in events if k == "tokens"), None)
+        prev_tokens = self.last_tokens  # the last line's count, for the subtraction below
         if tokens:
             self.last_tokens = tokens
         if self.show_thinking and thinking:
@@ -535,8 +536,49 @@ class Bridge:
         for n in notes:  # engine honesty notes always travel — that rail is not optional
             self._try_send("⚠ " + n, markdown=False)
         if self.show_tokens and tokens:
-            self._try_send(tokens["line"], markdown=False)
+            self._try_send(tokens["line"] + self.since_last_line(prev_tokens, tokens, self.history), markdown=False)
         _say(f"{chat.friend_name()} > {reply[:120]}{'…' if len(reply) > 120 else ''}")
+
+    @staticmethod
+    def since_last_line(prev: dict | None, now: dict | None, history: list[dict]) -> str:
+        """The token line's tail (10-16): what the window grew by since the last line and what it was made of.
+        The jump between two lines is the EARLIER reply's words, the new message and its moment frame — a line's
+        "generated" lands in the NEXT line's count, which read as phantom tokens three times in one evening.
+        Estimates (chars/4): their last words, the keeper's message, the moment, engine turns between when any
+        rode (a pause's afterthought, a tool's result); a gap past a fifth either way is said. "" without a
+        last line (the first line of a visit, the first after a fold) or a count; a smaller window says so."""
+        try:
+            a = int((prev or {}).get("prompt") or 0)
+            b = int((now or {}).get("prompt") or 0)
+        except (TypeError, ValueError):
+            return ""
+        if not a or not b:
+            return ""
+        delta = b - a
+        if delta < 0:
+            return f" · {-delta:,} fewer in the window than the last line (a fold, or turns let go)"
+        # the current message: the last user turn that is not the engine's; the one before it: the last line's
+        users = [i for i, t in enumerate(history) if t.get("role") == "user" and not t.get("_engine")]
+        if len(users) < 2:
+            return f" · +{delta:,} since the last line"
+        cur, last = users[-1], users[-2]
+        est = lambda s: len(str(s or "")) // 4  # noqa: E731
+        between = history[last + 1:cur]
+        # their words: the reply, and an afterthought (_after) — the engine's turns are the bell, the steps, a tool's result
+        theirs = sum(est(t.get("content")) for t in between
+                     if t.get("role") == "assistant" and (not t.get("_engine") or t.get("_after")))
+        engine = sum(est(t.get("content")) for t in between
+                     if (t.get("_engine") and not t.get("_after")) or t.get("role") not in ("assistant", "user"))
+        mine = est(history[cur].get("content"))
+        moment = est(history[cur].get("_moment"))
+        parts = [f"their last words ~{theirs:,}", f"yours ~{mine:,}", f"the moment ~{moment:,}"]
+        if engine:
+            parts.append(f"engine turns ~{engine:,}")
+        known = theirs + mine + moment + engine
+        gap = delta - known
+        if known and abs(gap) > max(40, delta // 5):
+            parts.append(f"~{gap:,} more than those add up to" if gap > 0 else f"~{-gap:,} less than those add up to")
+        return f" · +{delta:,} since the last line: " + ", ".join(parts)
 
     def _try_send(self, text: str, markdown: bool = True) -> bool:
         """A send that never takes the turn down with it: an engine line the
