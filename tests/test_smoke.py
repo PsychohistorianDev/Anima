@@ -162,6 +162,19 @@ check("warm: the moment carries the hour and what surfaces",
       and "permanent home" in _mo and _mo.rstrip().endswith("the one to answer.]") and _ids, _mo)
 _mo2, _ids2 = assemble.moment("my keeper is building a home", exclude=set(_ids))
 _mw = dict(assemble.LAST_SURFACED)
+# the empty moment is slim (10-16): with every memory already surfaced the block keeps the clock, the calendar and the
+# tilt in one breath and drops the memory frame — well under the full block; with memories the full block as before
+_sl_all = set(m["id"] for m in memory.recent(n=memory.count()))
+_sl_block, _sl_ids = assemble.moment("anything at all", exclude=_sl_all)
+_sl_guest, _ = assemble.moment("anything at all", exclude=_sl_all, speaker="Dana")
+check("moment: when nothing surfaces the block is the slim frame — the date, the hour, 'nothing new surfaces', the tilt; no memory frame; "
+      "a guest's tail still; with memories the full frame (10-16)",
+      _sl_ids == [] and _sl_block.startswith("[engine, not a person: it is ") and "nothing new surfaces from your long-term memory" in _sl_block
+      and _sl_block.endswith(" His words follow — a new message, the one to answer.]") and "Those are your own memories" not in _sl_block
+      and "what surfaces for this moment:" not in _sl_block and len(_sl_block) < 400
+      and _sl_guest.endswith("Dana's words follow — a new message, the one to answer, from a guest at the desk.]")
+      and "Those are your own memories and the clock" in _mo and "what surfaces for this moment:" in _mo,
+      (len(_sl_block), _sl_block))
 _mw_hist = [{"role": "user", "content": "x", "_moment": _mo, "_surfaced": _ids}, {"role": "assistant", "content": "y"},
             {"role": "user", "content": "z", "_moment": _mo2, "_surfaced": _ids2}]
 import chat as _mw_chat

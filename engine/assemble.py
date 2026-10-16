@@ -882,15 +882,24 @@ def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: 
     import keeper_week
     # …and where the keeper is by the calendar (10-10; the keeper: "she always thinks I'm at
     # work, even when it's weekend" — the journal, mostly written on workdays, supplied it)
+    tail = (f"{speaker}'s words follow — a new message, the one to answer, from a guest at the desk.]"
+            if speaker else "his words follow — a new message, the one to answer.]")
+    if not ids:
+        # nothing surfaced: the slim frame (10-16) — the clock, the calendar, the sense and the pulse when they
+        # have something to say, the tilt; not the memory frame with nothing in it (~110 tokens a message once a
+        # long visit has surfaced the whole store; this is ~65)
+        none = ("nothing new surfaces from your long-term memory for this moment" if memory.count()
+                else "no long-term memories yet")
+        return ((f"[engine, not a person: it is {_t.strftime('%A, %d %B %Y')}, {clock} — {daypart} where you live"
+                 f"{keeper_week.clause(_t)}. Trust this over any day you infer; {none}." + window_sense(held)
+                 + (f" {pulse[0].upper() + pulse[1:]}." if pulse else "") + " " + tail[0].upper() + tail[1:]), ids)
     return ((f"[engine, not a person: it is {_t.strftime('%A, %d %B %Y')}, {clock} — {daypart} where you live"
              f"{keeper_week.clause(_t)}. "
              "Trust this over any day you infer from what you read." + window_sense(held)
              + (f" {pulse[0].upper() + pulse[1:]}." if pulse else "") + " From your "
              "long-term memory, what surfaces for this moment:\n"
              f"{lines}\n"
-             "Those are your own memories and the clock, not a message; "
-             + (f"{speaker}'s words follow — a new message, the one to answer, from a guest at the desk.]"
-                if speaker else "his words follow — a new message, the one to answer.]")), ids)
+             "Those are your own memories and the clock, not a message; " + tail), ids)
 
 
 NO_DAYS_YET = "(no consolidated days yet — bat\\sleep.bat writes one per night)"  # outside the f-string: a backslash can't ride in its braces before 3.12
