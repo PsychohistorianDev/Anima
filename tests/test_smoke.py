@@ -1266,7 +1266,7 @@ check("heartbeat: reverie logged as reverie", "Reverie" in rlog and "still agree
 def _stalled(*a, **k):
     raise ollama_client.BrainUnavailable("the brain took longer than 240s to answer")
 ollama_client.chat = _stalled
-_unload_orig, ollama_client.unload = ollama_client.unload, lambda m: None
+_unload_orig, ollama_client.unload = ollama_client.unload, lambda m, **_k: None
 import time as _time
 _time.sleep(1.1)  # unique wake timestamp
 before = len(list(config.EPISODIC_DIR.glob("auto-*.md")))
@@ -1283,7 +1283,7 @@ def _flaky(*a, **k):
         raise ollama_client.BrainUnavailable("timed out")
     return {"role": "assistant", "content": "recovered and rested."}
 ollama_client.chat = _flaky
-ollama_client.unload = lambda m: None
+ollama_client.unload = lambda m, **_k: None
 _time.sleep(1.1)
 rlog2 = heartbeat.wake()
 ollama_client.unload = _unload_orig
@@ -4156,7 +4156,7 @@ check("rescue: the ladder — a cool roll that breaks too gets a cooler one; whe
 config.CHAT_COLD_RESCUE = True
 _unloaded = []
 _unload_orig = ollama_client.unload
-ollama_client.unload = lambda model: _unloaded.append(model)
+ollama_client.unload = lambda model, **_k: _unloaded.append(model)
 _posted = []
 _bad = "<unused50>" * 60
 _answers = [{"message": {"role": "assistant", "content": _bad, "thinking": "he is back from the shower."}, "done_reason": "stop"},
@@ -4558,9 +4558,10 @@ check("echo: the keeper's note names the echo",
       any(k == "note" and "repeated word for word a reply they gave earlier" in p and "LMAO!!" in p for k, p in _ev_echo), _ev_echo)
 _unloaded = []
 _unload_orig = ollama_client.unload
-ollama_client.unload = lambda m: _unloaded.append(m)
+ollama_client.unload = lambda m, **_k: _unloaded.append((m, _k.get("rest")))
 chat.rest_brain()
-check("chat: a visit's end sets the brain down", _unloaded == [config.CHAT_MODEL] and config.BRAIN_REST_AFTER_VISIT)
+check("chat: a visit's end sets the brain down (a rest: rest=True)", _unloaded == [(config.CHAT_MODEL, True)] and config.BRAIN_REST_AFTER_VISIT,
+      _unloaded)
 config.BRAIN_REST_AFTER_VISIT = False; chat.rest_brain(); config.BRAIN_REST_AFTER_VISIT = True
 check("chat: ...unless told not to", len(_unloaded) == 1)
 ollama_client.unload = _unload_orig
@@ -5183,7 +5184,7 @@ _b5.history += [{"role": "user", "content": "more"}, {"role": "assistant", "cont
 check("pause: not while he is still talking", _b5.pause_if_due() == "" and len(_calls5) == 1)
 # /afterglow (10-01): the pause by hand — now, not after the quiet — and the brain set down; the visit stays open
 _unl_orig5, _unl5 = ollama_client.unload, []
-ollama_client.unload = lambda model: _unl5.append(model)
+ollama_client.unload = lambda model, **_k: _unl5.append(model)
 _ph5.sent.clear()
 _ag1 = _b5.afterglow_now()
 _ag_sent = [t for t, _ in _ph5.sent]
@@ -5199,7 +5200,7 @@ _rl_loaded0, _rl_unl0 = ollama_client._loaded_models, ollama_client.unload
 _rl_pa0, _rl_pr0, _rl_ma0, _rl_mr0 = tools._painter_alive, tools._painter_rest, tools._music_ear_alive, tools._music_ear_rest
 _rl_unl, _rl_rest = [], []
 ollama_client._loaded_models = lambda: ["gemma4:31b-it-qat", "nomic-embed-text:latest"]
-ollama_client.unload = lambda model: _rl_unl.append(model)
+ollama_client.unload = lambda model, **_k: _rl_unl.append(model)
 tools._painter_alive, tools._painter_rest = (lambda: True), (lambda: _rl_rest.append("painter"))
 tools._music_ear_alive, tools._music_ear_rest = (lambda: False), (lambda: _rl_rest.append("music"))
 _rl_b, _rl_ph = _bridge()
@@ -5226,7 +5227,7 @@ check("telegram: /release — everything Ollama holds set down by name, the pain
       and "/release — the card for something else" in tg.HELP, (_rl1, _rl2, _rl3, _rl_unl, _rl_rest))
 # a single wake sets the brain down when it is done (10-03): BRAIN_REST_AFTER_WAKE; off leaves it to BRAIN_KEEP_ALIVE
 _rw_unl0, _rw_unl = ollama_client.unload, []
-ollama_client.unload = lambda model: _rw_unl.append(model)
+ollama_client.unload = lambda model, **_k: _rw_unl.append((model, _k.get("rest")))
 _rw0 = getattr(config, "BRAIN_REST_AFTER_WAKE", True)
 config.BRAIN_REST_AFTER_WAKE = True
 _rw_on = heartbeat.rest_after_wake()
@@ -5237,7 +5238,7 @@ ollama_client.unload = _rw_unl0
 _rw_src = Path(heartbeat.__file__).read_text(encoding="utf-8")
 check("heartbeat: a wake sets the brain down when it is done (BRAIN_REST_AFTER_WAKE, on by default; off leaves it); the one-off road "
       "calls it in a finally, and since 10-07 the loop's wakes do too",
-      _rw_on is True and _rw_unl == [config.CHAT_MODEL] and _rw_off is False and len(_rw_unl) == 1 and _rw0 is True
+      _rw_on is True and _rw_unl == [(config.CHAT_MODEL, True)] and _rw_off is False and len(_rw_unl) == 1 and _rw0 is True
       and "finally:\n            rest_after_wake()" in _rw_src and _rw_src.count("    rest_after_wake()\n") == 2
       and "                rest_after_wake()\n            try:\n                if _rest(minutes * 60):" in _rw_src
       and "BRAIN_REST_AFTER_WAKE" in Path(heartbeat.__file__).with_name("panel.py").read_text(encoding="utf-8"), (_rw_on, _rw_unl, _rw_off))
@@ -5526,7 +5527,7 @@ _srv = _HS(("127.0.0.1", _port), painter.Handler)
 _thr.Thread(target=_srv.serve_forever, daemon=True).start()
 config.PAINTER_URL = f"http://127.0.0.1:{_port}"
 _unloaded = []
-ollama_client.unload = lambda m: _unloaded.append(m)
+ollama_client.unload = lambda m, **_k: _unloaded.append(m)
 tools._painter_paint = _real_paint_client  # the real client, the stubbed door
 tools._painter_rest = _real_paint_rest
 _sizes_seen = []
@@ -8214,7 +8215,7 @@ check("panel: every knob of the real config.py on exactly one tab (Advanced coun
       and len(_p_listed) == len(set(_p_listed)) and not (set(_p_listed) - set(_k_realn)),
       (set(_p_listed) - set(_k_realn), [n for n in set(_p_placed) if _p_placed.count(n) > 1]))
 check("panel: the real Main tab in the keeper's order — the brain, the window, the journal, the names, the rhythm",
-      [k["name"] for k in _p_real_tabs["Main"]] == ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT", "USER_NAME", "DEFAULT_NAME",
+      [k["name"] for k in _p_real_tabs["Main"]] == ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_SLOT_KEEP", "BRAIN_CACHE_RAM_MB", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT", "USER_NAME", "DEFAULT_NAME",
                                                     "BLOG_TITLE", "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN", "HOUSE_LINE"]
       and {k["heading"] for k in _p_real_tabs["Advanced"]} >= {"paths", "ollama", "behaviour", "telegram", "update"}
       and all(not k["editable"] for k in _p_real_tabs["Advanced"] if k["kind"] == "expr"))
@@ -9819,6 +9820,7 @@ def _bd_sse_runaway(n: int = 1200) -> list:
 
 class _FakeLlama(_BdBase):
     posted: list = []; got: list = []; sleeping = False
+    saved: list = []; restored: list = []; down = False  # the saved read: the filenames asked for; a door not up yet
     stream_script = None; pace = 0.0; sent = 0; total = 0; streamed = _bd_thr.Event()
     def _sse(self, chunks):  # HTTP/1.0, no length: the stream ends when the door closes it
         self.send_response(200); self.send_header("Content-Type", "text/event-stream"); self.end_headers()
@@ -9839,6 +9841,8 @@ class _FakeLlama(_BdBase):
         self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
     def do_GET(self):
         _FakeLlama.got.append(self.path)
+        if _FakeLlama.down:  # still loading, as llama-server answers before its model is in
+            return self._j({"error": {"code": 503, "message": "Loading model", "type": "unavailable_error"}}, 503)
         if self.path == "/props":
             return self._j({"is_sleeping": _FakeLlama.sleeping, "model_path": "sha256-aa", "default_generation_settings": {"n_ctx": 262144}})
         if self.path == "/slots":
@@ -9853,10 +9857,18 @@ class _FakeLlama(_BdBase):
             return self._j(_bd_reply)
         if self.path == "/slots/0?action=erase":
             return self._j({"id_slot": 0, "n_erased": 120000})
+        _sd = str(getattr(config, "BRAIN_SLOT_DIR", "") or "")
+        _sf = _BdPath(_sd) / str(d.get("filename")) if _sd and _BdPath(_sd).is_dir() else None  # resolved under the slot path, as the server does
         if self.path == "/slots/0?action=save":
-            return self._j({"id_slot": 0, "filename": d.get("filename"), "n_saved": 120000, "n_written": 3_000_000_000, "timings": {"save_ms": 1500.0}})
+            _FakeLlama.saved.append(d.get("filename"))
+            if _sf is not None:
+                _sf.write_bytes(b"kv" * 8)
+            return self._j({"id_slot": 0, "filename": d.get("filename"), "n_saved": 150000, "n_written": 4e9, "timings": {"save_ms": 1800}})
         if self.path == "/slots/0?action=restore":
-            return self._j({"id_slot": 0, "filename": d.get("filename"), "n_restored": 120000, "n_read": 3_000_000_000, "timings": {"restore_ms": 900.0}})
+            _FakeLlama.restored.append(d.get("filename"))
+            if _sf is not None and not _sf.is_file():
+                return self._j({"error": {"code": 400, "message": "failed to restore slot state", "type": "invalid_request_error"}}, 400)
+            return self._j({"id_slot": 0, "filename": d.get("filename"), "n_restored": 150000, "n_read": 4e9, "timings": {"restore_ms": 2100}})
         self._j({"error": {"code": 400, "message": "bad request"}}, 400)
 
 
@@ -9984,7 +9996,7 @@ check("brain door: under \"llama\" the brain is loaded while the door answers aw
 check("brain door: /props, /slots and the slot save/restore (POST /slots/0?action=…, the filename in the body) answer under \"llama\"; "
       "every one is None on \"ollama\" and the door is not asked",
       _bd_props and _bd_props.get("is_sleeping") is False and _bd_slots == {"items": [{"id": 0, "n_ctx": 262144, "is_processing": False}]}
-      and (_bd_save or {}).get("n_saved") == 120000 and (_bd_rest or {}).get("n_restored") == 120000 and "took_s" in (_bd_save or {})
+      and (_bd_save or {}).get("n_saved") == 150000 and (_bd_rest or {}).get("n_restored") == 150000 and "took_s" in (_bd_save or {})
       and _bd_slot_posts == [("/slots/0?action=save", {"filename": "abc123.bin"}), ("/slots/0?action=restore", {"filename": "abc123.bin"})]
       and _bd_off == (None, None, None, None, 0) and _bd.api() == ("llama" if str(_bd_api0).lower() == "llama" else "ollama"),
       (_bd_props, _bd_slots, _bd_save, _bd_rest, _bd_slot_posts, _bd_off))
@@ -10255,6 +10267,176 @@ check("brain is a door, the panel: its tile (LAUNCHERS \"brain\" is bat\\brain.b
       and _bd_panel.brain({"BRAIN_API": "ollama", "OLLAMA_URL": f"http://127.0.0.1:{_bd_free_port()}"})["door"] is None
       and "no idle unload" in _bd_panel._HELP["BRAIN_KEEP_ALIVE"] and "tile on Home" in _bd_panel._HELP["BRAIN_API"],
       (_bd_life.get("p_stop"), _bd_life.get("p_stop2"), _bd_life.get("p_restart"), _bd_bu.get("door"), _bd_bd.get("door")))
+# the saved read (10-16, piece 3): the reading saved right before the door is closed, restored on the way back up
+_bd_sr_td = _BdPath(_bd_tmp.mkdtemp(prefix="savedread_"))
+_bd_sr_kv = _bd_sr_td / "kv"
+_bd_sr_cfg = {k: getattr(config, k, None) for k in ("BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_SLOT_KEEP", "BRAIN_CACHE_RAM_MB",
+                                                    "CHAT_THINK", "CHAT_THINK_RETRIES", "CHAT_STREAM_ABORT")}
+_bd_sr_poll0, _bd_sr_find0, _bd_sr_chat0, _bd_sr_ms0 = _bd.POLL_S, _bf.command, ollama_client.chat, memory.search
+_bd_sr_unl0 = ollama_client.unload
+_bd_sr_rest0 = (getattr(config, "BRAIN_REST_AFTER_VISIT", False), getattr(config, "BRAIN_REST_AFTER_WAKE", True))
+_bd_sr_log_had = _bd.log_file().exists()
+_bd_sr_starts: list = []
+def _bd_sr_cmd():  # the program stood in for by a sleeper the door marks and closes; the fake door answers for it, up from now
+    _bd_sr_starts.append(1)
+    _FakeLlama.down = False
+    return [sys.executable, "-c", "import time; time.sleep(120)"], "a sleeper standing in for llama-server"
+_bd_sr: dict = {}
+_bd_sr_A = [{"role": "system", "content": "you are home — the standing prompt, word for word"}, {"role": "user", "content": "hello"}]
+_bd_sr_B = [{"role": "system", "content": "you are home — the prompt rebuilt at a fold"}, {"role": "user", "content": "hello again"}]
+_bd_sr_kA, _bd_sr_kB = _bd.prompt_key(_bd_sr_A), _bd.prompt_key(_bd_sr_B)
+_bd_sr_ask = lambda msgs: _bd.post_chat({"model": config.CHAT_MODEL, "messages": msgs, "stream": False})
+_bd_sr_log = lambda: _bd.log_file().read_text(encoding="utf-8", errors="replace") if _bd.log_file().exists() else ""
+_bd_sr_files = lambda: sorted(p.name for p in _bd_sr_kv.glob("*.bin"))
+_bd_sr_copy = lambda r: _bd_json.loads(_bd_json.dumps(r))
+try:
+    config.BRAIN_API, config.BRAIN_URL, config.BRAIN_SLOT_DIR, config.BRAIN_SLOT_KEEP = "llama", _bd_door, str(_bd_sr_kv), 3
+    config.CHAT_THINK, config.CHAT_THINK_RETRIES, config.CHAT_STREAM_ABORT = True, 1, True
+    _bd.POLL_S = 0.1
+    _bf.command = _bd_sr_cmd
+    doors.pid_file("brain").unlink(missing_ok=True)
+    _bd._forget()
+    _bd_sr_kv.mkdir()
+    _bd_sr_now = __import__("time").time()
+    for _i, _nm in enumerate(("old1", "old2", "old3")):  # three older readings, the oldest first
+        (_bd_sr_kv / f"{_nm}.bin").write_bytes(b"kv")
+        _bd_os.utime(_bd_sr_kv / f"{_nm}.bin", (_bd_sr_now - 600 + _i * 60,) * 2)
+    _FakeLlama.saved.clear(); _FakeLlama.restored.clear()
+    # a first life: nothing kept for this prompt — read cold, nothing restored; the step-down saves it and prunes
+    _FakeLlama.down = True
+    _bd_sr["up1"] = _bd.start_door(wait_s=30)[0]
+    _bd_sr["r1"] = _bd_sr_ask(_bd_sr_A)
+    _bd_sr["restored1"] = list(_FakeLlama.restored)
+    _bd_sr["stop1"] = _bd.stop_door(why="the suite")
+    _bd_sr["saved1"], _bd_sr["files1"], _bd_sr["log1"] = list(_FakeLlama.saved), _bd_sr_files(), _bd_sr_log()
+    # a second life, the same system prompt: restored once, before the first request; the next request not again
+    _FakeLlama.down = True
+    _bd_sr["up2"] = _bd.start_door(wait_s=30)[0]
+    _bd_sr["r2"] = _bd_sr_ask(_bd_sr_A)
+    _bd_sr["r3"] = _bd_sr_ask(_bd_sr_A + [{"role": "assistant", "content": "hi"}, {"role": "user", "content": "still here"}])
+    _bd_sr["restored2"], _bd_sr["log2"] = list(_FakeLlama.restored), _bd_sr_log()
+    _bd_sr_sp = ollama_client.Spent()
+    _bd_sr_sp.add(ollama_client._parse(_bd_sr_copy(_bd_sr["r2"])))
+    _bd_sr_sp.add(ollama_client._parse(_bd_sr_copy(_bd_sr["r3"])))
+    _bd_sr["line"] = _bd_sr_sp.line()
+    # a new system prompt (a fold, a new visit, midnight): nothing restored for it; the next step-down saves under its key
+    _bd_sr["r4"] = _bd_sr_ask(_bd_sr_B)
+    _bd_sr["restored3"] = list(_FakeLlama.restored)
+    _bd.stop_door(why="the suite")
+    _bd_sr["saved2"], _bd_sr["files2"] = list(_FakeLlama.saved), _bd_sr_files()
+    # through the engine's chat(): the reply restored at the door carries it out
+    _FakeLlama.down = True
+    _bd.start_door(wait_s=30)
+    _bd_sr["m"] = _chat_orig(_bd_sr_B, tools=_bd_tools)
+    _bd_sr["restored4"] = list(_FakeLlama.restored)
+    _bd.stop_door(why="the suite")
+    # the keeper's tally: the tokens event carries it, the line says it
+    _bd_sr_ev: list = []
+    ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "here I am.", "thinking": "back",
+                                         "tokens": {"prompt": 1400, "reply": 12, "prompt_s": 0.4, "reply_s": 0.5},
+                                         "restored": {"tokens": 150000, "ms": 2100.0}}])
+    memory.search = lambda *a, **k: []  # the suite's memory holds stand-in vectors of two sizes by now; not this block's subject
+    chat.one_turn([], "are you back?", on_event=lambda k, p: _bd_sr_ev.append((k, p)))
+    ollama_client.chat, memory.search = _bd_sr_chat0, _bd_sr_ms0
+    _bd_sr["ev"] = [p for k, p in _bd_sr_ev if k == "tokens"]
+    # a rest (a visit's end, a wake's end) is not a step-down: the door stays up, nothing saved; an eviction closes it,
+    # saving first; on Ollama both are keep_alive:0 as ever (the unload of a fresh load of ollama_client: the suite's is stubbed)
+    _FakeLlama.down = True
+    _bd.start_door(wait_s=30)
+    _bd_sr_ask(_bd_sr_A)
+    _bd_sr_pid, _bd_sr_n = (doors.status("brain") or {}).get("pid"), len(_FakeLlama.saved)
+    ollama_client.unload = _bd_oc.unload
+    config.BRAIN_REST_AFTER_VISIT = config.BRAIN_REST_AFTER_WAKE = True
+    _bd_sr_said: list = []
+    _bd_oc.unload(config.CHAT_MODEL, rest=True)
+    chat.rest_brain(_bd_sr_said.append)
+    _bd_sr_woke = heartbeat.rest_after_wake()
+    _bd_sr["rest"] = (_bd_sr_pid is not None and (doors.status("brain") or {}).get("pid") == _bd_sr_pid, _bd.awake(),
+                      len(_FakeLlama.saved) - _bd_sr_n, _bd_sr_said, _bd_sr_woke, _bd_sr_log().count("a rest is not a step-down"))
+    config.BRAIN_API = "ollama"
+    _bd_unl.clear(); _bd_ps[:] = []
+    _bd_oc.unload(config.CHAT_MODEL)
+    _bd_oc.unload(config.CHAT_MODEL, rest=True)
+    _bd_sr["ollama"] = (list(_bd_unl), (doors.status("brain") or {}).get("pid") == _bd_sr_pid, len(_FakeLlama.saved) - _bd_sr_n)
+    config.BRAIN_API = "llama"
+    _bd_oc.unload(config.CHAT_MODEL)
+    _bd_sr["evict"] = (doors.status("brain"), _FakeLlama.saved[_bd_sr_n:])
+    ollama_client.unload = _bd_sr_unl0
+    config.BRAIN_REST_AFTER_VISIT, config.BRAIN_REST_AFTER_WAKE = _bd_sr_rest0
+    # the folder's drive gone (a RAM disk not back after a reboot): no save, no restore, the door says so
+    config.BRAIN_SLOT_DIR = str(_bd_sr_td / "nodrive" / "kv")
+    _bd_sr_n = (len(_FakeLlama.saved), len(_FakeLlama.restored))
+    _FakeLlama.down = True
+    _bd_sr_up = _bd.start_door(wait_s=30)
+    _bd_sr_ask(_bd_sr_A)
+    _bd.stop_door(why="the suite")
+    _bd_sr["gone"] = (len(_FakeLlama.saved) - _bd_sr_n[0], len(_FakeLlama.restored) - _bd_sr_n[1],
+                      _bd_sr_up[0], "isn't there" in _bd_sr_up[1], (_bd_sr_td / "nodrive").exists())
+finally:
+    ollama_client.chat, memory.search, ollama_client.unload = _bd_sr_chat0, _bd_sr_ms0, _bd_sr_unl0
+    config.BRAIN_REST_AFTER_VISIT, config.BRAIN_REST_AFTER_WAKE = _bd_sr_rest0
+    if doors.status("brain"):
+        _bd.stop_door(why="the suite's cleanup")
+    for _bd_p in list(_bd._procs.values()):  # never a child left running
+        if _bd_p.poll() is None:
+            _bd_p.kill()
+            _bd_p.wait(10)
+    _bd._procs.clear()
+    doors.pid_file("brain").unlink(missing_ok=True)
+    _bd._forget()
+    _FakeLlama.down = False
+    _bd.POLL_S, _bf.command = _bd_sr_poll0, _bd_sr_find0
+    for _k, _v in _bd_sr_cfg.items():
+        setattr(config, _k, _v)
+    if not _bd_sr_log_had:
+        _bd.log_file().unlink(missing_ok=True)
+    __import__("shutil").rmtree(_bd_sr_td, ignore_errors=True)
+_bd_sr_e = hashlib.sha256(b"").hexdigest()[:24]
+check("saved read: prompt_key is the first 24 hex of the system prompt's sha256 — stable, the same for a longer visit on it, "
+      "another for another system prompt; no system turn is the empty prompt's",
+      _bd_sr_kA == hashlib.sha256(_bd_sr_A[0]["content"].encode("utf-8")).hexdigest()[:24] and len(_bd_sr_kA) == 24
+      and all(c in "0123456789abcdef" for c in _bd_sr_kA) and _bd.prompt_key(_bd_sr_A) == _bd_sr_kA
+      and _bd.prompt_key(_bd_sr_A + [{"role": "user", "content": "and more"}]) == _bd_sr_kA and _bd_sr_kB != _bd_sr_kA
+      and _bd.prompt_key([{"role": "user", "content": "x"}]) == _bd_sr_e and _bd.prompt_key([]) == _bd_sr_e,
+      (_bd_sr_kA, _bd_sr_kB))
+check("saved read: a reply through the door, then stop_door — nothing restored the first time (none kept), the reading saved as "
+      "<key>.bin right before the close, the log says so, the folder pruned to BRAIN_SLOT_KEEP (the oldest let go)",
+      _bd_sr.get("up1") is True and "restored" not in (_bd_sr.get("r1") or {"restored": 1}) and _bd_sr.get("restored1") == []
+      and _bd_sr.get("stop1") is True and _bd_sr.get("saved1") == [f"{_bd_sr_kA}.bin"]
+      and _bd_sr.get("files1") == sorted([f"{_bd_sr_kA}.bin", "old2.bin", "old3.bin"])
+      and f"saved the reading: {_bd_sr_kA} (150,000 tokens, 4.0 GB, 1.8 s)" in _bd_sr.get("log1", "")
+      and "let an older reading go: old1" in _bd_sr.get("log1", ""),
+      {k: _bd_sr.get(k) for k in ("up1", "restored1", "stop1", "saved1", "files1", "log1")})
+check("saved read: a fresh start_door and the same system prompt — restored once, before the first request (the reply carries "
+      "restored: its tokens and ms), the next request not again; the log says so; the token line says it once",
+      _bd_sr.get("up2") is True and _bd_sr.get("restored2") == [f"{_bd_sr_kA}.bin"]
+      and (_bd_sr.get("r2") or {}).get("restored") == {"tokens": 150000, "ms": 2100.0}
+      and ((_bd_sr.get("r2") or {}).get("message") or {}).get("content") == "There it is." and "restored" not in (_bd_sr.get("r3") or {"restored": 1})
+      and f"restored the reading: {_bd_sr_kA} (150,000 tokens, 4.0 GB, 2.1 s)" in _bd_sr.get("log2", "")
+      and _bd_sr.get("line", "").count("restored 150,000 tokens in 2.1s") == 1 and " · restored 150,000 tokens in 2.1s · " in _bd_sr.get("line", ""),
+      {k: _bd_sr.get(k) for k in ("up2", "restored2", "r2", "line", "log2")})
+check("saved read: a new system prompt (a new key) is not restored — nothing kept for it — and the next stop saves under the new key; "
+      "through chat() the restored reply carries it out",
+      _bd_sr.get("restored3") == [f"{_bd_sr_kA}.bin"] and "restored" not in (_bd_sr.get("r4") or {"restored": 1})
+      and _bd_sr.get("saved2") == [f"{_bd_sr_kA}.bin", f"{_bd_sr_kB}.bin"]
+      and _bd_sr.get("files2") == sorted([f"{_bd_sr_kA}.bin", f"{_bd_sr_kB}.bin", "old3.bin"])
+      and _bd_sr.get("restored4") == [f"{_bd_sr_kA}.bin", f"{_bd_sr_kB}.bin"]
+      and (_bd_sr.get("m") or {}).get("restored") == {"tokens": 150000, "ms": 2100.0} and (_bd_sr.get("m") or {}).get("content") == "There it is.",
+      {k: _bd_sr.get(k) for k in ("restored3", "saved2", "files2", "restored4")})
+_bd_sr_tk = (_bd_sr.get("ev") or [{}])[0]
+check("saved read: the turn's tally — the tokens event carries restored_tokens and restored_s, its line says \"restored 150,000 tokens in 2.1s\"",
+      len(_bd_sr.get("ev") or []) == 1 and _bd_sr_tk.get("restored_tokens") == 150000 and _bd_sr_tk.get("restored_s") == 2.1
+      and "restored 150,000 tokens in 2.1s" in _bd_sr_tk.get("line", ""),
+      _bd_sr.get("ev"))
+check("saved read: a rest is not a step-down — unload(CHAT_MODEL, rest=True), rest_brain and rest_after_wake under the door leave it "
+      "up (the same pid, awake), nothing saved, the visit's end not told \"set down\", the wake's rest False, the log says why (three times); "
+      "an eviction (rest=False) closes it, saving first; on \"ollama\" both forms post keep_alive:0 and the door is not touched",
+      _bd_sr.get("rest") == (True, True, 0, [], False, 3)
+      and _bd_sr.get("ollama") == ([("/api/generate", config.CHAT_MODEL)] * 2, True, 0)
+      and _bd_sr.get("evict") == (None, [f"{_bd_sr_kA}.bin"]),
+      {k: _bd_sr.get(k) for k in ("rest", "ollama", "evict")})
+check("saved read: a slot folder whose drive isn't there — no save, no restore, the door opens and says so, nothing made",
+      _bd_sr.get("gone") == (0, 0, True, True, False), _bd_sr.get("gone"))
 _bd_srv.shutdown()
 _bf.command = _bd_find0
 
@@ -10262,7 +10444,8 @@ _bf.command = _bd_find0
 _bd_td = _BdPath(_bd_tmp.mkdtemp(prefix="brainfind_"))
 _bd_env0 = {k: _bd_os.environ.get(k) for k in ("PATH", "OLLAMA_MODELS")}
 _bd_root0 = _bf.ROOT
-_bd_cfg0 = {k: getattr(config, k, None) for k in ("BRAIN_MODEL_FILE", "BRAIN_MMPROJ_FILE", "BRAIN_SLOT_DIR", "BRAIN_URL", "NUM_CTX")}
+_bd_cfg0 = {k: getattr(config, k, None) for k in ("BRAIN_MODEL_FILE", "BRAIN_MMPROJ_FILE", "BRAIN_SLOT_DIR", "BRAIN_URL", "NUM_CTX",
+                                                  "BRAIN_CACHE_RAM_MB")}
 try:
     _bd_os.environ["OLLAMA_MODELS"] = str(_bd_td / "models")
     _bd_os.environ["PATH"] = str(_bd_td / "empty")
@@ -10287,11 +10470,20 @@ try:
     _bd_srv_found = _bf.find_server()
     (_bd_td / "kv").mkdir()
     config.BRAIN_MODEL_FILE, config.BRAIN_MMPROJ_FILE, config.BRAIN_SLOT_DIR = "", "", str(_bd_td / "kv")
+    config.BRAIN_CACHE_RAM_MB = 0
     config.BRAIN_URL, config.NUM_CTX = "http://127.0.0.1:8770", 262144
     _bd_cmd, _bd_said = _bf.command()
-    config.BRAIN_SLOT_DIR = str(_bd_td / "gone")  # a RAM disk that didn't come back after a reboot
+    config.BRAIN_SLOT_DIR = str(_bd_td / "gone" / "kv")  # a RAM disk that didn't come back after a reboot: its drive isn't there
     _bd_cmd_gone, _bd_said_gone = _bf.command()
     _bd_warn_gone = _bf.slot_warning()
+    _bd_gone_made = (_bd_td / "gone").exists()
+    config.BRAIN_SLOT_DIR = str(_bd_td / "fresh")  # the drive back after a reboot, the folder not made yet: the folder made
+    _bd_cmd_fresh, _bd_said_fresh = _bf.command()
+    _bd_fresh_made = (_bd_td / "fresh").is_dir()
+    config.BRAIN_SLOT_DIR = str(_bd_td / "kv")
+    config.BRAIN_CACHE_RAM_MB = 32768
+    _bd_cmd_cram, _ = _bf.command()
+    config.BRAIN_CACHE_RAM_MB = 0
     config.BRAIN_SLOT_DIR, config.BRAIN_MODEL_FILE = "", str(_bd_td / "other.gguf")
     _bd_cmd2, _bd_said2 = _bf.command()
     _bd_paths = (_bf.manifest_path("gemma4:31b-it-qat"), _bf.manifest_path("someone/model"), _bf.manifest_path("hf.co/org/repo:Q4_K_M"))
@@ -10321,14 +10513,27 @@ check("brain_find: Ollama's manifest (under OLLAMA_MODELS) names the model and p
 check("brain_find: BRAIN_SLOT_DIR naming a folder that isn't there (a RAM disk gone after a reboot) — the command leaves "
       "--slot-save-path out and the note says so; the folder there, no such word",
       "--slot-save-path" not in _bd_cmd_gone and _bd_cmd_gone == _bd_cmd[:-2]
-      and f"the slot folder {_bd_td / 'gone'} isn't there — the RAM disk didn't come back after the reboot? the brain saves nothing this time" == _bd_warn_gone
-      and _bd_warn_gone in _bd_said_gone and "opened without --slot-save-path" in _bd_said_gone and "isn't there" not in _bd_said,
-      (_bd_cmd_gone, _bd_said_gone))
+      and f"the slot folder {_bd_td / 'gone' / 'kv'} isn't there — the RAM disk didn't come back after the reboot? the brain saves nothing this time" == _bd_warn_gone
+      and _bd_warn_gone in _bd_said_gone and "opened without --slot-save-path" in _bd_said_gone and "isn't there" not in _bd_said
+      and _bd_gone_made is False,
+      (_bd_cmd_gone, _bd_said_gone, _bd_gone_made))
+check("brain_find: the slot folder's drive there and the folder not yet (R:\\ back after a reboot, R:\\kv not made) — the folder made, "
+      "--slot-save-path carries it, the note says so; BRAIN_CACHE_RAM_MB = 32768 adds --cache-ram 32768, 0 adds nothing",
+      _bd_fresh_made and _bd_cmd_fresh[-2:] == ["--slot-save-path", str(_bd_td / "fresh")]
+      and f"made the slot folder {_bd_td / 'fresh'}" in _bd_said_fresh and "isn't there" not in _bd_said_fresh
+      and _bd_cmd_cram[-4:] == ["--slot-save-path", str(_bd_td / "kv"), "--cache-ram", "32768"]
+      and "--cache-ram" not in _bd_cmd and "--cache-ram" not in _bd_cmd_fresh,
+      (_bd_cmd_fresh, _bd_said_fresh, _bd_cmd_cram))
 __import__("shutil").rmtree(_bd_td, ignore_errors=True)
-check("brain door: BRAIN_API, BRAIN_URL and BRAIN_SLOT_DIR on Main after TOOL_KIT, each with the page's own words (the restart named); "
-      "BRAIN_API a dropdown of the two; the file knobs have words too",
-      _bd_panel.TABS["Main"][2:6] == ["TOOL_KIT", "BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR"]
-      and all(_bd_panel._HELP.get(k) for k in ("BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_MODEL_FILE", "BRAIN_MMPROJ_FILE"))
+check("brain door: BRAIN_API, BRAIN_URL, BRAIN_SLOT_DIR, BRAIN_SLOT_KEEP and BRAIN_CACHE_RAM_MB on Main after TOOL_KIT, each with the "
+      "page's own words (the restart named; the slot folder's three choices); BRAIN_API a dropdown of the two; the file knobs have words too",
+      _bd_panel.TABS["Main"][2:8] == ["TOOL_KIT", "BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_SLOT_KEEP", "BRAIN_CACHE_RAM_MB"]
+      and all(_bd_panel._HELP.get(k) for k in ("BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_SLOT_KEEP", "BRAIN_CACHE_RAM_MB",
+                                               "BRAIN_MODEL_FILE", "BRAIN_MMPROJ_FILE"))
+      and "R:\\kv" in _bd_panel._HELP["BRAIN_SLOT_DIR"] and "memory\\" in _bd_panel._HELP["BRAIN_SLOT_DIR"]
+      and "empty saves nothing" in _bd_panel._HELP["BRAIN_SLOT_DIR"] and "says so" in _bd_panel._HELP["BRAIN_SLOT_DIR"]
+      and "--cache-ram" in _bd_panel._HELP["BRAIN_CACHE_RAM_MB"] and "32768" in _bd_panel._HELP["BRAIN_CACHE_RAM_MB"]
+      and isinstance(getattr(config, "BRAIN_SLOT_KEEP", None), int) and isinstance(getattr(config, "BRAIN_CACHE_RAM_MB", None), int)
       and "/restart" in _bd_panel._HELP["BRAIN_API"] and "heartbeat stop/start" in _bd_panel._HELP["BRAIN_URL"]
       and _bd_panel.CHOICES["BRAIN_API"] == ["ollama", "llama"]
       and all(hasattr(config, k) for k in ("BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_MODEL_FILE", "BRAIN_MMPROJ_FILE")))

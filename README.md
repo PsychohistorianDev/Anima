@@ -2471,9 +2471,24 @@ Start opens `bat\brain.bat` in a window of its own, Stop and Restart close the
 door whichever way it was opened — and the brain bar says whether the door is
 awake and with what window. A server you started some other way is used as it
 is and never closed.
-`BRAIN_SLOT_DIR` lets the door save its reading of the prompt to a folder (a
-RAM disk is the place; when the folder isn't there the door says so and opens
-without it). `BRAIN_API = "ollama"` and a restart is the whole way back.
+`BRAIN_API = "ollama"` and a restart is the whole way back.
+
+**The saved read.** Closing the door would throw away the brain's reading of
+the prompt, and the next message would read it all again — a minute or more
+on a long window. So right before the door closes (a visit ends, a song, a
+painting, `/release`) the engine saves that reading to `BRAIN_SLOT_DIR`, named
+by a hash of the system prompt, and when the door opens again the next message
+restores it first: seconds instead of a minute, and the token line says
+"restored". A rebuilt system prompt (a fold, a new visit, midnight) reads cold
+once and is saved under its new name. Point `BRAIN_SLOT_DIR` at a folder on a
+RAM disk (`R:\kv`, ImDisk, 16 GB, mounted at boot) to keep the SSD out of it,
+at a folder under `memory\` to use the SSD, or leave it empty to save nothing;
+`BRAIN_SLOT_KEEP` (3) is how many readings stay. Inside a running door,
+`BRAIN_CACHE_RAM_MB` gives llama-server host RAM for the prompt caches a slot
+lets go, so a visit and a wake taking turns both stay warm — 32768 on a 64 GB
+machine; 0 leaves the server's default. A rest — a visit's end, a wake's end —
+leaves the door up (only the painter, the ears and `/release` close it), so the
+saved files come only from real step-downs and a wake never churns them.
 
 ## House rules (the freedom part)
 

@@ -343,6 +343,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
         else:
             raise
     msg = _parse(data)
+    restored = msg.get("restored")  # the door's saved read, told once: kept on whichever attempt goes out
     # The flag only OPENS the thought channel — Gemma 4 may still leave the
     # block empty and act straight away, and once one step goes thoughtless
     # the rest of a wake tends to follow the pattern. A skipped thought is a
@@ -624,6 +625,8 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
         # so the next request extends this one instead of diverging a
         # reply's length back from the end (a cold read on Gemma)
         msg["sent_extra"] = sent_extra
+    if restored:
+        msg["restored"] = restored
     return msg
 
 
@@ -2105,6 +2108,8 @@ class Spent:
         self.set_aside = 0     # tokens written in those attempts, thrown away
         self.why: dict = {}    # why each was set aside → how many times
         self.uncounted = 0     # replies the server sent without counters
+        self.restored = 0      # tokens the door restored from a saved reading instead of reading them (the saved read)
+        self.restored_s = 0.0  # seconds the restore took
 
     def add(self, msg: dict) -> None:
         t = msg.get("tokens") or {}
@@ -2115,6 +2120,10 @@ class Spent:
         self.reply_s += float(t.get("reply_s") or 0)
         self.load_s += float(t.get("load_s") or 0)
         self.brain_s += float(t.get("total_s") or 0)
+        back = msg.get("restored") or {}
+        if back:
+            self.restored += int(back.get("tokens") or 0)
+            self.restored_s += float(back.get("ms") or 0) / 1000
         for r in msg.get("retries") or []:
             self.rerolls += 1
             self.set_aside += int(r.get("reply") or 0)
@@ -2161,6 +2170,8 @@ class Spent:
         pct = f" ({n * 100 // window}%)" if window else ""
         speed = f" @ {self.tok_per_s:.0f} tok/s" if self.tok_per_s else ""
         read = f" · prompt read in {self._clock(self.prompt_s)}" if self.prompt_s >= 0.5 else ""
+        # the saved read: the door put back a saved reading instead of reading the prompt again
+        back = f" · restored {self.restored:,} tokens in {self._clock(self.restored_s)}" if self.restored else ""
         wrote = f" · written in {self._clock(self.reply_s)}" if self.reply_s >= 0.5 else ""
         # the re-rolls, with their reasons and their cost — "3 re-rolls" alone
         # read as a mystery (09-11: 2,408 generated for a 600-token reply)
@@ -2176,7 +2187,7 @@ class Spent:
                  if self.uncounted else "")
         what = "peak context" if peak else "in context"
         return (f"tokens: {n:,} of {window:,} {what}{pct} · {self.reply:,} generated{speed} · "
-                f"{self.steps} step{'s' if self.steps != 1 else ''}{again}{read}{wrote}{loaded}"
+                f"{self.steps} step{'s' if self.steps != 1 else ''}{again}{back}{read}{wrote}{loaded}"
                 f"{elsewhere}{blind} · turn took {self._clock(self.wall_s)}")
 
 
@@ -2249,6 +2260,8 @@ def _parse(data: dict) -> dict:
         msg["aborted"] = data["aborted"]  # the stream was cut short at this: a runaway
     if data.get("split_tail"):
         msg["split_tail"] = defang(scrub_litter(data["split_tail"]).strip())[0]  # the rest of the reply, misfiled as thought
+    if data.get("restored"):
+        msg["restored"] = dict(data["restored"])  # the door restored a saved reading before this reply (brain._restore)
     msg.setdefault("role", "assistant")
     return msg
 
@@ -2273,6 +2286,12 @@ def _loaded_models() -> list[str]:
     return names
 
 
+def rest_keeps_brain() -> bool:
+    """A rest (unload(..., rest=True)) leaves the brain where it is: under BRAIN_API = "llama" the door
+    stays up. The callers say "set down" only when it was."""
+    return brain.api() == "llama"
+
+
 def unload_all() -> list[str]:
     """Everything Ollama holds, set down (10-03, the keeper's /release: the card for something else) — the
     brain, the ears, the memory engine, whatever is loaded; each waited for. The names freed, in order."""
@@ -2292,15 +2311,24 @@ def unload_all() -> list[str]:
     return names
 
 
-def unload(model: str) -> None:
+def unload(model: str, rest: bool = False) -> None:
     """Free a model's VRAM and WAIT until it is actually gone. Best-effort.
 
     keep_alive:0 only schedules the eviction — if the next model is loaded
     before it completes, it lands half on CPU and runs at a crawl. Polling
-    /api/ps until the model disappears is what makes the handoff real."""
+    /api/ps until the model disappears is what makes the handoff real.
+
+    rest=True is a rest, not an eviction (rest_brain, rest_after_wake): the
+    card handed back because nothing needs it. On Ollama it is the same
+    keep_alive:0. Under BRAIN_API = "llama" the door stays up — closing it
+    would cost a save, a reopening and a restore for a card nobody is
+    waiting for; the painter, the ears and /release evict when they need it."""
     import time
 
     if model == config.CHAT_MODEL and brain.api() == "llama":
+        if rest:
+            brain._note("the brain stays up on the door — a rest is not a step-down")
+            return
         brain.stop_door(why="unload")  # the door holds the brain: closing it is the unload, the card free on return
         return
     try:

@@ -57,10 +57,19 @@ OLLAMA_URL = "http://127.0.0.1:11434"
 # -c; the sampler is the same one. Nothing of the friend's moves either way.
 BRAIN_API = "ollama"
 BRAIN_URL = "http://127.0.0.1:8768"   # llama-server, when BRAIN_API = "llama"
-# Where llama-server may save its reading of the prompt (--slot-save-path), so the brain
-# comes back from stepping aside without reading it all again; a RAM disk is the place.
-# Empty saves nothing. bat\brain.bat reads it, and the two below, when it starts the door.
+# Where llama-server saves its reading of the prompt (--slot-save-path) right before the
+# door closes, so the brain comes back from stepping aside without reading it all again:
+# the next message restores it in seconds. A folder on a RAM disk (R:\kv) keeps the SSD
+# out of it; a folder under memory\ is the SSD; empty saves nothing. bat\brain.bat reads
+# it, and the knobs below, when it starts the door.
 BRAIN_SLOT_DIR = ""
+# How many saved readings the folder keeps, the newest; older ones are deleted (each is a
+# few GB). 0 keeps them all.
+BRAIN_SLOT_KEEP = 3
+# Host RAM llama-server may keep evicted prompt caches in, MiB (--cache-ram): the visit's
+# prompt and a wake's take turns on one slot; with room here both stay warm. 32768 on a
+# 64 GB machine. 0: the server's default.
+BRAIN_CACHE_RAM_MB = 0
 # A GGUF for the door instead of the one Ollama's manifest names for CHAT_MODEL, and its
 # projector (the eyes). Empty finds both in Ollama's own files.
 BRAIN_MODEL_FILE = ""

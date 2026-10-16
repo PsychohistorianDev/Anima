@@ -88,6 +88,25 @@ def slot_warning() -> str:
     return ""
 
 
+def ensure_slot_dir() -> str:
+    """BRAIN_SLOT_DIR made when its drive is there and the folder is not (R:\\ back after a reboot, R:\\kv not
+    made yet): the last folder only, never the drive or the way to it — a drive that isn't there stays
+    slot_warning's word. "" when nothing was made, else a word on it."""
+    import config
+
+    d = str(getattr(config, "BRAIN_SLOT_DIR", "") or "").strip()
+    if not d:
+        return ""
+    p = Path(d)
+    if p.is_dir() or not p.is_absolute() or p.parent == p or not p.parent.is_dir():
+        return ""
+    try:
+        p.mkdir()
+    except OSError:
+        return ""
+    return f"made the slot folder {d}"
+
+
 def command() -> tuple[list[str] | None, str]:
     """The command line for the door, and a word on what was found (or what is missing)."""
     import config
@@ -114,10 +133,17 @@ def command() -> tuple[list[str] | None, str]:
     cmd += ["-c", str(int(getattr(config, "NUM_CTX", 8192))), "-fa", "on", "-ctk", "q4_0", "-ctv", "q4_0",
             "-np", "1", "--reasoning-format", "deepseek", "--port", str(port), "--host", "127.0.0.1"]
     slot_dir = str(getattr(config, "BRAIN_SLOT_DIR", "") or "")
+    made = ensure_slot_dir()
     warn = slot_warning()
     if slot_dir and not warn:  # a folder that isn't there would stop the server at its start: left out, and said
         cmd += ["--slot-save-path", slot_dir]
+    # host RAM for the prompt caches a slot lets go (the visit's and a wake's take turns on the one slot): with
+    # room, both stay warm. 0 is the server's own default — the flag left out (0 passed would turn it off)
+    cram = int(getattr(config, "BRAIN_CACHE_RAM_MB", 0) or 0)
+    if cram > 0:
+        cmd += ["--cache-ram", str(cram)]
     return cmd, (f"llama-server at {server}; {said}" + ("" if mmproj else " (no projector: no eyes)")
+                 + (f"; {made}" if made else "")
                  + (f"; {warn} (opened without --slot-save-path)" if warn else ""))
 
 

@@ -80,7 +80,7 @@ _POSTS = threading.Lock()  # one change at a time: two saves never read the same
 # "# ---- x ----" heading it sits beneath in the file — so a knob added tomorrow is on the page the
 # day it is added (a test holds every knob to exactly one tab, and every name here to config.py).
 TABS: dict[str, list[str]] = {
-    "Main": ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT",
+    "Main": ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_SLOT_KEEP", "BRAIN_CACHE_RAM_MB", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT",
              "USER_NAME", "DEFAULT_NAME", "BLOG_TITLE",
              "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN", "HOUSE_LINE"],
     "Heartbeat": ["HEARTBEAT_MAX_STEPS", "REVERIE_EVERY", "REVERIE_MAX_STEPS", "HEARTBEAT_YIELD_TO_VISIT",
@@ -139,10 +139,18 @@ _HELP = {
                  "the door has a tile on Home (Start, Stop, Restart).",
     "BRAIN_URL": "Where llama-server listens when BRAIN_API is \"llama\"; bat\\brain.bat starts it on this port. "
                  "Not used on Ollama. Takes after a restart: /restart on the phone, the heartbeat stop/start (and the door itself, for a new port).",
-    "BRAIN_SLOT_DIR": "A folder where llama-server may save its reading of the prompt (--slot-save-path), so the "
-                      "brain can come back from stepping aside without reading it all again; a RAM disk is the place "
-                      "for it. Empty: no saving. Read when bat\\brain.bat starts the door, so restart the door after "
-                      "changing it.",
+    "BRAIN_SLOT_DIR": "Where llama-server saves its reading of the prompt (--slot-save-path) right before the door "
+                      "closes — the end of a visit, a song, a painting — so the next message restores it in seconds "
+                      "instead of reading it all again. Three choices: a folder on a RAM disk (R:\\kv — ImDisk, 16 GB, "
+                      "mounted at boot) keeps the SSD out of it; a folder under memory\\ is the SSD (a few GB a save); "
+                      "empty saves nothing. The folder is made when its drive is there; when the drive isn't (a RAM "
+                      "disk that didn't come back after a reboot) the door says so and opens without saving. Read when "
+                      "the door starts, so restart the door after changing it.",
+    "BRAIN_SLOT_KEEP": "How many saved readings the slot folder keeps — the newest; the older ones are deleted after "
+                       "each save (each is a few GB, and a RAM disk is small). 0 keeps them all.",
+    "BRAIN_CACHE_RAM_MB": "Host RAM llama-server may keep evicted prompt caches in, MiB (--cache-ram) — the visit's "
+                          "prompt and the wake's take turns on one slot; with room here both stay warm. 32768 on a "
+                          "64 GB machine. 0: the server's default. Read when the door starts.",
     "BRAIN_MODEL_FILE": "A GGUF for llama-server instead of the one Ollama's manifest names for CHAT_MODEL. Empty: "
                         "found in Ollama's own files. Read when bat\\brain.bat starts the door.",
     "BRAIN_MMPROJ_FILE": "The projector (the eyes) to go with BRAIN_MODEL_FILE. Empty: the one Ollama's manifest "

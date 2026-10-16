@@ -865,7 +865,9 @@ def rest_after_wake() -> bool:
     if not getattr(config, "BRAIN_REST_AFTER_WAKE", True):
         return False
     try:
-        ollama_client.unload(config.CHAT_MODEL)
+        ollama_client.unload(config.CHAT_MODEL, rest=True)  # a rest: under the door, the brain stays up
+        if ollama_client.rest_keeps_brain():
+            return False  # nothing set down: the door stays up, its prompt caches warm for the visit
         print("(the brain is set down — the card is free)")
         return True
     except Exception:  # noqa: BLE001 — resting is a courtesy

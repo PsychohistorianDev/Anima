@@ -13,22 +13,43 @@ embeddings stay on Ollama either way; nothing of the friend's moves.
 A streamed reply (the engine asks for one while CHAT_STREAM_ABORT is on) comes
 through the door as llama-server's events and is read as it is written, the tail
 watched for a runaway exactly as on Ollama's road (ollama_client._drink): salad
-closes the connection and the server stops. The slot calls (save / restore the
-reading of a prompt to a file) are here for the saved read, not yet wired; erase
-clears the reading, so the cold rescue's last roll reads the prompt from zero.
+closes the connection and the server stops. The slot calls save and restore the
+reading of a prompt to a file (the saved read, below); erase clears the reading,
+so the cold rescue's last roll reads the prompt from zero.
 
 The door is the engine's, like its other doors: start_door() runs llama-server as
 a child with no window (its words in memory/brain.log, the last run only) and
 marks it in memory/.pids/brain.json; stop_door() ends it. Stopping the process IS
 the unload — the server has no keep_alive — so ollama_client.unload(CHAT_MODEL),
-which the painter, the ears, rest_brain, the wedge-clearing and /release already
-call, hands the card back for real. The next reply opens the door again by itself
-(ensure_up, in post_chat): a cold read, the price until the saved read is wired.
+which the painter, the ears, the wedge-clearing and /release already call, hands
+the card back for real: they evict because they need the card. A rest does not
+(unload(..., rest=True) — rest_brain at a visit's end, rest_after_wake at a
+wake's): it would only free a card nothing is waiting for, so the door stays up.
+The next reply opens a closed door again by itself (ensure_up, in post_chat), and
+the saved read makes that return cheap.
 A door opened by hand (bat\\brain.bat marks itself; one started some other way
 answers with no mark) is used as it is, and only a marked one is ever closed.
+
+The saved read: right before the door is closed (_before_stop, from stop_door —
+the painter, the ears, the wedge-clearing, /release, the panel's Stop),
+slot 0's reading of the standing prompt is saved to BRAIN_SLOT_DIR as
+<key>.bin, the key a hash of the system prompt (prompt_key), and the folder keeps
+the newest BRAIN_SLOT_KEEP. On the way back up the first reply with that system
+prompt restores it before it is sent (post_chat), so a return from a song or a
+painting reads only the new words: seconds where a cold read took minutes, and
+the token line says "restored". A system prompt rebuilt — a fold, a new visit,
+midnight — is a new key and reads cold once; the next step-down saves under it.
+The key of the last reply served is kept beside the door's mark as well
+(memory/.pids/brain.served), so a step-down from another process of the house
+saves under the prompt the slot really holds. The door stays up through the
+wakes and the visits' ends, so --cache-ram (BRAIN_CACHE_RAM_MB, brain_find) is
+what keeps the visit's prompt and a wake's both warm in host RAM as they take
+turns on the one slot, and the slot saves happen only on real step-downs: a
+wake's prompt never churns the saved files, and BRAIN_SLOT_KEEP = 3 is room enough.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import signal
@@ -369,6 +390,7 @@ def start_door(wait_s: float = 120) -> tuple[bool, str]:
     with _lock:
         if props() is not None:
             return True, "up"
+        _forget()  # a door on its way up holds no reading yet: nothing restored, nothing served
         warn = ""
         st = door_status()
         if st:
@@ -383,7 +405,8 @@ def start_door(wait_s: float = 120) -> tuple[bool, str]:
             print("  (opening the brain's door — llama-server, the model loading)", flush=True)
             try:
                 log_file().parent.mkdir(parents=True, exist_ok=True)
-                with open(log_file(), "wb") as log:  # the last run only
+                log_file().write_bytes(b"")  # the last run only
+                with open(log_file(), "ab") as log:  # appended to: the engine's own lines (the saved read) are not written over
                     kw = ({"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt"
                           else {"start_new_session": True})
                     proc = subprocess.Popen(cmd, cwd=str(brain_find.ROOT), stdin=subprocess.DEVNULL,
@@ -409,11 +432,180 @@ def start_door(wait_s: float = 120) -> tuple[bool, str]:
             time.sleep(POLL_S)
 
 
+# ---- the saved read: the reading of the prompt kept across a step-down ------------------
+
+SERVED_NAME = "brain.served"  # beside the door's mark: the key of the last reply the door served, whichever process sent it
+_served_key = ""  # the key of the last request this process sent through the door
+_restored_key = ""  # the key last restored since the door came up ("" — nothing restored yet)
+_restored_pid = None  # the door it was restored into: another process may have closed and opened it since
+_pending_restored: dict | None = None  # a restore not yet told: the next reply carries it
+
+
+def prompt_key(messages) -> str:
+    """The saved reading's name: the first 24 hex of the sha256 of the system prompt (messages[0] when it is
+    the system's, else ""). A reading pays only while the prompt matches byte for byte, and the system prompt
+    holds still within a visit — it is rebuilt at a fold, at a new visit, at midnight."""
+    first = messages[0] if messages and isinstance(messages[0], dict) else {}
+    text = first.get("content") if first.get("role") == "system" else ""
+    if not isinstance(text, str):
+        text = json.dumps(text, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256((text or "").encode("utf-8")).hexdigest()[:24]
+
+
+def slot_dir() -> Path | None:
+    """BRAIN_SLOT_DIR when it is set and there; None when it is empty (nothing is saved) or missing (a RAM
+    disk that didn't come back after a reboot — the door says so when it opens)."""
+    d = str(getattr(config, "BRAIN_SLOT_DIR", "") or "").strip()
+    return Path(d) if d and Path(d).is_dir() else None
+
+
+def _served_file() -> Path:
+    return Path(config.MEMORY_DIR) / ".pids" / SERVED_NAME
+
+
+def _served(key: str) -> None:
+    """What the slot holds now: this key — kept here, and (when there is a slot folder to save to) in a file
+    beside the door's mark, so a step-down from another process of the house (the heartbeat clearing a
+    wedge, the panel's Stop) saves under the right name."""
+    global _served_key
+    _served_key = key
+    if not str(getattr(config, "BRAIN_SLOT_DIR", "") or "").strip():
+        return
+    try:
+        p = _served_file()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(key, encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _served_now() -> str:
+    """The key of the last reply the door served, whichever process sent it; this process's own when no
+    file says."""
+    try:
+        key = _served_file().read_text(encoding="utf-8").strip()
+    except OSError:
+        key = ""
+    return key if len(key) == 24 and all(c in "0123456789abcdef" for c in key) else _served_key
+
+
+def _forget() -> None:
+    """The door is coming up or going down: its slot holds nothing — nothing restored, nothing served."""
+    global _served_key, _restored_key, _restored_pid, _pending_restored
+    _served_key = _restored_key = ""
+    _restored_pid = _pending_restored = None
+    try:
+        _served_file().unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def _door_pid() -> int | None:
+    st = door_status()
+    try:
+        return int(st["pid"]) if st else None
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _note(line: str) -> None:
+    """A line said, and written to memory/brain.log beside what the server says there. Never raises."""
+    print(f"  ({line})", flush=True)
+    try:
+        log_file().parent.mkdir(parents=True, exist_ok=True)
+        with open(log_file(), "a", encoding="utf-8") as f:
+            f.write(f"\n({line})\n")
+    except OSError:
+        pass
+
+
+def _secs(got: dict, field: str) -> float:
+    """How long a slot call took, by the server's own clock (timings.<field>, ms), else by ours."""
+    try:
+        ms = (got.get("timings") or {}).get(field)
+        return float(ms) / 1000 if ms is not None else float(got.get("took_s") or 0)
+    except (TypeError, ValueError, AttributeError):
+        return 0.0
+
+
+def _prune(folder: Path, keep_name: str) -> None:
+    """The newest BRAIN_SLOT_KEEP readings stay, the one just saved always among them; the older go — each is
+    gigabytes, and a RAM disk is small. 0 keeps them all."""
+    try:
+        keep = int(getattr(config, "BRAIN_SLOT_KEEP", 3) or 0)
+    except (TypeError, ValueError):
+        keep = 3
+    if keep <= 0:
+        return
+    try:
+        files = sorted((p for p in folder.glob("*.bin") if p.is_file()), key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError:
+        return
+    files = [p for p in files if p.name == keep_name] + [p for p in files if p.name != keep_name]
+    for p in files[keep:]:
+        try:
+            p.unlink()
+            _note(f"let an older reading go: {p.stem}")
+        except OSError:
+            pass
+
+
 def _before_stop() -> None:
-    """Right before the door is closed. HOOK for piece 3, the saved read: slot 0's reading of the standing
-    prompt saved under its hash to BRAIN_SLOT_DIR, so the way back up restores it instead of reading cold.
-    Nothing yet."""
-    return None
+    """Right before the door is closed — the painter, the ears, the wedge-clearing, /release, the panel's Stop
+    (a rest never closes it): slot 0's reading saved as <key>.bin in BRAIN_SLOT_DIR, the key that of the prompt the slot
+    holds now (the state as it stands at the step-down: a restore matches byte for byte or not at all), then
+    the folder pruned to BRAIN_SLOT_KEEP. Nothing when there is no folder, the door is asleep, or it has
+    served nothing since it came up. Never raises: a save that fails is a line in the log, and the door is
+    closed all the same."""
+    try:
+        folder, key = slot_dir(), _served_now()
+        if folder is None or not key or not awake():
+            return
+        got = slot_save(f"{key}.bin")
+        if got is None or got.get("error"):
+            _note(f"the reading wasn't saved: {key} — the door refused the save (opened without --slot-save-path?)")
+            return
+        n, gb = int(got.get("n_saved") or 0), float(got.get("n_written") or 0) / 1e9
+        _note(f"saved the reading: {key} ({n:,} tokens, {gb:.1f} GB, {_secs(got, 'save_ms'):.1f} s)")
+        _prune(folder, f"{key}.bin")
+    except Exception as e:  # noqa: BLE001 — the stop goes on
+        _note(f"the reading wasn't saved: {type(e).__name__}: {e}")
+
+
+def _restore(key: str) -> None:
+    """On the way back up: the saved reading of this prompt put into slot 0 before the request goes, so only
+    the new words are read. Once per key and door: from then on the slot holds it. No folder, or no file for
+    this key, is nothing to do; a restore that fails is a line in the log and the request reads cold — tried
+    once all the same, since a later try would lay the older file over the reading made since."""
+    global _restored_key, _restored_pid, _pending_restored
+    try:
+        if not key:
+            return
+        pid = _door_pid()
+        if key == _restored_key and pid == _restored_pid:
+            return
+        folder = slot_dir()
+        if folder is None or not (folder / f"{key}.bin").is_file():
+            return
+        _restored_key, _restored_pid = key, pid
+        got = slot_restore(f"{key}.bin")
+        if got is None or got.get("error"):
+            _note(f"the reading wasn't restored: {key} — read cold this once")
+            return
+        n, s = int(got.get("n_restored") or 0), _secs(got, "restore_ms")
+        _pending_restored = {"tokens": n, "ms": round(s * 1000, 1)}
+        _note(f"restored the reading: {key} ({n:,} tokens, {float(got.get('n_read') or 0) / 1e9:.1f} GB, {s:.1f} s)")
+    except Exception as e:  # noqa: BLE001 — the request goes on, cold
+        _note(f"the reading wasn't restored: {type(e).__name__}: {e}")
+
+
+def _told(out: dict) -> dict:
+    """The reply the engine gets, carrying the restore made for it (once: only the first reply after it)."""
+    global _pending_restored
+    if _pending_restored and isinstance(out, dict):
+        out["restored"] = _pending_restored
+        _pending_restored = None
+    return out
 
 
 def stop_door(why: str = "") -> bool:
@@ -431,6 +623,7 @@ def stop_door(why: str = "") -> bool:
     except (TypeError, ValueError):
         return False
     _before_stop()
+    _forget()  # the slot goes with the process
     if os.name == "nt":
         try:
             subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, timeout=STOP_WAIT_S,
@@ -467,7 +660,7 @@ def stop_door(why: str = "") -> bool:
 def ensure_up() -> bool:
     """The door is up before a reply goes through it: awake as it is (the engine's, or one opened by hand),
     else opened — so a brain stepped down for the painter, the ears or /release comes back on the next
-    message by itself; the cold read is the price (the saved read, next, takes it away). False, with
+    message by itself, its saved reading restored in post_chat when one is kept. False, with
     LAST_NOTE saying why, when it won't open."""
     global LAST_NOTE
     if api() != "llama" or awake():
@@ -480,12 +673,16 @@ def ensure_up() -> bool:
 
 def post_chat(payload: dict, timeout: float | None = None) -> dict:
     """One reply through the door, in Ollama's shape. Its failures are the BrainUnavailable
-    the engine already catches from Ollama's, so every retry and rescue behaves the same."""
+    the engine already catches from Ollama's, so every retry and rescue behaves the same. A door just
+    come up gets the saved reading of this system prompt first, when one is kept (the saved read); the
+    reply that follows carries `restored` (its tokens, its ms)."""
     from ollama_client import BrainUnavailable  # here, not above: ollama_client imports this file
 
     if not ensure_up():  # stepped down for the card (the painter, the ears, /release): opened again first
         raise BrainUnavailable(f"Can't reach llama-server at {url()}, and its door wouldn't open: {LAST_NOTE}  "
                                "(BRAIN_API = \"ollama\" is the way back)")
+    key = prompt_key(payload.get("messages") or [])
+    _restore(key)  # the saved reading of this prompt, when the door has just come up and one is kept
     timeout = timeout or config.REQUEST_TIMEOUT_S
     body = to_openai(payload)
     streamed = bool(payload.get("stream"))
@@ -502,11 +699,13 @@ def post_chat(payload: dict, timeout: float | None = None) -> dict:
     )
     slow = (f"the brain took longer than {timeout:.0f}s to answer — "
             "it's probably busy chewing on something big (a long cold read). Wait a moment and try again.")
+    out: dict = {}
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             if streamed:
-                return _drink_openai(resp)  # a runaway leaves the `with` early: the connection closes, the server stops
-            return from_openai(json.loads(resp.read().decode("utf-8")))
+                out = _drink_openai(resp)  # a runaway leaves the `with` early: the connection closes, the server stops
+            else:
+                out = from_openai(json.loads(resp.read().decode("utf-8")))
     except urllib.error.HTTPError as e:
         try:
             err = json.loads(e.read().decode("utf-8", "replace")).get("error", "")
@@ -523,6 +722,9 @@ def post_chat(payload: dict, timeout: float | None = None) -> dict:
         ) from e
     except (TimeoutError, OSError) as e:
         raise BrainUnavailable(slow + f"  [{type(e).__name__}: {e}]") from e
+    finally:
+        _served(key)  # what the slot holds now: the next step-down saves it under this name
+    return _told(out)
 
 
 def _ask(path: str, body: dict | None = None, timeout: float = 5, base: str | None = None) -> dict | None:

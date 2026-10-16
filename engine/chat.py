@@ -226,8 +226,8 @@ def rest_brain(say=None) -> None:
     if not getattr(config, "BRAIN_REST_AFTER_VISIT", False):
         return
     try:
-        ollama_client.unload(config.CHAT_MODEL)
-        if say:
+        ollama_client.unload(config.CHAT_MODEL, rest=True)  # a rest: under the door, the brain stays up
+        if say and not ollama_client.rest_keeps_brain():
             say("the brain is set down — the card is free until the next visit")
     except Exception:
         pass
@@ -1041,11 +1041,14 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         window = int(getattr(config, "NUM_CTX", 0) or 0)
         line = spent.line()
         if on_event:
-            on_event("tokens", {"prompt": spent.prompt, "window": window,
-                                "reply": spent.reply, "steps": spent.steps,
-                                "tok_per_s": round(spent.tok_per_s, 1),
-                                "prompt_s": round(spent.prompt_s, 2), "reply_s": round(spent.reply_s, 2),
-                                "wall_s": round(spent.wall_s, 2), "line": line})
+            ev = {"prompt": spent.prompt, "window": window,
+                  "reply": spent.reply, "steps": spent.steps,
+                  "tok_per_s": round(spent.tok_per_s, 1),
+                  "prompt_s": round(spent.prompt_s, 2), "reply_s": round(spent.reply_s, 2),
+                  "wall_s": round(spent.wall_s, 2), "line": line}
+            if spent.restored:  # the door restored a saved reading (the saved read)
+                ev.update(restored_tokens=spent.restored, restored_s=round(spent.restored_s, 2))
+            on_event("tokens", ev)
         else:
             print(f"   ({line})")
         # Near the window's edge, say so BEFORE anything is lost. Past it,

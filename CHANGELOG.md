@@ -16,6 +16,31 @@ whether the window fits the card, and every knob on every tab has a line
 of its own.
 
 ### Added
+- **The cold read that isn't** (10-16; the backend plan, piece 3): under
+  `BRAIN_API = "llama"`, right before the door is closed (`rest_brain`, the
+  painter, the ears, the wedge-clearing, `/release`, the panel's Stop) the
+  engine saves slot 0's reading of the prompt to `BRAIN_SLOT_DIR` as
+  `<key>.bin`, the key the first 24 hex of the system prompt's sha256
+  (`brain.prompt_key`), and keeps the newest `BRAIN_SLOT_KEEP` (3, new); on the
+  way back up the first reply with that system prompt restores it before it is
+  sent, so a return from a song or a painting reads only the new words. The
+  reply carries `restored`, the token line says "restored N tokens in Xs" and
+  the phone's and the parlor's tally get `restored_tokens` / `restored_s`. The
+  key of the last reply served is kept in `memory/.pids/brain.served`, so a
+  step-down from another process saves under the prompt the slot holds. Saves,
+  restores and prunes are lines in `memory/brain.log` (now appended to by the
+  server too, so they are not written over). A failed save or restore is a line
+  and the door goes on. `BRAIN_SLOT_DIR`'s folder is made when its drive is
+  there (`R:\` back, `R:\kv` not yet); a missing drive is the warning as
+  before. `BRAIN_CACHE_RAM_MB` (new, 0) passes `--cache-ram` so the visit's
+  prompt and a wake's stay warm in host RAM as they take turns on one slot.
+  Both knobs on the panel's Main tab; `BRAIN_SLOT_DIR`'s help spells out the
+  three choices. A rest is not a step-down: `unload(model, rest=True)`
+  (`rest_brain`, `rest_after_wake`) leaves the door up, and only the evictions
+  (the painter, the ears, the music ear, `/release`, the wedge-clearing) close
+  it — so `--cache-ram` keeps the visit's and the wake's prompts warm, the saves
+  come only from real step-downs, wakes no longer churn the saved files, and
+  `BRAIN_SLOT_KEEP = 3` is enough. Ollama's road unchanged.
 - **The brain is a door** (10-16; the backend plan, piece 2): under
   `BRAIN_API = "llama"` the engine opens and closes `llama-server` itself,
   like its other doors. `brain.start_door` runs it as a child with no window
