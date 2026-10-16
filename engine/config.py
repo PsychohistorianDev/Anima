@@ -78,7 +78,8 @@ BRAIN_MMPROJ_FILE = ""
 # beside this one: the full path to llama-server.exe. Empty looks in those places.
 LLAMA_SERVER = ""
 # Whether llama-server keeps the model file mapped in host RAM after copying it to the
-# card. False passes --no-mmap: the weights are read straight into the card's buffer and
+# card. False passes --load-mode none (--no-mmap on older builds; the door asks the binary
+# which it knows): the weights are read straight into the card's buffer and
 # no host copy stays (with mmap, the mapped file counted as ~17 GB of RAM "in use" on a
 # 31B model, under no process line Task Manager shows). True leaves the mapping — a Mac,
 # where the card shares the memory, may load faster that way.

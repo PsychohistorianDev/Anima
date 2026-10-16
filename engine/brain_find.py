@@ -140,8 +140,11 @@ def command() -> tuple[list[str] | None, str]:
             "-np", "1", "--reasoning-format", "deepseek", "--port", str(port), "--host", "127.0.0.1"]
     # the weights read into the card's buffer, no host copy kept (10-16: the GGUF mapped with mmap stayed
     # mapped after the copy — 17 GB of host RAM counted "in use" with no process line to show for it)
+    unmapped = ""
     if not getattr(config, "BRAIN_MMAP", False):
-        cmd += ["--no-mmap"]
+        flag = mmap_off_flag(server)
+        cmd += flag
+        unmapped = "" if flag else "this llama-server knows neither --load-mode nor --no-mmap: the model file stays mapped"
     slot_dir = str(getattr(config, "BRAIN_SLOT_DIR", "") or "")
     made = ensure_slot_dir()
     warn = slot_warning()
@@ -153,8 +156,35 @@ def command() -> tuple[list[str] | None, str]:
     if cram > 0:
         cmd += ["--cache-ram", str(cram)]
     return cmd, (f"llama-server at {server}; {said}" + ("" if mmproj else " (no projector: no eyes)")
+                 + (f"; {unmapped}" if unmapped else "")
                  + (f"; {made}" if made else "")
                  + (f"; {warn} (opened without --slot-save-path)" if warn else ""))
+
+
+_HELP: dict[str, str] = {}
+
+
+def help_text(server: str) -> str:
+    """What `llama-server --help` prints, once per process; "" when it cannot be run."""
+    if server not in _HELP:
+        try:
+            out = subprocess.run([server, "--help"], capture_output=True, text=True, timeout=30,
+                                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            _HELP[server] = (out.stdout or "") + (out.stderr or "")
+        except (OSError, subprocess.SubprocessError, ValueError):
+            _HELP[server] = ""
+    return _HELP[server]
+
+
+def mmap_off_flag(server: str) -> list[str]:
+    """The arguments that keep the model file unmapped, in this binary's own spelling (10-16: `--no-mmap` was
+    "invalid argument" — the newer builds say `--load-mode none`); [] when its help names neither."""
+    text = help_text(server)
+    if "--load-mode" in text:
+        return ["--load-mode", "none"]
+    if "--no-mmap" in text:
+        return ["--no-mmap"]
+    return []
 
 
 def _shown(cmd: list[str]) -> str:

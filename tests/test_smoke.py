@@ -10517,10 +10517,19 @@ try:
     config.BRAIN_CACHE_RAM_MB = 0
     config.BRAIN_URL, config.NUM_CTX = "http://127.0.0.1:8770", 262144
     config.BRAIN_MMAP = False
+    _bd_help0 = _bf.help_text
+    _bf.help_text = lambda s: "--load-mode <mode>  model loading mode (default: auto)"
     _bd_cmd, _bd_said = _bf.command()
     config.BRAIN_MMAP = True
     _bd_cmd_mmap, _ = _bf.command()
     config.BRAIN_MMAP = False
+    _bf.help_text = lambda s: "--no-mmap  do not memory-map model"
+    _bd_cmd_old, _ = _bf.command()
+    _bf.help_text = lambda s: ""
+    _bd_cmd_neither, _bd_said_neither = _bf.command()
+    _bf.help_text = _bd_help0
+    _bd_help_real = _bf.help_text(_bd_srv_found)  # "MZ" is no program: no help, no crash
+    _bf.help_text = lambda s: "--load-mode <mode>  model loading mode (default: auto)"
     config.BRAIN_SLOT_DIR = str(_bd_td / "gone" / "kv")  # a RAM disk that didn't come back after a reboot: its drive isn't there
     _bd_cmd_gone, _bd_said_gone = _bf.command()
     _bd_warn_gone = _bf.slot_warning()
@@ -10542,19 +10551,24 @@ finally:
         else:
             _bd_os.environ[_k] = _v
     _bf.ROOT = _bd_root0
+    _bf.help_text = _bd_help0
     for _k, _v in _bd_cfg0.items():
         setattr(config, _k, _v)
 _bd_bl = _bd_td / "models" / "blobs"
 check("brain_find: Ollama's manifest (under OLLAMA_MODELS) names the model and projector blobs; a tag never pulled is None; no llama-server "
       "anywhere is None and the command says so; llama\\ beside the engine is found; the command carries the blobs, the window, q4_0 keys, "
-      "one slot, deepseek reasoning, BRAIN_URL's port, --no-mmap unless BRAIN_MMAP is on (the help says why), and --slot-save-path only when "
+      "one slot, deepseek reasoning, BRAIN_URL's port, --load-mode none unless BRAIN_MMAP is on (--no-mmap where the binary's help says so, "
+      "nothing and a word when it says neither; the help says why), and --slot-save-path only when "
       "BRAIN_SLOT_DIR is set; BRAIN_MODEL_FILE wins",
       _bd_blobs == (str(_bd_bl / ("sha256-" + "a" * 64)), str(_bd_bl / ("sha256-" + "b" * 64))) and _bd_none is None
       and _bd_srv_none is None and _bd_cmd_none[0] is None and "llama-server not found" in _bd_cmd_none[1]
       and _bd_srv_found == str(_bd_td / "house" / "llama" / "llama-server.exe")
       and _bd_cmd == [_bd_srv_found, "-m", _bd_blobs[0], "--mmproj", _bd_blobs[1], "-c", "262144", "-fa", "on", "-ctk", "q4_0", "-ctv", "q4_0",
-                      "-np", "1", "--reasoning-format", "deepseek", "--port", "8770", "--host", "127.0.0.1", "--no-mmap", "--slot-save-path", str(_bd_td / "kv")]
-      and _bd_cmd_mmap == [a for a in _bd_cmd if a != "--no-mmap"] and "BRAIN_MMAP" in _bd_panel._HELP and "--no-mmap" in _bd_panel._HELP["BRAIN_MMAP"]
+                      "-np", "1", "--reasoning-format", "deepseek", "--port", "8770", "--host", "127.0.0.1", "--load-mode", "none", "--slot-save-path", str(_bd_td / "kv")]
+      and _bd_cmd_mmap == [a for a in _bd_cmd if a not in ("--load-mode", "none")] and _bd_cmd_old == [a if a != "--load-mode" else "--no-mmap" for a in _bd_cmd if a != "none"]
+      and _bd_cmd_neither == _bd_cmd_mmap and "knows neither --load-mode nor --no-mmap" in _bd_said_neither and "neither" not in _bd_said
+      and _bd_help_real == "" and _bf.mmap_off_flag(_bd_srv_found) == []
+      and "BRAIN_MMAP" in _bd_panel._HELP and "--load-mode none" in _bd_panel._HELP["BRAIN_MMAP"]
       and getattr(config, "BRAIN_MMAP", None) is False
       and "Ollama's manifest" in _bd_said and _bd_cmd2[2] == str(_bd_td / "other.gguf") and "--slot-save-path" not in _bd_cmd2
       and _bd_paths[0].parts[-5:] == ("manifests", "registry.ollama.ai", "library", "gemma4", "31b-it-qat")
