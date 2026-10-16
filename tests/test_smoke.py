@@ -340,6 +340,14 @@ config.JOURNAL_CHARS_IN_PROMPT = _cap_orig
 # ----------------------------------------------------------------- tools ----
 r = tools.dispatch("write_creation", {"path": "poems/first.md", "content": "hello"})
 check("tools: write_creation", "wrote" in r, r)
+# a call cut at the seam (10-16): a path that ran into the next call's grammar is cut there, the call runs, the result says so
+# first and names the swallowed call; an argument without grammar is untouched
+_cs = tools.dispatch("write_creation", {"path": "poems/seam.md`}<tool_call|><|tool_call>call:write_journal{text:", "content": "a note, whole"})
+_cs_clean, _cs_note = tools.unseam_arguments({"path": "poems/clean.md", "content": "no grammar here, just `backticks` and {braces}"})
+check("tools: an argument that runs into tool grammar is cut at the seam, the call runs as meant, the result names the swallowed call (10-16)",
+      _cs.startswith("(your `path` ran into the call's grammar") and "`write_journal` call that followed was swallowed" in _cs
+      and "wrote" in _cs and tools.dispatch("read_creation", {"path": "poems/seam.md"}) == "a note, whole"
+      and _cs_note == "" and _cs_clean["content"].endswith("{braces}"), _cs[:300])
 r = tools.dispatch("read_creation", {"path": "poems/first.md"})
 check("tools: read_creation", r == "hello", r)
 r = tools.dispatch("append_creation", {"path": "poems/first.md", "content": "second stanza"})

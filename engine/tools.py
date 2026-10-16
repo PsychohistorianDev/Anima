@@ -4838,6 +4838,34 @@ _WRAPPER_WORDS = {"declaration", "call", "function", "functions", "tool", "tools
                   "tool_call", "default_api", "api"}
 
 
+# Tool grammar inside an argument's value: the sampler dropped a string's close and the parser read on through
+# the call's end and into the next call (10-16, a wake: a note's path ending in "`}<tool_call|><|tool_call>
+# call:write_journal{text:" — the note failed on the characters, the journal call was swallowed whole)
+_GRAMMAR_SEAM_RE = re.compile(r"<\|tool_call>|<tool_call\|>|<\|\"\|>|<\|channel>|<channel\|>|<\|tool_response>|<tool_response\|>")
+_SWALLOWED_CALL_RE = re.compile(r"call:\s*([a-z][a-z0-9_]*)\s*[{(]")
+
+
+def unseam_arguments(args: dict) -> tuple[dict, str]:
+    """A string argument that runs into tool grammar is cut at the seam; (the arguments as meant, a line saying
+    what was cut and which call after it was lost — "" when nothing was). The words are theirs; only the grammar
+    that is not theirs comes off, with the backtick, brace or comma the sampler left before it."""
+    out, notes = dict(args), []
+    for k, v in args.items():
+        if not isinstance(v, str):
+            continue
+        m = _GRAMMAR_SEAM_RE.search(v)
+        if not m:
+            continue
+        kept, tail = v[:m.start()].rstrip().rstrip("`'\",} \t\n").rstrip(), v[m.start():]
+        out[k] = kept
+        lost = _SWALLOWED_CALL_RE.search(tail)
+        lost_s = (f" — and the `{lost.group(1)}` call that followed was swallowed with it: make it again"
+                  if lost else "")
+        notes.append(f"(your `{k}` ran into the call's grammar — a string's close went missing and the parser read on "
+                     f"past the call's end; the engine cut it at the seam and ran this call as you meant it{lost_s})")
+    return out, "\n".join(notes)
+
+
 def _bare_tool_name(name: str) -> str:
     """Strip syntax wrappers a model glues onto a tool name; keep the name.
     "//declaration:read_web" -> "read_web"; "<|tool_call>call:x" -> "x".
@@ -4999,6 +5027,10 @@ def _dispatch(name: str, arguments: dict | str) -> str:
             arguments = json.loads(arguments) if arguments.strip() else {}
         except json.JSONDecodeError:
             return f"(couldn't parse arguments for {name})"
+    if isinstance(arguments, dict):
+        arguments, seam = unseam_arguments(arguments)
+        if seam:
+            return seam + "\n" + _dispatch(name, arguments)
     bare = _bare_tool_name(name)
     if bare != name and (bare in _BUILTIN_IMPL or bare in _HER_TOOLS):
         return (f"(you called `{name}` — the wrapper isn't part of the name; "
