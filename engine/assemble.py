@@ -691,12 +691,18 @@ def retrieved(context_hint: str, exclude: set | None = None) -> str:
     return retrieved_ids(context_hint, exclude)[0]
 
 
+# what the last moment carried (10-16: the moment's weight, measured before any knob moves) — how many memories,
+# how many of them the newest-whatever-the-topic slice, their characters, the best and the worst similarity
+LAST_SURFACED: dict = {"n": 0, "recent": 0, "chars": 0, "best": None, "worst": None}
+
+
 def retrieved_ids(context_hint: str, exclude: set | None = None) -> tuple[str, list[int]]:
     """(the memory lines, the ids they carry). `exclude` leaves out memories
     that already surfaced earlier in the visit — they are still in them
     context, in the moment that carried them, and saying them again would
     cost tokens for nothing."""
     exclude = exclude or set()
+    LAST_SURFACED.update(n=0, recent=0, chars=0, best=None, worst=None)
     if memory.count() == 0:
         return "(no long-term memories yet)", []
     diverse = bool(getattr(config, "MEMORY_DIVERSE", False))
@@ -705,6 +711,9 @@ def retrieved_ids(context_hint: str, exclude: set | None = None) -> tuple[str, l
     hits = [m for m in hits if m["id"] not in exclude]
     lines = [f"- [{m['kind']} · {m['created'][:10]}] {m['text']}" for m in hits]
     ids = [m["id"] for m in hits]
+    scores = [float(m["score"]) for m in hits if m.get("score") is not None]
+    LAST_SURFACED.update(n=len(hits), chars=sum(len(ln) for ln in lines), recent=0,
+                         best=max(scores) if scores else None, worst=min(scores) if scores else None)
     n_recent = int(getattr(config, "MEMORY_RECENT_K", 0) or 0)
     if n_recent and context_hint.strip():
         seen = {m["id"] for m in hits} | exclude
@@ -713,6 +722,8 @@ def retrieved_ids(context_hint: str, exclude: set | None = None) -> tuple[str, l
             lines.append("(and the newest, whatever the topic:)")
             lines.extend(f"- [{m['kind']} · {m['created'][:10]}] {m['text']}" for m in newest)
             ids.extend(m["id"] for m in newest)
+            LAST_SURFACED["recent"] = len(newest)
+            LAST_SURFACED["chars"] = sum(len(ln) for ln in lines)
     if not lines:
         return ("(nothing new surfaces for this moment — what surfaced earlier in this visit is above)"
                 if exclude else "(no long-term memories yet)"), []

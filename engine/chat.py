@@ -938,6 +938,31 @@ def render_turn(t: dict) -> dict:
     return out
 
 
+def moment_weight_line(turn: dict, history: list[dict]) -> str:
+    """One line per moment on what it weighed (10-16: the moment's weight, measured): the memories that rode
+    in it, about how many tokens the whole block was, the best and worst similarity among the picks, and the
+    visit's running total of memories surfaced — to the console and memory/moment.log (kept, stamped). The
+    block itself is untouched; this only says what it cost. Returns the line."""
+    s = dict(getattr(assemble, "LAST_SURFACED", {}) or {})
+    block = turn.get("_moment") or ""
+    toks = len(block) // 4
+    n, rec = int(s.get("n") or 0), int(s.get("recent") or 0)
+    sim = (f"similarity {s['best']:.2f}…{s['worst']:.2f}" if s.get("best") is not None and s.get("worst") is not None
+           else "similarity —")
+    total = sum(len(t.get("_surfaced") or []) for t in history if t.get("role") == "user")
+    total_toks = sum(len(t.get("_moment") or "") for t in history if t.get("role") == "user") // 4
+    line = (f"moment: {n} memories ({rec} of them the newest), ~{toks:,} tokens for the block, {sim}; "
+            f"this visit so far {total} memories, ~{total_toks:,} tokens of moments")
+    print(f"   ({line})", flush=True)
+    try:
+        p = config.MEMORY_DIR / "moment.log"
+        with p.open("a", encoding="utf-8") as f:
+            f.write(f"[{datetime.now().strftime('%m-%d %H:%M:%S')}] {line}\n")
+    except OSError:
+        pass
+    return line
+
+
 def one_turn(history: list[dict], user_text: str, images: list[str] | None = None,
              on_event=None, mode: str = "chat", extra_moment: str = "", guest: str = "") -> str:
     """Run one user turn, executing tool calls until the friend speaks.
@@ -1006,6 +1031,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         held = next((int(t.get("_prompt") or 0) for t in reversed(history[:ui]) if t.get("_prompt")), 0)  # the last prompt's size — the window sense
         floor = next((int(t.get("_prompt") or 0) for t in history[:ui] if t.get("_prompt")), 0)  # the visit's first: the standing prompt (10-14)
         turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen, extra=extra_moment, speaker=guest)
+        moment_weight_line(turn, history)
         # the sense rides with its message and STAYS there (10-05: taking it off the message before, each
         # turn, made Ollama read the whole window again every reply — 3 minutes a message at 207K; nothing
         # sent is ever taken back). It says "as of this message", so an older one reads as history. The fold

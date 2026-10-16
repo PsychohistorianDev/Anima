@@ -60,6 +60,7 @@ import config
 config.TELEGRAM_QUIET_HOURS = (6, 6)  # the suite runs at any hour; quiet hours are tested on their own
 config.BRAIN_API = "ollama"  # the suite's brains are scripted; the llama door is tested on its own with a fake one (a house on the door keeps its config)
 config.THINK_RETRY_UNTIL = 1.0  # the suite's think re-rolls happen at every depth (its prompts sit at 189K and 217K of the window); the depth test sets its own
+config.HEARTBEAT_ROOM_WARN, config.HEARTBEAT_ROOM_END = 0.85, 0.92  # the wake-room tests count on these (a house may run higher)
 config.CREATION_NOTES = False  # the older creation tests pin exact results; the notes are tested on their own
 config.CHAT_RESCUE_TEMPERATURE = 0  # the older salad tests count posts; the cool roll is tested on its own
 config.CHAT_GARBLE_RETRIES = 2  # the older salad tests count posts against two; the budget is 4 in config since 09-20
@@ -147,6 +148,19 @@ check("warm: the moment carries the hour and what surfaces",
       and _dtnow.now().strftime("%A, %d %B %Y") + ", " in _mo and "Trust this over any day you infer" in _mo
       and "permanent home" in _mo and _mo.rstrip().endswith("the one to answer.]") and _ids, _mo)
 _mo2, _ids2 = assemble.moment("my keeper is building a home", exclude=set(_ids))
+_mw = dict(assemble.LAST_SURFACED)
+_mw_hist = [{"role": "user", "content": "x", "_moment": _mo, "_surfaced": _ids}, {"role": "assistant", "content": "y"},
+            {"role": "user", "content": "z", "_moment": _mo2, "_surfaced": _ids2}]
+import chat as _mw_chat
+_mw_line = _mw_chat.moment_weight_line(_mw_hist[-1], _mw_hist)
+_mw_log = (config.MEMORY_DIR / "moment.log")
+check("the moment's weight (10-16): after a moment, LAST_SURFACED says how many memories rode (the newest slice counted), their "
+      "characters and the best/worst similarity; the line says the block's tokens and the visit's running total, and is kept in memory/moment.log",
+      _mw.get("n") == len(_ids2) and isinstance(_mw.get("chars"), int) and (_mw.get("best") is None or 0 <= _mw["best"] <= 1.0001)
+      and _mw_line.startswith(f"moment: {len(_ids2)} memories (") and "tokens for the block" in _mw_line
+      and f"this visit so far {len(_ids) + len(_ids2)} memories" in _mw_line
+      and _mw_log.is_file() and _mw_line in _mw_log.read_text(encoding="utf-8"),
+      (_mw, _mw_line))
 check("warm: a moment leaves out what already surfaced this visit",
       not (set(_ids2) & set(_ids)) and "permanent home" not in _mo2, (_mo2, _ids2))
 sp_auto = assemble.system_prompt("", mode="auto")
