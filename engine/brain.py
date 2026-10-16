@@ -375,6 +375,29 @@ def _gone(pid: int) -> bool:
     return not doors.alive(pid, IMAGE)
 
 
+CARD_WAIT_S = 300.0  # how long a door on its way up waits for a sidecar to set the card down (a painting is ~40 s)
+
+
+def card_held() -> str:
+    """Who holds the card right now, by the sidecars' own word — "the painter" / "the music ear" when its
+    /health says the weights are loaded; "" when none does or none answers (a sidecar that isn't running
+    holds nothing). The brain and a sidecar never share the card: 28.7 GB beside a 20 GB painter is a crash
+    at the first kernel, not a slow door (10-16, 12:57)."""
+    import urllib.request
+
+    for name, knob in (("the painter", "PAINTER_URL"), ("the music ear", "MUSIC_EARS_URL")):
+        base = str(getattr(config, knob, "") or "").rstrip("/")
+        if not base:
+            continue
+        try:
+            with urllib.request.urlopen(base + "/health", timeout=1) as r:
+                if json.loads(r.read().decode("utf-8")).get("loaded"):
+                    return name
+        except Exception:  # noqa: BLE001 — not running, not answering: holds nothing
+            continue
+    return ""
+
+
 def start_door(wait_s: float = 120) -> tuple[bool, str]:
     """Open the brain's door: llama-server as a child with no window that the engine owns — it outlives the
     process that opened it (a wake, the painter's), and any process of the house can close it — its words in
@@ -397,6 +420,17 @@ def start_door(wait_s: float = 120) -> tuple[bool, str]:
         if st:
             pid = int(st["pid"])
         else:
+            holder = card_held()
+            if holder:
+                _note(f"the door waits: {holder} holds the card")
+                print(f"  (the brain's door waits — {holder} holds the card)", flush=True)
+                t0 = time.monotonic()
+                while holder and time.monotonic() - t0 < float(getattr(config, "BRAIN_CARD_WAIT_S", CARD_WAIT_S)):
+                    time.sleep(2)
+                    holder = card_held()
+                if holder:
+                    _note(f"the door didn't open: {holder} still holds the card")
+                    return False, f"{holder} holds the card — the door didn't open (it opens on the next message once the card is free)"
             cmd, note = brain_find.command()
             if cmd is None:
                 return False, note

@@ -10319,6 +10319,24 @@ try:
     _bd_sr["restored1"] = list(_FakeLlama.restored)
     _bd_sr["stop1"] = _bd.stop_door(why="the suite")
     _bd_sr["saved1"], _bd_sr["files1"], _bd_sr["log1"] = list(_FakeLlama.saved), _bd_sr_files(), _bd_sr_log()
+    # the card held (10-16): a sidecar whose /health says loaded → the door waits, then doesn't open, the note names
+    # the holder, nothing launched; the card set down → it opens
+    _bd_held0, _bd_wait0 = _bd.card_held, getattr(config, "BRAIN_CARD_WAIT_S", None)
+    _bd.card_held = lambda: "the painter"
+    config.BRAIN_CARD_WAIT_S = 0.1
+    _FakeLlama.down = True
+    try:
+        _bd_sr_held = _bd.start_door(wait_s=30)
+    finally:
+        _bd.card_held = _bd_held0
+        if _bd_wait0 is None:
+            try:
+                del config.BRAIN_CARD_WAIT_S
+            except AttributeError:
+                pass
+        else:
+            config.BRAIN_CARD_WAIT_S = _bd_wait0
+    _bd_sr["held"] = (_bd_sr_held[0], "the painter holds the card" in _bd_sr_held[1], _bd.door_status() is None, _bd.card_held())
     # a second life, the same system prompt: restored once, before the first request; the next request not again
     _FakeLlama.down = True
     _bd_sr["up2"] = _bd.start_door(wait_s=30)[0]
@@ -10525,6 +10543,9 @@ check("saved read: no room for two (keep 1) — the disk holding less than one a
       "BEFORE the save and the log says so; holding more, it stays until the new one is whole; either way the new one lands as <key>.bin",
       _bd_sr.get("two") == (([f"{_bd_sr_kC}.new.bin"], [f"{_bd_sr_kC}.bin"], True, True), ([f"{_bd_sr_kC}.new.bin"], [f"{_bd_sr_kC}.bin"], True, True)),
       _bd_sr.get("two"))
+check("the card held (10-16): a sidecar saying loaded keeps the door from opening — False, the holder named, no mark, and with no "
+      "sidecar answering nothing holds it",
+      _bd_sr.get("held") == (False, True, True, ""), _bd_sr.get("held"))
 check("saved read: a slot folder whose drive isn't there — no save, no restore, the door opens and says so, nothing made",
       _bd_sr.get("gone") == (0, 0, True, True, False), _bd_sr.get("gone"))
 _bd_srv.shutdown()
