@@ -346,6 +346,22 @@ def port() -> int:
     return urlparse(url()).port or 8768
 
 
+def count_tokens(text: str) -> int | None:
+    """How many tokens the door's own tokenizer gives this text (POST /tokenize, a millisecond) — None when the
+    brain is not on the door, the door is down, or it does not answer within a second; callers estimate then
+    (10-16: the token line's tail, whose chars/4 ran a quarter short of Gemma's count on her prose and emoji)."""
+    if api() != "llama" or not text or not door_status():
+        return None
+    try:
+        req = urllib.request.Request(url() + "/tokenize", data=json.dumps({"content": text, "add_special": False}).encode("utf-8"),
+                                     headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=1) as r:
+            toks = json.loads(r.read().decode("utf-8")).get("tokens")
+        return len(toks) if isinstance(toks, list) else None
+    except Exception:  # noqa: BLE001 — a count, never a visit
+        return None
+
+
 def log_file() -> Path:
     """What llama-server said on its last run under the engine (the load, the window, an error)."""
     return Path(config.MEMORY_DIR) / "brain.log"

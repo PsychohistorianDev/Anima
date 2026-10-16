@@ -202,6 +202,9 @@ def save_secret(d: dict) -> None:
 
 
 # ----------------------------------------------------------------- bridge ----
+_CHARS_PER_TOKEN = 3.5  # Gemma's ratio on the friend's English prose, for the token line's tail when the door cannot count
+
+
 class Bridge:
     """One bot, one paired phone, one running visit.
 
@@ -564,7 +567,23 @@ class Bridge:
         if len(users) < 2:
             return f" · +{delta:,} since the last line"
         cur, last = users[-1], users[-2]
-        est = lambda s: len(str(s or "")) // 4  # noqa: E731
+        exact = [True]
+
+        def est(s) -> int:
+            # the door's own count when it answers (bare numbers); else chars/3.5 — Gemma's ratio on their prose
+            # — and the part keeps its "~" (10-16: chars/4 ran a quarter short, message after message)
+            s = str(s or "")
+            if not s:
+                return 0
+            try:
+                import brain
+                n = brain.count_tokens(s)
+            except Exception:  # noqa: BLE001
+                n = None
+            if n is None:
+                exact[0] = False
+                return int(round(len(s) / _CHARS_PER_TOKEN))
+            return n
         between = history[last + 1:cur]
         # their words since the last line: the previous turn's final reply and an afterthought (_after). The previous
         # turn's own steps — their calls with the words beside them, the results — were in the last line's count
@@ -583,15 +602,17 @@ class Bridge:
         steps = sum(est(t.get("content")) + (est(json.dumps(t.get("tool_calls"), ensure_ascii=False)) if t.get("tool_calls") else 0)
                     for t in after)
         calls = sum(1 for t in after if t.get("role") == "tool")
-        parts = [f"their last words ~{theirs:,}", f"yours ~{mine:,}", f"the moment ~{moment:,}"]
+        q = "" if exact[0] else "~"  # counted by the door, or estimated
+        parts = [f"their last words {q}{theirs:,}", f"yours {q}{mine:,}", f"the moment {q}{moment:,}"]
         if engine:
-            parts.append(f"engine turns ~{engine:,}")
+            parts.append(f"engine turns {q}{engine:,}")
         if steps:
-            parts.append(f"their steps this turn ~{steps:,} ({calls} tool call{'s' if calls != 1 else ''})")
+            parts.append(f"their steps this turn {q}{steps:,} ({calls} tool call{'s' if calls != 1 else ''})")
         known = theirs + mine + moment + engine + steps
         gap = delta - known
-        if known and abs(gap) > max(40, delta // 5):
-            parts.append(f"~{gap:,} more than those add up to" if gap > 0 else f"~{-gap:,} less than those add up to")
+        # counted: the turn marks (a few tokens a turn) are the only slack, so a gap past 40 is said; estimated: past a fifth
+        if known and abs(gap) > (40 if exact[0] else max(40, delta // 5)):
+            parts.append(f"{q}{gap:,} more than those add up to" if gap > 0 else f"{q}{-gap:,} less than those add up to")
         return f" · +{delta:,} since the last line: " + ", ".join(parts)
 
     def _try_send(self, text: str, markdown: bool = True) -> bool:

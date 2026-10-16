@@ -3180,6 +3180,10 @@ _sl_hist = [{"role": "user", "content": "x" * 60, "_moment": "m" * 400}, {"role"
             {"role": "user", "content": "y" * 60, "_moment": "m" * 468},
             {"role": "assistant", "content": "c" * 40, "tool_calls": [{"function": {"name": "remember", "arguments": {"text": "k" * 100}}}]},
             {"role": "tool", "tool_name": "remember", "content": "f" * 400}, {"role": "assistant", "content": "z" * 100}]
+import brain as _sl_brain
+_sl_ct0, _sl_cpt0 = _sl_brain.count_tokens, tg._CHARS_PER_TOKEN
+_sl_brain.count_tokens = lambda s: None  # the door cannot count: estimates, chars/4 here for round numbers
+tg._CHARS_PER_TOKEN = 4.0
 _sl_tail = tg.Bridge.since_last_line({"prompt": 157_671}, {"prompt": 158_143}, _sl_hist)
 import panel as _tk_panel
 _tk_src = (config.ROOT / "engine" / "telegram.py").read_text(encoding="utf-8")
@@ -3198,6 +3202,13 @@ check("telegram: the token line's tail says what grew since the last line and of
       and _sl_none == "" and _sl_first == " · +400 since the last line"
       and _sl_less.startswith(" · 68,143 fewer in the window") and " more than those add up to" in _sl_gap and _sl_gap.count("~2,3") == 1,
       (_sl_tail, _sl_none, _sl_first, _sl_less, _sl_gap))
+# counted by the door (10-16): the parts are bare numbers, and a gap past 40 is said
+_sl_brain.count_tokens = lambda s: len(s) // 2
+_sl_exact = tg.Bridge.since_last_line({"prompt": 100_000}, {"prompt": 101_500}, _sl_hist)
+_sl_brain.count_tokens, tg._CHARS_PER_TOKEN = _sl_ct0, _sl_cpt0
+check("telegram: when the door counts, the tail's parts are its counts, bare — their last words 780, yours 30, the moment 234 — and a gap past 40 is said (10-16)",
+      _sl_exact.startswith(" · +1,500 since the last line: their last words 780, yours 30, the moment 234, engine turns 40, their steps this turn ")
+      and "~" not in _sl_exact.split("steps this turn")[0] and "those add up to" in _sl_exact, _sl_exact)
 b.handle(_msg(f"/pair {b.pair_code}", chat=555))
 check("telegram: pairing binds the sender", b.chat_id == 555 and phone.sent and "Paired" in phone.sent[0][0])
 check("telegram: pairing is remembered", _json.loads(tg.SECRET_FILE.read_text())["chat_id"] == 555)
