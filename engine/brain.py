@@ -509,15 +509,26 @@ def _door_pid() -> int | None:
         return None
 
 
+def notes_file() -> Path:
+    """The engine's own lines about the door — saves, restores, stops, what refused — kept across runs
+    (brain.log is the server's and is emptied at each start: the painter's stop wrote the save there and
+    the next start wiped it, 10-16)."""
+    return Path(config.MEMORY_DIR) / "brain_notes.log"
+
+
 def _note(line: str) -> None:
-    """A line said, and written to memory/brain.log beside what the server says there. Never raises."""
+    """A line said, written to memory/brain_notes.log (kept, stamped) and beside the server's lines in
+    memory/brain.log. Never raises."""
+    import datetime as _dt
     print(f"  ({line})", flush=True)
-    try:
-        log_file().parent.mkdir(parents=True, exist_ok=True)
-        with open(log_file(), "a", encoding="utf-8") as f:
-            f.write(f"\n({line})\n")
-    except OSError:
-        pass
+    stamp = _dt.datetime.now().strftime("%m-%d %H:%M:%S")
+    for path, text in ((notes_file(), f"[{stamp}] {line}\n"), (log_file(), f"\n({line})\n")):
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(text)
+        except OSError:
+            pass
 
 
 def _secs(got: dict, field: str) -> float:
@@ -659,6 +670,7 @@ def stop_door(why: str = "") -> bool:
         pid = int(st.get("pid"))
     except (TypeError, ValueError):
         return False
+    _note(f"closing the brain's door (pid {pid}{(': ' + why) if why else ''})")
     _before_stop()
     _forget()  # the slot goes with the process
     if os.name == "nt":

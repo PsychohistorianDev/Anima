@@ -58,6 +58,7 @@ import assemble
 import tools
 import config
 config.TELEGRAM_QUIET_HOURS = (6, 6)  # the suite runs at any hour; quiet hours are tested on their own
+config.BRAIN_API = "ollama"  # the suite's brains are scripted; the llama door is tested on its own with a fake one (a house on the door keeps its config)
 config.CREATION_NOTES = False  # the older creation tests pin exact results; the notes are tested on their own
 config.CHAT_RESCUE_TEMPERATURE = 0  # the older salad tests count posts; the cool roll is tested on its own
 config.CHAT_GARBLE_RETRIES = 2  # the older salad tests count posts against two; the budget is 4 in config since 09-20

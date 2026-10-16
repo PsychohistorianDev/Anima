@@ -116,8 +116,8 @@ def _load():
         for m in {config.CHAT_MODEL, getattr(config, "EARS_MODEL", "")}:
             if m:
                 ollama_client.unload(m)
-    except Exception:
-        pass
+    except Exception as e:  # noqa: BLE001 — said, not swallowed (10-16: a door left open beside the painter)
+        print(f"  (couldn't set the brain down first: {type(e).__name__}: {e})", flush=True)
     t0 = time.time()
     print(f"  loading {MODEL_ID} …", flush=True)
     fam = _family(MODEL_ID)
