@@ -741,6 +741,13 @@ def _before_stop() -> None:
     closed all the same."""
     folder = key = None
     try:
+        try:
+            import brain_find
+            made = brain_find.ensure_slot_dir()  # the drive back after a remount, the folder gone with the old volume (10-16)
+            if made:
+                _note(made + " before the save")
+        except Exception:  # noqa: BLE001 — the save goes on with what is there
+            pass
         folder, key = slot_dir(), _served_now()
         if folder is None or not key or not awake():
             _note("nothing to save before the stop: " + ("no slot folder (BRAIN_SLOT_DIR empty or missing)" if folder is None

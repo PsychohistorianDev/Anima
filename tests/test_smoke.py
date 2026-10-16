@@ -10495,6 +10495,20 @@ try:
         (_bd.Path(config.MEMORY_DIR) / ".pids" / _bd.BPT_NAME).write_text("0.000001", encoding="utf-8")
     _bd_sr["noroom"] = (_bd_sr_tok > 0, _bd_sr_noroom, _bd_sr_relearn)
     config.BRAIN_SLOT_KEEP = 3
+    # the folder gone while the door is up (a RAM disk remounted: the drive there, the folder not) — made again right
+    # before the save, the save goes (10-16)
+    config.BRAIN_SLOT_DIR = str(_bd_sr_td / "redrive" / "kv")
+    (_bd_sr_td / "redrive" / "kv").mkdir(parents=True)
+    _FakeLlama.down = True
+    _bd.start_door(wait_s=30)
+    _bd_sr_ask(_bd_sr_A)
+    __import__("shutil").rmtree(_bd_sr_td / "redrive" / "kv")  # the remount: the folder gone, the drive there
+    _bd_sr_n = len(_FakeLlama.saved)
+    _bd_sr_l5 = len(_bd_sr_notes())
+    _bd.stop_door(why="the suite")
+    _bd_sr["refolder"] = (len(_FakeLlama.saved) - _bd_sr_n, (_bd_sr_td / "redrive" / "kv").is_dir(),
+                          "made the slot folder" in _bd_sr_notes()[_bd_sr_l5:] and "before the save" in _bd_sr_notes()[_bd_sr_l5:])
+    config.BRAIN_SLOT_DIR = str(_bd_sr_kv)
     # the folder's drive gone (a RAM disk not back after a reboot): no save, no restore, the door says so
     config.BRAIN_SLOT_DIR = str(_bd_sr_td / "nodrive" / "kv")
     _bd_sr_n = (len(_FakeLlama.saved), len(_FakeLlama.restored))
@@ -10588,6 +10602,9 @@ check("saved read: the size known before the write (10-16) — the slot's tokens
       _bd_sr.get("noroom") == (True, ([], [], True, True), ([f"{_bd_sr_kC}.bin"], True)), _bd_sr.get("noroom"))
 check("saved read: a slot folder whose drive isn't there — no save, no restore, the door opens and says so, nothing made",
       _bd_sr.get("gone") == (0, 0, True, True, False), _bd_sr.get("gone"))
+check("saved read: the slot folder gone while the door is up (a RAM disk remounted — the drive there, the folder not) is made again right "
+      "before the save, the note says so, and the save goes (10-16)",
+      _bd_sr.get("refolder") == (1, True, True), _bd_sr.get("refolder"))
 _bd_srv.shutdown()
 _bf.command = _bd_find0
 
