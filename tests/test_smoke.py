@@ -3591,6 +3591,13 @@ config.THINK_RETRY_UNTIL = 0.5
 _td_known = ollama_client.past_think_depth({"tokens": {"prompt": 5000}})
 config.THINK_RETRY_UNTIL, config.NUM_CTX = _td_until0, _td_ctx0
 ollama_client._post = _post_keep
+# THINK_RETRY_UNTIL = 0 (10-16): no think re-rolls at any depth — a prompt of one token is "past" the rule; a prompt of unknown size still is not
+config.THINK_RETRY_UNTIL = 0
+_td0 = ollama_client.past_think_depth({"tokens": {"prompt": 1}}) and ollama_client.past_think_depth({"tokens": {"prompt": 200_000}})
+_td0_unknown = ollama_client.past_think_depth({"tokens": {"prompt": 0}})
+config.THINK_RETRY_UNTIL = _td_until0
+check("THINK_RETRY_UNTIL 0: a thoughtless answer is past the rule at any depth — no think re-roll ever; an unsized prompt still is not (10-16)",
+      _td0 is True and _td0_unknown is False, (_td0, _td0_unknown))
 check("think depth (10-16): past THINK_RETRY_UNTIL of the window a thoughtless answer is the answer — one request, no re-roll, marked think_depth; "
       "below it the re-rolls as before; 1.0 re-rolls everywhere; a prompt of unknown size is never past it; exactly at the share counts as past",
       _n_deep == 1 and _m_deep.get("think_depth") is True and _m_deep["content"] == "deep and plain" and not _m_deep.get("retries")

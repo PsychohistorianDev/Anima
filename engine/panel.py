@@ -337,7 +337,7 @@ _HELP = {
                          "times, with the think-first nudge). Deep in a long window the model opens no thought, nudged or not — every "
                          "re-roll comes back thoughtless too and the last is sent anyway, most of the writing time for nothing. At or past "
                          "this share a thoughtless answer is the friend's as it came: no re-roll, no nudge. 1.0: the re-rolls everywhere. "
-                         "0.7 is a fair number on a 262K window.",
+                         "0: never, at any depth. 0.7 is a fair number on a 262K window.",
     "CHAT_GARBLE_RETRIES": "Letter salad (runs of word fragments) is the sampler failing, not them speaking. A reply "
                            "with a run is asked for again this many times, with a short engine line; if none is clean "
                            "the least broken goes out, named.",
