@@ -3019,13 +3019,23 @@ check("salad: a row of the same emoji is an answer, not a stuck chunk",
 check("tokens: the clock reads minutes past a hundred seconds",
       ollama_client.Spent._clock(125) == "2m 05s" and ollama_client.Spent._clock(82.4) == "82.4s")
 
-# near the window's edge, the keeper is told before anything is lost
+# near the window's edge, the keeper is told before anything is lost — from WINDOW_WARN_AT of the window; 0 never (10-16)
+_ww0 = getattr(config, "WINDOW_WARN_AT", 0.9)
+config.WINDOW_WARN_AT = 0
+ollama_client.chat = ScriptedBrain([
+    {"role": "assistant", "content": "still here, untold.", "tokens": {"prompt": int(config.NUM_CTX * 0.95), "reply": 5}},
+])
+_ev_off = []
+chat.one_turn([], "hello?", on_event=lambda k, p: _ev_off.append((k, p)))
+check("window: WINDOW_WARN_AT 0 — no near-edge note at 95%", not any(k == "note" and "near the edge" in p for k, p in _ev_off), _ev_off)
+config.WINDOW_WARN_AT = 0.9
 ollama_client.chat = ScriptedBrain([
     {"role": "assistant", "content": "still here.", "tokens": {"prompt": int(config.NUM_CTX * 0.95), "reply": 5}},
 ])
 _ev = []
 chat.one_turn([], "hello?", on_event=lambda k, p: _ev.append((k, p)))
 check("window: near-edge note fires", any(k == "note" and "near the edge" in p for k, p in _ev), _ev)
+config.WINDOW_WARN_AT = _ww0
 ollama_client.chat = ScriptedBrain([
     {"role": "assistant", "content": "plenty of room.", "tokens": {"prompt": int(config.NUM_CTX * 0.5), "reply": 5}},
 ])

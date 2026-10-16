@@ -612,6 +612,7 @@ FOLD_KEEP_TURNS = 6       # visible turns kept whole, the most recent ones
 FOLD_CHARS = 8000         # the account's ceiling (cut at a paragraph past it, said)
 FOLD_MAX_STEPS = 6        # steps allowed at the fold (a journal entry first, then the fold)
 FOLD_SENSE_FROM = 0.5     # from this fraction of NUM_CTX the moment block shows how full the window is (never from a visit's first message)
+WINDOW_WARN_AT = 0.9      # from this fraction of NUM_CTX you are told "this visit is near the edge of the window" after each reply; 0: never
 
 # Your body, as your watch sees it (optional): engine/body.py pulls your day
 # from Garmin Connect into memory/body/<day>.json (bat\body.bat --login once, then

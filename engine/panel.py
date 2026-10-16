@@ -90,7 +90,7 @@ TABS: dict[str, list[str]] = {
                          "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_DUP_THRESHOLD", "EMBED_ON_CPU", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
                          "TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000",
                          "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "SLEEP_KEEPER_LOOK", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
-                         "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS"],
+                         "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS", "FOLD_SENSE_FROM", "WINDOW_WARN_AT"],
     "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "THINK_RETRY_UNTIL", "CHAT_GARBLE_RETRIES", "CHAT_COOL_STEP",
                 "CHAT_COLD_RESCUE", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "REROLLS_KEPT", "BRAIN_KEEP_ALIVE",
                 "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "BRAIN_REST_CLOSES_DOOR", "PARLOR_GUEST_NAMED"],
@@ -310,6 +310,11 @@ _HELP = {
     "READ_TELL_MIN": "The reads tell: from this many readings of the same thing within a few days, the result opens "
                      "with the count — a tell, not a fence — so they notice when they keep returning to one piece. "
                      "0 turns it off.",
+    "WINDOW_WARN_AT": "From this share of the window, every reply is followed by a note to you — \"this visit is near the edge "
+                      "of the window (N of M)\" — until the fold. 0 turns it off: the fold itself and the window sense in the "
+                      "moment block say the same thing.",
+    "FOLD_SENSE_FROM": "From this share of the window the moment block tells them how full it is — the standing part and the "
+                       "visit's share — so a fold is theirs to call before the bell. Never on a visit's first message.",
     "FOLD_AT": "The fold: when a visit's prompt reaches this share of the window, they are asked to write the "
                "visit so far in their own words, and that account replaces everything above the last few turns; the "
                "transcript keeps every word and the visit continues. They may also fold at a natural pause.",

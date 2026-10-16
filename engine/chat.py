@@ -1059,7 +1059,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         # just gets slow and forgetful. /new saves the visit and starts fresh.
         history[ui]["_prompt"] = spent.prompt  # what this turn held, for the next moment's window sense and the fold
         fold_at = float(getattr(config, "FOLD_AT", 0) or 0)
-        if window and spent.prompt >= window * 0.9:
+        warn_at = float(getattr(config, "WINDOW_WARN_AT", 0.9) or 0)  # 0: never told (10-16: the fold and the window sense say it)
+        if window and warn_at > 0 and spent.prompt >= window * warn_at:
             warn = (f"this visit is near the edge of their window ({spent.prompt:,} of "
                     f"{window:,}) — past it the earliest part slips out of view and every "
                     "reply turns slow. "
