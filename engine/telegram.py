@@ -1859,8 +1859,57 @@ class Bridge:
             self.new_visit(quiet=True)
         else:
             self.pause_if_due()
+        self.idle_set_down_if_due()
         self.night_if_due()
         return n
+
+    @staticmethod
+    def keep_alive_minutes() -> float:
+        """BRAIN_KEEP_ALIVE as minutes — "30m", "2h", "90s", a bare number of seconds (Ollama's own forms);
+        0 for off (-1, 0, empty, unreadable)."""
+        raw = str(getattr(config, "BRAIN_KEEP_ALIVE", "") or "").strip().lower()
+        if not raw or raw.startswith("-"):
+            return 0.0
+        try:
+            if raw.endswith("h"):
+                return float(raw[:-1]) * 60
+            if raw.endswith("m"):
+                return float(raw[:-1])
+            if raw.endswith("s"):
+                return float(raw[:-1]) / 60
+            return float(raw) / 60
+        except ValueError:
+            return 0.0
+
+    def idle_set_down_if_due(self) -> bool:
+        """The door's keep-alive (10-16): under the door with BRAIN_REST_CLOSES_DOOR, BRAIN_KEEP_ALIVE of quiet in
+        the visit with the door up → the brain set down once (the reading saved, the door closed, the visit
+        open); the next message opens it again. Under Ollama the server's own keep-alive does this."""
+        mins = self.keep_alive_minutes()
+        if not mins or not self.history or time.time() - self.last_activity < mins * 60:
+            return False
+        if not self._pause_sets_down():
+            return False
+        if getattr(self, "_idle_down_at", 0.0) >= self.last_activity:
+            return False  # once per quiet stretch
+        try:
+            import brain
+            if not brain.door_status():
+                self._idle_down_at = time.time()
+                return False  # down already (a pause, a painting, the panel)
+        except Exception:  # noqa: BLE001
+            return False
+        got = self.lock.acquire(timeout=3)
+        if not got:
+            return False  # mid-reply: not now
+        try:
+            self._idle_down_at = time.time()
+            self._set_down()
+        finally:
+            self.lock.release()
+        if getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
+            self.notice(f"(quiet for {mins:g} minutes — the brain is set down, the card is free; the next message opens the door again)")
+        return True
 
     def afterglow_orphan(self) -> str:
         """A visit the last bridge died with — a power cut (09-24), the

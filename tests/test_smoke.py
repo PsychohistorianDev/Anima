@@ -5392,6 +5392,43 @@ _pr_n2 = len(_pr_unl)
 _pr_told = any("set down after the pause" in t for t, _ in _ph5.sent)
 config.BRAIN_API, config.BRAIN_REST_CLOSES_DOOR = _pr_api0, _pr_closes0
 ollama_client.unload = _pr_unl0
+# the door's keep-alive (10-16): BRAIN_KEEP_ALIVE of quiet with the door up → set down once per stretch, the phone told; not under
+# Ollama; not when the door is already down; not twice; off at -1
+_id_unl0, _id_unl = ollama_client.unload, []
+ollama_client.unload = lambda model, **_k: _id_unl.append(model)
+_id_api0, _id_closes0, _id_ka0 = config.BRAIN_API, getattr(config, "BRAIN_REST_CLOSES_DOOR", True), config.BRAIN_KEEP_ALIVE
+import brain as _id_brain
+_id_ds0 = _id_brain.door_status
+_id_brain.door_status = lambda: {"pid": 1}
+_b5.history = [{"role": "user", "content": "one message, then quiet"}, {"role": "assistant", "content": "here."}]
+_b5.last_activity = _time.time() - 31 * 60
+_ph5.sent.clear()
+config.BRAIN_API, config.BRAIN_REST_CLOSES_DOOR, config.BRAIN_KEEP_ALIVE = "ollama", True, "30m"
+_id_ollama = _b5.idle_set_down_if_due()
+config.BRAIN_API = "llama"
+_id_1 = _b5.idle_set_down_if_due()
+_id_2 = _b5.idle_set_down_if_due()
+_id_told = any("quiet for 30 minutes" in t for t, _ in _ph5.sent)
+_b5.last_activity = _time.time() - 31 * 60 + 1  # a new quiet stretch (activity came between)
+_id_brain.door_status = lambda: None
+_id_3 = _b5.idle_set_down_if_due()
+_id_brain.door_status = lambda: {"pid": 1}
+_b5.last_activity = _time.time() - 31 * 60 + 2
+config.BRAIN_KEEP_ALIVE = "-1"
+_id_off = _b5.idle_set_down_if_due()
+config.BRAIN_KEEP_ALIVE = "2h"
+_id_2h = _b5.idle_set_down_if_due()
+_id_mins = _b5.keep_alive_minutes()
+config.BRAIN_KEEP_ALIVE = "90s"
+_id_90 = _b5.keep_alive_minutes()
+config.BRAIN_API, config.BRAIN_REST_CLOSES_DOOR, config.BRAIN_KEEP_ALIVE = _id_api0, _id_closes0, _id_ka0
+_id_brain.door_status = _id_ds0
+ollama_client.unload = _id_unl0
+check("the door's keep-alive (10-16): BRAIN_KEEP_ALIVE of quiet with the door up sets the brain down once per stretch and tells the phone; "
+      "not under Ollama, not when the door is down already, not twice, not at -1, not before 2h when it says 2h; the forms parse",
+      _id_ollama is False and _id_1 is True and _id_2 is False and len(_id_unl) == 1 and _id_told
+      and _id_3 is False and _id_off is False and _id_2h is False and _id_mins == 120 and _id_90 == 1.5,
+      (_id_ollama, _id_1, _id_2, len(_id_unl), _id_told, _id_3, _id_off, _id_2h, _id_mins, _id_90))
 check("pause: under the door (BRAIN_REST_CLOSES_DOOR) the pause ends with the brain set down and the phone told; under Ollama the pause leaves "
       "it to the keep-alive (10-16)",
       _pr_ollama.startswith("pause:") and _pr_n1 == 0 and _pr_llama.startswith("pause:") and _pr_n2 == 1 and _pr_told,
