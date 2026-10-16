@@ -3181,6 +3181,12 @@ _sl_hist = [{"role": "user", "content": "x" * 60, "_moment": "m" * 400}, {"role"
             {"role": "assistant", "content": "c" * 40, "tool_calls": [{"function": {"name": "remember", "arguments": {"text": "k" * 100}}}]},
             {"role": "tool", "tool_name": "remember", "content": "f" * 400}, {"role": "assistant", "content": "z" * 100}]
 _sl_tail = tg.Bridge.since_last_line({"prompt": 157_671}, {"prompt": 158_143}, _sl_hist)
+import panel as _tk_panel
+_tk_src = (config.ROOT / "engine" / "telegram.py").read_text(encoding="utf-8")
+check("config: the tail rides by TELEGRAM_TOKENS_SINCE_LAST (10-16), on by default, in the Phone tab with help; the bridge asks it",
+      getattr(config, "TELEGRAM_TOKENS_SINCE_LAST", None) is True and "TELEGRAM_TOKENS_SINCE_LAST" in _tk_panel.TABS["Phone"]
+      and _tk_panel._HELP["TELEGRAM_TOKENS_SINCE_LAST"] and 'getattr(config, "TELEGRAM_TOKENS_SINCE_LAST", True)' in _tk_src,
+      (getattr(config, "TELEGRAM_TOKENS_SINCE_LAST", None),))
 _sl_none = tg.Bridge.since_last_line(None, {"prompt": 158_143}, _sl_hist)
 _sl_first = tg.Bridge.since_last_line({"prompt": 100}, {"prompt": 500}, _sl_hist[-2:])
 _sl_less = tg.Bridge.since_last_line({"prompt": 158_143}, {"prompt": 90_000}, _sl_hist)

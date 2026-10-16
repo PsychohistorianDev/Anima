@@ -94,7 +94,7 @@ TABS: dict[str, list[str]] = {
     "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "THINK_RETRY_UNTIL", "CHAT_GARBLE_RETRIES", "CHAT_COOL_STEP",
                 "CHAT_COLD_RESCUE", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "REROLLS_KEPT", "BRAIN_KEEP_ALIVE",
                 "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "BRAIN_REST_CLOSES_DOOR", "PARLOR_GUEST_NAMED"],
-    "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS",
+    "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS", "TELEGRAM_TOKENS_SINCE_LAST",
               "TELEGRAM_TELL_REFLECTIONS", "TELEGRAM_TELL_AFTERTHOUGHTS", "TELEGRAM_TELL_CREATIONS",
               "TELEGRAM_TELL_DRAWINGS", "TELEGRAM_TELL_SONGS", "TELEGRAM_TELL_SELF", "TELEGRAM_IDLE_NEW_MIN", "TELEGRAM_HEAR_VOICE",
               "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD", "SLEEP_IN_BRIDGE", "SLEEP_IN_BRIDGE_QUIET_MIN"],
@@ -192,6 +192,10 @@ _HELP = {
                            "search). /tools toggles it.",
     "TELEGRAM_SHOW_TOKENS": "The token line after each reply — what the window held, what was written, how fast, and whether "
                             "the prompt was read cold. /tokens toggles it; useful when a reply felt slow.",
+    "TELEGRAM_TOKENS_SINCE_LAST": "The token line's tail: what the window grew by since the last line and what it was made of — "
+                                  "the earlier reply's words, your message, the moment, the turn's own steps (estimates). A line's "
+                                  "\"generated\" lands in the NEXT line's count, which reads as phantom tokens without this. "
+                                  "Off: the line alone.",
     "TELEGRAM_TELL_REFLECTIONS": "When they reflect alone — the pause, or the afterglow after a visit ends — the phone gets a "
                                  "one-line account (entries written, memories kept, or a rest), so you know it happened while "
                                  "you were away.",

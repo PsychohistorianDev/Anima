@@ -536,7 +536,9 @@ class Bridge:
         for n in notes:  # engine honesty notes always travel — that rail is not optional
             self._try_send("⚠ " + n, markdown=False)
         if self.show_tokens and tokens:
-            self._try_send(tokens["line"] + self.since_last_line(prev_tokens, tokens, self.history), markdown=False)
+            tail = (self.since_last_line(prev_tokens, tokens, self.history)
+                    if getattr(config, "TELEGRAM_TOKENS_SINCE_LAST", True) else "")
+            self._try_send(tokens["line"] + tail, markdown=False)
         _say(f"{chat.friend_name()} > {reply[:120]}{'…' if len(reply) > 120 else ''}")
 
     @staticmethod
