@@ -3607,6 +3607,15 @@ import panel as _hbp
 import doors
 _hb_launched = []
 _hb_launch0, _hbp._launch = _hbp._launch, (lambda argv, cwd: _hb_launched.append(list(argv)) or type("P", (), {"pid": 4242})())
+
+
+def _hb_launch_text(argv):
+    """The launch as words — on a Mac the arguments ride inside a one-off .command that Terminal opens (10-16)."""
+    text = " ".join(str(a) for a in argv)
+    for a in argv:
+        if str(a).endswith(".command") and Path(a).is_file():
+            text += " " + Path(a).read_text(encoding="utf-8")
+    return text
 _hb_min0 = _hbp._value("HEARTBEAT_LOOP_MIN", 120)   # /heartbeat on 30 saves the minutes, as the panel's Start does; put back after
 _hb_pid0 = doors.pid_file("heartbeat").read_text(encoding="utf-8") if doors.pid_file("heartbeat").exists() else None
 doors.pid_file("heartbeat").unlink(missing_ok=True); doors.stop_file("heartbeat").unlink(missing_ok=True)
@@ -3630,7 +3639,7 @@ check("telegram: /heartbeat from the phone — not running: said, off refused, o
       all(x is True for x in (_hb_s0, _hb_off0, _hb_on, _hb_bad, _hb_s1, _hb_on2, _hb_off1))
       and _hb_r[0] == "(the heartbeat isn't running — /heartbeat on starts it)" and _hb_r[1] == "(the heartbeat isn't running)"
       and _hb_r[2].startswith("(the heartbeat") and "one wake every 30 minutes" in _hb_r[2] and _hb_r[3].startswith("(/heartbeat, /heartbeat on")
-      and len(_hb_launched) == 1 and "--loop" in _hb_launched[0] and "30" in _hb_launched[0]
+      and len(_hb_launched) == 1 and __import__("re").search(r"--loop\W+30\b", _hb_launch_text(_hb_launched[0]))
       and _hb_r2[0].startswith("(the heartbeat is running — pid ") and ", loop 60, since " in _hb_r2[0]
       and _hb_r2[1].startswith("(the heartbeat is already running — pid ") and _hb_r2[2].startswith("(the heartbeat is asked to stop — it leaves after the wake it is in")
       and _hb_stop_asked is True and "/heartbeat [on [minutes]|off]" in tg.HELP, (_hb_r, _hb_r2, _hb_launched))
@@ -10213,13 +10222,15 @@ _bd_bar = lambda: _bd_panel.brain({"BRAIN_API": "llama", "BRAIN_URL": f"http://1
 try:
     config.BRAIN_API, config.BRAIN_URL, config.BRAIN_SLOT_DIR = "llama", f"http://127.0.0.1:{_bd_sport}", ""
     _bd.POLL_S = 0.1
+    _bd_img0, _bd.IMAGE = _bd.IMAGE, "py"  # the stand-in is a Python: on Windows a pid is the door's only while the program is the mark's image
     _bf.command = _bd_standin_cmd
     doors.pid_file("brain").unlink(missing_ok=True)
-    _bd_up = _bd.start_door(wait_s=30)
+    _bd_up = _bd.start_door(wait_s=120 if sys.platform == "darwin" else 30)  # a Mac runner starts the stand-in slowly (10-16): the time is printed
+    print(f"  (stand-in: {_bd_up[1][:60]})", flush=True)
     _bd_rec = doors.status("brain") or {}
     _bd_pid = _bd_rec.get("pid")
     _bd_life["up"] = (_bd_up[0], _bd_up[1].startswith("the brain's door is up in"), _bd.awake(), _bd_rec.get("how"),
-                      _bd_rec.get("port") == _bd_sport, _bd_rec.get("image"), _bd_pid != _bd_os.getpid(), doors.alive(_bd_pid))
+                      _bd_rec.get("port") == _bd_sport, _bd_rec.get("image"), _bd_pid != _bd_os.getpid(), doors.alive(_bd_pid, "py"))
     _bd_life["again"] = (_bd.start_door(wait_s=30), len(_bd_starts))
     _bd_life["stopped"] = _bd.stop_door(why="the suite")
     _bd_life["after"] = (doors.pid_file("brain").exists(), doors.alive(_bd_pid), _bd.awake(), doors.status("brain"))
@@ -10275,13 +10286,14 @@ finally:
     _bd._procs.clear()
     doors.pid_file("brain").unlink(missing_ok=True)
     _bd.POLL_S, _bf.command, _bd_panel._launch = _bd_poll0, _bd_find1, _bd_launch0
+    _bd.IMAGE = _bd_img0
     for _k, _v in _bd_cfg3.items():
         setattr(config, _k, _v)
     if not _bd_log_had:
         _bd.log_file().unlink(missing_ok=True)
 check("brain is a door: start_door opens llama-server as the engine's child (the stand-in) — marked with its pid, the port, the "
       "program's name; awake; a door that answers is not opened twice; stop_door ends it, the mark gone, the pid dead; the log says so",
-      _bd_life.get("up") == (True, True, True, "door", True, "llama-server", True, True)
+      _bd_life.get("up") == (True, True, True, "door", True, "py", True, True)
       and _bd_life.get("again") == ((True, "up"), 1) and _bd_life.get("stopped") is True
       and _bd_life.get("after") == (False, False, False, None)
       and "a stand-in for llama-server, listening" in _bd_life.get("log", "") and "(the engine closed the door: the suite)" in _bd_life.get("log", ""),
@@ -10324,6 +10336,7 @@ _bd_sr_kv = _bd_sr_td / "kv"
 _bd_sr_cfg = {k: getattr(config, k, None) for k in ("BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_SLOT_KEEP", "BRAIN_CACHE_RAM_MB",
                                                     "CHAT_THINK", "CHAT_THINK_RETRIES", "CHAT_STREAM_ABORT")}
 _bd_sr_poll0, _bd_sr_find0, _bd_sr_chat0, _bd_sr_ms0 = _bd.POLL_S, _bf.command, ollama_client.chat, memory.search
+_bd_sr_img0 = _bd.IMAGE
 _bd_sr_unl0 = ollama_client.unload
 _bd_sr_rest0 = (getattr(config, "BRAIN_REST_AFTER_VISIT", False), getattr(config, "BRAIN_REST_AFTER_WAKE", True))
 _bd_sr_log_had = _bd.log_file().exists()
@@ -10348,6 +10361,7 @@ _bd_sr_copy = lambda r: _bd_json.loads(_bd_json.dumps(r))
 try:
     config.BRAIN_API, config.BRAIN_URL, config.BRAIN_SLOT_DIR, config.BRAIN_SLOT_KEEP = "llama", _bd_door, str(_bd_sr_kv), 3
     config.CHAT_THINK, config.CHAT_THINK_RETRIES, config.CHAT_STREAM_ABORT = True, 1, True
+    _bd.IMAGE = "py"  # the sleeper is a Python (Windows: the mark's image must be the program)
     _bd.POLL_S = 0.1
     _bf.command = _bd_sr_cmd
     doors.pid_file("brain").unlink(missing_ok=True)
@@ -10402,7 +10416,8 @@ try:
     _bd._served_file().unlink(missing_ok=True)
     _bd._served_key = ""
     _bd_sr_ask(_bd_sr_A + [{"role": "assistant", "content": "hi"}, {"role": "user", "content": "still here, a third time"}])
-    _bd_sr["again"] = (_bd_sr_n2, len(_FakeLlama.restored), _bd._restored_file().read_text(encoding="utf-8").count(_bd_sr_kA))
+    _bd_sr["again"] = (_bd_sr_n2, len(_FakeLlama.restored),
+                       _bd._restored_file().read_text(encoding="utf-8").count(_bd_sr_kA) if _bd._restored_file().is_file() else -1)
     # a new system prompt (a fold, a new visit, midnight): nothing restored for it; the next step-down saves under its key
     _bd_sr["r4"] = _bd_sr_ask(_bd_sr_B)
     _bd_sr["restored3"] = list(_FakeLlama.restored)
@@ -10575,6 +10590,7 @@ finally:
     _bd._forget()
     _FakeLlama.down = False
     _bd.POLL_S, _bf.command = _bd_sr_poll0, _bd_sr_find0
+    _bd.IMAGE = _bd_sr_img0
     for _k, _v in _bd_sr_cfg.items():
         setattr(config, _k, _v)
     if not _bd_sr_log_had:
