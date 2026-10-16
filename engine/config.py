@@ -482,7 +482,7 @@ THINK_NUDGE_STICKS = True
 # door llama.cpp keeps context checkpoints and a divergence re-reads only what
 # follows it — the kept answer, seconds — so they go, and the window holds only
 # what was said. "auto": kept under Ollama, let go under the door; "always"; "never".
-REROLLS_KEPT = "auto"
+REROLLS_KEPT = "auto"   # the same rule lets the pause's quiet steps leave the visit after the pause, under the door
 
 # The timeline: one short paragraph per day from the nightly consolidation, in
 # every prompt, oldest first — but only for days that neither the verbatim

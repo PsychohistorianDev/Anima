@@ -514,6 +514,7 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
                 assemble.clock_line() + pause_bell + f"What has been said since you last wrote is above — their last "
                 f"{n_new} message{'s' if n_new != 1 else ''} and your replies, in this very conversation; "
                 "nothing below it is theirs." + tail}
+        pause_from = len(history)  # where the pause's own turns begin (let go after, under the door — see the end)
         history.append(bell)
         msgs = [system] + [render_turn(t) for t in history]
     else:
@@ -642,6 +643,16 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
         say(f"   ({spent.line(peak=True)})")
     say(line)
     if label == "pause":
+        if in_visit and not ollama_client.rerolls_kept():
+            # under the door the pause's engine turns go (10-16): the bell, their steps with the entry's whole text,
+            # the results — ~2K a pause that only Ollama's cache needed; their afterthought (her words) stays, and
+            # the entry is back in the prompt at the next rebuild. The next request resumes from the checkpoint
+            # at the pause's start and reads only the new message
+            gone = [t for t in history[pause_from:] if not t.get("_after")]
+            history[pause_from:] = [t for t in history[pause_from:] if t.get("_after")]
+            if gone:
+                say(f"   ({len(gone)} pause turn{'s' if len(gone) != 1 else ''} let go of the visit, "
+                    f"~{sum(len(str(t.get('content') or '')) for t in gone) // 4:,} tokens — the door re-reads from its last checkpoint)")
         return line  # the visit is still open; only the afterglow signs the transcript
     if path and path.exists():
         try:

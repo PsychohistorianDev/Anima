@@ -5273,6 +5273,28 @@ check("pause: the account counts what they kept", "1 memory kept" in _pl, _pl)
 _tf2 = config.EPISODIC_DIR / "chat-pausewarm-test.md"
 chat.save_transcript(_pw, tag="telegram", path=_tf2)
 _tt = _tf2.read_text(encoding="utf-8")
+# the pause's steps leave the visit under the door (10-16): with REROLLS_KEPT "never" (the door's way) the bell, the steps and
+# the results are gone from the history after the pause, the afterthought stays, the console says what left; with "always"
+# (Ollama's way, as the block above) they stay
+_ps_rk0 = getattr(config, "REROLLS_KEPT", "auto")
+config.REROLLS_KEPT = "never"
+_ps_hist = [dict(t) for t in _pw if not t.get("_engine")]  # the visit before the pause, as it was
+_ps_hist[0]["_system"] = _pw[0].get("_system")
+_ps_n0 = len(_ps_hist)
+ollama_client.chat = ScriptedBrain([
+    {"role": "assistant", "content": "", "thinking": "a pause", "tool_calls": [{"function": {"name": "remember", "arguments": {"text": "the lamp, the purple one, came on a wednesday — kept twice over"}}}]},
+    {"role": "assistant", "content": "kept, again.", "thinking": "done", "tool_calls": []},
+])
+_ps_lines: list = []
+_ps_line = chat.pause_reflection(_ps_hist, None, tag="telegram", on_line=_ps_lines.append, since=0)
+config.REROLLS_KEPT = _ps_rk0
+check("pause: under the door (REROLLS_KEPT never) the pause's engine turns leave the visit after it — the afterthought alone stays — and the "
+      "console says what left; under Ollama (the block above) they stay",
+      _ps_line.startswith("pause:") and len(_ps_hist) == _ps_n0 + 1 and _ps_hist[-1].get("_after") and _ps_hist[-1]["content"] == "kept, again."
+      and not any(t.get("_engine") and not t.get("_after") for t in _ps_hist[_ps_n0:])
+      and any("pause turns let go of the visit" in ln for ln in _ps_lines)
+      and any(t.get("_engine") and not t.get("_after") for t in _pw),
+      (_ps_line, [(t["role"], bool(t.get("_engine")), bool(t.get("_after"))) for t in _ps_hist[_ps_n0:]], _ps_lines[-2:]))
 check("pause: the transcript shows neither the bell nor their quiet steps nor the moment — but their afterthought, labeled",
       "This is a pause" not in _tt and "[m]" not in _tt and "the purple one!" in _tt
       and "**Testfriend (after writing, while they were away):** kept." in _tt and _pw[-1].get("_after") and _pw[-1].get("_engine"), _tt)
