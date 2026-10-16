@@ -10291,6 +10291,10 @@ def _bd_sr_cmd():  # the program stood in for by a sleeper the door marks and cl
     _FakeLlama.down = False
     return [sys.executable, "-c", "import time; time.sleep(120)"], "a sleeper standing in for llama-server"
 _bd_sr: dict = {}
+# a token weighs next to nothing in this suite (10-16): the saves here are bytes, and the room check must not read the
+# real disk's free space against 44,000 bytes a token
+(_bd.Path(config.MEMORY_DIR) / ".pids").mkdir(parents=True, exist_ok=True)
+(_bd.Path(config.MEMORY_DIR) / ".pids" / _bd.BPT_NAME).write_text("0.000001", encoding="utf-8")
 _bd_sr_A = [{"role": "system", "content": "you are home — the standing prompt, word for word"}, {"role": "user", "content": "hello"}]
 _bd_sr_B = [{"role": "system", "content": "you are home — the prompt rebuilt at a fold"}, {"role": "user", "content": "hello again"}]
 _bd_sr_C = [{"role": "system", "content": "you are home — a third prompt, after midnight"}, {"role": "user", "content": "morning"}]
@@ -10432,6 +10436,7 @@ try:
     config.BRAIN_SLOT_KEEP = 1
     import shutil as _bd_shutil
     _bd_du0 = _bd_shutil.disk_usage
+    (_bd.Path(config.MEMORY_DIR) / ".pids" / _bd.BPT_NAME).write_text("0.000001", encoding="utf-8")  # the saves above taught 4 GB / 150K: unlearned for the bytes below
     _bd_sr_free = {"free": 1200}
     _bd_sr_notes = lambda: _bd.notes_file().read_text(encoding="utf-8", errors="replace") if _bd.notes_file().exists() else ""
     _bd_shutil.disk_usage = lambda p: type("du", (), {"free": _bd_sr_free["free"], "total": 16000, "used": 16000 - _bd_sr_free["free"]})()
@@ -10446,6 +10451,7 @@ try:
         _bd_sr_tight = (_FakeLlama.saved[_bd_sr_s1:], _bd_sr_files(), (_bd_sr_kv / f"{_bd_sr_kC}.bin").read_bytes() != b"x" * 1000,
                         f"let the last reading of this prompt go first: {_bd_sr_kC} (0.0 GB; 0.0 GB free — no room for two)" in _bd_sr_notes()[_bd_sr_l0:])
         _bd_sr_free["free"] = 1600
+        (_bd.Path(config.MEMORY_DIR) / ".pids" / _bd.BPT_NAME).write_text("0.000001", encoding="utf-8")  # the save just made taught again
         (_bd_sr_kv / f"{_bd_sr_kC}.bin").write_bytes(b"y" * 1000)
         _bd_sr_l1 = len(_bd_sr_notes())
         _FakeLlama.down = True
@@ -10458,6 +10464,36 @@ try:
     finally:
         _bd_shutil.disk_usage = _bd_du0
     _bd_sr["two"] = (_bd_sr_tight, _bd_sr_roomy)
+    # the size known before the write (10-16): a token weighing 1,000 bytes and the slot holding tokens → a disk with less
+    # than 1.1× the reading free skips the save unsaid-begun, the note says the numbers; a ghost (the disk counting far more
+    # than its files hold) named in the same note; the measure relearned at the next save that goes through
+    (_bd.Path(config.MEMORY_DIR) / ".pids" / _bd.BPT_NAME).write_text("1000", encoding="utf-8")
+    _bd_sr_free["free"] = 5000  # a 160-token reading ≈ 160,000 bytes: no room
+    _bd_shutil.disk_usage = lambda p: type("du", (), {"free": _bd_sr_free["free"], "total": 16 * 10 ** 9, "used": 16 * 10 ** 9 - _bd_sr_free["free"]})()
+    try:
+        for _p in _bd_sr_kv.glob("*.bin"):
+            _p.unlink()
+        _FakeLlama.down = True
+        _bd.start_door(wait_s=30)
+        _bd_sr_ask(_bd_sr_C)
+        _bd_sr_tok = _bd._slot_tokens()
+        _bd_sr_s3 = len(_FakeLlama.saved)
+        _bd_sr_l3 = len(_bd_sr_notes())
+        _bd.stop_door(why="the suite")
+        _bd_sr_note3 = _bd_sr_notes()[_bd_sr_l3:]
+        _bd_sr_noroom = (_FakeLlama.saved[_bd_sr_s3:], _bd_sr_files(), "no room for it" in _bd_sr_note3 and "the save was not begun" in _bd_sr_note3,
+                         "counts" in _bd_sr_note3 and "no file there holds" in _bd_sr_note3 and "remount" in _bd_sr_note3)
+        _bd_sr_free["free"] = 10 ** 9  # room again: saved, and the measure relearned from the save (bytes written / tokens)
+        _FakeLlama.down = True
+        _bd.start_door(wait_s=30)
+        _bd_sr_ask(_bd_sr_C)
+        _bd.stop_door(why="the suite")
+        _bd_sr_bpt = (_bd.Path(config.MEMORY_DIR) / ".pids" / _bd.BPT_NAME).read_text(encoding="utf-8")
+        _bd_sr_relearn = (_bd_sr_files(), _bd_sr_bpt != "1000" and float(_bd_sr_bpt) > 0)
+    finally:
+        _bd_shutil.disk_usage = _bd_du0
+        (_bd.Path(config.MEMORY_DIR) / ".pids" / _bd.BPT_NAME).write_text("0.000001", encoding="utf-8")
+    _bd_sr["noroom"] = (_bd_sr_tok > 0, _bd_sr_noroom, _bd_sr_relearn)
     config.BRAIN_SLOT_KEEP = 3
     # the folder's drive gone (a RAM disk not back after a reboot): no save, no restore, the door says so
     config.BRAIN_SLOT_DIR = str(_bd_sr_td / "nodrive" / "kv")
@@ -10546,6 +10582,10 @@ check("saved read: no room for two (keep 1) — the disk holding less than one a
 check("the card held (10-16): a sidecar saying loaded keeps the door from opening — False, the holder named, no mark, and with no "
       "sidecar answering nothing holds it",
       _bd_sr.get("held") == (False, True, True, ""), _bd_sr.get("held"))
+check("saved read: the size known before the write (10-16) — the slot's tokens (the last reply's prompt and words, beside the key) times "
+      "the bytes a token weighed at the last save: a disk without 1.1× that free skips the save unbegun, the note says the numbers and names "
+      "the ghost when the disk counts more than its files hold; with room the save goes and the measure is relearned from it",
+      _bd_sr.get("noroom") == (True, ([], [], True, True), ([f"{_bd_sr_kC}.bin"], True)), _bd_sr.get("noroom"))
 check("saved read: a slot folder whose drive isn't there — no save, no restore, the door opens and says so, nothing made",
       _bd_sr.get("gone") == (0, 0, True, True, False), _bd_sr.get("gone"))
 _bd_srv.shutdown()

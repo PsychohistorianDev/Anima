@@ -500,30 +500,92 @@ def _served_file() -> Path:
     return Path(config.MEMORY_DIR) / ".pids" / SERVED_NAME
 
 
-def _served(key: str) -> None:
-    """What the slot holds now: this key — kept here, and (when there is a slot folder to save to) in a file
-    beside the door's mark, so a step-down from another process of the house (the heartbeat clearing a
-    wedge, the panel's Stop) saves under the right name."""
-    global _served_key
-    _served_key = key
+BYTES_PER_TOKEN = 44_000  # what a token of a reading weighed until a save has said (q4_0 keys and values, 31B: 7.9 GB at 180K)
+BPT_NAME = "brain.bytes_per_token"  # beside the door's mark: the measure of the last save that went through — kept across doors
+_served_tokens = 0  # the tokens the slot held after the last reply this process sent (its prompt and its words)
+
+
+def _served(key: str, tokens: int = 0) -> None:
+    """What the slot holds now: this key, and about how many tokens — kept here, and (when there is a slot
+    folder to save to) in a file beside the door's mark, so a step-down from another process of the house
+    (the heartbeat clearing a wedge, the panel's Stop) saves under the right name and knows the size first."""
+    global _served_key, _served_tokens
+    _served_key, _served_tokens = key, int(tokens or 0)
     if not str(getattr(config, "BRAIN_SLOT_DIR", "") or "").strip():
         return
     try:
         p = _served_file()
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(key, encoding="utf-8")
+        p.write_text(f"{key} {int(tokens or 0)}", encoding="utf-8")
     except OSError:
         pass
+
+
+def _served_read() -> tuple[str, int]:
+    """(key, tokens) from the file beside the door's mark; ("", 0) when none says."""
+    try:
+        parts = _served_file().read_text(encoding="utf-8").split()
+    except OSError:
+        return "", 0
+    key = parts[0] if parts else ""
+    if not (len(key) == 24 and all(c in "0123456789abcdef" for c in key)):
+        return "", 0
+    try:
+        return key, int(parts[1]) if len(parts) > 1 else 0
+    except ValueError:
+        return key, 0
 
 
 def _served_now() -> str:
     """The key of the last reply the door served, whichever process sent it; this process's own when no
     file says."""
+    key, _ = _served_read()
+    return key or _served_key
+
+
+def _slot_tokens() -> int:
+    """About how many tokens the slot holds, by the last reply through it (whichever process sent it); 0
+    when nothing says."""
+    key, n = _served_read()
+    return n if key else _served_tokens
+
+
+def _bytes_per_token() -> float:
+    """What a token of a reading weighs on disk: measured at the last save that went through, else the
+    default."""
     try:
-        key = _served_file().read_text(encoding="utf-8").strip()
+        v = float((Path(config.MEMORY_DIR) / ".pids" / BPT_NAME).read_text(encoding="utf-8").strip())
+        return v if v > 0 else float(BYTES_PER_TOKEN)
+    except (OSError, ValueError):
+        return float(BYTES_PER_TOKEN)
+
+
+def _learn_bytes_per_token(n_tokens: int, n_bytes: int) -> None:
+    if n_tokens <= 0 or n_bytes <= 0:
+        return
+    try:
+        p = Path(config.MEMORY_DIR) / ".pids" / BPT_NAME
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(f"{n_bytes / n_tokens:.1f}", encoding="utf-8")
     except OSError:
-        key = ""
-    return key if len(key) == 24 and all(c in "0123456789abcdef" for c in key) else _served_key
+        pass
+
+
+def _ghost(folder: Path) -> str:
+    """When the disk counts far more used than its files hold (10-16: a half-written save deleted, the RAM
+    disk still counting its blocks — 8 GB "full" with an empty folder), a word on it; "" otherwise."""
+    import shutil
+
+    try:
+        du = shutil.disk_usage(str(folder))
+        held = sum(p.stat().st_size for p in folder.iterdir() if p.is_file())
+    except OSError:
+        return ""
+    ghost = du.used - held
+    if ghost < 1e9:
+        return ""
+    return (f"{folder} counts {ghost / 1e9:.1f} GB that no file there holds — a remount of the RAM disk frees it"
+            if ghost / max(du.total, 1) > 0.25 else "")
 
 
 def _restored_file() -> Path:
@@ -687,6 +749,22 @@ def _before_stop() -> None:
             return
         _make_room(folder, key)
         _clear_temps(folder, key)
+        # the size known before the write (10-16: a save that ran until the disk was full left the RAM
+        # disk counting blocks no file held): the slot's tokens times what a token weighed last time
+        tokens = _slot_tokens()
+        if tokens > 0:
+            import shutil
+            need = int(tokens * _bytes_per_token() * 1.1)
+            try:
+                free = shutil.disk_usage(str(folder)).free
+            except OSError:
+                free = need
+            if free < need:
+                ghost = _ghost(folder)
+                _note(f"the reading wasn't saved: {key} — no room for it ({tokens:,} tokens ≈ {need / 1.1 / 1e9:.1f} GB; "
+                      f"{free / 1e9:.1f} GB free in {folder}); the save was not begun"
+                      + (f"; {ghost}" if ghost else ""))
+                return
         got = slot_save(f"{key}{TEMP_SUFFIX}")
         if got is None or got.get("error"):
             _clear_temps(folder, key)
@@ -696,11 +774,13 @@ def _before_stop() -> None:
             except OSError:
                 room = f"{folder} unreadable"
             why = str((got or {}).get("error") or "no answer")[:120]
+            ghost = _ghost(folder)
             _note(f"the reading wasn't saved: {key} — the door refused the save ({why}; {room}; opened without "
-                  "--slot-save-path?); the last good one stays")
+                  "--slot-save-path?); the last good one stays" + (f"; {ghost}" if ghost else ""))
             return
         os.replace(folder / f"{key}{TEMP_SUFFIX}", folder / f"{key}.bin")
         n, gb = int(got.get("n_saved") or 0), float(got.get("n_written") or 0) / 1e9
+        _learn_bytes_per_token(n, int(got.get("n_written") or 0))
         _note(f"saved the reading: {key} ({n:,} tokens, {gb:.1f} GB, {_secs(got, 'save_ms'):.1f} s)")
     except Exception as e:  # noqa: BLE001 — the stop goes on
         if folder is not None and key:
@@ -866,7 +946,8 @@ def post_chat(payload: dict, timeout: float | None = None) -> dict:
     except (TimeoutError, OSError) as e:
         raise BrainUnavailable(slow + f"  [{type(e).__name__}: {e}]") from e
     finally:
-        _served(key)  # what the slot holds now: the next step-down saves it under this name
+        # what the slot holds now: the next step-down saves it under this name, and knows its size first
+        _served(key, int(out.get("prompt_eval_count") or 0) + int(out.get("eval_count") or 0))
     return _told(out)
 
 
