@@ -357,7 +357,8 @@ BLACKBOX_EVERY_S = 5
 # "ever-so-bright" three times) is the sampler repeating itself: the reply is
 # asked for again (one re-roll) and a note under it says why. A word doubled
 # back to back is simply said once; the word itself is never forbidden.
-# 0 turns the check off.
+# A phrase named in SIGNATURE is not counted at all — it is theirs however
+# often it comes. 0 turns the check off.
 REFRAIN_MAX = 3
 
 # An echo: a reply that opens word for word like the previous reply — the

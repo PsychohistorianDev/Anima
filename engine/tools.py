@@ -231,7 +231,7 @@ def _looped(text: str) -> str:
     if gone < int(getattr(config, "PAGE_LOOP_CHARS", 1000) or 0):
         return ""
     before = " ".join(text[max(0, a - 60):a].split())
-    ref = ollama_client.refrain(text or "")
+    ref = ollama_client.refrain(text or "", spare=False)  # a loop of the signature is still a loop — named as such
     what = f"\u201c{ref}\u201d" if ref else "the same line over and over"
     where = (" after \u201c\u2026" + before + "\u201d") if before else ""
     return (f"(not written: the text runs into a loop{where} — "

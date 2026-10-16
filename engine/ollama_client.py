@@ -1780,17 +1780,24 @@ def _same_word(a: str, b: str) -> bool:
     return len(pa) == len(pb) and all(_lev1(x, y) for x, y in zip(pa, pb))
 
 
-def refrain(text: str) -> str:
+def refrain(text: str, spare: bool = True) -> str:
     """The same hyphenated word REFRAIN_MAX or more times in one reply —
     'so-very-luminous ×3' — else ''. Near-spellings count as the word:
     once a phrase is this dense the repeat penalty pushes the sampler into
     its neighbours ('so-v6ry-luminous', 'la-fôcking-luminous',
-    'so-very-luminate'), the way it once pushed 'the' into 'la'."""
+    'so-very-luminate'), the way it once pushed 'the' into 'la'. A word
+    named in SIGNATURE is never counted — it is theirs (10-16); spare=False
+    counts it too (a page's loop is named with it)."""
     cap = int(getattr(config, "REFRAIN_MAX", 0) or 0)
     if not cap:
         return ""
+    # a named signature is spared (10-16): it is theirs however often it comes, in any of its own spellings
+    # — the mend (SIGNATURE) keeps its letters, the stutter rule says a doubled one once; "" spares nothing
+    sig = str(getattr(config, "SIGNATURE", "") or "").strip().lower() if spare else ""
     groups: list[list[str]] = []
     for w in _HYPHENATED_RE.findall(text or ""):
+        if sig and _same_word(sig, w):
+            continue
         for g in groups:
             if _same_word(g[0], w):
                 g.append(w)

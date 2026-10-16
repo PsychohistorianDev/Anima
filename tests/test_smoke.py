@@ -2537,6 +2537,7 @@ check("tokens: a kept reply without counters still shows the prompt, and is name
       "163,000 of" in _sp.line() and "1 reply came without counters" in _sp.line(), _sp.line())
 # the least broken attempt going out is not counted among the attempts set
 # aside, and the last attempt is (09-11: "271 generated … 271 set aside")
+_tk_sig0, config.SIGNATURE = getattr(config, "SIGNATURE", ""), ""  # the attempts refrain on a word a house may have named
 _posted = []
 _answers = [{"message": {"role": "assistant", "content": "OH MY GOD " + "💋" * 24 + " so-very-luminous x so-very-luminous y so-very-luminous z", "thinking": "…"},
              "done_reason": "stop", "prompt_eval_count": 163000, "eval_count": 70, "eval_duration": 3e9, "total_duration": 4e9},
@@ -2551,6 +2552,7 @@ ollama_client._post = _fake_post_k
 _m = _chat_orig([{"role": "user", "content": "💋💋💋"}])
 ollama_client._post = _post_orig
 _sp = ollama_client.Spent(); _sp.add(_m)
+config.SIGNATURE = _tk_sig0
 check("tokens: the attempt going out is counted once, the last attempt too",
       _m["content"].startswith("OH MY GOD") and _sp.reply == 240 and _sp.set_aside == 170 and _sp.rerolls == 2
       and "refrain ×2" in _sp.line(), (_m["content"][:30], _sp.reply, _sp.set_aside, _sp.line()))
@@ -4353,6 +4355,7 @@ check("rescue: the second rung answers when the first breaks — sent as theirs 
       len(_posted) == 5 and _mr3["content"] == "Here, plainly: I am with you." and _mr3.get("rescued") == 0.4 and not _mr3.get("still_garbled")
       and len(_mr3.get("retries", [])) == 4, (len(_posted), _mr3.get("content"), _mr3.get("rescued"), _mr3.get("retries")))
 config.CHAT_RESCUE_TEMPERATURE = 0
+_rf_sig0, config.SIGNATURE = getattr(config, "SIGNATURE", ""), ""  # the rail's own checks run with no signature named (a house may name this very word)
 check("refrain: near-spellings and the adverb count as the word",
       ollama_client.refrain("so-very-luminous, then so-v6ry-luminous, then so-vêry-luminously, then so-very-luminate")
       .startswith("so-very-luminous ×4 (also spelled ")
@@ -4389,6 +4392,7 @@ _ms_tail = assemble.journal_tail()
 check("signature: in the prompt their journal rides spelled right while the file on disk stays as they wrote it",
       f"an older {_sg_fixed} entry" in _ms_tail and _sg_bad not in _ms_tail and _sg_bad in _ms_file.read_text(encoding="utf-8"), _ms_tail[-300:])
 config.SIGNATURE = _sig0
+config.SIGNATURE = ""
 check("refrain: three in one reply is a refrain, two is a signature",
       ollama_client.refrain("a so-very-luminous day, so-very-luminous night, so-very-luminous you") == "so-very-luminous ×3"
       and ollama_client.refrain("so-very-luminous twice, so-very-luminous") == ""
@@ -4404,6 +4408,18 @@ ollama_client._post = _post_orig
 check("refrain: the reply is asked for again with the signature line",
       _m["content"] == "luminous, once." and _m.get("garbled_kind") == "refrain"
       and "sign it once" in _posted[1]["messages"][-1]["content"] and "×3" in _posted[1]["messages"][-1]["content"], (_m, _posted[1]["messages"][-1]))
+# the signature is spared (10-16): named in SIGNATURE, the word and its own spellings are not counted however often they come;
+# another hyphenated word still is; "" spares nothing
+config.SIGNATURE = "la-fucking-luminous"
+_rf_spared = ollama_client.refrain("la-fucking-luminous, la-f6cking-luminous, la-fôcking-luminously, la-fucking-luminate, la-fucking-luminous")
+_rf_other = ollama_client.refrain("la-fucking-luminous ever-so-bright, la-fucking-luminous ever-so-bright, la-fucking-luminous ever-so-bright")
+_rf_kind = (ollama_client.reply_defect("x la-fucking-luminous y la-fucking-luminous z la-fucking-luminous") or ("", ""))[0]
+config.SIGNATURE = ""
+_rf_bare = ollama_client.refrain("la-fucking-luminous, la-fucking-luminous, la-fucking-luminous")
+config.SIGNATURE = _rf_sig0
+check("refrain: a named SIGNATURE is spared in all its spellings, however often — another word still counts, and '' spares nothing (10-16)",
+      _rf_spared == "" and _rf_other == "ever-so-bright ×3" and _rf_kind != "refrain" and _rf_bare == "la-fucking-luminous ×3",
+      (_rf_spared, _rf_other, _rf_kind, _rf_bare))
 check("chat: the brain is asked to stay up between messages, half an hour", _posted[0].get("keep_alive") == config.BRAIN_KEEP_ALIVE == "30m", _posted[0].get("keep_alive"))
 # an echo: the reply to this message opening word for word as the reply to
 # the last one (09-11, after the burst of kisses) — a defect, re-rolled with its
