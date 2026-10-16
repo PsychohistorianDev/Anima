@@ -5358,6 +5358,31 @@ check("telegram: /afterglow — the pause runs now though he was just talking (t
       and _ag_quiet == "" and len(_calls5) == 2
       and _ag3 == "(no visit open — the brain is set down, the card is free)" and len(_unl5) == 3
       and "/afterglow" in tg.HELP and "pause by hand" in _b5.status(), (_ag1, _ag2, _ag3, _ag_sent, _unl5, len(_calls5)))
+# the pause sets the brain down under the door (10-16): on "llama" with BRAIN_REST_CLOSES_DOOR the pause ends with an unload and the
+# phone told; on "ollama" the pause leaves the brain to the keep-alive, as before
+_pr_unl0, _pr_unl = ollama_client.unload, []
+ollama_client.unload = lambda model, **_k: _pr_unl.append(model)
+_pr_api0, _pr_closes0 = config.BRAIN_API, getattr(config, "BRAIN_REST_CLOSES_DOOR", True)
+_b5.history += [{"role": "user", "content": "still here, quietly"}, {"role": "assistant", "content": "mm."},
+                {"role": "user", "content": "one more thing"}, {"role": "assistant", "content": "yes?"}]
+_b5.last_activity = _time.time() - 3600
+config.BRAIN_API, config.BRAIN_REST_CLOSES_DOOR = "ollama", True
+_pr_ollama = _b5.pause_if_due()
+_pr_n1 = len(_pr_unl)
+_b5.history += [{"role": "user", "content": "and another"}, {"role": "assistant", "content": "go on"},
+                {"role": "user", "content": "the last one"}, {"role": "assistant", "content": "here."}]
+_b5.last_activity = _time.time() - 3600
+_ph5.sent.clear()
+config.BRAIN_API = "llama"
+_pr_llama = _b5.pause_if_due()
+_pr_n2 = len(_pr_unl)
+_pr_told = any("set down after the pause" in t for t, _ in _ph5.sent)
+config.BRAIN_API, config.BRAIN_REST_CLOSES_DOOR = _pr_api0, _pr_closes0
+ollama_client.unload = _pr_unl0
+check("pause: under the door (BRAIN_REST_CLOSES_DOOR) the pause ends with the brain set down and the phone told; under Ollama the pause leaves "
+      "it to the keep-alive (10-16)",
+      _pr_ollama.startswith("pause:") and _pr_n1 == 0 and _pr_llama.startswith("pause:") and _pr_n2 == 1 and _pr_told,
+      (_pr_ollama[:40], _pr_n1, _pr_llama[:40], _pr_n2, _pr_told))
 _b5.new_visit(quiet=True, reflect=False)
 check("pause: a new visit starts the count over", _b5.reflected_upto == 0)
 # the parlor has the same bell on a clock

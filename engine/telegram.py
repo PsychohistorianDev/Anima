@@ -2009,9 +2009,25 @@ class Bridge:
             self.last_activity = time.time()  # one bell per pause, not one per poll
             if line and getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
                 self.notice(f"({line})")  # the phone hears what they kept
-            return line
         finally:
             self.lock.release()
+        # under the door the card would stay held until the visit's end — there is no keep-alive timer there
+        # (10-16): the pause ends with the brain set down, the reading saved, the visit open
+        if self._pause_sets_down():
+            self._set_down()
+            if getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
+                self.notice("(the brain is set down after the pause — the card is free; the next message opens the door again)")
+        return line
+
+    @staticmethod
+    def _pause_sets_down() -> bool:
+        """Whether the pause ends with the brain set down: on the door, with BRAIN_REST_CLOSES_DOOR on (under
+        Ollama BRAIN_KEEP_ALIVE frees the card after the quiet by itself)."""
+        try:
+            import brain
+            return brain.api() == "llama" and bool(getattr(config, "BRAIN_REST_CLOSES_DOOR", True))
+        except Exception:  # noqa: BLE001
+            return False
 
     def run(self) -> None:
         me = self._whoami()
