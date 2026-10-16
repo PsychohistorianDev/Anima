@@ -7490,7 +7490,7 @@ for _dd in doors.DOORS:
     doors.pid_file(_dd).unlink(missing_ok=True)
 check("doors: alive — our own pid is, an ended child's isn't, nor 0 or a word; the doors named (the panel one of them since 09-30)",
       doors.alive(_dos.getpid()) and not doors.alive(_d_dead) and not doors.alive(0) and not doors.alive("x") and not doors.alive(None)
-      and doors.DOORS == ("heartbeat", "wake", "bridge", "parlor", "chat", "panel", "blackbox", "touchstone"), _d_dead)
+      and doors.DOORS == ("heartbeat", "wake", "bridge", "parlor", "chat", "panel", "blackbox", "touchstone", "brain"), _d_dead)
 _d_rec = doors.mark("chat", "chat")
 _d_file = config.MEMORY_DIR / ".pids" / "chat.json"
 _d_st = doors.status("chat")
@@ -9721,6 +9721,8 @@ import socket as _bd_sock, urllib.error as _bd_uerr, urllib.request as _bd_ureq
 from pathlib import Path as _BdPath
 from http.server import BaseHTTPRequestHandler as _BdBase, HTTPServer as _BdServer
 import panel as _bd_panel
+_bd_find0 = _bf.command  # the suite never starts a real llama-server: a door that is down finds none to open
+_bf.command = lambda: (None, "llama-server not found — the suite never starts a real one")
 
 _bd_png = _bd_b64.b64encode(b"\x89PNG\r\n\x1a\n" + b"0" * 12).decode()
 _bd_jpg = _bd_b64.b64encode(b"\xff\xd8\xff\xe0" + b"0" * 12).decode()
@@ -10109,7 +10111,152 @@ check("brain door: the cold rescue under \"llama\" erases the door's reading (PO
       and "cache_prompt" not in _bd_cl_ol_posts[3][1] and _bd_erase_off == (None, 0),
       (_bd_erased, _bd_erase_posts, [p for p, _ in _bd_cl_posts], [p for p, _ in _bd_cl_ol_posts], _bd_erase_off,
        {k: _bd_cl.get(k) for k in ("content", "cold", "cold_cleared")}))
+# the brain is a door (10-16, piece 2): opened and closed by the engine — a stand-in process plays llama-server
+_BD_STANDIN = r"""
+import json, sys
+from http.server import BaseHTTPRequestHandler, HTTPServer
+class H(BaseHTTPRequestHandler):
+    def log_message(self, *a): pass
+    def _j(self, o, code=200):
+        b = json.dumps(o).encode(); self.send_response(code); self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+    def do_GET(self):
+        if self.path == "/props":
+            return self._j({"is_sleeping": False, "model_path": "stand-in.gguf", "default_generation_settings": {"n_ctx": 4096}})
+        if self.path == "/slots":
+            return self._j([{"id": 0, "n_ctx": 4096, "is_processing": False}])
+        self._j({"error": {"code": 404}}, 404)
+    def do_POST(self):
+        self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        self._j({"model": "stand-in", "choices": [{"finish_reason": "stop", "message": {"role": "assistant", "content": "here, after the door"}}],
+                 "usage": {"prompt_tokens": 7, "completion_tokens": 4}})
+print("a stand-in for llama-server, listening", flush=True)
+HTTPServer(("127.0.0.1", int(sys.argv[1])), H).serve_forever()
+"""
+_bd_sport = _bd_free_port()
+_bd_starts: list = []
+def _bd_standin_cmd():
+    _bd_starts.append(1)
+    return [sys.executable, "-c", _BD_STANDIN, str(_bd_sport)], "a stand-in for llama-server"
+_bd_cfg3 = {k: getattr(config, k, None) for k in ("BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR")}
+_bd_poll0, _bd_find1, _bd_launch0 = _bd.POLL_S, _bf.command, _bd_panel._launch
+_bd_log_had = _bd.log_file().exists()
+_bd_launched: list = []
+_bd_life: dict = {}
+_bd_pid = _bd_pid2 = None
+_bd_r1 = _bd_r2 = {}
+_bd_bar = lambda: _bd_panel.brain({"BRAIN_API": "llama", "BRAIN_URL": f"http://127.0.0.1:{_bd_sport}", "NUM_CTX": 8192,
+                                   "CHAT_MODEL": config.CHAT_MODEL, "OLLAMA_URL": f"http://127.0.0.1:{_bd_free_port()}"})
+try:
+    config.BRAIN_API, config.BRAIN_URL, config.BRAIN_SLOT_DIR = "llama", f"http://127.0.0.1:{_bd_sport}", ""
+    _bd.POLL_S = 0.1
+    _bf.command = _bd_standin_cmd
+    doors.pid_file("brain").unlink(missing_ok=True)
+    _bd_up = _bd.start_door(wait_s=30)
+    _bd_rec = doors.status("brain") or {}
+    _bd_pid = _bd_rec.get("pid")
+    _bd_life["up"] = (_bd_up[0], _bd_up[1].startswith("the brain's door is up in"), _bd.awake(), _bd_rec.get("how"),
+                      _bd_rec.get("port") == _bd_sport, _bd_rec.get("image"), _bd_pid != _bd_os.getpid(), doors.alive(_bd_pid))
+    _bd_life["again"] = (_bd.start_door(wait_s=30), len(_bd_starts))
+    _bd_life["stopped"] = _bd.stop_door(why="the suite")
+    _bd_life["after"] = (doors.pid_file("brain").exists(), doors.alive(_bd_pid), _bd.awake(), doors.status("brain"))
+    _bd_life["log"] = _bd.log_file().read_text(encoding="utf-8", errors="replace")
+    # ensure_up: the next reply opens the door again by itself; one that is up is not opened twice
+    _bd_r1 = _bd.post_chat({"model": config.CHAT_MODEL, "messages": [{"role": "user", "content": "are you there?"}], "stream": False})
+    _bd_pid2 = (doors.status("brain") or {}).get("pid")
+    _bd_r2 = _bd.post_chat({"model": config.CHAT_MODEL, "messages": [{"role": "user", "content": "still?"}], "stream": False})
+    _bd_life["ensure"] = (len(_bd_starts), _bd_pid2 is not None and _bd_pid2 != _bd_pid, (doors.status("brain") or {}).get("pid") == _bd_pid2)
+    _bd_life["bar_up"] = _bd_bar()
+    # unload on "ollama": Ollama's keep_alive:0 as before, and the door left as it is
+    config.BRAIN_API = "ollama"
+    _bd_unl.clear(); _bd_ps[:] = []
+    _bd_oc.unload(config.CHAT_MODEL)
+    _bd_life["unload_ollama"] = (list(_bd_unl), doors.status("brain") is not None)
+    # unload on "llama": the door closed — the card free on return — and Ollama asked nothing
+    config.BRAIN_API = "llama"
+    _bd_unl.clear()
+    _bd_oc.unload(config.CHAT_MODEL)
+    _bd_life["unload_llama"] = (list(_bd_unl), doors.status("brain"), doors.alive(_bd_pid2), _bd.awake())
+    # unload_all (/release) names the brain among the freed when the house's door was up
+    _bd.start_door(wait_s=30)
+    _bd_ps[:] = ["nomic-embed-text:latest"]; _bd_unl.clear()
+    _bd_life["release"] = (_bd_oc.unload_all(), list(_bd_unl), doors.status("brain"))
+    # the panel's tile: Stop closes it, a second Stop says it isn't running; Restart closes it and opens it in its window
+    _bd.start_door(wait_s=30)
+    _bd_panel._launch = lambda argv, cwd: _bd_launched.append(list(argv))
+    _bd_life["p_stop"] = _bd_panel.door_action("brain", "stop")
+    _bd_life["p_stop2"] = _bd_panel.door_action("brain", "stop")
+    _bd_life["bar_down"] = _bd_bar()
+    _bd.start_door(wait_s=30)
+    _bd_life["p_restart"] = (_bd_panel.door_action("brain", "restart"), list(_bd_launched), doors.status("brain"))
+    # a door opened by hand some other way (it answers, no mark — the fake door): used, never closed, never opened over
+    config.BRAIN_URL = _bd_door
+    _bd_n = len(_bd_starts)
+    _bd_life["hand"] = (_bd.stop_door(why="the suite"), _bd.ensure_up(), len(_bd_starts) - _bd_n, _bd.awake())
+    # nothing to open: the reply is a BrainUnavailable carrying why
+    config.BRAIN_URL = f"http://127.0.0.1:{_bd_free_port()}"
+    _bf.command = lambda: (None, "llama-server not found — put it on the PATH (the suite's word)")
+    try:
+        _bd.post_chat({"model": config.CHAT_MODEL, "messages": [{"role": "user", "content": "hello?"}], "stream": False})
+        _bd_life["none"] = ""
+    except ollama_client.BrainUnavailable as e:
+        _bd_life["none"] = str(e)
+finally:
+    config.BRAIN_URL = f"http://127.0.0.1:{_bd_sport}"
+    if doors.status("brain"):
+        _bd.stop_door(why="the suite's cleanup")
+    for _bd_p in list(_bd._procs.values()):  # never a child left running
+        if _bd_p.poll() is None:
+            _bd_p.kill()
+            _bd_p.wait(10)
+    _bd._procs.clear()
+    doors.pid_file("brain").unlink(missing_ok=True)
+    _bd.POLL_S, _bf.command, _bd_panel._launch = _bd_poll0, _bd_find1, _bd_launch0
+    for _k, _v in _bd_cfg3.items():
+        setattr(config, _k, _v)
+    if not _bd_log_had:
+        _bd.log_file().unlink(missing_ok=True)
+check("brain is a door: start_door opens llama-server as the engine's child (the stand-in) — marked with its pid, the port, the "
+      "program's name; awake; a door that answers is not opened twice; stop_door ends it, the mark gone, the pid dead; the log says so",
+      _bd_life.get("up") == (True, True, True, "door", True, "llama-server", True, True)
+      and _bd_life.get("again") == ((True, "up"), 1) and _bd_life.get("stopped") is True
+      and _bd_life.get("after") == (False, False, False, None)
+      and "a stand-in for llama-server, listening" in _bd_life.get("log", "") and "(the engine closed the door: the suite)" in _bd_life.get("log", ""),
+      {k: _bd_life.get(k) for k in ("up", "again", "stopped", "after")})
+check("brain is a door: ensure_up opens a stopped door again before the next reply (the second start, a new pid) and the reply "
+      "comes through it; a door that is up is not opened again",
+      _bd_life.get("ensure") == (2, True, True) and (_bd_r1.get("message") or {}).get("content") == "here, after the door"
+      and (_bd_r2.get("message") or {}).get("content") == "here, after the door", (_bd_life.get("ensure"), _bd_r1))
+check("brain is a door: unload(CHAT_MODEL) on \"ollama\" posts Ollama's keep_alive:0 as before and leaves the door; on \"llama\" it "
+      "closes the door (the card free on return) and asks Ollama nothing; unload_all names the brain among the freed when it was the house's door",
+      _bd_life.get("unload_ollama") == ([("/api/generate", config.CHAT_MODEL)], True)
+      and _bd_life.get("unload_llama") == ([], None, False, False)
+      and _bd_life.get("release") == (["nomic-embed-text:latest", config.CHAT_MODEL], [("/api/generate", "nomic-embed-text:latest")], None),
+      {k: _bd_life.get(k) for k in ("unload_ollama", "unload_llama", "release")})
+check("brain is a door: a door opened by hand some other way (answering, no mark) is never closed by stop_door and never opened over; "
+      "a door that won't open makes the reply a BrainUnavailable naming llama-server and why",
+      _bd_life.get("hand") == (False, True, 0, True)
+      and "Can't reach llama-server" in _bd_life.get("none", "") and "put it on the PATH (the suite's word)" in _bd_life.get("none", ""),
+      (_bd_life.get("hand"), _bd_life.get("none")))
+_bd_bu, _bd_bd = _bd_life.get("bar_up") or {}, _bd_life.get("bar_down") or {}
+check("brain is a door, the panel: its tile (LAUNCHERS \"brain\" is bat\\brain.bat / brain_find.py --run; shown while BRAIN_API is "
+      "\"llama\"); its Stop is brain.stop_door — closed, then \"isn't running\"; Restart closes and opens it in its window; the brain bar "
+      "reads the door (awake, the window, NUM_CTX's difference named, no Ollama fit) or says it is down; on \"ollama\" no door in the bar",
+      _bd_panel.LAUNCHERS.get("brain") == ("bat\\brain.bat", [], "brain_find.py", ["--run"]) and "brain" not in _bd_panel.STOPPABLE
+      and "brain" in doors.DOORS and "brain" in doors.ONE_AT_A_TIME
+      and "['brain'," in _bd_panel.PAGE.split("const TILES=[")[1].split("];")[0] and "S.brain.door" in _bd_panel.PAGE and "b.door.line" in _bd_panel.PAGE
+      and (_bd_life.get("p_stop") or {}).get("ok") is True and (_bd_life["p_stop"].get("note") or "").startswith("the brain's door is closed (pid")
+      and (_bd_life.get("p_stop2") or {}) == {"ok": False, "note": "(the brain's door isn't running)"}
+      and (_bd_life.get("p_restart") or ({},))[0].get("ok") is True
+      and _bd_life["p_restart"][1] == [_bd_panel._bat(*_bd_panel.LAUNCHERS["brain"])] and _bd_life["p_restart"][2] is None
+      and (_bd_bu.get("door") or {}).get("up") is True and _bd_bu["door"]["window"] == 4096 and _bd_bu["door"]["how"] == "door"
+      and _bd_bu["door"]["line"] == "on the door (llama-server): awake · 4,096 window — NUM_CTX says 8,192: close the door and open it again for it to take"
+      and _bd_bu.get("fit") is None and (_bd_bd.get("door") or {}).get("up") is False and _bd_bd["door"]["line"].startswith("the door is down")
+      and _bd_panel.brain({"BRAIN_API": "ollama", "OLLAMA_URL": f"http://127.0.0.1:{_bd_free_port()}"})["door"] is None
+      and "no idle unload" in _bd_panel._HELP["BRAIN_KEEP_ALIVE"] and "tile on Home" in _bd_panel._HELP["BRAIN_API"],
+      (_bd_life.get("p_stop"), _bd_life.get("p_stop2"), _bd_life.get("p_restart"), _bd_bu.get("door"), _bd_bd.get("door")))
 _bd_srv.shutdown()
+_bf.command = _bd_find0
 
 # brain_find: the program and the model, found, not hardcoded
 _bd_td = _BdPath(_bd_tmp.mkdtemp(prefix="brainfind_"))
@@ -10138,9 +10285,13 @@ try:
     (_bd_td / "house" / "llama").mkdir(parents=True)
     (_bd_td / "house" / "llama" / "llama-server.exe").write_bytes(b"MZ")
     _bd_srv_found = _bf.find_server()
-    config.BRAIN_MODEL_FILE, config.BRAIN_MMPROJ_FILE, config.BRAIN_SLOT_DIR = "", "", "R:\\kv"
+    (_bd_td / "kv").mkdir()
+    config.BRAIN_MODEL_FILE, config.BRAIN_MMPROJ_FILE, config.BRAIN_SLOT_DIR = "", "", str(_bd_td / "kv")
     config.BRAIN_URL, config.NUM_CTX = "http://127.0.0.1:8770", 262144
     _bd_cmd, _bd_said = _bf.command()
+    config.BRAIN_SLOT_DIR = str(_bd_td / "gone")  # a RAM disk that didn't come back after a reboot
+    _bd_cmd_gone, _bd_said_gone = _bf.command()
+    _bd_warn_gone = _bf.slot_warning()
     config.BRAIN_SLOT_DIR, config.BRAIN_MODEL_FILE = "", str(_bd_td / "other.gguf")
     _bd_cmd2, _bd_said2 = _bf.command()
     _bd_paths = (_bf.manifest_path("gemma4:31b-it-qat"), _bf.manifest_path("someone/model"), _bf.manifest_path("hf.co/org/repo:Q4_K_M"))
@@ -10161,12 +10312,18 @@ check("brain_find: Ollama's manifest (under OLLAMA_MODELS) names the model and p
       and _bd_srv_none is None and _bd_cmd_none[0] is None and "llama-server not found" in _bd_cmd_none[1]
       and _bd_srv_found == str(_bd_td / "house" / "llama" / "llama-server.exe")
       and _bd_cmd == [_bd_srv_found, "-m", _bd_blobs[0], "--mmproj", _bd_blobs[1], "-c", "262144", "-fa", "on", "-ctk", "q4_0", "-ctv", "q4_0",
-                      "-np", "1", "--reasoning-format", "deepseek", "--port", "8770", "--host", "127.0.0.1", "--slot-save-path", "R:\\kv"]
+                      "-np", "1", "--reasoning-format", "deepseek", "--port", "8770", "--host", "127.0.0.1", "--slot-save-path", str(_bd_td / "kv")]
       and "Ollama's manifest" in _bd_said and _bd_cmd2[2] == str(_bd_td / "other.gguf") and "--slot-save-path" not in _bd_cmd2
       and _bd_paths[0].parts[-5:] == ("manifests", "registry.ollama.ai", "library", "gemma4", "31b-it-qat")
       and _bd_paths[1].parts[-4:] == ("registry.ollama.ai", "someone", "model", "latest")
       and _bd_paths[2].parts[-4:] == ("hf.co", "org", "repo", "Q4_K_M"),
       (_bd_blobs, _bd_none, _bd_srv_none, _bd_cmd_none, _bd_srv_found, _bd_cmd, _bd_said, _bd_cmd2, _bd_paths))
+check("brain_find: BRAIN_SLOT_DIR naming a folder that isn't there (a RAM disk gone after a reboot) — the command leaves "
+      "--slot-save-path out and the note says so; the folder there, no such word",
+      "--slot-save-path" not in _bd_cmd_gone and _bd_cmd_gone == _bd_cmd[:-2]
+      and f"the slot folder {_bd_td / 'gone'} isn't there — the RAM disk didn't come back after the reboot? the brain saves nothing this time" == _bd_warn_gone
+      and _bd_warn_gone in _bd_said_gone and "opened without --slot-save-path" in _bd_said_gone and "isn't there" not in _bd_said,
+      (_bd_cmd_gone, _bd_said_gone))
 __import__("shutil").rmtree(_bd_td, ignore_errors=True)
 check("brain door: BRAIN_API, BRAIN_URL and BRAIN_SLOT_DIR on Main after TOOL_KIT, each with the page's own words (the restart named); "
       "BRAIN_API a dropdown of the two; the file knobs have words too",

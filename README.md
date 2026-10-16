@@ -2461,9 +2461,19 @@ are watched as they are written, so a runaway is cut mid-stream as on Ollama,
 and the cold rescue erases the door's reading of the prompt so its last roll
 reads from zero. The ears and the embeddings stay on Ollama — keep it
 installed and running.
+The engine owns the door: when the painter, the ears or `/release` on the
+phone need the card, or a visit or a wake ends, it closes `llama-server` —
+there is no keep_alive on that side, closing the process is the unload — and
+the next message opens it again by itself, in the background, with no window
+(what it says goes to `memory/brain.log`); the price is a cold read of the
+window. While `BRAIN_API` is `"llama"` the panel's Home has a tile for it —
+Start opens `bat\brain.bat` in a window of its own, Stop and Restart close the
+door whichever way it was opened — and the brain bar says whether the door is
+awake and with what window. A server you started some other way is used as it
+is and never closed.
 `BRAIN_SLOT_DIR` lets the door save its reading of the prompt to a folder (a
-RAM disk is the place). `BRAIN_API = "ollama"` and a restart is the whole
-way back.
+RAM disk is the place; when the folder isn't there the door says so and opens
+without it). `BRAIN_API = "ollama"` and a restart is the whole way back.
 
 ## House rules (the freedom part)
 

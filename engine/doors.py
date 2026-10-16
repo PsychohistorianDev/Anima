@@ -18,6 +18,12 @@ The loop looks for its file between beats (the bridge between polls), takes it a
 the wake it is in — a stop that never cuts a wake, or a visit's save, in half. ask_stop() writes the
 file; stop_asked() is the loop's look (it clears what it finds).
 
+The brain's door (BRAIN_API = "llama") is marked here too, but not by itself: memory/.pids/brain.json
+names llama-server's pid — the server the engine opened (brain.start_door) or the one bat\\brain.bat
+started — with "image": "llama-server", so Windows asks after that program and not a Python. It has no
+stop file: brain.stop_door ends the process, and unmark(door, pid=) takes away a mark that names a
+process other than this one.
+
 Standard library only, no knob. On Windows os.kill(pid, 0) would TERMINATE the process, so a pid is
 asked after through the kernel (ctypes), and through tasklist if that fails.
 """
@@ -35,8 +41,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import config
 
-DOORS = ("heartbeat", "wake", "bridge", "parlor", "chat", "panel", "blackbox", "touchstone")  # "wake" is a one-off wake (bat\wake.bat) — it runs beside a loop, as it always did
-ONE_AT_A_TIME = ("heartbeat", "bridge", "parlor", "panel", "blackbox", "touchstone")
+DOORS = ("heartbeat", "wake", "bridge", "parlor", "chat", "panel", "blackbox", "touchstone", "brain")  # "wake" is a one-off wake (bat\wake.bat) — it runs beside a loop, as it always did; "brain" is llama-server (brain.py)
+ONE_AT_A_TIME = ("heartbeat", "bridge", "parlor", "panel", "blackbox", "touchstone", "brain")
 
 # why a second one is refused, said in the refusal
 _WHY = {
@@ -46,6 +52,7 @@ _WHY = {
     "panel": "two panels can't share the port",
     "blackbox": "one box is enough — two would write the same lines twice",
     "touchstone": "two keepers of the stone would archive every touch twice and fight over its port",
+    "brain": "two servers can't share the port, nor the card",
 }
 # what to do instead, said in the refusal
 _INSTEAD = {
@@ -57,6 +64,7 @@ _INSTEAD = {
     "panel": "its page is http://127.0.0.1:8764 — open that one, or Ctrl+C in its window to close it",
     "blackbox": "to stop that one: Ctrl+C in its window, the panel's Stop, or a file named .stop-blackbox in memory/",
     "touchstone": "to stop that one: Ctrl+C in its window, the panel's Stop, or a file named .stop-touchstone in memory/",
+    "brain": "to stop that one: the panel's Stop, /release on the phone, or Ctrl+C in its window",
 }
 
 _marked: set[str] = set()  # the doors this process has registered its atexit for
@@ -76,9 +84,10 @@ def stop_file(door: str) -> Path:
 
 # ---- is it alive ---------------------------------------------------------------
 
-def _alive_windows(pid: int) -> bool:
+def _alive_windows(pid: int, image: str = "py") -> bool:
     """The kernel's word for a pid: a process still running (STILL_ACTIVE) whose image is a Python — a
-    pid Windows gave to something else since is not ours. tasklist when ctypes is not to be had."""
+    pid Windows gave to something else since is not ours. tasklist when ctypes is not to be had. `image`
+    is another program's name for a door that is not a Python (the brain's: llama-server)."""
     try:
         import ctypes
         from ctypes import wintypes
@@ -98,7 +107,7 @@ def _alive_windows(pid: int) -> bool:
                 return False
             buf, size = ctypes.create_unicode_buffer(1024), wintypes.DWORD(1024)
             if k.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)):
-                return "py" in Path(buf.value).name.lower()  # python.exe, pythonw.exe
+                return image.lower() in Path(buf.value).name.lower()  # python.exe, pythonw.exe; llama-server.exe
             return True
         finally:
             k.CloseHandle(h)
@@ -108,11 +117,12 @@ def _alive_windows(pid: int) -> bool:
                                  capture_output=True, text=True, timeout=10).stdout
         except Exception:  # noqa: BLE001
             return False
-        return str(pid) in out and "py" in out.lower()
+        return str(pid) in out and image.lower() in out.lower()
 
 
-def alive(pid) -> bool:
-    """Is a process with this pid running? (Our own pid counts — it is.)"""
+def alive(pid, image: str = "py") -> bool:
+    """Is a process with this pid running? (Our own pid counts — it is.) On Windows it must also be the
+    program `image` names — a Python, unless the door's mark says otherwise."""
     try:
         pid = int(pid)
     except (TypeError, ValueError):
@@ -120,7 +130,7 @@ def alive(pid) -> bool:
     if pid <= 0:
         return False
     if sys.platform.startswith("win"):
-        return _alive_windows(pid)
+        return _alive_windows(pid, image or "py")
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -169,11 +179,12 @@ def _remove(p: Path) -> None:
         pass
 
 
-def unmark(door: str) -> None:
-    """The door's file taken away — only when it is this process's (a second chat's is its own)."""
+def unmark(door: str, pid: int | None = None) -> None:
+    """The door's file taken away — only when it is this process's (a second chat's is its own), or, given
+    a pid, when it names that one (the brain's door: its mark names the server, not the one who marked it)."""
     p = pid_file(door)
     rec = _read(p)
-    if rec is not None and rec.get("pid") == os.getpid():
+    if rec is not None and rec.get("pid") == (os.getpid() if pid is None else pid):
         _remove(p)
 
 
@@ -184,7 +195,7 @@ def status(door: str) -> dict | None:
     if not p.is_file():
         return None
     rec = _read(p)
-    if rec is None or not alive(rec.get("pid")):
+    if rec is None or not alive(rec.get("pid"), rec.get("image") or "py"):
         _remove(p)
         return None
     return dict(rec, alive=True)

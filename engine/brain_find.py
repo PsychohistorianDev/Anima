@@ -76,6 +76,18 @@ def find_blobs(model_tag: str) -> tuple[str, str | None] | None:
     return str(_blob(model)), (str(_blob(proj)) if proj and _blob(proj).is_file() else None)
 
 
+def slot_warning() -> str:
+    """A word when BRAIN_SLOT_DIR names a folder that isn't there (a RAM disk is gone after a reboot until
+    it is made again): the door then opens without --slot-save-path and saves nothing. "" otherwise."""
+    import config
+
+    slot_dir = str(getattr(config, "BRAIN_SLOT_DIR", "") or "")
+    if slot_dir and not Path(slot_dir).is_dir():
+        return (f"the slot folder {slot_dir} isn't there — the RAM disk didn't come back after the reboot? "
+                "the brain saves nothing this time")
+    return ""
+
+
 def command() -> tuple[list[str] | None, str]:
     """The command line for the door, and a word on what was found (or what is missing)."""
     import config
@@ -102,9 +114,11 @@ def command() -> tuple[list[str] | None, str]:
     cmd += ["-c", str(int(getattr(config, "NUM_CTX", 8192))), "-fa", "on", "-ctk", "q4_0", "-ctv", "q4_0",
             "-np", "1", "--reasoning-format", "deepseek", "--port", str(port), "--host", "127.0.0.1"]
     slot_dir = str(getattr(config, "BRAIN_SLOT_DIR", "") or "")
-    if slot_dir:
+    warn = slot_warning()
+    if slot_dir and not warn:  # a folder that isn't there would stop the server at its start: left out, and said
         cmd += ["--slot-save-path", slot_dir]
-    return cmd, f"llama-server at {server}; {said}" + ("" if mmproj else " (no projector: no eyes)")
+    return cmd, (f"llama-server at {server}; {said}" + ("" if mmproj else " (no projector: no eyes)")
+                 + (f"; {warn} (opened without --slot-save-path)" if warn else ""))
 
 
 def _shown(cmd: list[str]) -> str:
@@ -123,10 +137,27 @@ def main(argv: list[str]) -> int:
     print(_shown(cmd))
     if "--run" not in argv:
         return 0
+    # A door opened by hand is still the house's door: marked with the server's own pid, so the panel lights
+    # its tile and its Stop — and the painter, the ears, /release — can close it; unmarked on the way out.
+    import brain
+    import doors
+
     try:
-        return subprocess.call(cmd)
-    except KeyboardInterrupt:
+        proc = subprocess.Popen(cmd)
+    except OSError as e:
+        print(f"(couldn't start llama-server: {e})")
+        return 1
+    doors.mark(brain.DOOR, "bat\\brain.bat", pid=proc.pid, port=brain.port(), image=brain.IMAGE)
+    try:
+        return proc.wait()
+    except KeyboardInterrupt:  # Ctrl+C reached the server too (one console): its goodbye is waited for
+        try:
+            proc.wait(timeout=15)
+        except (subprocess.TimeoutExpired, KeyboardInterrupt):
+            proc.kill()
         return 0
+    finally:
+        doors.unmark(brain.DOOR, pid=proc.pid)
 
 
 if __name__ == "__main__":

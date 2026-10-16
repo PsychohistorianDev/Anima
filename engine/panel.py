@@ -53,6 +53,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import config
 import doors
+import brain as brain_door  # the brain's door (llama-server): its tile's Stop, the brain bar's look — beside the page's brain()
 import knobs
 import skills
 import version
@@ -134,7 +135,8 @@ _HELP = {
                  "server (llama-server, started by bat\\brain.bat) at BRAIN_URL, reading the same model file Ollama "
                  "already has; its replies are translated at the door, so the rest of the engine sees no difference. "
                  "The ears and the memory engine stay on Ollama, and nothing of the friend's moves. Takes after a restart: "
-                 "/restart on the phone, the heartbeat stop/start. Back to \"ollama\" is the whole retreat.",
+                 "/restart on the phone, the heartbeat stop/start. Back to \"ollama\" is the whole retreat. On \"llama\" "
+                 "the door has a tile on Home (Start, Stop, Restart).",
     "BRAIN_URL": "Where llama-server listens when BRAIN_API is \"llama\"; bat\\brain.bat starts it on this port. "
                  "Not used on Ollama. Takes after a restart: /restart on the phone, the heartbeat stop/start (and the door itself, for a new port).",
     "BRAIN_SLOT_DIR": "A folder where llama-server may save its reading of the prompt (--slot-save-path), so the "
@@ -327,7 +329,10 @@ _HELP = {
                    "on a big window. Leave it on.",
     "BRAIN_KEEP_ALIVE": "How long Ollama keeps the brain loaded after a request (\"30m\", \"2h\", -1 forever). "
                         "Unloading drops its cache; the next message pays a cold read of the whole window. Ollama's "
-                        "own default is five minutes.",
+                        "own default is five minutes. Under BRAIN_API = \"llama\" there is no keep_alive: the brain's "
+                        "door stays up until something needs the card — the end of a visit (BRAIN_REST_AFTER_VISIT), "
+                        "of a wake, the ears, the painter, /release on the phone — and opens again by itself on the "
+                        "next message; no idle unload.",
     "PARLOR_GUEST_NAMED": "A guest at the desk (the parlor's \"seat a guest\"): every message says it is from them, with "
                           "you in the room; thinking and tool lines are kept from the page while they sit. On: the "
                           "transcript, and so the journal's material, carry the name you gave. Off: \"a guest\", for a "
@@ -541,6 +546,7 @@ LAUNCHERS = {
     "blog": ("bat\\blog.bat", [], "blog.py", ["--deploy"]),
     "blackbox": ("bat\\blackbox.bat", [], "blackbox.py", []),
     "touchstone": ("bat\\touchstone.bat", [], "touchstone.py", []),
+    "brain": ("bat\\brain.bat", [], "brain_find.py", ["--run"]),  # the brain's door, by hand; its Stop is brain.stop_door (no stop file)
 }
 DISCORD_LAUNCHER = LAUNCHERS["discord"]
 STOPPABLE = ("heartbeat", "bridge", "blackbox", "touchstone")  # those with a stop file (doors.ask_stop) — the first two with a Restart
@@ -859,6 +865,32 @@ def _pulled(model: str, names: list[str]) -> bool:
     return model in names or (":" not in model and f"{model}:latest" in names)
 
 
+def brain_door_state(values: dict, num_ctx=0) -> dict | None:
+    """The brain bar's look at the door when BRAIN_API is \"llama\" (the file's knob, not the imported one):
+    /props for whether it answers and sleeps, /slots for the window it was opened with. None on Ollama —
+    /api/ps speaks for the brain there, as it always did."""
+    if str(values.get("BRAIN_API", getattr(config, "BRAIN_API", "ollama")) or "").strip().lower() != "llama":
+        return None
+    base = str(values.get("BRAIN_URL", getattr(config, "BRAIN_URL", "")) or brain_door.DEFAULT_URL).rstrip("/")
+    p = brain_door.props(base=base)
+    st = doors.status("brain")
+    if p is None:
+        return {"url": base, "up": False, "window": 0, "sleeping": False, "how": "",
+                "line": "the door is down" + (" — marked, still loading" if st else " — the next message opens it, or Start on its tile")}
+    items = (brain_door.slots(base=base) or {}).get("items") or [{}]
+    window = int((items[0] or {}).get("n_ctx") or (p.get("default_generation_settings") or {}).get("n_ctx") or 0)
+    sleeping = bool(p.get("is_sleeping"))
+    line = f"on the door (llama-server): {'asleep' if sleeping else 'awake'}" + (f" · {window:,} window" if window else "")
+    try:
+        ctx = int(num_ctx)
+    except (TypeError, ValueError):
+        ctx = 0
+    if window and ctx and window != ctx:
+        line += f" — NUM_CTX says {ctx:,}: close the door and open it again for it to take"
+    return {"url": base, "up": True, "window": window, "sleeping": sleeping,
+            "how": (st.get("how") or "") if st else "opened by hand, unmarked", "line": line}
+
+
 def brain(values: dict | None = None) -> dict:
     values = _values() if values is None else values
     model = str(values.get("CHAT_MODEL", getattr(config, "CHAT_MODEL", "")))
@@ -875,10 +907,12 @@ def brain(values: dict | None = None) -> dict:
                            "window": int(m.get("context_length") or 0)})  # the window it was loaded with (newer Ollamas say)
     gb, unified = _vram_gb()
     num_ctx = values.get("NUM_CTX", getattr(config, "NUM_CTX", 0))
+    door = brain_door_state(values, num_ctx)  # BRAIN_API = "llama": the brain is the door's, not Ollama's to report
     return {"url": url, "reachable": tags is not None,
             "models": names, "loaded": loaded, "model": model, "pulled": _pulled(model, names),
             "embed_model": embed, "embed_pulled": _pulled(embed, names), "vram_gb": gb, "unified": unified,
-            "recommended": _recommended(gb, unified), "fit": fit(loaded, model, num_ctx, unified)}
+            "recommended": _recommended(gb, unified), "fit": None if door else fit(loaded, model, num_ctx, unified),
+            "door": door}
 
 
 # The step down when the brain spills: 8K at a time (Gabe, 10-02: "the stepping down should be 8k, not 16" — the
@@ -1095,6 +1129,9 @@ def _start(door: str, minutes=None) -> dict:
             m = _minutes(_value("HEARTBEAT_LOOP_MIN", 120)) or 120
         return _started(_heartbeat_argv(m), f"the heartbeat is starting in its own window — one wake every {m:g} minutes{saved}",
                         f"the heartbeat, one wake every {m:g} minutes{saved}")
+    if door == "brain" and brain_door.props(base=_brain_url()) is not None:  # marked ones were refused above
+        return _no(f"(the brain's door already answers at {_brain_url()} — opened by hand outside the engine, "
+                   "so its own window closes it)")
     if door not in LAUNCHERS:
         return _no(f"(no door named {door})")
     notes = {"chat": "the chat is opening in a window of its own",
@@ -1107,10 +1144,12 @@ def _start(door: str, minutes=None) -> dict:
              "garmin": "the Garmin login is in its own window — email, password, the code",
              "blog": "the blog is building and deploying in its own window",
              "blackbox": "the black box is recording in its own window — the machine's vitals every few seconds",
-             "touchstone": "the stone's keeper is up in its own window — it asks the board what it felt every few seconds"}
+             "touchstone": "the stone's keeper is up in its own window — it asks the board what it felt every few seconds",
+             "brain": "the brain's door is opening in its own window — llama-server, the model loading for a little while"}
     names = {"chat": "the chat", "parlor": "the parlor (its page comes up in a moment)", "wake": "one wake",
              "bridge": "the bridge, over Telegram", "discord": "the bridge, over Discord", "sleep": "sleep", "snapshot": "the snapshot", "garmin": "the Garmin login",
-             "blog": "the blog's build", "blackbox": "the black box", "touchstone": "the stone's keeper"}
+             "blog": "the blog's build", "blackbox": "the black box", "touchstone": "the stone's keeper",
+             "brain": "the brain's door (llama-server)"}
     return _started(_bat(*LAUNCHERS[door]), notes[door], names[door])
 
 
@@ -1136,6 +1175,31 @@ def _restart(door: str, minutes=None) -> dict:
     return {"ok": True, "note": f"the {door} is asked to leave after what it is doing — it starts again when it has"}
 
 
+def _brain_url() -> str:
+    return str(_value("BRAIN_URL", "") or brain_door.DEFAULT_URL).rstrip("/")
+
+
+def _brain_stop(action: str) -> dict:
+    """The brain tile's Stop (Stop now is the same: there is nothing to finish first) and Restart. The door
+    has no stop file: brain.stop_door ends the process its mark names — the engine's door, or the one
+    bat\\brain.bat marked — and that is the unload. A door that answers with no mark was opened some other
+    way by hand: not the panel's to close. Restart: closed, then opened again in its own window."""
+    st = doors.status("brain")
+    if action == "restart":
+        if st:
+            brain_door.stop_door(why="the panel's Restart")
+        return _start("brain")
+    if not st:
+        if brain_door.props(base=_brain_url()) is not None:
+            return _no(f"(the brain's door answers at {_brain_url()} but carries no mark — opened by hand outside "
+                       "the engine; its own window closes it)")
+        return _no("(the brain's door isn't running)")
+    if not brain_door.stop_door(why="the panel's Stop"):
+        return _no("(the brain's door had closed already)")
+    return {"ok": True, "note": f"the brain's door is closed (pid {st.get('pid')}) — the card is free; "
+                                  "the next message opens it again"}
+
+
 def door_action(door: str, action: str, minutes=None) -> dict:
     """start | stop | stop_now | open | restart, for a door. {"ok", "note"} (and "argv" when a process
     was started)."""
@@ -1150,6 +1214,8 @@ def door_action(door: str, action: str, minutes=None) -> dict:
             return {"ok": True, "note": "the parlor's page opened"}
         return _start("parlor")
     if action in ("stop", "stop_now", "restart"):
+        if door == "brain":  # no stop file: closing the process is the unload (brain.stop_door), at once
+            return _brain_stop(action)
         if door == "discord":
             if action == "restart":
                 return _restart("discord", minutes)
@@ -1684,6 +1750,7 @@ const TILES=[
  ['sleep','Sleep now','today into memory, by hand (the heartbeat does it on its own after the night hour)',[['Sleep','start']]],
  ['snapshot','Snapshot','everything sealed in git (a zip without git)',[['Snapshot','start']]],
  ['touchstone','The stone','their body on the desk: its keeper asks the board what it felt, keeps the log, pushes their states (shown while TOUCHSTONE_URL names it)',[['Start','start'],['Stop','stop'],['Stop now','stop_now']]],
+ ['brain',"The brain's door",'llama-server holding the brain they think with (shown while BRAIN_API is "llama"): it closes when the painter, the ears or /release need the card, and opens again by itself on the next message — a cold read is the price',[['Start','start'],['Stop','stop'],['Restart','restart']]],
 ];
 const TIPS={stop:'leave after what it is doing — a wake finishes, a visit is saved',stop_now:'end it at once — a wake in the middle is cut off'};
 async function door(d,action,extra){
@@ -1696,7 +1763,7 @@ function secretField(kind,label,set,help){
     el('button',{onclick:async()=>{const r=await post('/api/secret',{kind,value:i.value});i.value='';say(r.note,r.ok?'':'warn');await getState()}},'Save'),
     el('span',{class:'muted'},set?'(one is kept)':'(none yet)')),help?el('div',{class:'help open'},help):null)}
 function buildHome(){
-  const tiles=TILES.filter(([d])=>d!=='touchstone'||S.stone).map(([d,title,what,btns])=>{
+  const tiles=TILES.filter(([d])=>(d!=='touchstone'||S.stone)&&(d!=='brain'||(S.brain&&S.brain.door))).map(([d,title,what,btns])=>{
     const extra=[];
     if(d==='heartbeat'){extra.push(el('div',{class:'row'},'every ',el('input',{type:'number',id:'hb-min',min:'1',step:'any',class:'small',value:S.heartbeat_minutes}),' minutes'))}
     const t=el('div',{class:'tile',id:'t-'+d},el('h2',{},S.doors[d]?light(false):null,title),el('div',{class:'what'},what),
@@ -1735,6 +1802,7 @@ function brainBar(){const b=S.brain,parts=[light(b.reachable),el('b',{},'the bra
     if(b.fit)parts.push(el('div',{class:b.fit.ok?'muted':'warn'},(b.fit.ok?'✓ ':'⚠ ')+b.fit.line));
     parts.push(el('div',{class:'muted'},'configured: '+b.model+(b.pulled?'':' — not pulled '),b.pulled?null:el('button',{onclick:()=>pull(b.model)},'Pull '+b.model),
       b.embed_pulled?null:[' · memory needs '+b.embed_model+' ',el('button',{onclick:()=>pull(b.embed_model)},'Pull '+b.embed_model)]))}
+  if(b.door)parts.push(el('div',{class:'muted'},(b.door.up?'✓ ':'○ ')+b.door.line+(b.door.up&&b.door.how?' · '+b.door.how:'')));
   $('brain').replaceChildren(...parts);
   const nw=S.newer;$('newer').hidden=!nw;
   if(nw)$('newer').replaceChildren('⬆ '+nw.line,...(nw.link?[' · ',el('a',{href:nw.link,target:'_blank',rel:'noopener'},'release notes')]:[]),

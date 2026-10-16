@@ -16,6 +16,29 @@ whether the window fits the card, and every knob on every tab has a line
 of its own.
 
 ### Added
+- **The brain is a door** (10-16; the backend plan, piece 2): under
+  `BRAIN_API = "llama"` the engine opens and closes `llama-server` itself,
+  like its other doors. `brain.start_door` runs it as a child with no window
+  (its words in `memory/brain.log`, the last run only), marks it in
+  `memory/.pids/brain.json` with the server's pid, and waits for `/props` to
+  answer; `brain.stop_door` ends the process (taskkill on Windows, TERM then
+  KILL elsewhere) and takes the mark away — stopping the process is the
+  unload. So `ollama_client.unload(CHAT_MODEL)`, which the painter, the ears,
+  the music ear, `rest_brain`, the wedge-clearing and `/release` already call,
+  hands the card back for real instead of doing nothing, and `unload_all`
+  names the brain among the freed. The next reply opens the door again by
+  itself (`brain.ensure_up`, in `post_chat`) — a cold read is the price until
+  the saved read; a door that won't open is a `BrainUnavailable` saying why.
+  `bat\brain.bat` marks the door it starts too, so it shows on the panel and
+  can be closed from it; a door started some other way by hand is used and
+  never killed. The panel gets a tile for it (Start, Stop, Restart; shown
+  while `BRAIN_API` is `"llama"`), and the brain bar reads the door — awake or
+  asleep, the window it was opened with, NUM_CTX's difference named — or says
+  it is down. A `BRAIN_SLOT_DIR` that isn't there (a RAM disk gone after a
+  reboot) is said, and the door opens without `--slot-save-path`.
+  `BRAIN_KEEP_ALIVE` has no meaning on the door: it stays up until something
+  needs the card. Ollama's road unchanged. Tests with a stand-in process for
+  the server.
 - **The door streams, and its cold rescue is cold** (10-16; the backend
   plan, piece 1): under `BRAIN_API = "llama"` the reply is asked of
   `llama-server` as a stream and read as it is written

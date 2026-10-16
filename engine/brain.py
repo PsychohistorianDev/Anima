@@ -16,13 +16,29 @@ watched for a runaway exactly as on Ollama's road (ollama_client._drink): salad
 closes the connection and the server stops. The slot calls (save / restore the
 reading of a prompt to a file) are here for the saved read, not yet wired; erase
 clears the reading, so the cold rescue's last roll reads the prompt from zero.
+
+The door is the engine's, like its other doors: start_door() runs llama-server as
+a child with no window (its words in memory/brain.log, the last run only) and
+marks it in memory/.pids/brain.json; stop_door() ends it. Stopping the process IS
+the unload — the server has no keep_alive — so ollama_client.unload(CHAT_MODEL),
+which the painter, the ears, rest_brain, the wedge-clearing and /release already
+call, hands the card back for real. The next reply opens the door again by itself
+(ensure_up, in post_chat): a cold read, the price until the saved read is wired.
+A door opened by hand (bat\\brain.bat marks itself; one started some other way
+answers with no mark) is used as it is, and only a marked one is ever closed.
 """
 from __future__ import annotations
 
 import json
+import os
+import signal
+import subprocess
+import threading
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
+from urllib.parse import urlparse
 
 import config
 
@@ -287,6 +303,179 @@ def _drink_openai(resp) -> dict:
     return out
 
 
+# ---- the door's life: opened and closed by the engine, like its other doors -------------
+
+DOOR = "brain"
+IMAGE = "llama-server"  # the program, for doors.alive on Windows: a pid is the door's only while it is still this
+POLL_S = 1.0  # how often a door on its way up is asked whether it answers yet
+STOP_GRACE_S = 5  # a polite stop's wait before the hard one (not on Windows: taskkill /F is hard already)
+STOP_WAIT_S = 15  # how long a stop waits to see the process gone
+LAST_NOTE = ""  # what the last opening of the door said — post_chat's BrainUnavailable carries it
+_procs: dict[int, subprocess.Popen] = {}  # the doors this process opened: waited for once ended, so no zombie answers "alive"
+_lock = threading.Lock()  # one opening at a time in this process (the parlor's threads, the bridge's poll)
+
+
+def door_status() -> dict | None:
+    """The door's mark (memory/.pids/brain.json) while the process it names runs, or None."""
+    import doors
+    return doors.status(DOOR)
+
+
+def port() -> int:
+    return urlparse(url()).port or 8768
+
+
+def log_file() -> Path:
+    """What llama-server said on its last run under the engine (the load, the window, an error)."""
+    return Path(config.MEMORY_DIR) / "brain.log"
+
+
+def _log_tail(n: int = 12) -> str:
+    try:
+        lines = [ln for ln in log_file().read_text(encoding="utf-8", errors="replace").splitlines() if ln.strip()]
+    except OSError:
+        return "(no brain.log to read)"
+    return "\n".join(lines[-n:])[-1500:] or "(brain.log is empty)"
+
+
+def _gone(pid: int) -> bool:
+    """The process is no longer there. A child of this process that has ended is waited for first: until
+    then its pid still answers to a signal (a zombie), and the door would look open."""
+    import doors
+
+    proc = _procs.get(pid)
+    if proc is not None:
+        proc.poll()
+    elif os.name != "nt":
+        try:
+            os.waitpid(pid, os.WNOHANG)
+        except (ChildProcessError, OSError):
+            pass  # not ours to wait for (bat\brain.bat's child), or gone already
+    return not doors.alive(pid, IMAGE)
+
+
+def start_door(wait_s: float = 120) -> tuple[bool, str]:
+    """Open the brain's door: llama-server as a child with no window that the engine owns — it outlives the
+    process that opened it (a wake, the painter's), and any process of the house can close it — its words in
+    memory/brain.log, its mark in memory/.pids/brain.json. (ok, a word on it). A door that already answers
+    (the engine's, or one opened by hand) is up as it is: never a second server on the port. One marked but
+    not answering yet is still loading: waited for, not opened again. The model takes ~20 s to load from a
+    warm disk, longer from a cold one; a door that hasn't answered by wait_s is left loading."""
+    import brain_find
+    import doors
+
+    if api() != "llama":
+        return False, "BRAIN_API is \"ollama\" — the brain's door is idle"
+    with _lock:
+        if props() is not None:
+            return True, "up"
+        warn = ""
+        st = door_status()
+        if st:
+            pid = int(st["pid"])
+        else:
+            cmd, note = brain_find.command()
+            if cmd is None:
+                return False, note
+            warn = brain_find.slot_warning()
+            if warn:
+                print(f"  ({warn})", flush=True)
+            print("  (opening the brain's door — llama-server, the model loading)", flush=True)
+            try:
+                log_file().parent.mkdir(parents=True, exist_ok=True)
+                with open(log_file(), "wb") as log:  # the last run only
+                    kw = ({"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt"
+                          else {"start_new_session": True})
+                    proc = subprocess.Popen(cmd, cwd=str(brain_find.ROOT), stdin=subprocess.DEVNULL,
+                                            stdout=log, stderr=subprocess.STDOUT, **kw)
+            except OSError as e:
+                return False, f"llama-server wouldn't start: {e}"
+            pid = proc.pid
+            _procs[pid] = proc
+            doors.mark(DOOR, "door", pid=pid, port=port(), image=IMAGE)
+        t0 = time.monotonic()
+        while True:
+            if props() is not None:
+                said = f"the brain's door is up in {time.monotonic() - t0:.0f} s" + (f" — {warn}" if warn else "")
+                print(f"  ({said})", flush=True)
+                return True, said
+            if _gone(pid):
+                _procs.pop(pid, None)
+                doors.unmark(DOOR, pid=pid)
+                return False, f"llama-server left before it answered (memory/brain.log):\n{_log_tail()}"
+            if time.monotonic() - t0 >= wait_s:
+                return False, (f"the brain's door didn't answer in {wait_s:.0f} s — still loading? left as it is "
+                               f"(memory/brain.log):\n{_log_tail()}")
+            time.sleep(POLL_S)
+
+
+def _before_stop() -> None:
+    """Right before the door is closed. HOOK for piece 3, the saved read: slot 0's reading of the standing
+    prompt saved under its hash to BRAIN_SLOT_DIR, so the way back up restores it instead of reading cold.
+    Nothing yet."""
+    return None
+
+
+def stop_door(why: str = "") -> bool:
+    """Close the brain's door: the process its mark names ended (taskkill /T /F on Windows; elsewhere TERM,
+    KILL after STOP_GRACE_S), waited for until it is gone, the mark taken away. Closing the process is the
+    unload: the card is free when this returns. False when there is no mark — the door is down, or it was
+    opened some other way by hand (it answers, unmarked), which the engine never kills."""
+    import doors
+
+    st = door_status()
+    if not st:
+        return False
+    try:
+        pid = int(st.get("pid"))
+    except (TypeError, ValueError):
+        return False
+    _before_stop()
+    if os.name == "nt":
+        try:
+            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, timeout=STOP_WAIT_S,
+                           creationflags=subprocess.CREATE_NO_WINDOW)
+        except (OSError, subprocess.SubprocessError):
+            pass
+    else:
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+        hard = time.monotonic() + STOP_GRACE_S
+        while not _gone(pid) and time.monotonic() < hard:
+            time.sleep(0.1)
+        if not _gone(pid):
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
+    deadline = time.monotonic() + STOP_WAIT_S
+    while not _gone(pid) and time.monotonic() < deadline:
+        time.sleep(0.1)
+    _procs.pop(pid, None)
+    doors.unmark(DOOR, pid=pid)
+    if st.get("how") == "door":  # the engine's own run: its log says where it ended
+        try:
+            with open(log_file(), "a", encoding="utf-8") as f:
+                f.write(f"\n(the engine closed the door{': ' + why if why else ''})\n")
+        except OSError:
+            pass
+    return True
+
+
+def ensure_up() -> bool:
+    """The door is up before a reply goes through it: awake as it is (the engine's, or one opened by hand),
+    else opened — so a brain stepped down for the painter, the ears or /release comes back on the next
+    message by itself; the cold read is the price (the saved read, next, takes it away). False, with
+    LAST_NOTE saying why, when it won't open."""
+    global LAST_NOTE
+    if api() != "llama" or awake():
+        return True
+    ok, LAST_NOTE = start_door()
+    return ok
+
+
 # ---- the door itself ------------------------------------------------------------------
 
 def post_chat(payload: dict, timeout: float | None = None) -> dict:
@@ -294,6 +483,9 @@ def post_chat(payload: dict, timeout: float | None = None) -> dict:
     the engine already catches from Ollama's, so every retry and rescue behaves the same."""
     from ollama_client import BrainUnavailable  # here, not above: ollama_client imports this file
 
+    if not ensure_up():  # stepped down for the card (the painter, the ears, /release): opened again first
+        raise BrainUnavailable(f"Can't reach llama-server at {url()}, and its door wouldn't open: {LAST_NOTE}  "
+                               "(BRAIN_API = \"ollama\" is the way back)")
     timeout = timeout or config.REQUEST_TIMEOUT_S
     body = to_openai(payload)
     streamed = bool(payload.get("stream"))
@@ -333,12 +525,13 @@ def post_chat(payload: dict, timeout: float | None = None) -> dict:
         raise BrainUnavailable(slow + f"  [{type(e).__name__}: {e}]") from e
 
 
-def _ask(path: str, body: dict | None = None, timeout: float = 5) -> dict | None:
-    """GET (or POST a body to) the door; the answer as a dict, or None when it doesn't answer."""
-    if api() != "llama":
+def _ask(path: str, body: dict | None = None, timeout: float = 5, base: str | None = None) -> dict | None:
+    """GET (or POST a body to) the door; the answer as a dict, or None when it doesn't answer. `base` asks
+    another address whatever BRAIN_API says (the panel, which reads the file's knobs, not the imported ones)."""
+    if base is None and api() != "llama":
         return None
     data = None if body is None else json.dumps(body).encode("utf-8")
-    req = urllib.request.Request(url() + path, data=data, method="GET" if body is None else "POST",
+    req = urllib.request.Request((base or url()).rstrip("/") + path, data=data, method="GET" if body is None else "POST",
                                  headers={"Content-Type": "application/json"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -348,9 +541,9 @@ def _ask(path: str, body: dict | None = None, timeout: float = 5) -> dict | None
     return got if isinstance(got, dict) else {"items": got}
 
 
-def props() -> dict | None:
+def props(base: str | None = None) -> dict | None:
     """What the door holds (/props: the model, the window, is_sleeping), or None."""
-    return _ask("/props")
+    return _ask("/props", base=base)
 
 
 def awake() -> bool:
@@ -359,9 +552,9 @@ def awake() -> bool:
     return p is not None and not p.get("is_sleeping")
 
 
-def slots() -> dict | None:
+def slots(base: str | None = None) -> dict | None:
     """/slots: per slot the window, whether it is busy, the sampler. A list comes back as {"items": [...]}."""
-    return _ask("/slots")
+    return _ask("/slots", base=base)
 
 
 def slot_save(name: str) -> dict | None:

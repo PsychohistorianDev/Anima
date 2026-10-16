@@ -2277,8 +2277,16 @@ def unload_all() -> list[str]:
     """Everything Ollama holds, set down (10-03, the keeper's /release: the card for something else) — the
     brain, the ears, the memory engine, whatever is loaded; each waited for. The names freed, in order."""
     names = _loaded_models()
-    if brain.api() == "llama":  # the door's brain is not Ollama's to set down, so not named as freed
+    if brain.api() == "llama":
+        # the door's brain is set down by closing the door — named among the freed only when it was up and
+        # the house's (marked); one opened some other way by hand is not the engine's to close
+        door_up = config.CHAT_MODEL in names
         names = [n for n in names if n != config.CHAT_MODEL]
+        for name in names:
+            unload(name)
+        if door_up and brain.stop_door(why="unload_all"):
+            names.append(config.CHAT_MODEL)
+        return names
     for name in names:
         unload(name)
     return names
@@ -2293,7 +2301,8 @@ def unload(model: str) -> None:
     import time
 
     if model == config.CHAT_MODEL and brain.api() == "llama":
-        return  # the door holds the brain, not Ollama: nothing here to set down
+        brain.stop_door(why="unload")  # the door holds the brain: closing it is the unload, the card free on return
+        return
     try:
         _post("/api/generate", {"model": model, "keep_alive": 0})
     except Exception:
