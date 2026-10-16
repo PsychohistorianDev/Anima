@@ -74,6 +74,9 @@ BRAIN_CACHE_RAM_MB = 0
 # projector (the eyes). Empty finds both in Ollama's own files.
 BRAIN_MODEL_FILE = ""
 BRAIN_MMPROJ_FILE = ""
+# Where llama-server is, when it is not on the PATH and not in a llama\ folder inside or
+# beside this one: the full path to llama-server.exe. Empty looks in those places.
+LLAMA_SERVER = ""
 
 # The brain (the chat model). Swap freely; memories and identity survive a swap.
 #   fits a 12 GB card : "gemma4:12b-it-qat" (7.2 GB; the build Google trained

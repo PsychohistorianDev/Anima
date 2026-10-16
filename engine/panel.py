@@ -151,6 +151,8 @@ _HELP = {
     "BRAIN_CACHE_RAM_MB": "Host RAM llama-server may keep evicted prompt caches in, MiB (--cache-ram) — the visit's "
                           "prompt and the wake's take turns on one slot; with room here both stay warm. 32768 on a "
                           "64 GB machine. 0: the server's default. Read when the door starts.",
+    "LLAMA_SERVER": "The full path to llama-server.exe when it is not on the PATH and not in a llama\\ folder inside or "
+                    "beside this one. Empty looks in those places.",
     "BRAIN_MODEL_FILE": "A GGUF for llama-server instead of the one Ollama's manifest names for CHAT_MODEL. Empty: "
                         "found in Ollama's own files. Read when bat\\brain.bat starts the door.",
     "BRAIN_MMPROJ_FILE": "The projector (the eyes) to go with BRAIN_MODEL_FILE. Empty: the one Ollama's manifest "

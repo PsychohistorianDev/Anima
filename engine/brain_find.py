@@ -28,14 +28,20 @@ PROJECTOR_LAYER = "application/vnd.ollama.image.projector"
 
 
 def find_server() -> str | None:
-    """llama-server on the PATH, else in llama\\ beside the engine; None when neither."""
+    """llama-server: the knob LLAMA_SERVER when set, else on the PATH, else in llama\\ inside the folder, else
+    in llama\\ beside it (the keeper's zip sits next to the folder, not in it); None when nowhere."""
+    import config
+    knob = str(getattr(config, "LLAMA_SERVER", "") or "").strip()
+    if knob and Path(knob).is_file():
+        return knob
     found = shutil.which("llama-server")
     if found:
         return found
-    for name in ("llama-server.exe", "llama-server"):
-        p = ROOT / "llama" / name
-        if p.is_file():
-            return str(p)
+    for base in (ROOT, ROOT.parent):
+        for name in ("llama-server.exe", "llama-server"):
+            p = base / "llama" / name
+            if p.is_file():
+                return str(p)
     return None
 
 
