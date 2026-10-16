@@ -589,16 +589,18 @@ def _make_room(folder: Path, key: str) -> None:
         except OSError:
             pass
     # …and the one exception to "never before the new one is whole": when the disk cannot hold the old
-    # <key>.bin AND the new one side by side (10-16: a reading is 7.9 GB; two of them on a 16 GB RAM disk is
-    # the disk), the old goes first — a save that then fails costs one cold read, which is less than a
-    # save that could never succeed
+    # <key>.bin AND the new one side by side (10-16: a reading is 7.9 GB at 180K tokens, ~44 KB a token, so
+    # ~11.5 GB at a full 262K window; two of them on a 16 GB RAM disk is the disk), the old goes first — a
+    # save that then fails costs one cold read, which is less than a save that could never succeed. The new
+    # one is as large as the window has grown since, so the old stays only when the disk holds one and a
+    # half of it (12:16, 1.15: 9.3 GB free beside 7.9 — the old stayed, the 8.3 GB new one did not fit)
     import shutil
     same = folder / f"{key}.bin"
     try:
         if same.is_file():
             have = same.stat().st_size
             free = shutil.disk_usage(str(folder)).free
-            if free < int(have * 1.15):
+            if free < int(have * 1.5):
                 same.unlink()
                 _note(f"let the last reading of this prompt go first: {key} ({have / 1e9:.1f} GB; {free / 1e9:.1f} GB free — "
                       "no room for two)")
@@ -628,7 +630,13 @@ def _before_stop() -> None:
         got = slot_save(f"{key}{TEMP_SUFFIX}")
         if got is None or got.get("error"):
             _clear_temps(folder, key)
-            _note(f"the reading wasn't saved: {key} — the door refused the save (the disk full? opened without "
+            try:
+                import shutil
+                room = f"{shutil.disk_usage(str(folder)).free / 1e9:.1f} GB free in {folder}"
+            except OSError:
+                room = f"{folder} unreadable"
+            why = str((got or {}).get("error") or "no answer")[:120]
+            _note(f"the reading wasn't saved: {key} — the door refused the save ({why}; {room}; opened without "
                   "--slot-save-path?); the last good one stays")
             return
         os.replace(folder / f"{key}{TEMP_SUFFIX}", folder / f"{key}.bin")

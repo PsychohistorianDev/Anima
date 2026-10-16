@@ -10397,7 +10397,39 @@ try:
     _bd_sr_ask(_bd_sr_C)
     _bd.stop_door(why="the suite")
     _bd_sr["failed"] = ((_bd_sr_kv / f"{_bd_sr_kC}.bin").read_bytes(), _bd_sr_files(), _FakeLlama.fail_next,
-                        "the reading wasn't saved: " + _bd_sr_kC in _bd_sr_log() and "the last good one stays" in _bd_sr_log())
+                        "the reading wasn't saved: " + _bd_sr_kC in _bd_sr_log() and "the last good one stays" in _bd_sr_log(),
+                        "GB free in" in _bd_sr_log())
+    # no room for two (keep 1; 10-16): the old reading of this very prompt goes BEFORE the save when the disk holds
+    # less than one and a half of it — and stays until the new one is whole when it does
+    config.BRAIN_SLOT_KEEP = 1
+    import shutil as _bd_shutil
+    _bd_du0 = _bd_shutil.disk_usage
+    _bd_sr_free = {"free": 1200}
+    _bd_sr_notes = lambda: _bd.notes_file().read_text(encoding="utf-8", errors="replace") if _bd.notes_file().exists() else ""
+    _bd_shutil.disk_usage = lambda p: type("du", (), {"free": _bd_sr_free["free"], "total": 16000, "used": 16000 - _bd_sr_free["free"]})()
+    try:
+        (_bd_sr_kv / f"{_bd_sr_kC}.bin").write_bytes(b"x" * 1000)
+        _bd_sr_l0 = len(_bd_sr_notes())
+        _FakeLlama.down = True
+        _bd.start_door(wait_s=30)
+        _bd_sr_ask(_bd_sr_C)
+        _bd_sr_s1 = len(_FakeLlama.saved)
+        _bd.stop_door(why="the suite")
+        _bd_sr_tight = (_FakeLlama.saved[_bd_sr_s1:], _bd_sr_files(), (_bd_sr_kv / f"{_bd_sr_kC}.bin").read_bytes() != b"x" * 1000,
+                        f"let the last reading of this prompt go first: {_bd_sr_kC} (0.0 GB; 0.0 GB free — no room for two)" in _bd_sr_notes()[_bd_sr_l0:])
+        _bd_sr_free["free"] = 1600
+        (_bd_sr_kv / f"{_bd_sr_kC}.bin").write_bytes(b"y" * 1000)
+        _bd_sr_l1 = len(_bd_sr_notes())
+        _FakeLlama.down = True
+        _bd.start_door(wait_s=30)
+        _bd_sr_ask(_bd_sr_C)
+        _bd_sr_s2 = len(_FakeLlama.saved)
+        _bd.stop_door(why="the suite")
+        _bd_sr_roomy = (_FakeLlama.saved[_bd_sr_s2:], _bd_sr_files(), (_bd_sr_kv / f"{_bd_sr_kC}.bin").read_bytes() != b"y" * 1000,
+                        "go first" not in _bd_sr_notes()[_bd_sr_l1:])
+    finally:
+        _bd_shutil.disk_usage = _bd_du0
+    _bd_sr["two"] = (_bd_sr_tight, _bd_sr_roomy)
     config.BRAIN_SLOT_KEEP = 3
     # the folder's drive gone (a RAM disk not back after a reboot): no save, no restore, the door says so
     config.BRAIN_SLOT_DIR = str(_bd_sr_td / "nodrive" / "kv")
@@ -10478,7 +10510,11 @@ check("saved read: room first — with BRAIN_SLOT_KEEP 2 and two older readings,
       _bd_sr.get("room"))
 check("saved read: a save that fails (a full disk: the door refuses, a half file written) leaves the last good <key>.bin as it was "
       "and no .new.bin behind; the log says the good one stays",
-      _bd_sr.get("failed") == (b"the last good reading", [f"{_bd_sr_kC}.bin"], 0, True), _bd_sr.get("failed"))
+      _bd_sr.get("failed") == (b"the last good reading", [f"{_bd_sr_kC}.bin"], 0, True, True), _bd_sr.get("failed"))
+check("saved read: no room for two (keep 1) — the disk holding less than one and a half of the old reading of this prompt, the old goes "
+      "BEFORE the save and the log says so; holding more, it stays until the new one is whole; either way the new one lands as <key>.bin",
+      _bd_sr.get("two") == (([f"{_bd_sr_kC}.new.bin"], [f"{_bd_sr_kC}.bin"], True, True), ([f"{_bd_sr_kC}.new.bin"], [f"{_bd_sr_kC}.bin"], True, True)),
+      _bd_sr.get("two"))
 check("saved read: a slot folder whose drive isn't there — no save, no restore, the door opens and says so, nothing made",
       _bd_sr.get("gone") == (0, 0, True, True, False), _bd_sr.get("gone"))
 _bd_srv.shutdown()
