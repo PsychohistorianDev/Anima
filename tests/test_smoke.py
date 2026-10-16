@@ -10329,6 +10329,16 @@ try:
     _bd_sr_sp.add(ollama_client._parse(_bd_sr_copy(_bd_sr["r2"])))
     _bd_sr_sp.add(ollama_client._parse(_bd_sr_copy(_bd_sr["r3"])))
     _bd_sr["line"] = _bd_sr_sp.line()
+    # another process of the house (a /restart of the bridge) with the same door up: the slot holds the prompt
+    # live, so no restore — neither by the served mark nor, that gone, by the restored mark (10-16)
+    _bd._restored_key, _bd._restored_pid = "", None
+    _bd_sr_ask(_bd_sr_A + [{"role": "assistant", "content": "hi"}, {"role": "user", "content": "still here, again"}])
+    _bd_sr_n2 = len(_FakeLlama.restored)
+    _bd._restored_key, _bd._restored_pid = "", None
+    _bd._served_file().unlink(missing_ok=True)
+    _bd._served_key = ""
+    _bd_sr_ask(_bd_sr_A + [{"role": "assistant", "content": "hi"}, {"role": "user", "content": "still here, a third time"}])
+    _bd_sr["again"] = (_bd_sr_n2, len(_FakeLlama.restored), _bd._restored_file().read_text(encoding="utf-8").count(_bd_sr_kA))
     # a new system prompt (a fold, a new visit, midnight): nothing restored for it; the next step-down saves under its key
     _bd_sr["r4"] = _bd_sr_ask(_bd_sr_B)
     _bd_sr["restored3"] = list(_FakeLlama.restored)
@@ -10489,7 +10499,7 @@ check("saved read: a new system prompt (a new key) is not restored — nothing k
       _bd_sr.get("restored3") == [f"{_bd_sr_kA}.bin"] and "restored" not in (_bd_sr.get("r4") or {"restored": 1})
       and _bd_sr.get("saved2") == [f"{_bd_sr_kA}.new.bin", f"{_bd_sr_kB}.new.bin"]
       and _bd_sr.get("files2") == sorted([f"{_bd_sr_kA}.bin", f"{_bd_sr_kB}.bin", "old3.bin"])
-      and _bd_sr.get("restored4") == [f"{_bd_sr_kA}.bin", f"{_bd_sr_kB}.bin"]
+      and _bd_sr.get("restored4") == [f"{_bd_sr_kA}.bin", f"{_bd_sr_kB}.bin"] and _bd_sr.get("again") == (1, 1, 1)
       and (_bd_sr.get("m") or {}).get("restored") == {"tokens": 150000, "ms": 2100.0} and (_bd_sr.get("m") or {}).get("content") == "There it is.",
       {k: _bd_sr.get(k) for k in ("restored3", "saved2", "files2", "restored4")})
 _bd_sr_tk = (_bd_sr.get("ev") or [{}])[0]

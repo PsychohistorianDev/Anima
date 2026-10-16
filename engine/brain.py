@@ -437,6 +437,7 @@ def start_door(wait_s: float = 120) -> tuple[bool, str]:
 # ---- the saved read: the reading of the prompt kept across a step-down ------------------
 
 SERVED_NAME = "brain.served"  # beside the door's mark: the key of the last reply the door served, whichever process sent it
+RESTORED_NAME = "brain.restored"  # beside it: "<pid> <key>" per reading restored into that door, whichever process did it
 _served_key = ""  # the key of the last request this process sent through the door
 _restored_key = ""  # the key last restored since the door came up ("" — nothing restored yet)
 _restored_pid = None  # the door it was restored into: another process may have closed and opened it since
@@ -491,15 +492,40 @@ def _served_now() -> str:
     return key if len(key) == 24 and all(c in "0123456789abcdef" for c in key) else _served_key
 
 
+def _restored_file() -> Path:
+    return Path(config.MEMORY_DIR) / ".pids" / RESTORED_NAME
+
+
+def _restored_into(pid, key: str) -> bool:
+    """Whether this reading was already restored into this door — by this process or another (10-16: a
+    /restart of the bridge restored the morning's reading over a door holding the afternoon's)."""
+    try:
+        lines = _restored_file().read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return False
+    return f"{pid} {key}" in (ln.strip() for ln in lines)
+
+
+def _mark_restored(pid, key: str) -> None:
+    try:
+        p = _restored_file()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with p.open("a", encoding="utf-8") as f:
+            f.write(f"{pid} {key}\n")
+    except OSError:
+        pass
+
+
 def _forget() -> None:
     """The door is coming up or going down: its slot holds nothing — nothing restored, nothing served."""
     global _served_key, _restored_key, _restored_pid, _pending_restored
     _served_key = _restored_key = ""
     _restored_pid = _pending_restored = None
-    try:
-        _served_file().unlink(missing_ok=True)
-    except OSError:
-        pass
+    for p in (_served_file(), _restored_file()):
+        try:
+            p.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def _door_pid() -> int | None:
@@ -660,10 +686,16 @@ def _restore(key: str) -> None:
         pid = _door_pid()
         if key == _restored_key and pid == _restored_pid:
             return
+        # the slot holds this very prompt already, read live since the door came up — or another process of
+        # the house restored it into this door: the file would lay an older reading over the one made since
+        if _served_now() == key or _restored_into(pid, key):
+            _restored_key, _restored_pid = key, pid
+            return
         folder = slot_dir()
         if folder is None or not (folder / f"{key}.bin").is_file():
             return
         _restored_key, _restored_pid = key, pid
+        _mark_restored(pid, key)
         got = slot_restore(f"{key}.bin")
         if got is None or got.get("error"):
             _note(f"the reading wasn't restored: {key} — read cold this once")
