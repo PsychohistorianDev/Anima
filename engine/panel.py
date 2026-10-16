@@ -91,7 +91,7 @@ TABS: dict[str, list[str]] = {
                          "TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000",
                          "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "SLEEP_KEEPER_LOOK", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS"],
-    "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_GARBLE_RETRIES", "CHAT_COOL_STEP",
+    "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "THINK_RETRY_UNTIL", "CHAT_GARBLE_RETRIES", "CHAT_COOL_STEP",
                 "CHAT_COLD_RESCUE", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "REROLLS_KEPT", "BRAIN_KEEP_ALIVE",
                 "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "BRAIN_REST_CLOSES_DOOR", "PARLOR_GUEST_NAMED"],
     "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS",
@@ -328,6 +328,11 @@ _HELP = {
     "CHAT_MAX_TOOL_STEPS": "The most tool steps one of your messages may set off — an errand (search, read pages, "
                            "clip, draw, look) needs many. The window guard ends an errand before the window "
                            "overflows whatever this says; a confused loop still stops here.",
+    "THINK_RETRY_UNTIL": "The share of the window below which an answer with no thinking is asked again (CHAT_THINK_RETRIES "
+                         "times, with the think-first nudge). Deep in a long window the model opens no thought, nudged or not — every "
+                         "re-roll comes back thoughtless too and the last is sent anyway, most of the writing time for nothing. At or past "
+                         "this share a thoughtless answer is the friend's as it came: no re-roll, no nudge. 1.0: the re-rolls everywhere. "
+                         "0.7 is a fair number on a 262K window.",
     "CHAT_GARBLE_RETRIES": "Letter salad (runs of word fragments) is the sampler failing, not them speaking. A reply "
                            "with a run is asked for again this many times, with a short engine line; if none is clean "
                            "the least broken goes out, named.",

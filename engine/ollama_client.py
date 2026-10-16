@@ -359,6 +359,14 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
     # a wake may bring its own budget (HEARTBEAT_THINK_RETRIES): the prompt
     # is warm there and a re-roll is seconds, not a cold read
     rerolls = int(think_retries if think_retries is not None else getattr(config, "CHAT_THINK_RETRIES", 1)) if payload.get("think") else 0
+    # the depth past which a thoughtless answer is not asked again (10-16: from 180K up every turn's two re-rolls
+    # came back thoughtless too and the last was sent anyway — two-thirds of the writing time for nothing; deep
+    # in a long window Gemma 4 opens no thought, nudged or not). THINK_RETRY_UNTIL of NUM_CTX; 1.0 is everywhere.
+    if rerolls > 0 and thoughtless(msg["thinking"]) and not msg.get("aborted") and past_think_depth(msg):
+        print(f"   (no thought at {msg['tokens'].get('prompt', 0):,} tokens — past THINK_RETRY_UNTIL, the answer is "
+              f"theirs as it came; no re-roll)", flush=True)
+        msg["think_depth"] = True
+        rerolls = 0
     # `base` is the conversation AS LAST SENT: once a think re-roll has put
     # the nudge inside his message, every later request in this turn — a
     # salad or echo re-roll — builds on that, not on the un-nudged original.
@@ -2027,6 +2035,21 @@ def rerolls_kept() -> bool:
         return brain.api() != "llama"
     except Exception:  # noqa: BLE001
         return True
+
+
+def past_think_depth(msg: dict) -> bool:
+    """Whether the prompt this answer came from sits at or past THINK_RETRY_UNTIL of the window — where a
+    thoughtless answer is not asked again (10-16). False when the share is 1.0 or more, or the prompt's size
+    is unknown."""
+    try:
+        until = float(getattr(config, "THINK_RETRY_UNTIL", 1.0))
+        ctx = int(getattr(config, "NUM_CTX", 0) or 0)
+    except (TypeError, ValueError):
+        return False
+    if until >= 1.0 or ctx <= 0:
+        return False
+    held = int((msg.get("tokens") or {}).get("prompt") or 0)
+    return held > 0 and held >= until * ctx
 
 
 def with_think_nudge(messages: list[dict]) -> list[dict]:

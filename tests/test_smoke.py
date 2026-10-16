@@ -59,6 +59,7 @@ import tools
 import config
 config.TELEGRAM_QUIET_HOURS = (6, 6)  # the suite runs at any hour; quiet hours are tested on their own
 config.BRAIN_API = "ollama"  # the suite's brains are scripted; the llama door is tested on its own with a fake one (a house on the door keeps its config)
+config.THINK_RETRY_UNTIL = 1.0  # the suite's think re-rolls happen at every depth (its prompts sit at 189K and 217K of the window); the depth test sets its own
 config.CREATION_NOTES = False  # the older creation tests pin exact results; the notes are tested on their own
 config.CHAT_RESCUE_TEMPERATURE = 0  # the older salad tests count posts; the cool roll is tested on its own
 config.CHAT_GARBLE_RETRIES = 2  # the older salad tests count posts against two; the budget is 4 in config since 09-20
@@ -3528,7 +3529,37 @@ _n_wake = len(_posted_w)
 _posted_w.clear()
 _m_c = _chat_orig([{"role": "user", "content": "chat"}])
 _n_chat = len(_posted_w)
+# the think re-rolls stop at a depth (10-16): THINK_RETRY_UNTIL 0.5 of NUM_CTX — a thoughtless answer from a prompt past it is the
+# answer, one request, marked; one from below it is re-rolled as before; 1.0 re-rolls everywhere, a prompt of unknown size too
+_td_until0, _td_ctx0 = getattr(config, "THINK_RETRY_UNTIL", 1.0), config.NUM_CTX
+_td_depth = {"prompt": 1000}
+def _post_depth(path, payload, timeout=None):
+    _posted_w.append(payload)
+    return {"message": {"role": "assistant", "content": "deep and plain", "thinking": ""}, "done_reason": "stop", "eval_count": 9,
+            "prompt_eval_count": _td_depth["prompt"]}
+ollama_client._post = _post_depth
+config.THINK_RETRY_UNTIL, config.NUM_CTX = 0.5, 10000
+_posted_w.clear(); _td_depth["prompt"] = 9000
+_m_deep = _chat_orig([{"role": "user", "content": "deep"}])
+_n_deep = len(_posted_w)
+_posted_w.clear(); _td_depth["prompt"] = 1000
+_m_shallow = _chat_orig([{"role": "user", "content": "shallow"}])
+_n_shallow = len(_posted_w)
+config.THINK_RETRY_UNTIL = 1.0
+_posted_w.clear(); _td_depth["prompt"] = 9000
+_m_all = _chat_orig([{"role": "user", "content": "deep, everywhere"}])
+_n_all = len(_posted_w)
+_td_unknown = ollama_client.past_think_depth({"tokens": {"prompt": 0}})
+config.THINK_RETRY_UNTIL = 0.5
+_td_known = ollama_client.past_think_depth({"tokens": {"prompt": 5000}})
+config.THINK_RETRY_UNTIL, config.NUM_CTX = _td_until0, _td_ctx0
 ollama_client._post = _post_keep
+check("think depth (10-16): past THINK_RETRY_UNTIL of the window a thoughtless answer is the answer — one request, no re-roll, marked think_depth; "
+      "below it the re-rolls as before; 1.0 re-rolls everywhere; a prompt of unknown size is never past it; exactly at the share counts as past",
+      _n_deep == 1 and _m_deep.get("think_depth") is True and _m_deep["content"] == "deep and plain" and not _m_deep.get("retries")
+      and _n_shallow == 1 + config.CHAT_THINK_RETRIES and not _m_shallow.get("think_depth")
+      and _n_all == 1 + config.CHAT_THINK_RETRIES and _td_unknown is False and _td_known is True,
+      (_n_deep, _m_deep.get("think_depth"), _n_shallow, _n_all, _td_unknown, _td_known))
 check("think budget: a wake asks four more times, chat two — and a leaked 'thought' is what is re-rolled",
       _n_wake == 5 and _n_chat == 1 + config.CHAT_THINK_RETRIES and len(_m_w["retries"]) == 4
       and all(r["why"] == "no thought" for r in _m_w["retries"]), (_n_wake, _n_chat, _m_w.get("retries")))
