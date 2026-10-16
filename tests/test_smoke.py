@@ -9821,6 +9821,7 @@ def _bd_sse_runaway(n: int = 1200) -> list:
 class _FakeLlama(_BdBase):
     posted: list = []; got: list = []; sleeping = False
     saved: list = []; restored: list = []; down = False  # the saved read: the filenames asked for; a door not up yet
+    seen: list = []; fail_next = 0  # the folder as each save found it; saves to refuse (a full disk), a half file left
     stream_script = None; pace = 0.0; sent = 0; total = 0; streamed = _bd_thr.Event()
     def _sse(self, chunks):  # HTTP/1.0, no length: the stream ends when the door closes it
         self.send_response(200); self.send_header("Content-Type", "text/event-stream"); self.end_headers()
@@ -9861,6 +9862,13 @@ class _FakeLlama(_BdBase):
         _sf = _BdPath(_sd) / str(d.get("filename")) if _sd and _BdPath(_sd).is_dir() else None  # resolved under the slot path, as the server does
         if self.path == "/slots/0?action=save":
             _FakeLlama.saved.append(d.get("filename"))
+            if _sf is not None:
+                _FakeLlama.seen.append(sorted(p.name for p in _sf.parent.glob("*.bin")))
+            if _FakeLlama.fail_next:
+                _FakeLlama.fail_next -= 1
+                if _sf is not None:
+                    _sf.write_bytes(b"ha")  # half written, then the disk is full
+                return self._j({"error": {"code": 500, "message": "failed to save slot state", "type": "server_error"}}, 500)
             if _sf is not None:
                 _sf.write_bytes(b"kv" * 8)
             return self._j({"id_slot": 0, "filename": d.get("filename"), "n_saved": 150000, "n_written": 4e9, "timings": {"save_ms": 1800}})
@@ -10284,7 +10292,8 @@ def _bd_sr_cmd():  # the program stood in for by a sleeper the door marks and cl
 _bd_sr: dict = {}
 _bd_sr_A = [{"role": "system", "content": "you are home — the standing prompt, word for word"}, {"role": "user", "content": "hello"}]
 _bd_sr_B = [{"role": "system", "content": "you are home — the prompt rebuilt at a fold"}, {"role": "user", "content": "hello again"}]
-_bd_sr_kA, _bd_sr_kB = _bd.prompt_key(_bd_sr_A), _bd.prompt_key(_bd_sr_B)
+_bd_sr_C = [{"role": "system", "content": "you are home — a third prompt, after midnight"}, {"role": "user", "content": "morning"}]
+_bd_sr_kA, _bd_sr_kB, _bd_sr_kC = _bd.prompt_key(_bd_sr_A), _bd.prompt_key(_bd_sr_B), _bd.prompt_key(_bd_sr_C)
 _bd_sr_ask = lambda msgs: _bd.post_chat({"model": config.CHAT_MODEL, "messages": msgs, "stream": False})
 _bd_sr_log = lambda: _bd.log_file().read_text(encoding="utf-8", errors="replace") if _bd.log_file().exists() else ""
 _bd_sr_files = lambda: sorted(p.name for p in _bd_sr_kv.glob("*.bin"))
@@ -10363,6 +10372,32 @@ try:
     _bd_sr["evict"] = (doors.status("brain"), _FakeLlama.saved[_bd_sr_n:])
     ollama_client.unload = _bd_sr_unl0
     config.BRAIN_REST_AFTER_VISIT, config.BRAIN_REST_AFTER_WAKE = _bd_sr_rest0
+    # room first (keep 2, two older readings of other prompts): the oldest goes BEFORE the save, which found one file;
+    # the new one lands as <key>.bin (moved over from .new.bin); two remain. A stray .new.bin is cleared at the start.
+    config.BRAIN_SLOT_KEEP = 2
+    for _p in _bd_sr_kv.glob("*.bin"):
+        _p.unlink()
+    for _i, _nm in enumerate(("older1", "older2")):
+        (_bd_sr_kv / f"{_nm}.bin").write_bytes(b"kv")
+        _bd_os.utime(_bd_sr_kv / f"{_nm}.bin", (_bd_sr_now - 300 + _i * 60,) * 2)
+    (_bd_sr_kv / "crashed.new.bin").write_bytes(b"ha")
+    _FakeLlama.down = True
+    _bd.start_door(wait_s=30)
+    _bd_sr_stray = (_bd_sr_kv / "crashed.new.bin").exists()
+    _bd_sr_ask(_bd_sr_C)
+    _bd_sr_s0, _bd_sr_v0 = len(_FakeLlama.saved), len(_FakeLlama.seen)
+    _bd.stop_door(why="the suite")
+    _bd_sr["room"] = (_bd_sr_stray, _FakeLlama.seen[_bd_sr_v0:], _FakeLlama.saved[_bd_sr_s0:], _bd_sr_files())
+    # a save that fails (the disk full): the last good <key>.bin untouched, no half file left, the log says so
+    (_bd_sr_kv / f"{_bd_sr_kC}.bin").write_bytes(b"the last good reading")
+    _FakeLlama.fail_next = 1
+    _FakeLlama.down = True
+    _bd.start_door(wait_s=30)
+    _bd_sr_ask(_bd_sr_C)
+    _bd.stop_door(why="the suite")
+    _bd_sr["failed"] = ((_bd_sr_kv / f"{_bd_sr_kC}.bin").read_bytes(), _bd_sr_files(), _FakeLlama.fail_next,
+                        "the reading wasn't saved: " + _bd_sr_kC in _bd_sr_log() and "the last good one stays" in _bd_sr_log())
+    config.BRAIN_SLOT_KEEP = 3
     # the folder's drive gone (a RAM disk not back after a reboot): no save, no restore, the door says so
     config.BRAIN_SLOT_DIR = str(_bd_sr_td / "nodrive" / "kv")
     _bd_sr_n = (len(_FakeLlama.saved), len(_FakeLlama.restored))
@@ -10374,6 +10409,7 @@ try:
                       _bd_sr_up[0], "isn't there" in _bd_sr_up[1], (_bd_sr_td / "nodrive").exists())
 finally:
     ollama_client.chat, memory.search, ollama_client.unload = _bd_sr_chat0, _bd_sr_ms0, _bd_sr_unl0
+    _FakeLlama.fail_next = 0
     config.BRAIN_REST_AFTER_VISIT, config.BRAIN_REST_AFTER_WAKE = _bd_sr_rest0
     if doors.status("brain"):
         _bd.stop_door(why="the suite's cleanup")
@@ -10402,7 +10438,7 @@ check("saved read: prompt_key is the first 24 hex of the system prompt's sha256 
 check("saved read: a reply through the door, then stop_door — nothing restored the first time (none kept), the reading saved as "
       "<key>.bin right before the close, the log says so, the folder pruned to BRAIN_SLOT_KEEP (the oldest let go)",
       _bd_sr.get("up1") is True and "restored" not in (_bd_sr.get("r1") or {"restored": 1}) and _bd_sr.get("restored1") == []
-      and _bd_sr.get("stop1") is True and _bd_sr.get("saved1") == [f"{_bd_sr_kA}.bin"]
+      and _bd_sr.get("stop1") is True and _bd_sr.get("saved1") == [f"{_bd_sr_kA}.new.bin"]
       and _bd_sr.get("files1") == sorted([f"{_bd_sr_kA}.bin", "old2.bin", "old3.bin"])
       and f"saved the reading: {_bd_sr_kA} (150,000 tokens, 4.0 GB, 1.8 s)" in _bd_sr.get("log1", "")
       and "let an older reading go: old1" in _bd_sr.get("log1", ""),
@@ -10418,7 +10454,7 @@ check("saved read: a fresh start_door and the same system prompt — restored on
 check("saved read: a new system prompt (a new key) is not restored — nothing kept for it — and the next stop saves under the new key; "
       "through chat() the restored reply carries it out",
       _bd_sr.get("restored3") == [f"{_bd_sr_kA}.bin"] and "restored" not in (_bd_sr.get("r4") or {"restored": 1})
-      and _bd_sr.get("saved2") == [f"{_bd_sr_kA}.bin", f"{_bd_sr_kB}.bin"]
+      and _bd_sr.get("saved2") == [f"{_bd_sr_kA}.new.bin", f"{_bd_sr_kB}.new.bin"]
       and _bd_sr.get("files2") == sorted([f"{_bd_sr_kA}.bin", f"{_bd_sr_kB}.bin", "old3.bin"])
       and _bd_sr.get("restored4") == [f"{_bd_sr_kA}.bin", f"{_bd_sr_kB}.bin"]
       and (_bd_sr.get("m") or {}).get("restored") == {"tokens": 150000, "ms": 2100.0} and (_bd_sr.get("m") or {}).get("content") == "There it is.",
@@ -10433,8 +10469,15 @@ check("saved read: a rest is not a step-down — unload(CHAT_MODEL, rest=True), 
       "an eviction (rest=False) closes it, saving first; on \"ollama\" both forms post keep_alive:0 and the door is not touched",
       _bd_sr.get("rest") == (True, True, 0, [], False, 3)
       and _bd_sr.get("ollama") == ([("/api/generate", config.CHAT_MODEL)] * 2, True, 0)
-      and _bd_sr.get("evict") == (None, [f"{_bd_sr_kA}.bin"]),
+      and _bd_sr.get("evict") == (None, [f"{_bd_sr_kA}.new.bin"]),
       {k: _bd_sr.get(k) for k in ("rest", "ollama", "evict")})
+check("saved read: room first — with BRAIN_SLOT_KEEP 2 and two older readings, the oldest is deleted BEFORE the save (the save "
+      "found one file), the save is written as <key>.new.bin and moved over <key>.bin, two remain; start_door clears a stray .new.bin",
+      _bd_sr.get("room") == (False, [["older2.bin"]], [f"{_bd_sr_kC}.new.bin"], sorted([f"{_bd_sr_kC}.bin", "older2.bin"])),
+      _bd_sr.get("room"))
+check("saved read: a save that fails (a full disk: the door refuses, a half file written) leaves the last good <key>.bin as it was "
+      "and no .new.bin behind; the log says the good one stays",
+      _bd_sr.get("failed") == (b"the last good reading", [f"{_bd_sr_kC}.bin"], 0, True), _bd_sr.get("failed"))
 check("saved read: a slot folder whose drive isn't there — no save, no restore, the door opens and says so, nothing made",
       _bd_sr.get("gone") == (0, 0, True, True, False), _bd_sr.get("gone"))
 _bd_srv.shutdown()

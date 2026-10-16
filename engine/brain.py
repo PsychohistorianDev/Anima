@@ -391,6 +391,7 @@ def start_door(wait_s: float = 120) -> tuple[bool, str]:
         if props() is not None:
             return True, "up"
         _forget()  # a door on its way up holds no reading yet: nothing restored, nothing served
+        _clear_temps(slot_dir())  # a save cut short by a crash leaves a half file: never a reading
         warn = ""
         st = door_status()
         if st:
@@ -528,47 +529,83 @@ def _secs(got: dict, field: str) -> float:
         return 0.0
 
 
-def _prune(folder: Path, keep_name: str) -> None:
-    """The newest BRAIN_SLOT_KEEP readings stay, the one just saved always among them; the older go — each is
-    gigabytes, and a RAM disk is small. 0 keeps them all."""
+TEMP_SUFFIX = ".new.bin"  # a save is written as <key>.new.bin and moved over <key>.bin only once it is whole
+
+
+def _readings(folder: Path) -> list[Path]:
+    """The saved readings in the folder, the oldest first (a save still being written is not one)."""
+    try:
+        files = [p for p in folder.glob("*.bin") if p.is_file() and not p.name.endswith(TEMP_SUFFIX)]
+        return sorted(files, key=lambda p: p.stat().st_mtime)
+    except OSError:
+        return []
+
+
+def _clear_temps(folder: Path | None, name: str = "*") -> None:
+    """A half-written save taken away (<name>.new.bin; every one when name is "*": a crash mid-save)."""
+    if folder is None:
+        return
+    try:
+        for p in folder.glob(f"{name}{TEMP_SUFFIX}"):
+            p.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def _make_room(folder: Path, key: str) -> None:
+    """Room before the save, not after — on a full RAM disk the save itself would fail. The folder is brought to
+    BRAIN_SLOT_KEEP - 1 readings, the one about to be written counting toward the keep and an existing <key>.bin
+    counting among those already there; the oldest go first, and <key>.bin — the last good reading of this very
+    prompt — is never deleted before the new one is whole (it is replaced, not removed). So with keep 1 the
+    others go and it stays. While the new one is written beside it, keep + 1 files can stand for that moment:
+    the price of never losing the good one to a save that fails. 0 keeps them all."""
     try:
         keep = int(getattr(config, "BRAIN_SLOT_KEEP", 3) or 0)
     except (TypeError, ValueError):
         keep = 3
     if keep <= 0:
         return
-    try:
-        files = sorted((p for p in folder.glob("*.bin") if p.is_file()), key=lambda p: p.stat().st_mtime, reverse=True)
-    except OSError:
-        return
-    files = [p for p in files if p.name == keep_name] + [p for p in files if p.name != keep_name]
-    for p in files[keep:]:
+    files = _readings(folder)
+    excess = len(files) - max(keep - 1, 0)
+    for p in [p for p in files if p.name != f"{key}.bin"]:
+        if excess <= 0:
+            break
         try:
             p.unlink()
+            excess -= 1
             _note(f"let an older reading go: {p.stem}")
         except OSError:
             pass
 
 
 def _before_stop() -> None:
-    """Right before the door is closed — the painter, the ears, the wedge-clearing, /release, the panel's Stop
-    (a rest never closes it): slot 0's reading saved as <key>.bin in BRAIN_SLOT_DIR, the key that of the prompt the slot
-    holds now (the state as it stands at the step-down: a restore matches byte for byte or not at all), then
-    the folder pruned to BRAIN_SLOT_KEEP. Nothing when there is no folder, the door is asleep, or it has
-    served nothing since it came up. Never raises: a save that fails is a line in the log, and the door is
+    """Right before the door is closed — the painter, the ears, the wedge-clearing, /release, the panel's
+    Stop (a rest never closes it): slot 0's reading saved in BRAIN_SLOT_DIR under the key of the prompt the
+    slot holds now (the state as it stands at the step-down: a restore matches byte for byte or not at all).
+    Room is made first (_make_room); the save is written as <key>.new.bin and moved over <key>.bin only once
+    the server says it is whole, so a save that fails — a full disk, a door that refuses — leaves the last
+    good reading as it was and no half file behind. Nothing when there is no folder, the door is asleep, or
+    it has served nothing since it came up. Never raises: a failed save is a line in the log, and the door is
     closed all the same."""
+    folder = key = None
     try:
         folder, key = slot_dir(), _served_now()
         if folder is None or not key or not awake():
             return
-        got = slot_save(f"{key}.bin")
+        _make_room(folder, key)
+        _clear_temps(folder, key)
+        got = slot_save(f"{key}{TEMP_SUFFIX}")
         if got is None or got.get("error"):
-            _note(f"the reading wasn't saved: {key} — the door refused the save (opened without --slot-save-path?)")
+            _clear_temps(folder, key)
+            _note(f"the reading wasn't saved: {key} — the door refused the save (the disk full? opened without "
+                  "--slot-save-path?); the last good one stays")
             return
+        os.replace(folder / f"{key}{TEMP_SUFFIX}", folder / f"{key}.bin")
         n, gb = int(got.get("n_saved") or 0), float(got.get("n_written") or 0) / 1e9
         _note(f"saved the reading: {key} ({n:,} tokens, {gb:.1f} GB, {_secs(got, 'save_ms'):.1f} s)")
-        _prune(folder, f"{key}.bin")
     except Exception as e:  # noqa: BLE001 — the stop goes on
+        if folder is not None and key:
+            _clear_temps(folder, key)
         _note(f"the reading wasn't saved: {type(e).__name__}: {e}")
 
 

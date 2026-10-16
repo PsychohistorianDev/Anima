@@ -23,7 +23,13 @@ of its own.
   `<key>.bin`, the key the first 24 hex of the system prompt's sha256
   (`brain.prompt_key`), and keeps the newest `BRAIN_SLOT_KEEP` (3, new); on the
   way back up the first reply with that system prompt restores it before it is
-  sent, so a return from a song or a painting reads only the new words. The
+  sent, so a return from a song or a painting reads only the new words. Room
+  is made before the save (the file about to be written counts toward the
+  keep; the last reading of the same prompt goes last, never before the new
+  one is whole), and the save is written as `<key>.new.bin` and moved over
+  `<key>.bin` only when it succeeds, so a full RAM disk or a refused save
+  leaves the last good reading intact; a half file left by a crash is cleared
+  when the door opens. The
   reply carries `restored`, the token line says "restored N tokens in Xs" and
   the phone's and the parlor's tally get `restored_tokens` / `restored_s`. The
   key of the last reply served is kept in `memory/.pids/brain.served`, so a
