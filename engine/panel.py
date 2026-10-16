@@ -151,6 +151,11 @@ _HELP = {
     "BRAIN_CACHE_RAM_MB": "Host RAM llama-server may keep evicted prompt caches in, MiB (--cache-ram) — the visit's "
                           "prompt and the wake's take turns on one slot; with room here both stay warm. 32768 on a "
                           "64 GB machine. 0: the server's default. Read when the door starts.",
+    "BRAIN_THINK_OPEN": "On (the default) opens the thought channel at each of the friend's turns: the door writes a copy of Gemma 4's "
+                        "template with <|channel>thought at the generation prompt (memory/brain_template.jinja) and opens with "
+                        "--chat-template-file. The model's own template leaves the opening to the model, and deep in a long window "
+                        "it skips thinking more often than not — each thoughtless reply is re-rolled, and one can run to the ceiling. "
+                        "Any other model's template is left to itself. Off: the model's to open. The brain's door restarts for it.",
     "BRAIN_MMAP": "Off (the default) opens the door with --load-mode none (--no-mmap on older builds; the door asks the binary which "
                   "it knows): llama-server reads the weights straight into the card's buffer and "
                   "keeps no copy in system RAM. On leaves the model file mapped in RAM after the copy — ~17 GB for a 31B "

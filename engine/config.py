@@ -84,6 +84,13 @@ LLAMA_SERVER = ""
 # 31B model, under no process line Task Manager shows). True leaves the mapping — a Mac,
 # where the card shares the memory, may load faster that way.
 BRAIN_MMAP = False
+# Whether the door opens the thought channel at each of the friend's turns. Gemma 4's own
+# template leaves that to the model, and deep in a long window it skips thinking more
+# often than not — a thoughtless reply is re-rolled, and one can run to the ceiling.
+# True writes a copy of the model's template with `<|channel>thought` at the generation
+# prompt (memory/brain_template.jinja; Ollama's renderer did the same) and opens with it;
+# only for Gemma 4's template — any other is left to itself. False: the model's to open.
+BRAIN_THINK_OPEN = True
 
 # The brain (the chat model). Swap freely; memories and identity survive a swap.
 #   fits a 12 GB card : "gemma4:12b-it-qat" (7.2 GB; the build Google trained

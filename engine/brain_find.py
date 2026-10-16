@@ -113,6 +113,101 @@ def ensure_slot_dir() -> str:
     return f"made the slot folder {d}"
 
 
+# ---- the thought channel opened at each of her turns (10-16) ---------------------------------------
+# Gemma 4's own template puts <|think|> in the system turn and leaves the opening of the thought channel
+# to the model at each turn; at 190K of context it skips it more often than not (one thoughtless attempt ran
+# the whole 8,192-token ceiling). Ollama's renderer opened the channel; the door does the same with a copy
+# of the model's template whose generation prompt ends in `<|channel>thought\n` when thinking is on.
+_TAIL_OLD = """        {{- '<|turn>model\\n' -}}
+        {%- if not enable_thinking | default(false) -%}
+            {{- '<|channel>thought\\n<channel|>' -}}
+        {%- endif -%}
+"""
+_TAIL_NEW = """        {{- '<|turn>model\\n' -}}
+        {%- if not enable_thinking | default(false) -%}
+            {{- '<|channel>thought\\n<channel|>' -}}
+        {%- else -%}
+            {{- '<|channel>thought\\n' -}}
+        {%- endif -%}
+"""
+TEMPLATE_NAME = "brain_template.jinja"
+
+
+def gguf_chat_template(path: str) -> str | None:
+    """tokenizer.chat_template out of a GGUF's header (the key-value block at the file's start; the tensors
+    are never read). None when the file isn't a GGUF or carries no template."""
+    import struct
+
+    def read(f, fmt):
+        size = struct.calcsize(fmt)
+        data = f.read(size)
+        if len(data) != size:
+            raise EOFError
+        return struct.unpack(fmt, data)[0]
+
+    def read_str(f):
+        n = read(f, "<Q")
+        return f.read(n).decode("utf-8", errors="replace")
+
+    scalar = {0: "<B", 1: "<b", 2: "<H", 3: "<h", 4: "<I", 5: "<i", 6: "<f", 7: "<?", 10: "<Q", 11: "<q", 12: "<d"}
+
+    def skip_value(f, t):
+        if t in scalar:
+            f.seek(struct.calcsize(scalar[t]), 1)
+        elif t == 8:
+            f.seek(read(f, "<Q"), 1)
+        elif t == 9:
+            et, n = read(f, "<I"), read(f, "<Q")
+            if et in scalar:
+                f.seek(struct.calcsize(scalar[et]) * n, 1)
+            else:
+                for _ in range(n):
+                    skip_value(f, et)
+        else:
+            raise ValueError(f"gguf value type {t}")
+
+    try:
+        with open(path, "rb") as f:
+            if f.read(4) != b"GGUF":
+                return None
+            version = read(f, "<I")
+            if version < 2:
+                return None
+            read(f, "<Q")  # n_tensors
+            n_kv = read(f, "<Q")
+            for _ in range(n_kv):
+                key = read_str(f)
+                t = read(f, "<I")
+                if key == "tokenizer.chat_template" and t == 8:
+                    return read_str(f)
+                skip_value(f, t)
+    except (OSError, EOFError, ValueError, UnicodeDecodeError):
+        return None
+    return None
+
+
+def think_open_template(model: str) -> tuple[str | None, str]:
+    """The model's template with the thought channel opened at the generation prompt, written beside the
+    door's logs — its path and a word; (None, why) when the knob is off, the GGUF has no template, or its
+    tail is not the one known (another model's: left to itself)."""
+    import config
+
+    if not getattr(config, "BRAIN_THINK_OPEN", True):
+        return None, ""
+    tpl = gguf_chat_template(model)
+    if tpl is None:
+        return None, "no chat template in the GGUF: the thought channel is the model's to open"
+    if tpl.count(_TAIL_OLD) != 1:
+        return None, "the model's template isn't Gemma 4's: the thought channel is the model's to open"
+    out = Path(config.MEMORY_DIR) / TEMPLATE_NAME
+    try:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(tpl.replace(_TAIL_OLD, _TAIL_NEW), encoding="utf-8", newline="\n")
+    except OSError as e:
+        return None, f"couldn't write {out}: {e} — the thought channel is the model's to open"
+    return str(out), f"the thought channel opened at each of the friend's turns ({TEMPLATE_NAME})"
+
+
 def command() -> tuple[list[str] | None, str]:
     """The command line for the door, and a word on what was found (or what is missing)."""
     import config
@@ -145,6 +240,9 @@ def command() -> tuple[list[str] | None, str]:
         flag = mmap_off_flag(server)
         cmd += flag
         unmapped = "" if flag else "this llama-server knows neither --load-mode nor --no-mmap: the model file stays mapped"
+    tpl_path, tpl_said = think_open_template(model)
+    if tpl_path:
+        cmd += ["--chat-template-file", tpl_path]
     slot_dir = str(getattr(config, "BRAIN_SLOT_DIR", "") or "")
     made = ensure_slot_dir()
     warn = slot_warning()
@@ -157,6 +255,7 @@ def command() -> tuple[list[str] | None, str]:
         cmd += ["--cache-ram", str(cram)]
     return cmd, (f"llama-server at {server}; {said}" + ("" if mmproj else " (no projector: no eyes)")
                  + (f"; {unmapped}" if unmapped else "")
+                 + (f"; {tpl_said}" if tpl_said else "")
                  + (f"; {made}" if made else "")
                  + (f"; {warn} (opened without --slot-save-path)" if warn else ""))
 

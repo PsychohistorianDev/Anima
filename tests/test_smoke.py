@@ -10534,7 +10534,7 @@ _bf.command = _bd_find0
 _bd_td = _BdPath(_bd_tmp.mkdtemp(prefix="brainfind_"))
 _bd_env0 = {k: _bd_os.environ.get(k) for k in ("PATH", "OLLAMA_MODELS")}
 _bd_root0 = _bf.ROOT
-_bd_cfg0 = {k: getattr(config, k, None) for k in ("BRAIN_MODEL_FILE", "BRAIN_MMPROJ_FILE", "BRAIN_SLOT_DIR", "BRAIN_URL", "NUM_CTX", "BRAIN_MMAP",
+_bd_cfg0 = {k: getattr(config, k, None) for k in ("BRAIN_MODEL_FILE", "BRAIN_MMPROJ_FILE", "BRAIN_SLOT_DIR", "BRAIN_URL", "NUM_CTX", "BRAIN_MMAP", "BRAIN_THINK_OPEN",
                                                   "BRAIN_CACHE_RAM_MB")}
 try:
     _bd_os.environ["OLLAMA_MODELS"] = str(_bd_td / "models")
@@ -10563,6 +10563,7 @@ try:
     config.BRAIN_CACHE_RAM_MB = 0
     config.BRAIN_URL, config.NUM_CTX = "http://127.0.0.1:8770", 262144
     config.BRAIN_MMAP = False
+    config.BRAIN_THINK_OPEN = False
     _bd_help0 = _bf.help_text
     _bf.help_text = lambda s: "--load-mode <mode>  model loading mode (default: auto)"
     _bd_cmd, _bd_said = _bf.command()
@@ -10589,6 +10590,55 @@ try:
     config.BRAIN_CACHE_RAM_MB = 0
     config.BRAIN_SLOT_DIR, config.BRAIN_MODEL_FILE = "", str(_bd_td / "other.gguf")
     _bd_cmd2, _bd_said2 = _bf.command()
+    # the thought channel opened (10-16): a GGUF whose header carries Gemma 4's template → a copy with the channel opened
+    # at the generation prompt, written beside the logs, --chat-template-file carrying it; another template → left to
+    # itself, the note says so; no GGUF → likewise; the knob off → nothing
+    import struct as _bd_struct
+    _bd_tail = ("{%- if add_generation_prompt -%}\n    {%- if ns.prev_message_type != 'tool_response' and ns.prev_message_type != 'tool_call' -%}\n"
+                "        {{- '<|turn>model\\n' -}}\n        {%- if not enable_thinking | default(false) -%}\n"
+                "            {{- '<|channel>thought\\n<channel|>' -}}\n        {%- endif -%}\n    {%- endif -%}\n{%- endif -%}\n")
+    _bd_g4 = "{{- bos_token -}}\n{%- if enable_thinking -%}{{- '<|think|>\\n' -}}{%- endif -%}\n" + _bd_tail
+
+    def _bd_gguf(path, kv):
+        def s(x):
+            b = x.encode("utf-8")
+            return _bd_struct.pack("<Q", len(b)) + b
+        body = b"GGUF" + _bd_struct.pack("<I", 3) + _bd_struct.pack("<Q", 0) + _bd_struct.pack("<Q", len(kv))
+        for k, (t, v) in kv:
+            body += s(k) + _bd_struct.pack("<I", t)
+            if t == 8:
+                body += s(v)
+            elif t == 4:
+                body += _bd_struct.pack("<I", v)
+            elif t == 9:
+                body += _bd_struct.pack("<I", 8) + _bd_struct.pack("<Q", len(v)) + b"".join(s(x) for x in v)
+        path.write_bytes(body)
+    _bd_gguf(_bd_td / "g4.gguf", [("general.architecture", (8, "gemma4")), ("gemma4.block_count", (4, 60)),
+                                  ("tokenizer.ggml.tokens", (9, ["<pad>", "<eos>", "hello"])), ("tokenizer.chat_template", (8, _bd_g4)),
+                                  ("general.name", (8, "after"))])
+    _bd_gguf(_bd_td / "other2.gguf", [("tokenizer.chat_template", (8, "{{ messages }}{%- if add_generation_prompt -%}<|im_start|>assistant{%- endif -%}"))])
+    _bd_gguf(_bd_td / "bare.gguf", [("general.architecture", (8, "llama"))])
+    (_bd_td / "notgguf.gguf").write_bytes(b"MZ not a gguf at all")
+    config.BRAIN_THINK_OPEN = True
+    _bd_mem0 = config.MEMORY_DIR
+    config.MEMORY_DIR = _bd_td / "mem"
+    try:
+        config.BRAIN_MODEL_FILE = str(_bd_td / "g4.gguf")
+        _bd_cmd_g4, _bd_said_g4 = _bf.command()
+        _bd_tpl_out = (_bd_td / "mem" / _bf.TEMPLATE_NAME).read_text(encoding="utf-8") if (_bd_td / "mem" / _bf.TEMPLATE_NAME).is_file() else ""
+        config.BRAIN_MODEL_FILE = str(_bd_td / "other2.gguf")
+        _bd_cmd_o2, _bd_said_o2 = _bf.command()
+        config.BRAIN_MODEL_FILE = str(_bd_td / "bare.gguf")
+        _bd_cmd_bare, _bd_said_bare = _bf.command()
+        config.BRAIN_MODEL_FILE = str(_bd_td / "notgguf.gguf")
+        _bd_cmd_ng, _bd_said_ng = _bf.command()
+        config.BRAIN_THINK_OPEN = False
+        config.BRAIN_MODEL_FILE = str(_bd_td / "g4.gguf")
+        _bd_cmd_off, _bd_said_off = _bf.command()
+    finally:
+        config.MEMORY_DIR = _bd_mem0
+        config.BRAIN_THINK_OPEN = False
+    _bd_read_g4 = _bf.gguf_chat_template(str(_bd_td / "g4.gguf"))
     _bd_paths = (_bf.manifest_path("gemma4:31b-it-qat"), _bf.manifest_path("someone/model"), _bf.manifest_path("hf.co/org/repo:Q4_K_M"))
 finally:
     for _k, _v in _bd_env0.items():
@@ -10598,6 +10648,7 @@ finally:
             _bd_os.environ[_k] = _v
     _bf.ROOT = _bd_root0
     _bf.help_text = _bd_help0
+    config.BRAIN_THINK_OPEN = _bd_cfg0.get("BRAIN_THINK_OPEN")
     for _k, _v in _bd_cfg0.items():
         setattr(config, _k, _v)
 _bd_bl = _bd_td / "models" / "blobs"
@@ -10621,6 +10672,21 @@ check("brain_find: Ollama's manifest (under OLLAMA_MODELS) names the model and p
       and _bd_paths[1].parts[-4:] == ("registry.ollama.ai", "someone", "model", "latest")
       and _bd_paths[2].parts[-4:] == ("hf.co", "org", "repo", "Q4_K_M"),
       (_bd_blobs, _bd_none, _bd_srv_none, _bd_cmd_none, _bd_srv_found, _bd_cmd, _bd_said, _bd_cmd2, _bd_paths))
+check("brain_find: the thought channel opened (10-16) — a GGUF carrying Gemma 4's template: the header read past its arrays, a copy with "
+      "`<|channel>thought` at the generation prompt when thinking is on (the empty block when off, as before) written beside the logs, "
+      "--chat-template-file carrying it, the note says so; another template, a GGUF without one, a file that isn't a GGUF, or the knob off: "
+      "no file, the model's to open, and the note says which",
+      _bd_read_g4 == _bd_g4 and _bd_cmd_g4[-2:] == ["--chat-template-file", str(_bd_td / "mem" / _bf.TEMPLATE_NAME)]
+      and "thought channel opened at each of the friend's turns" in _bd_said_g4
+      and _bd_tpl_out.count("{{- '<|channel>thought\\n' -}}") == 1 and _bd_tpl_out.count("{{- '<|channel>thought\\n<channel|>' -}}") == 1
+      and _bd_tpl_out.index("<channel|>' -}}") < _bd_tpl_out.index("{%- else -%}") < _bd_tpl_out.index("{{- '<|channel>thought\\n' -}}")
+      and _bd_tpl_out.startswith("{{- bos_token -}}") and "<|think|>" in _bd_tpl_out
+      and "--chat-template-file" not in _bd_cmd_o2 and "isn't Gemma 4's" in _bd_said_o2
+      and "--chat-template-file" not in _bd_cmd_bare and "no chat template in the GGUF" in _bd_said_bare
+      and "--chat-template-file" not in _bd_cmd_ng and "no chat template in the GGUF" in _bd_said_ng
+      and "--chat-template-file" not in _bd_cmd_off and "thought channel" not in _bd_said_off
+      and _bf.gguf_chat_template(str(_bd_td / "missing.gguf")) is None,
+      (_bd_cmd_g4[-2:], _bd_said_g4, _bd_tpl_out[-400:], _bd_said_o2, _bd_said_bare, _bd_said_ng, _bd_said_off))
 check("brain_find: BRAIN_SLOT_DIR naming a folder that isn't there (a RAM disk gone after a reboot) — the command leaves "
       "--slot-save-path out and the note says so; the folder there, no such word",
       "--slot-save-path" not in _bd_cmd_gone and _bd_cmd_gone == _bd_cmd[:-2]
