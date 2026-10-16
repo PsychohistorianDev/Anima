@@ -10488,7 +10488,7 @@ _bf.command = _bd_find0
 _bd_td = _BdPath(_bd_tmp.mkdtemp(prefix="brainfind_"))
 _bd_env0 = {k: _bd_os.environ.get(k) for k in ("PATH", "OLLAMA_MODELS")}
 _bd_root0 = _bf.ROOT
-_bd_cfg0 = {k: getattr(config, k, None) for k in ("BRAIN_MODEL_FILE", "BRAIN_MMPROJ_FILE", "BRAIN_SLOT_DIR", "BRAIN_URL", "NUM_CTX",
+_bd_cfg0 = {k: getattr(config, k, None) for k in ("BRAIN_MODEL_FILE", "BRAIN_MMPROJ_FILE", "BRAIN_SLOT_DIR", "BRAIN_URL", "NUM_CTX", "BRAIN_MMAP",
                                                   "BRAIN_CACHE_RAM_MB")}
 try:
     _bd_os.environ["OLLAMA_MODELS"] = str(_bd_td / "models")
@@ -10516,7 +10516,11 @@ try:
     config.BRAIN_MODEL_FILE, config.BRAIN_MMPROJ_FILE, config.BRAIN_SLOT_DIR = "", "", str(_bd_td / "kv")
     config.BRAIN_CACHE_RAM_MB = 0
     config.BRAIN_URL, config.NUM_CTX = "http://127.0.0.1:8770", 262144
+    config.BRAIN_MMAP = False
     _bd_cmd, _bd_said = _bf.command()
+    config.BRAIN_MMAP = True
+    _bd_cmd_mmap, _ = _bf.command()
+    config.BRAIN_MMAP = False
     config.BRAIN_SLOT_DIR = str(_bd_td / "gone" / "kv")  # a RAM disk that didn't come back after a reboot: its drive isn't there
     _bd_cmd_gone, _bd_said_gone = _bf.command()
     _bd_warn_gone = _bf.slot_warning()
@@ -10543,12 +10547,15 @@ finally:
 _bd_bl = _bd_td / "models" / "blobs"
 check("brain_find: Ollama's manifest (under OLLAMA_MODELS) names the model and projector blobs; a tag never pulled is None; no llama-server "
       "anywhere is None and the command says so; llama\\ beside the engine is found; the command carries the blobs, the window, q4_0 keys, "
-      "one slot, deepseek reasoning, BRAIN_URL's port, and --slot-save-path only when BRAIN_SLOT_DIR is set; BRAIN_MODEL_FILE wins",
+      "one slot, deepseek reasoning, BRAIN_URL's port, --no-mmap unless BRAIN_MMAP is on (the help says why), and --slot-save-path only when "
+      "BRAIN_SLOT_DIR is set; BRAIN_MODEL_FILE wins",
       _bd_blobs == (str(_bd_bl / ("sha256-" + "a" * 64)), str(_bd_bl / ("sha256-" + "b" * 64))) and _bd_none is None
       and _bd_srv_none is None and _bd_cmd_none[0] is None and "llama-server not found" in _bd_cmd_none[1]
       and _bd_srv_found == str(_bd_td / "house" / "llama" / "llama-server.exe")
       and _bd_cmd == [_bd_srv_found, "-m", _bd_blobs[0], "--mmproj", _bd_blobs[1], "-c", "262144", "-fa", "on", "-ctk", "q4_0", "-ctv", "q4_0",
-                      "-np", "1", "--reasoning-format", "deepseek", "--port", "8770", "--host", "127.0.0.1", "--slot-save-path", str(_bd_td / "kv")]
+                      "-np", "1", "--reasoning-format", "deepseek", "--port", "8770", "--host", "127.0.0.1", "--no-mmap", "--slot-save-path", str(_bd_td / "kv")]
+      and _bd_cmd_mmap == [a for a in _bd_cmd if a != "--no-mmap"] and "BRAIN_MMAP" in _bd_panel._HELP and "--no-mmap" in _bd_panel._HELP["BRAIN_MMAP"]
+      and getattr(config, "BRAIN_MMAP", None) is False
       and "Ollama's manifest" in _bd_said and _bd_cmd2[2] == str(_bd_td / "other.gguf") and "--slot-save-path" not in _bd_cmd2
       and _bd_paths[0].parts[-5:] == ("manifests", "registry.ollama.ai", "library", "gemma4", "31b-it-qat")
       and _bd_paths[1].parts[-4:] == ("registry.ollama.ai", "someone", "model", "latest")

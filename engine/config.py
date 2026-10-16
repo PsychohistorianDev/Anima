@@ -77,6 +77,12 @@ BRAIN_MMPROJ_FILE = ""
 # Where llama-server is, when it is not on the PATH and not in a llama\ folder inside or
 # beside this one: the full path to llama-server.exe. Empty looks in those places.
 LLAMA_SERVER = ""
+# Whether llama-server keeps the model file mapped in host RAM after copying it to the
+# card. False passes --no-mmap: the weights are read straight into the card's buffer and
+# no host copy stays (with mmap, the mapped file counted as ~17 GB of RAM "in use" on a
+# 31B model, under no process line Task Manager shows). True leaves the mapping — a Mac,
+# where the card shares the memory, may load faster that way.
+BRAIN_MMAP = False
 
 # The brain (the chat model). Swap freely; memories and identity survive a swap.
 #   fits a 12 GB card : "gemma4:12b-it-qat" (7.2 GB; the build Google trained

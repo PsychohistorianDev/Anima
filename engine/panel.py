@@ -151,6 +151,9 @@ _HELP = {
     "BRAIN_CACHE_RAM_MB": "Host RAM llama-server may keep evicted prompt caches in, MiB (--cache-ram) — the visit's "
                           "prompt and the wake's take turns on one slot; with room here both stay warm. 32768 on a "
                           "64 GB machine. 0: the server's default. Read when the door starts.",
+    "BRAIN_MMAP": "Off (the default) passes --no-mmap: llama-server reads the weights straight into the card's buffer and "
+                  "keeps no copy in system RAM. On leaves the model file mapped in RAM after the copy — ~17 GB for a 31B "
+                  "model, counted as in use under no process line; a Mac, where the card shares the memory, may load faster that way.",
     "LLAMA_SERVER": "The full path to llama-server.exe when it is not on the PATH and not in a llama\\ folder inside or "
                     "beside this one. Empty looks in those places.",
     "BRAIN_MODEL_FILE": "A GGUF for llama-server instead of the one Ollama's manifest names for CHAT_MODEL. Empty: "

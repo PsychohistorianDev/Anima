@@ -138,6 +138,10 @@ def command() -> tuple[list[str] | None, str]:
         cmd += ["--mmproj", mmproj]
     cmd += ["-c", str(int(getattr(config, "NUM_CTX", 8192))), "-fa", "on", "-ctk", "q4_0", "-ctv", "q4_0",
             "-np", "1", "--reasoning-format", "deepseek", "--port", str(port), "--host", "127.0.0.1"]
+    # the weights read into the card's buffer, no host copy kept (10-16: the GGUF mapped with mmap stayed
+    # mapped after the copy — 17 GB of host RAM counted "in use" with no process line to show for it)
+    if not getattr(config, "BRAIN_MMAP", False):
+        cmd += ["--no-mmap"]
     slot_dir = str(getattr(config, "BRAIN_SLOT_DIR", "") or "")
     made = ensure_slot_dir()
     warn = slot_warning()
