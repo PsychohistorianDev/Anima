@@ -403,6 +403,7 @@ def start_door(wait_s: float = 120) -> tuple[bool, str]:
             warn = brain_find.slot_warning()
             if warn:
                 print(f"  ({warn})", flush=True)
+            _note("opening the brain's door: " + " ".join(cmd[1:]) + (f" — {warn}" if warn else ""))
             print("  (opening the brain's door — llama-server, the model loading)", flush=True)
             try:
                 log_file().parent.mkdir(parents=True, exist_ok=True)
@@ -602,6 +603,9 @@ def _before_stop() -> None:
     try:
         folder, key = slot_dir(), _served_now()
         if folder is None or not key or not awake():
+            _note("nothing to save before the stop: " + ("no slot folder (BRAIN_SLOT_DIR empty or missing)" if folder is None
+                                                           else "the door served nothing yet" if not key
+                                                           else "the door isn't answering"))
             return
         _make_room(folder, key)
         _clear_temps(folder, key)
