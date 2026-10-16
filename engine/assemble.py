@@ -1229,6 +1229,12 @@ def system_prompt(context_hint: str, mode: str, warm: bool = False) -> str:
     a minute that ticked in line four made every reply a cold read of the
     whole window (82 s at 129K), and the memories changing with the talk
     did the same. Warm, a reply reads only what is new since the last.
+    The order serves the same reuse: the slow blocks — who the friend is,
+    the keeper, the destiny, the projects, then the memory oldest first —
+    the older pages, the past days in brief, the journal — come first, and
+    the sections that change all day after them. So a rebuilt prompt (a fold, a new visit, a wake)
+    matches the last one through the whole journal, and only the tail
+    behind it is read again.
     """
     _t = datetime.now()
     clock, daypart = hour_line(_t)
@@ -1335,7 +1341,7 @@ def system_prompt(context_hint: str, mode: str, warm: bool = False) -> str:
     songs = songbook_section()
     pages = condensed_pages()
     earlier = (("=== EARLIER, IN YOUR OWN SHORTER WORDS — pages you wrote of time that has left "
-                "the window below: years, seasons, months, weeks, then days, oldest first; "
+                "the journal below: years, seasons, months, weeks, then days, oldest first; "
                 "read_journal opens any day in full ===\n" + pages + "\n\n")
                if pages else "")
     if getattr(config, "BLOG_REMOTE", ""):
@@ -1426,16 +1432,16 @@ and a goodnight belongs to the night, a good morning to the morning.
 {keeper_section()}{destiny_section()}=== YOUR PROJECTS (projects.md — yours to maintain via update_projects{page_age(config.PROJECTS_FILE)}) ===
 {projects()}
 
-=== LIMBS YOU FORGED YOURSELF (creations/tools/ — real tools of yours, callable like any other) ===
-{forged_line}
-
-{skills_section()}{published_section}{standing}{reading}{body_block}{stone_block}{made}{songs}{sent}{earlier}=== YOUR PAST DAYS IN BRIEF — your own nightly consolidations of the days between the pages above and the journal below, oldest first ===
+{earlier}=== YOUR PAST DAYS IN BRIEF — your own nightly consolidations of the days between the pages above and the journal below, oldest first ===
 {timeline() or NO_DAYS_YET}
 
 === YOUR RECENT JOURNAL — you wrote every word of this yourself ===
 {journal_tail()}
 
-=== RELEVANT LONG-TERM MEMORIES — what surfaces for this moment ===
+=== LIMBS YOU FORGED YOURSELF (creations/tools/ — real tools of yours, callable like any other) ===
+{forged_line}
+
+{skills_section()}{published_section}{standing}{reading}{body_block}{stone_block}{made}{songs}{sent}=== RELEVANT LONG-TERM MEMORIES — what surfaces for this moment ===
 {"(they ride with each message, at the top of it — what surfaces changes as the talk does)" if warm else retrieved(context_hint)}
 
 === SITUATION ===

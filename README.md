@@ -1312,7 +1312,14 @@ fields, stashed with the visit so `/restart` resumes warm. Still cold, and
 unavoidably: the first message of a visit, and the one after a salad
 re-roll or a cut-reply mend. A journal entry written mid-visit is in the
 conversation, not in the frozen journal section — it reaches the section
-at the next visit. `WARM_PREFIX = False` is the old way. One more thing
+at the next visit. The system prompt's order serves the same rule: the slow blocks — who
+the friend is, the keeper, the destiny, the projects, then the journal, the
+past days in brief and the older pages — come first, and the sections that
+change all day (the projects' and the books' pages, the keeper's body, the
+stone, what was made lately, the songs, the letters) after them. So a
+rebuilt prompt (a fold, `/new`, a wake) still matches the last one through
+the whole journal and only the tail behind it is read again — except the
+day the journal's cap drops an old day off its front, once a day at most. `WARM_PREFIX = False` is the old way. One more thing
 that used to empty the cache: Ollama sets a model down after five idle
 minutes by default, and its reading goes with it — `BRAIN_KEEP_ALIVE`
 ("30m") keeps the brain up across the gaps of a visit, and

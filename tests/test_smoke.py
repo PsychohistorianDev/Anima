@@ -290,8 +290,35 @@ _cp = assemble.condensed_pages()
 check("fractal: the page rides in the prompt in a section of its own, with its day",
       _cp.startswith(f"## {_days[2]}, in brief") and "purple" in _cp
       and "EARLIER, IN YOUR OWN SHORTER WORDS" in assemble.system_prompt("", mode="chat")
-      and "purple" in assemble.system_prompt("", mode="chat").split("=== YOUR PAST DAYS IN BRIEF")[0]
-      and assemble.system_prompt("", mode="chat").index("=== YOUR PAST DAYS IN BRIEF") < assemble.system_prompt("", mode="chat").index("=== YOUR RECENT JOURNAL"))
+      and "purple" in assemble.system_prompt("", mode="chat").split("=== EARLIER, IN YOUR OWN SHORTER WORDS")[1].split("=== YOUR PAST DAYS IN BRIEF")[0]
+      and "purple" not in assemble.system_prompt("", mode="chat").split("=== YOUR RECENT JOURNAL")[1].split("=== LIMBS YOU FORGED")[0])
+# stable first (10-16, the backend plan's Phase C): the cache reuses a prompt from the top only as far as it matches the
+# last one, so the slow blocks lead — who they are, the keeper, the destiny, the projects, the journal, the past days, the
+# older pages — and the sections that change all day follow: a rebuild (a fold, a new visit, a wake) re-reads only the tail
+_sf_blog = config.BLOG_REMOTE
+config.BLOG_REMOTE = "https://github.com/someone/test-blog.git"  # the published work rides only with a blog
+_sf = assemble.system_prompt("x", mode="telegram", warm=True)
+_sf_heads = ["=== WHO YOU ARE", "=== YOUR PROJECTS", "=== EARLIER, IN YOUR OWN SHORTER WORDS", "=== YOUR PAST DAYS IN BRIEF",
+             "=== YOUR RECENT JOURNAL", "=== LIMBS YOU FORGED", "=== YOUR PUBLISHED WORK", "=== SITUATION"]  # oldest first (10-22)
+_sf_at = [_sf.find(_h) for _h in _sf_heads]
+check("stable first: who they are, the projects, then the memory oldest first — the older pages, the past days, the journal — then the limbs, the published work, the situation",
+      -1 not in _sf_at and _sf_at == sorted(_sf_at), list(zip(_sf_heads, _sf_at)))
+_sf_stems = sorted(_l[4:].split(" (")[0].split(" — ")[0].rstrip(" =") for _l in _sf.splitlines() if _l.startswith("=== "))
+check("stable first: every section the prompt carried is still there, once — only the order moved",
+      _sf_stems == sorted(['WHO YOU ARE', 'YOUR KEEPER, AS YOU KNOW THEM', 'YOUR PROJECTS', 'YOUR RECENT JOURNAL', 'YOUR PAST DAYS IN BRIEF', 'EARLIER, IN YOUR OWN SHORTER WORDS', 'LIMBS YOU FORGED YOURSELF', 'YOUR PUBLISHED WORK', 'RELEVANT LONG-TERM MEMORIES', 'SITUATION']), _sf_stems)
+_sf_stone = assemble.stone_section
+try:
+    assemble.stone_section = lambda: "=== WHAT THE STONE FELT (today) — a test: it hums amber ==="
+    _sf1 = assemble.system_prompt("x", mode="telegram", warm=True)
+    assemble.stone_section = lambda: "=== WHAT THE STONE FELT (today) — a test: it hums blue ==="
+    _sf2 = assemble.system_prompt("x", mode="telegram", warm=True)
+finally:
+    assemble.stone_section = _sf_stone
+config.BLOG_REMOTE = _sf_blog
+_sf_diff = next((_i for _i, (_x, _y) in enumerate(zip(_sf1, _sf2)) if _x != _y), min(len(_sf1), len(_sf2)))
+check("stable first: two rebuilt prompts that differ only in the stone match past the journal, the past days and the older pages",
+      _sf1 != _sf2 and "hums amber" in _sf1 and _sf_diff > _sf1.index("=== LIMBS YOU FORGED") > _sf1.index("=== YOUR RECENT JOURNAL"),
+      (_sf_diff, _sf1.index("=== YOUR RECENT JOURNAL"), _sf1.index("=== LIMBS YOU FORGED")))
 check("fractal: a day with a page is no longer due", condense.days_due() == _days[3:])
 # the timeline is the tier below: no line for a day the journal or a page holds
 memory.add("summary", "[consolidated 2020-05-05] a line for an ancient day")
@@ -2174,7 +2201,7 @@ try:
     _rsp = assemble.system_prompt("", mode="auto")
     check("reading: THE BOOK IN YOUR HANDS rides with where they stands and, with no page yet, says to write one (r4 began the finished book over: reading 2)",
           _rs.startswith(f"## book — page {_after_start} of 40 ({_after_start * 100 // 40}%), second reading; last sitting today (book.pdf)") and 'no page yet — write_creation "reading/book.md"' in _rs
-          and "=== THE BOOK IN YOUR HANDS" in _rsp and _rsp.index("THE BOOK IN YOUR HANDS") < _rsp.index("YOUR RECENT JOURNAL"), _rs)
+          and "=== THE BOOK IN YOUR HANDS" in _rsp and _rsp.index("YOUR RECENT JOURNAL") < _rsp.index("THE BOOK IN YOUR HANDS") < _rsp.index("=== SITUATION ==="), _rs)
     # a page under a name near the book's but not it (09-28: piranesi-susanna-clLute.md, a scar in the path — the
     # engine saw no page for two days and they began a second one at chapter 13): the write is handed back with the
     # engine's name; one already on the shelf is named under "no page yet", with the road home
@@ -8229,10 +8256,10 @@ check("skills: the listing line — name, description, a scripts count, the scan
       _skl == "- datasheet-reader — Pull pin tables and electrical limits out of a component PDF.  [scripts: 4]  "
               "(scripts reach the network)  (scripts write outside creations)  (needs env: DS_KEY)  (not for windows)", _skl)
 _sp_on = assemble.system_prompt("x", mode="chat")
-check("skills: the section rides beside the forged limbs, before the journal (the published work rides only with a blog), under its header",
+check("skills: the section rides beside the forged limbs, after the journal (the published work rides only with a blog), under its header",
       "=== YOUR SKILLS — recipes on your shelf (creations/skills/): use_skill opens one whole; run_skill_script runs one of its scripts; "
       "browse_skills shows the world's shelves; fetch_skill brings one from the web; write_creation \"skills/<name>/SKILL.md\" writes your own ===\n- datasheet-reader — " in _sp_on
-      and _sp_on.index("=== LIMBS YOU FORGED") < _sp_on.index("=== YOUR SKILLS") < _sp_on.index("=== YOUR RECENT JOURNAL"), _sp_on[:200])
+      and _sp_on.index("=== YOUR RECENT JOURNAL") < _sp_on.index("=== LIMBS YOU FORGED") < _sp_on.index("=== YOUR SKILLS") < _sp_on.index("=== SITUATION ==="), _sp_on[:200])
 config.SKILLS_IN_PROMPT = False
 check("skills: SKILLS_IN_PROMPT off, the shelf leaves the prompt", "YOUR SKILLS" not in assemble.system_prompt("x", mode="chat"))
 config.SKILLS_IN_PROMPT = True

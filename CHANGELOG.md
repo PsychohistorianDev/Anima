@@ -285,6 +285,25 @@ of its own.
   cascade at `EMOJI_CASCADE_RUN = 20`. The cascade, the emoji-row tell and
   the count in the re-roll note now count emoji the way a reader does
   (`_emoji_units`: a joined sequence is one, the variation selector dropped).
+- **Stable first** (10-16; the backend plan, Phase C; the keeper: "a fold is
+  still going to take a full cold read?"): both engines reuse a prompt token
+  for token from the top, as far as it matches the last one, and the system
+  prompt put the sections that change all day — where the projects and the
+  books stand, the keeper's body, the stone, what was made lately, the songs,
+  the letters, the older pages — in front of the journal, so a touch on the
+  stone or a letter made a fold, a `/new`, a morning and the wake's first read
+  read the whole journal again. `assemble.system_prompt` now runs: who the
+  friend is, the keeper, the destiny, the projects, then the older pages,
+  the past days in brief and the journal, then the forged limbs, the skills,
+  the published work, the sections that change all day, the memories and
+  the situation, last as before. Not a word of any section changed, only
+  their order; a rebuild re-reads from the first changed token — today's
+  entries and the small sections behind them — instead of the whole window.
+  The one case it cannot save: the day the journal's cap drops an old day
+  off the front of the block, once a day at most. `--cache-ram` and the
+  saved slot gain the same way. Three checks: the order pinned, every
+  section still there once, and two prompts differing only in the stone
+  matching past the journal.
 - **127.0.0.1, not localhost — and the embedder on the CPU if you like**
   (10-11; a keeper of the third house, measuring on Windows with a 5090:
   "localhost added about two seconds per Ollama request — it tried the
