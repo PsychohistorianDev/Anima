@@ -92,7 +92,7 @@ TABS: dict[str, list[str]] = {
                          "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "SLEEP_KEEPER_LOOK", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS"],
     "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_GARBLE_RETRIES", "CHAT_COOL_STEP",
-                "CHAT_COLD_RESCUE", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "BRAIN_KEEP_ALIVE",
+                "CHAT_COLD_RESCUE", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "REROLLS_KEPT", "BRAIN_KEEP_ALIVE",
                 "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "PARLOR_GUEST_NAMED"],
     "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS",
               "TELEGRAM_TELL_REFLECTIONS", "TELEGRAM_TELL_AFTERTHOUGHTS", "TELEGRAM_TELL_CREATIONS",
@@ -346,6 +346,11 @@ _HELP = {
     "WARM_PREFIX": "The system prompt is built once per visit and kept, and what changes (the hour, the memories "
                    "surfacing) rides inside each message — so a reply reads only what is new: seconds, not minutes, "
                    "on a big window. Leave it on.",
+    "REROLLS_KEPT": "Whether a turn's set-aside attempts (salad, no thought, a call written out) and the engine's lines "
+                    "stay in the visit after the answer is in. auto (the default): kept under Ollama, where taking them "
+                    "back means the whole window read again (Gemma's sliding-window layers); let go under the brain's door, "
+                    "where llama-server keeps context checkpoints and re-reads only the kept answer — the window then holds "
+                    "only what the friend said. always / never force it.",
     "BRAIN_KEEP_ALIVE": "How long Ollama keeps the brain loaded after a request (\"30m\", \"2h\", -1 forever). "
                         "Unloading drops its cache; the next message pays a cold read of the whole window. Ollama's "
                         "own default is five minutes. Under BRAIN_API = \"llama\" there is no keep_alive: the brain's "

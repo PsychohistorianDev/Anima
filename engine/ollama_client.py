@@ -2012,6 +2012,23 @@ def plan_lines(thinking: str, most: int = 6, cap: int = 480) -> str:
     return out[:cap].rstrip() + ("…" if len(out) > cap else "")
 
 
+def rerolls_kept() -> bool:
+    """Whether a turn's set-aside attempts and the engine's lines stay in the visit after the answer is in.
+    Under Ollama they must (Gemma's sliding-window layers: a history that differs anywhere behind the end is
+    read again from the top — 09-14, 3m39s a message); under the door llama.cpp keeps context checkpoints and
+    a divergence re-reads only what follows it, so they go (10-16). REROLLS_KEPT: "auto", "always", "never"."""
+    v = str(getattr(config, "REROLLS_KEPT", "auto") or "auto").strip().lower()
+    if v in ("always", "yes", "true", "kept"):
+        return True
+    if v in ("never", "no", "false", "let go", "go"):
+        return False
+    try:
+        import brain
+        return brain.api() != "llama"
+    except Exception:  # noqa: BLE001
+        return True
+
+
 def with_think_nudge(messages: list[dict]) -> list[dict]:
     """The conversation with the think-first nudge attached for one re-roll.
 

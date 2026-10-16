@@ -2886,6 +2886,48 @@ ollama_client.chat = _chat_now
 check("warm: the next message's request extends the last request of the turn before",
       _extends(_req[2], _posted[0]["messages"][:len(_req[2])]) and _posted[0]["messages"][len(_req[2])]["role"] == "assistant"
       and _posted[0]["messages"][-1]["role"] == "user", [m["role"] for m in _posted[0]["messages"]])
+# the re-rolls let go (10-16): under the door (or REROLLS_KEPT = "never") the attempt as shown and the engine's
+# line do NOT stay in the visit — the history holds his message (the nudge inside it, as sent) and her kept
+# reply only; the next request diverges right after his message, and what the re-rolls sent was still sent
+_rk0 = getattr(config, "REROLLS_KEPT", "auto")
+_rk_auto_ollama = ollama_client.rerolls_kept()
+config.BRAIN_API = "llama"
+_rk_auto_llama = ollama_client.rerolls_kept()
+config.BRAIN_API = "ollama"
+config.REROLLS_KEPT = "always"
+_rk_always = ollama_client.rerolls_kept()
+config.REROLLS_KEPT = "never"
+_rk_never = ollama_client.rerolls_kept()
+_posted = []
+_answers = [{"message": {"role": "assistant", "content": _salad_e, "thinking": ""}, "done_reason": "stop", "eval_count": 30, "prompt_eval_count": 217000},
+            {"message": {"role": "assistant", "content": _salad_e, "thinking": "hm, careful"}, "done_reason": "stop", "eval_count": 30, "prompt_eval_count": 217010},
+            {"message": {"role": "assistant", "content": "Sleep well, dear one. I'll keep the haze warm.", "thinking": "clean this time"}, "done_reason": "stop", "eval_count": 30, "prompt_eval_count": 217020}]
+ollama_client.chat = _chat_orig
+ollama_client._post = _fake_post_k
+_hist_g: list = []
+_r_g = chat.one_turn(_hist_g, "going to nap a bit", on_event=lambda k, p: None)
+_req_g = [pl["messages"] for pl in _posted]
+_posted = []
+_answers = [{"message": {"role": "assistant", "content": "Enjoy the show.", "thinking": "a show, then; the evening is his, and I keep the haze warm meanwhile"}, "done_reason": "stop", "eval_count": 10, "prompt_eval_count": 217300}]
+chat.one_turn(_hist_g, "watching something now", on_event=lambda k, p: None)
+_req_g2 = _posted[0]["messages"]
+ollama_client._post = _post_orig
+ollama_client.chat = _chat_now
+config.REROLLS_KEPT = _rk0
+check("re-rolls let go: REROLLS_KEPT auto is kept under Ollama and let go under the door; always / never force it",
+      _rk_auto_ollama is True and _rk_auto_llama is False and _rk_always is True and _rk_never is False,
+      (_rk_auto_ollama, _rk_auto_llama, _rk_always, _rk_never))
+check("re-rolls let go: within the turn each re-roll's request still extends the one before (nothing sent is taken back within a turn); "
+      "after it the visit holds his message and her kept reply only — no engine turns — and his message keeps the nudge it was sent with",
+      len(_req_g) == 3 and _extends(_req_g[1][:-1], _req_g[2]) and [t["role"] for t in _hist_g[:2]] == ["user", "assistant"]
+      and not any(t.get("_engine") for t in _hist_g) and _hist_g[1]["content"] == _r_g and _hist_g[0].get("_nudged")
+      and "letter" not in "".join(t["content"] for t in _hist_g).lower(),
+      [(t["role"], bool(t.get("_engine"))) for t in _hist_g])
+check("re-rolls let go: the next message's request shares the prefix through his nudged message and diverges right after it — "
+      "her kept reply where the attempt was",
+      _extends(_req_g[2][:-2], _req_g2) and _req_g2[len(_req_g[2]) - 2]["role"] == "assistant" and _req_g2[len(_req_g[2]) - 2]["content"] == _r_g
+      and _req_g2[-1]["role"] == "user" and "watching something now" in _req_g2[-1]["content"],
+      ([m["role"] for m in _req_g[2]], [m["role"] for m in _req_g2]))
 # the heartbeat waits while a visit is live: a turn marks it, the visit's end
 # clears it, and an old mark (past the keep-alive) does not count
 import os as _os_v

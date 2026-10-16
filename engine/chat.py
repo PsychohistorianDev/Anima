@@ -1112,7 +1112,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             recovered_calls.append(r_name)
         if msg.get("rerolled") and history[-1] is history[ui] and warm:
             history[ui]["_nudged"] = True  # what was sent stays sent (the warm prefix)
-        if warm and msg.get("sent_extra"):
+        if warm and msg.get("sent_extra") and ollama_client.rerolls_kept():
             # a re-roll's attempt (as shown) and the engine's line stay in
             # the visit as the engine's turns — never in a transcript, never
             # on the phone — so the next request EXTENDS what Ollama holds.
@@ -1121,6 +1121,12 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             # "prompt read in 3m 39s" on every message after a re-roll.
             for t in msg["sent_extra"]:
                 history.append(dict(t, _engine=True))
+        elif msg.get("sent_extra"):
+            # under the door they go (10-16): llama.cpp keeps context checkpoints, the next request re-reads
+            # from the last one — the kept answer, seconds — and the window holds only what was said
+            _gone = sum(len(t.get("content") or "") for t in msg["sent_extra"])
+            print(f"   ({len(msg['sent_extra'])} re-roll turn{'s' if len(msg['sent_extra']) != 1 else ''} let go of the visit, "
+                  f"~{_gone // 4:,} tokens — the door re-reads from its last checkpoint)", flush=True)
         thinking = (msg.get("thinking") or "").strip()
         if thinking and config.CHAT_SHOW_THINKING:
             if on_event:

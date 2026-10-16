@@ -467,6 +467,14 @@ WARM_PREFIX = True
 # again with a nudge), the nudge is added to every later message of that visit
 # from the start: a few dozen tokens instead of a whole second generation.
 THINK_NUDGE_STICKS = True
+# Whether a turn's set-aside attempts (salad, no thought, a call written out) and
+# the engine's lines stay in the visit after the answer is in. Under Ollama they
+# must: Gemma's sliding-window layers mean a history that differs anywhere behind
+# the end is read again from the top, minutes on a big window. Under the brain's
+# door llama.cpp keeps context checkpoints and a divergence re-reads only what
+# follows it — the kept answer, seconds — so they go, and the window holds only
+# what was said. "auto": kept under Ollama, let go under the door; "always"; "never".
+REROLLS_KEPT = "auto"
 
 # The timeline: one short paragraph per day from the nightly consolidation, in
 # every prompt, oldest first — but only for days that neither the verbatim
