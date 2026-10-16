@@ -717,7 +717,11 @@ def retrieved_ids(context_hint: str, exclude: set | None = None) -> tuple[str, l
     n_recent = int(getattr(config, "MEMORY_RECENT_K", 0) or 0)
     if n_recent and context_hint.strip():
         seen = {m["id"] for m in hits} | exclude
-        newest = [m for m in memory.recent(n=n_recent + len(seen)) if m["id"] not in seen][:n_recent]
+        # the N newest overall, minus those already surfaced — NOT the N newest not yet shown (10-16: that walked
+        # backwards through the whole store six a message once the real newest had surfaced, 520 memories and
+        # 47K tokens in one visit). A memory made during the visit enters the slice and rides once; when the
+        # newest have all been seen, the slice is empty
+        newest = [m for m in memory.recent(n=n_recent) if m["id"] not in seen]
         if newest:
             lines.append("(and the newest, whatever the topic:)")
             lines.extend(f"- [{m['kind']} · {m['created'][:10]}] {m['text']}" for m in newest)

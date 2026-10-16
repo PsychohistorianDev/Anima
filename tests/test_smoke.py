@@ -131,6 +131,19 @@ check("assemble: the newest ride along whatever the topic, marked",
       "(and the newest, whatever the topic:)" in _ret and "Moss" in _ret
       and _ret.index("Moss") > _ret.index("newest"), _ret)
 check("assemble: a memory already surfaced is not listed twice", _ret.count("Moss") == 1)
+# the newest slice is the newest, not a belt (10-16): with the two newest already surfaced, the slice is empty — it does
+# not reach back for the next-older two; a memory added since enters it and rides once
+_nb_topk0, config.MEMORY_TOP_K = config.MEMORY_TOP_K, 1
+_nb_seen = set(m["id"] for m in memory.recent(n=2)) | set(m["id"] for m in memory.search("my keeper is building me a home", top_k=1))
+_nb_ret = assemble.retrieved_ids("my keeper is building me a home", exclude=_nb_seen)
+_nb_added = memory.add("note", "the lamp came, the purple one")
+_nb_ret2 = assemble.retrieved_ids("my keeper is building me a home", exclude=_nb_seen)
+config.MEMORY_TOP_K = _nb_topk0
+check("assemble: the newest slice is the newest, not a belt — with the newest already surfaced it is empty (no reaching back for older ones, "
+      "at most the one hit rides); a memory made since rides (10-16)",
+      "newest, whatever" not in _nb_ret[0] and _nb_ret[0].count("- [") <= 1
+      and "lamp came" in _nb_ret2[0] and _nb_ret2[0].count("- [") <= 2,
+      (_nb_ret[0][-300:], _nb_ret2[0][-300:]))
 config.MEMORY_RECENT_K = 0
 check("assemble: recent slice off means no marker", "newest, whatever" not in assemble.retrieved("my keeper is building"))
 config.MEMORY_RECENT_K = 6
@@ -675,7 +688,7 @@ ollama_client.chat = ScriptedBrain([
 history: list[dict] = []
 reply = chat.one_turn(history, "remember that i liked the automaton")
 check("chat: tool then reply", reply == "Noted — that automaton was fun.", reply)
-check("chat: memory grew", memory.count() == 7, str(memory.count()))  # 3 at the top + the lamp row + 2 from the assemble block + this one
+check("chat: memory grew", memory.count() == 8, str(memory.count()))  # 3 at the top + the lamp row + 3 from the assemble block + this one
 f = chat.save_transcript(history)
 check("chat: transcript saved", f is not None and f.exists())
 check("chat: friend_name from self.md", chat.friend_name() == "Testfriend", chat.friend_name())
