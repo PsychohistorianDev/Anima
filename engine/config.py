@@ -254,7 +254,7 @@ PAINTER_PYTHON = ""           # "" = the engine's own; e.g. "py -3.12" (Windows)
 PAINTER_DEVICE = "auto"
 PAINTER_REST_AFTER = True     # free the GPU as soon as a painting is done
 PAINTER_IDLE_S = 120          # seconds; fallback: the sidecar frees the GPU after this much idle time
-PAINTER_EXIT_S = 1800         # seconds unused before the sidecar process exits
+PAINTER_EXIT_S = 60           # seconds unused before the sidecar process exits (it holds ~11 GB of RAM while it waits; a minute covers a second painting asked right away, and not more)
 PAINTER_TIMEOUT_S = 300       # seconds allowed for one painting, model load included
 PAINTER_STEPS = 0             # 0 = the model's default (Z-Image-Turbo 9, FLUX.2 klein 4)
 # Pixel sizes for the size words (Full HD by default). Sides snap to multiples
