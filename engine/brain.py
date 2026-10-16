@@ -588,6 +588,22 @@ def _make_room(folder: Path, key: str) -> None:
             _note(f"let an older reading go: {p.stem}")
         except OSError:
             pass
+    # …and the one exception to "never before the new one is whole": when the disk cannot hold the old
+    # <key>.bin AND the new one side by side (10-16: a reading is 7.9 GB; two of them on a 16 GB RAM disk is
+    # the disk), the old goes first — a save that then fails costs one cold read, which is less than a
+    # save that could never succeed
+    import shutil
+    same = folder / f"{key}.bin"
+    try:
+        if same.is_file():
+            have = same.stat().st_size
+            free = shutil.disk_usage(str(folder)).free
+            if free < int(have * 1.15):
+                same.unlink()
+                _note(f"let the last reading of this prompt go first: {key} ({have / 1e9:.1f} GB; {free / 1e9:.1f} GB free — "
+                      "no room for two)")
+    except OSError:
+        pass
 
 
 def _before_stop() -> None:

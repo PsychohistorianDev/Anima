@@ -65,11 +65,11 @@ BRAIN_URL = "http://127.0.0.1:8768"   # llama-server, when BRAIN_API = "llama"
 BRAIN_SLOT_DIR = ""
 # How many saved readings the folder keeps, the newest; older ones are deleted (each is a
 # few GB). 0 keeps them all.
-BRAIN_SLOT_KEEP = 3
+BRAIN_SLOT_KEEP = 1   # saved readings the folder keeps, the newest; a reading of a full window is ~8 GB, so one is what a 16 GB RAM disk holds
 # Host RAM llama-server may keep evicted prompt caches in, MiB (--cache-ram): the visit's
 # prompt and a wake's take turns on one slot; with room here both stay warm. 32768 on a
 # 64 GB machine. 0: the server's default.
-BRAIN_CACHE_RAM_MB = 0
+BRAIN_CACHE_RAM_MB = 0   # host RAM (MiB) llama-server may keep evicted prompt caches in (--cache-ram): one evicted prompt is ~8 GB, so 12288 holds the visit's or the wake's while the other is on the card; 0: the server's default
 # A GGUF for the door instead of the one Ollama's manifest names for CHAT_MODEL, and its
 # projector (the eyes). Empty finds both in Ollama's own files.
 BRAIN_MODEL_FILE = ""
