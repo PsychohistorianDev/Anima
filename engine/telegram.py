@@ -564,17 +564,29 @@ class Bridge:
         cur, last = users[-1], users[-2]
         est = lambda s: len(str(s or "")) // 4  # noqa: E731
         between = history[last + 1:cur]
-        # their words: the reply, and an afterthought (_after) — the engine's turns are the bell, the steps, a tool's result
+        # their words since the last line: the previous turn's final reply and an afterthought (_after). The previous
+        # turn's own steps — their calls with the words beside them, the results — were in the last line's count
+        # already (a line counts the prompt of its turn's LAST step), so they are not new; a pause's bell and
+        # results under Ollama (they stay there) are the engine's
         theirs = sum(est(t.get("content")) for t in between
-                     if t.get("role") == "assistant" and (not t.get("_engine") or t.get("_after")))
-        engine = sum(est(t.get("content")) for t in between
-                     if (t.get("_engine") and not t.get("_after")) or t.get("role") not in ("assistant", "user"))
+                     if t.get("role") == "assistant" and not t.get("tool_calls") and (not t.get("_engine") or t.get("_after")))
+        engine = sum(est(t.get("content")) for t in between if t.get("_engine") and not t.get("_after"))
         mine = est(history[cur].get("content"))
         moment = est(history[cur].get("_moment"))
+        # this turn's steps: everything after the message but the final reply — the calls (with their words beside
+        # them and the call itself) and the results with their frames (10-16: 681 tokens of one call and its result)
+        after = history[cur + 1:]
+        if after and after[-1].get("role") == "assistant" and not after[-1].get("tool_calls"):
+            after = after[:-1]
+        steps = sum(est(t.get("content")) + (est(json.dumps(t.get("tool_calls"), ensure_ascii=False)) if t.get("tool_calls") else 0)
+                    for t in after)
+        calls = sum(1 for t in after if t.get("role") == "tool")
         parts = [f"their last words ~{theirs:,}", f"yours ~{mine:,}", f"the moment ~{moment:,}"]
         if engine:
             parts.append(f"engine turns ~{engine:,}")
-        known = theirs + mine + moment + engine
+        if steps:
+            parts.append(f"their steps this turn ~{steps:,} ({calls} tool call{'s' if calls != 1 else ''})")
+        known = theirs + mine + moment + engine + steps
         gap = delta - known
         if known and abs(gap) > max(40, delta // 5):
             parts.append(f"~{gap:,} more than those add up to" if gap > 0 else f"~{-gap:,} less than those add up to")
