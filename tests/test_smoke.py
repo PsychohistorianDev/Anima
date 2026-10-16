@@ -10446,6 +10446,8 @@ try:
     _bd_sr_pid, _bd_sr_n = (doors.status("brain") or {}).get("pid"), len(_FakeLlama.saved)
     ollama_client.unload = _bd_oc.unload
     config.BRAIN_REST_AFTER_VISIT = config.BRAIN_REST_AFTER_WAKE = True
+    _bd_sr_closes0 = getattr(config, "BRAIN_REST_CLOSES_DOOR", True)
+    config.BRAIN_REST_CLOSES_DOOR = False  # the old way first: a rest leaves the door up
     _bd_sr_said: list = []
     _bd_oc.unload(config.CHAT_MODEL, rest=True)
     chat.rest_brain(_bd_sr_said.append)
@@ -10460,6 +10462,27 @@ try:
     config.BRAIN_API = "llama"
     _bd_oc.unload(config.CHAT_MODEL)
     _bd_sr["evict"] = (doors.status("brain"), _FakeLlama.saved[_bd_sr_n:])
+    # a rest closes the door (10-16, the default): a visit's end saves the reading and closes; a wake's end closes
+    # without a save — the visit's reading stays; the callers say "set down"; the next message opens the door again
+    config.BRAIN_REST_CLOSES_DOOR = True
+    _FakeLlama.down = True
+    _bd.start_door(wait_s=30)
+    _bd_sr_ask(_bd_sr_A)
+    _bd_sr_n1 = len(_FakeLlama.saved)
+    _bd_sr_said2: list = []
+    chat.rest_brain(_bd_sr_said2.append)
+    _bd_sr_closed_visit = (doors.status("brain"), len(_FakeLlama.saved) - _bd_sr_n1, list(_bd_sr_said2))  # the fake answers on; the mark is the door
+    _FakeLlama.down = True
+    _bd.start_door(wait_s=30)
+    _bd_sr_ask(_bd_sr_A)
+    _bd_sr_n2w = len(_FakeLlama.saved)
+    _bd_sr_notes_rc = lambda: _bd.notes_file().read_text(encoding="utf-8", errors="replace") if _bd.notes_file().exists() else ""
+    _bd_sr_lw = len(_bd_sr_notes_rc())
+    _bd_sr_woke2 = heartbeat.rest_after_wake()
+    _bd_sr_closed_wake = (doors.status("brain"), len(_FakeLlama.saved) - _bd_sr_n2w, _bd_sr_woke2,
+                          "closed without a save" in _bd_sr_notes_rc()[_bd_sr_lw:], ollama_client.rest_keeps_brain())
+    config.BRAIN_REST_CLOSES_DOOR = _bd_sr_closes0
+    _bd_sr["closes"] = (_bd_sr_closed_visit, _bd_sr_closed_wake)
     ollama_client.unload = _bd_sr_unl0
     config.BRAIN_REST_AFTER_VISIT, config.BRAIN_REST_AFTER_WAKE = _bd_sr_rest0
     # room first (keep 2, two older readings of other prompts): the oldest goes BEFORE the save, which found one file;
@@ -10637,6 +10660,7 @@ check("saved read: a rest is not a step-down — unload(CHAT_MODEL, rest=True), 
       "up (the same pid, awake), nothing saved, the visit's end not told \"set down\", the wake's rest False, the log says why (three times); "
       "an eviction (rest=False) closes it, saving first; on \"ollama\" both forms post keep_alive:0 and the door is not touched",
       _bd_sr.get("rest") == (True, True, 0, [], False, 3)
+      and _bd_sr.get("closes") == ((None, 1, ["the brain is set down — the card is free until the next visit"]), (None, 0, True, True, False))
       and _bd_sr.get("ollama") == ([("/api/generate", config.CHAT_MODEL)] * 2, True, 0)
       and _bd_sr.get("evict") == (None, [f"{_bd_sr_kA}.new.bin"]),
       {k: _bd_sr.get(k) for k in ("rest", "ollama", "evict")})

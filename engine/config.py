@@ -300,6 +300,14 @@ BRAIN_REST_AFTER_VISIT = True
 # free the moment the wake ends. The next wake reads its prompt cold either
 # way (the journal and the clock have moved), so nothing is lost but seconds.
 BRAIN_REST_AFTER_WAKE = True
+# Under the brain's door (BRAIN_API = "llama"), whether those two rests close the
+# door — the card free, as a rest under Ollama always was. A visit's end saves the
+# reading first (seconds; there if the same prompt returns); a wake's end closes
+# without one (a wake's prompt is never read twice, and its save would push the
+# visit's reading out of a one-reading folder). False: the door stays up after a
+# rest, its prompt caches warm — the card held until the painter, the ears or
+# /release need it.
+BRAIN_REST_CLOSES_DOOR = True
 # A guest in the parlor (the page's "seat a guest"): every message then says
 # it is from the guest, with you in the room, and the transcript marks their
 # turns. True: by the name given; False: "a guest", for a visitor who would

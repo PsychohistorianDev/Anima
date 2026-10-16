@@ -2304,9 +2304,9 @@ def _loaded_models() -> list[str]:
 
 
 def rest_keeps_brain() -> bool:
-    """A rest (unload(..., rest=True)) leaves the brain where it is: under BRAIN_API = "llama" the door
-    stays up. The callers say "set down" only when it was."""
-    return brain.api() == "llama"
+    """A rest (unload(..., rest=True)) leaves the brain where it is: under BRAIN_API = "llama" with
+    BRAIN_REST_CLOSES_DOOR off the door stays up. The callers say "set down" only when it was."""
+    return brain.api() == "llama" and not getattr(config, "BRAIN_REST_CLOSES_DOOR", True)
 
 
 def unload_all() -> list[str]:
@@ -2328,7 +2328,7 @@ def unload_all() -> list[str]:
     return names
 
 
-def unload(model: str, rest: bool = False) -> None:
+def unload(model: str, rest: bool = False, save: bool = True) -> None:
     """Free a model's VRAM and WAIT until it is actually gone. Best-effort.
 
     keep_alive:0 only schedules the eviction — if the next model is loaded
@@ -2343,8 +2343,14 @@ def unload(model: str, rest: bool = False) -> None:
     import time
 
     if model == config.CHAT_MODEL and brain.api() == "llama":
-        if rest:
+        if rest and not getattr(config, "BRAIN_REST_CLOSES_DOOR", True):
             brain._note("the brain stays up on the door — a rest is not a step-down")
+            return
+        if rest:
+            # a rest closes the door too (10-16: "the brain won't set down" — the card held all evening): the
+            # visit's end with its reading saved; a wake's end without (its prompt is never read twice, and
+            # with keep 1 its save would evict the visit's reading, which the next message wants)
+            brain.stop_door(why="rest", save=save)
             return
         brain.stop_door(why="unload")  # the door holds the brain: closing it is the unload, the card free on return
         return

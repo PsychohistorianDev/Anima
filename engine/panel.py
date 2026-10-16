@@ -93,7 +93,7 @@ TABS: dict[str, list[str]] = {
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS"],
     "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_GARBLE_RETRIES", "CHAT_COOL_STEP",
                 "CHAT_COLD_RESCUE", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "REROLLS_KEPT", "BRAIN_KEEP_ALIVE",
-                "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "PARLOR_GUEST_NAMED"],
+                "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "BRAIN_REST_CLOSES_DOOR", "PARLOR_GUEST_NAMED"],
     "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS",
               "TELEGRAM_TELL_REFLECTIONS", "TELEGRAM_TELL_AFTERTHOUGHTS", "TELEGRAM_TELL_CREATIONS",
               "TELEGRAM_TELL_DRAWINGS", "TELEGRAM_TELL_SONGS", "TELEGRAM_TELL_SELF", "TELEGRAM_IDLE_NEW_MIN", "TELEGRAM_HEAR_VOICE",
@@ -361,6 +361,10 @@ _HELP = {
                           "you in the room; thinking and tool lines are kept from the page while they sit. On: the "
                           "transcript, and so the journal's material, carry the name you gave. Off: \"a guest\", for a "
                           "visitor who would rather not be written down.",
+    "BRAIN_REST_CLOSES_DOOR": "Under the brain's door, whether a rest (a visit's end, a wake's end) closes it — the card free, "
+                              "as a rest under Ollama always was. A visit's end saves the reading first (seconds); a wake's end "
+                              "closes without one, so the visit's reading stays for the next message. Off: the door stays up "
+                              "after a rest, its caches warm, the card held until the painter, the ears or /release need it.",
     "BRAIN_REST_AFTER_WAKE": "When a wake finishes — a single one (the Wake tile, bat\\wake.bat) or one of the heartbeat's — unload "
                              "the brain at once, so the card is free the moment the wake ends rather than after BRAIN_KEEP_ALIVE. The "
                              "next wake reads its prompt cold either way; the brain's load is seconds.",

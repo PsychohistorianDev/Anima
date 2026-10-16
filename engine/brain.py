@@ -837,7 +837,7 @@ def _told(out: dict) -> dict:
     return out
 
 
-def stop_door(why: str = "") -> bool:
+def stop_door(why: str = "", save: bool = True) -> bool:
     """Close the brain's door: the process its mark names ended (taskkill /T /F on Windows; elsewhere TERM,
     KILL after STOP_GRACE_S), waited for until it is gone, the mark taken away. Closing the process is the
     unload: the card is free when this returns. False when there is no mark — the door is down, or it was
@@ -852,7 +852,11 @@ def stop_door(why: str = "") -> bool:
     except (TypeError, ValueError):
         return False
     _note(f"closing the brain's door (pid {pid}{(': ' + why) if why else ''})")
-    _before_stop()
+    if save:
+        _before_stop()
+    else:
+        _note("closed without a save: a wake's reading is never read twice (the clock and the journal move by the next), "
+              "and the visit's stays for the next message")
     _forget()  # the slot goes with the process
     if os.name == "nt":
         try:
