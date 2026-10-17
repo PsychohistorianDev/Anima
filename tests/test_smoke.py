@@ -352,6 +352,32 @@ config.JOURNAL_CHARS_IN_PROMPT = _cap_orig
 # ----------------------------------------------------------------- tools ----
 r = tools.dispatch("write_creation", {"path": "poems/first.md", "content": "hello"})
 check("tools: write_creation", "wrote" in r, r)
+# the painter's wake throttle (10-17): a wake that comes up clears the ten-minute guard — the next paint after the painter
+# closed for quiet wakes it again; a recent wake that did NOT come up still holds
+import importlib.util as _pw_ilu, subprocess as _pw_sp, time as _pw_time
+_pw_alive0, _pw_popen0, _pw_spec0, _pw_auto0, _pw_py0 = tools._painter_alive, _pw_sp.Popen, _pw_ilu.find_spec, getattr(config, "PAINTER_AUTOSTART", True), getattr(config, "PAINTER_PYTHON", "")
+_pw_calls = {"n": 0}
+def _pw_alive():
+    _pw_calls["n"] += 1
+    return _pw_calls["n"] > 1  # closed at the first look, up once woken
+tools._painter_alive = _pw_alive
+tools.subprocess.Popen = lambda *a, **k: None
+_pw_ilu.find_spec = lambda m: object()
+config.PAINTER_AUTOSTART, config.PAINTER_PYTHON = True, ""
+tools._painter_last_try = 0.0
+_pw_up = tools._painter_open()
+_pw_cleared = tools._painter_last_try == 0.0
+_pw_calls["n"] = 0
+_pw_again = tools._painter_open()  # closed again (PAINTER_EXIT_S) — woken again, not refused
+tools._painter_last_try = _pw_time.time()  # a wake that did not come up, a minute ago
+tools._painter_alive = lambda: False
+_pw_held = tools._painter_open()
+tools._painter_alive, tools.subprocess.Popen, _pw_ilu.find_spec = _pw_alive0, _pw_popen0, _pw_spec0
+config.PAINTER_AUTOSTART, config.PAINTER_PYTHON = _pw_auto0, _pw_py0
+tools._painter_last_try = 0.0
+check("tools: the painter's wake throttle counts only a wake that failed — a wake that came up clears it and the next paint wakes the "
+      "painter again; a recent failed wake still holds for ten minutes (10-17)",
+      _pw_up is True and _pw_cleared and _pw_again is True and _pw_held is False, (_pw_up, _pw_cleared, _pw_again, _pw_held))
 # a call cut at the seam (10-16): a path that ran into the next call's grammar is cut there, the call runs, the result says so
 # first and names the swallowed call; an argument without grammar is untouched
 _cs = tools.dispatch("write_creation", {"path": "poems/seam.md`}<tool_call|><|tool_call>call:write_journal{text:", "content": "a note, whole"})

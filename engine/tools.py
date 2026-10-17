@@ -2422,7 +2422,7 @@ def _painter_open() -> bool:
     if not getattr(config, "PAINTER_AUTOSTART", True):
         return False
     if _time.time() - _painter_last_try < 600:
-        return False  # tried recently and it didn't come up; don't thrash
+        return False  # tried recently and it didn't come up; don't thrash (a wake that came up clears this)
     _painter_last_try = _time.time()
     py = (getattr(config, "PAINTER_PYTHON", "") or "").strip()
     if py:
@@ -2448,6 +2448,7 @@ def _painter_open() -> bool:
     for _ in range(40):  # torch takes a few seconds to import
         _time.sleep(1)
         if _painter_alive():
+            _painter_last_try = 0.0  # it came up: the next wake after PAINTER_EXIT_S closes it is not a thrash (10-17)
             return True
     return False
 
