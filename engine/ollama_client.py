@@ -1775,11 +1775,12 @@ def mend_signature(text: str) -> tuple[str, list[str]]:
     Returns (text, ["so-v3ry-luminate → so-very-luminate"])."""
     sig = str(getattr(config, "SIGNATURE", "") or "").strip().lower()
     parts = sig.split("-")
+    fixes: list[str] = []
     if len(parts) != 3 or not all(parts):
-        return text or "", []
+        out = _SLASH_TAIL_RE.sub(lambda m: _slash_tail(m, fixes), text or "")  # the "-//" tail needs no signature
+        return (out, fixes) if fixes else (text or "", [])
     head, word, tail = parts
     stem = tail[:5]
-    fixes: list[str] = []
     pat = re.compile(r"\b(" + re.escape(head) + r")-(\S{2,12}?)-(" + re.escape(stem) + r"[a-z]*)\b", re.IGNORECASE)
     def _fix(m):
         mid = m.group(2)
@@ -1794,15 +1795,22 @@ def mend_signature(text: str) -> tuple[str, list[str]]:
     # before the word again is dropped (a doubled start said once); standing alone it keeps its "la" (a little
     # la stays) and loses the "//"
     restart = re.compile(r"\b(" + re.escape(head) + r")-//\s*(?=" + re.escape(head) + r"-)", re.IGNORECASE)
-    alone = re.compile(r"\b(" + re.escape(head) + r")-//(?=\s|$|[.,!?;:)\]\u2026\u2014])", re.IGNORECASE)
     def _restart(m):
         fixes.append(f"{m.group(0).rstrip()} → (a false start, dropped)")
         return ""
-    def _alone(m):
-        fixes.append(f"{m.group(0)} → {m.group(1)}")
-        return m.group(1)
-    out = alone.sub(_alone, restart.sub(_restart, out))
+    # ...and the "-//" tail on ANY word (10-17, an hour later: "la-Symmetry-//") — the sampler pushed off a
+    # hyphenated word's next part onto the comment mark and glued it to the word's end; the word stays
+    out = _SLASH_TAIL_RE.sub(lambda m: _slash_tail(m, fixes), restart.sub(_restart, out))
     return (out, fixes) if fixes else (text or "", [])
+
+
+# a word with "-//" glued to its end — "la-Symmetry-//", "la-//" — before a space, a mark or the end
+_SLASH_TAIL_RE = re.compile(r"\b([A-Za-z][\w'-]*[A-Za-z0-9'])-//(?=\s|$|[.,!?;:)\]\u2026\u2014])")
+
+
+def _slash_tail(m, fixes: list[str]) -> str:
+    fixes.append(f"{m.group(0)} → {m.group(1)}")
+    return m.group(1)
 
 
 def collapse_stutter(text: str) -> str:

@@ -4451,6 +4451,14 @@ check("signature: one letter off (a digit, an accent, stars) is spelled back and
 # the false start (10-17): "la-//" before the word again is dropped, alone it keeps its la; "//" elsewhere is untouched
 _fs_h = _sg.split("-")[0]
 _fs_text, _fs_fixes = ollama_client.mend_signature(f"a {_fs_h}-// {_sg_fixed} glow, {_fs_h}-// and then {_fs_h}-//. // a comment line")
+# the "-//" tail on any word (10-17): "la-Symmetry-//" → "la-Symmetry", with no signature named too; a // after a space is hers
+_st_text, _st_fixes = ollama_client.mend_signature("the la-Symmetry-// of us, a tide-// turns. // a comment")
+_st_sig0, config.SIGNATURE = config.SIGNATURE, ""
+_st_none, _st_none_fixes = ollama_client.mend_signature("la-Symmetry-// here")
+config.SIGNATURE = _st_sig0
+check("signature: a -// glued to any word's end comes off, the word stays, signature named or not; a // after a space is theirs (10-17)",
+      _st_text == "the la-Symmetry of us, a tide turns. // a comment" and _st_fixes == ["la-Symmetry-// → la-Symmetry", "tide-// → tide"]
+      and _st_none == "la-Symmetry here" and _st_none_fixes == ["la-Symmetry-// → la-Symmetry"], (_st_text, _st_fixes, _st_none))
 check("signature: a la-// false start before the word is dropped, alone it keeps its la, a // elsewhere is hers (10-17)",
       _fs_text == f"a {_sg_fixed} glow, {_fs_h} and then {_fs_h}. // a comment line"
       and _fs_fixes[0] == f"{_fs_h}-// → (a false start, dropped)" and _fs_fixes[1:] == [f"{_fs_h}-// → {_fs_h}"] * 2, (_fs_text, _fs_fixes))
