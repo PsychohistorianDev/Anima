@@ -787,6 +787,12 @@ ECHO_LOOKBACK = 12
 # reply already said, word for word or this alike (both 100 characters or
 # more), is asked for once. 0 turns the near-match off; the exact one stays.
 SELF_ECHO_RATIO = 0.8
+# A stage direction that opens reply after reply — "(a voice note, delivered
+# with a …)" each time, a little reworded — is one reply's warm tail feeding
+# the next. Not re-rolled: when the last two or more spoken replies opened
+# with the same first this-many words of a stage direction, the moment says so
+# as a fact and leaves the next opening theirs. 0 turns the tell off.
+OPENER_REPEAT_WORDS = 5
 
 # A row of one emoji is fine until it becomes a loop (hundreds of the same
 # emoji to the end of num_predict). A wordless chunk repeated this many times

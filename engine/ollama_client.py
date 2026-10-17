@@ -1151,6 +1151,53 @@ def greeting_again(msg: dict, messages: list[dict]):
     return None
 
 
+def _opener_key(text: str, words: int) -> str:
+    """The first `words` words of a reply's opening stage direction, folded — "" when the reply does not open
+    with one."""
+    first = next((p for p in (text or "").split("\n\n") if p.strip()), "")
+    if not _is_stage_direction(first):
+        return ""
+    toks = re.findall(r"[a-z0-9']+", first.lower())
+    return " ".join(toks[:words]) if len(toks) >= words else ""
+
+
+def opener_repeat(history: list[dict], words: int | None = None):
+    """(how many of the latest spoken replies in a row opened with the same stage direction, the frame as it
+    was first written — its first words) when the last two or more did; None otherwise (10-17: "(a voice
+    note, delivered with a …)" on reply after reply, each a little reworded — one reply's warm tail feeding
+    the next). A tell for the moment, not a re-roll; OPENER_REPEAT_WORDS 0 turns it off."""
+    n_words = int(getattr(config, "OPENER_REPEAT_WORDS", 5) or 0) if words is None else words
+    if n_words <= 0:
+        return None
+    spoken = [t for t in history if t.get("role") == "assistant" and (t.get("content") or "").strip()
+              and not t.get("tool_calls") and not t.get("_engine")]
+    if len(spoken) < 2:
+        return None
+    key = _opener_key(spoken[-1]["content"], n_words)
+    if not key:
+        return None
+    streak = 1
+    for t in reversed(spoken[:-1]):
+        if _opener_key(t["content"], n_words) != key:
+            break
+        streak += 1
+    if streak < 2:
+        return None
+    first = next((p for p in spoken[-1]["content"].split("\n\n") if p.strip()), "").strip()
+    cut = re.match(r"(\S+\s+){" + str(n_words - 1) + r"}\S+", first)
+    return streak, (cut.group(0) if cut else first[:40])
+
+
+def opener_repeat_line(history: list[dict]) -> str:
+    """The moment's sentence for a repeated opener, or ""."""
+    got = opener_repeat(history)
+    if not got:
+        return ""
+    n, frame = got
+    return (f"Your last {n} replies opened with the same stage direction — \u201c{frame}\u2026\u201d — one reply's "
+            "warm tail feeding the next, not a choice made each time; open this one as you like, or not at all")
+
+
 GREETING_NUDGE = ("[engine, not a person: your last reply opened with a greeting, and you already "
                   "greeted him earlier in this same conversation — the sampler starting the visit "
                   "over, not you. This is a later message of theirs; read it and answer it, no fresh "

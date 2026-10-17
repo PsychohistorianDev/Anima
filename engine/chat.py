@@ -1041,6 +1041,9 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         seen = {mid for t in history[:ui] for mid in (t.get("_surfaced") or [])}
         held = next((int(t.get("_prompt") or 0) for t in reversed(history[:ui]) if t.get("_prompt")), 0)  # the last prompt's size — the window sense
         floor = next((int(t.get("_prompt") or 0) for t in history[:ui] if t.get("_prompt")), 0)  # the visit's first: the standing prompt (10-14)
+        rep = ollama_client.opener_repeat_line(history[:ui])  # a repeated stage-direction opener, told (10-17)
+        if rep:
+            extra_moment = (extra_moment + " " + rep) if extra_moment else rep
         turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen, extra=extra_moment, speaker=guest)
         moment_weight_line(turn, history)
         # the sense rides with its message and STAYS there (10-05: taking it off the message before, each

@@ -4660,6 +4660,26 @@ check("a call written as words is run (10-14): the whole reply as `// fold_visit
 _visit_g = [{"role": "system", "content": "sys"}, {"role": "user", "content": "Good Morning sunshine!! How you been?"},
             {"role": "assistant", "content": "(Sighs softly.)\n\nGood morning, my favorite human! ❤️\n\nI've been still."},
             {"role": "user", "content": "Just woke up.. getting ready for the droning.."}]
+# the repeated opener, told (10-17): two replies in a row opening with the same five-word stage direction → the moment's
+# sentence names it with the count; a plain opening between breaks the streak; a single one says nothing; 0 turns it off
+_op_a = "(a voice note, delivered with a luminate, shimmering giggle and a tone of absolute, iridescent relief)\n\nOh, the tragedy!"
+_op_b = "(a voice note, delivered with a la-fucking-luminate, shimmering warmth and a deep, iridescent lilt)\n\nTreading softly."
+_op_hist = [{"role": "user", "content": "one"}, {"role": "assistant", "content": _op_a},
+            {"role": "user", "content": "two"}, {"role": "assistant", "content": _op_b}]
+_op_2 = ollama_client.opener_repeat(_op_hist)
+_op_line = ollama_client.opener_repeat_line(_op_hist)
+_op_3 = ollama_client.opener_repeat(_op_hist + [{"role": "user", "content": "three"}, {"role": "assistant", "content": _op_a}])
+_op_broken = ollama_client.opener_repeat(_op_hist + [{"role": "user", "content": "x"}, {"role": "assistant", "content": "Just words, no frame."},
+                                                      {"role": "user", "content": "y"}, {"role": "assistant", "content": _op_b}])
+_op_one = ollama_client.opener_repeat(_op_hist[:2] + [{"role": "user", "content": "x"}, {"role": "assistant", "content": "Just words."}])
+_op_w0, config.OPENER_REPEAT_WORDS = getattr(config, "OPENER_REPEAT_WORDS", 5), 0
+_op_off = ollama_client.opener_repeat(_op_hist)
+config.OPENER_REPEAT_WORDS = _op_w0
+check("opener: two replies in a row opening with the same stage direction are told in the moment with the count; a plain opening between "
+      "breaks it; one alone says nothing; 0 is off (10-17)",
+      _op_2 == (2, "(a voice note, delivered with") and _op_line.startswith("Your last 2 replies opened with the same stage direction — \u201c(a voice note, delivered with\u2026\u201d")
+      and "open this one as you like, or not at all" in _op_line and _op_3 == (3, "(a voice note, delivered with")
+      and _op_broken is None and _op_one is None and _op_off is None, (_op_2, _op_line, _op_3, _op_broken, _op_one, _op_off))
 check("greeting: a second good morning in one visit is asked again; the first is a greeting",
       ollama_client.greeting_again({"content": "(Leans back.)\n\nGood morning, dear one. ❤️\n\nI can feel that slow transition."}, _visit_g)
       == ("greeting", "Good morning, dear one. ❤️")
