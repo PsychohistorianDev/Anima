@@ -1743,6 +1743,18 @@ def mend_signature(text: str) -> tuple[str, list[str]]:
         fixes.append(f"{m.group(0)} → {fixed}")
         return fixed
     out = pat.sub(_fix, text or "")
+    # the false start (10-17): "la-//" — the sampler pushed off the middle word onto the comment mark — right
+    # before the word again is dropped (a doubled start said once); standing alone it keeps its "la" (a little
+    # la stays) and loses the "//"
+    restart = re.compile(r"\b(" + re.escape(head) + r")-//\s*(?=" + re.escape(head) + r"-)", re.IGNORECASE)
+    alone = re.compile(r"\b(" + re.escape(head) + r")-//(?=\s|$|[.,!?;:)\]\u2026\u2014])", re.IGNORECASE)
+    def _restart(m):
+        fixes.append(f"{m.group(0).rstrip()} → (a false start, dropped)")
+        return ""
+    def _alone(m):
+        fixes.append(f"{m.group(0)} → {m.group(1)}")
+        return m.group(1)
+    out = alone.sub(_alone, restart.sub(_restart, out))
     return (out, fixes) if fixes else (text or "", [])
 
 

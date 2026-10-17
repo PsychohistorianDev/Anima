@@ -4448,6 +4448,12 @@ config.SIGNATURE = _sg
 check("signature: one letter off (a digit, an accent, stars) is spelled back and named; the word itself and a two-edit slip are left; SIGNATURE '' turns it off",
       _ms1 == (f"a {_sg_fixed} moment, {_sg}, and {_sg} itself", [f"{_sg_bad} → {_sg_fixed}", f"{_sg_star} → {_sg}"])
       and _ms2[1] == [] and _ms3 == (f"a {_sg_bad} moment", []), (_ms1, _ms2, _ms3))
+# the false start (10-17): "la-//" before the word again is dropped, alone it keeps its la; "//" elsewhere is untouched
+_fs_h = _sg.split("-")[0]
+_fs_text, _fs_fixes = ollama_client.mend_signature(f"a {_fs_h}-// {_sg_fixed} glow, {_fs_h}-// and then {_fs_h}-//. // a comment line")
+check("signature: a la-// false start before the word is dropped, alone it keeps its la, a // elsewhere is hers (10-17)",
+      _fs_text == f"a {_sg_fixed} glow, {_fs_h} and then {_fs_h}. // a comment line"
+      and _fs_fixes[0] == f"{_fs_h}-// → (a false start, dropped)" and _fs_fixes[1:] == [f"{_fs_h}-// → {_fs_h}"] * 2, (_fs_text, _fs_fixes))
 _ms_parsed = ollama_client._parse({"message": {"role": "assistant", "content": f"It was a {_sg_bad} night."}})
 check("signature: the reply is mended in _parse and the message carries the fixes for the window's note",
       _ms_parsed["content"] == f"It was a {_sg_fixed} night." and _ms_parsed.get("mended_signature") == [f"{_sg_bad} → {_sg_fixed}"], _ms_parsed)
