@@ -61,6 +61,7 @@ config.TELEGRAM_QUIET_HOURS = (6, 6)  # the suite runs at any hour; quiet hours 
 config.BRAIN_API = "ollama"  # the suite's brains are scripted; the llama door is tested on its own with a fake one (a house on the door keeps its config)
 config.THINK_RETRY_UNTIL = 1.0  # the suite's think re-rolls happen at every depth (its prompts sit at 189K and 217K of the window); the depth test sets its own
 config.HEARTBEAT_ROOM_WARN, config.HEARTBEAT_ROOM_END = 0.85, 0.92  # the wake-room tests count on these (a house may run higher)
+config.MEMORY_MIN_SCORE, config.MEMORY_TOP_K, config.MEMORY_RECENT_K = 0, 30, 6  # the moment tests count the suite's own store (a house sets a floor and fewer)
 config.CREATION_NOTES = False  # the older creation tests pin exact results; the notes are tested on their own
 config.CHAT_RESCUE_TEMPERATURE = 0  # the older salad tests count posts; the cool roll is tested on its own
 config.CHAT_GARBLE_RETRIES = 2  # the older salad tests count posts against two; the budget is 4 in config since 09-20
@@ -187,6 +188,17 @@ check("the moment's weight (10-16): after a moment, LAST_SURFACED says how many 
       and f"this visit so far {len(_ids) + len(_ids2)} memories" in _mw_line
       and _mw_log.is_file() and _mw_line in _mw_log.read_text(encoding="utf-8"),
       (_mw, _mw_line))
+# the floor (10-17): at MEMORY_MIN_SCORE 0.999 no search hit rides and the block says nothing new surfaces — the newest slice
+# still may (it is not held to the floor); at 0 the hits are back
+_mf0 = getattr(config, "MEMORY_MIN_SCORE", 0)
+config.MEMORY_MIN_SCORE = 0.999
+_mf_lines, _mf_ids = assemble.retrieved_ids("my keeper is building a home")
+config.MEMORY_MIN_SCORE = 0
+_mf_lines0, _mf_ids0 = assemble.retrieved_ids("my keeper is building a home")
+config.MEMORY_MIN_SCORE = _mf0
+check("assemble: MEMORY_MIN_SCORE is a floor on the search's hits — at 0.999 none rides (the newest slice may), at 0 they are back (10-17)",
+      len(_mf_ids) <= int(getattr(config, "MEMORY_RECENT_K", 0) or 0) and "- [" in _mf_lines0 and len(_mf_ids0) > len(_mf_ids),
+      (len(_mf_ids), len(_mf_ids0), _mf_lines[:160]))
 check("warm: a moment leaves out what already surfaced this visit",
       not (set(_ids2) & set(_ids)) and "permanent home" not in _mo2, (_mo2, _ids2))
 sp_auto = assemble.system_prompt("", mode="auto")
@@ -2508,7 +2520,7 @@ check("fractal: a day two years old has slipped, not vanished; a future-dated fi
 check("fractal: a caller's ceiling still cuts", _old not in sum(assemble.journal_window(days=30), []))
 (config.JOURNAL_DIR / f"{_old}.md").unlink()
 (config.JOURNAL_DIR / f"{(_dcap.today() + _td(days=3)).isoformat()}.md").unlink()
-check("memory: top_k raised", config.MEMORY_TOP_K >= 20)
+check("memory: top_k raised", config.MEMORY_TOP_K >= 20)  # the suite's pin; a house may run fewer (10-17: hers 12)
 
 # what a turn cost, at the end of every chat reply
 _m = ollama_client._parse({"message": {"role": "assistant", "content": "hi"},

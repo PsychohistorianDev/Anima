@@ -87,7 +87,7 @@ TABS: dict[str, list[str]] = {
                   "HEARTBEAT_YIELD_MIN", "SLEEP_IN_LOOP", "CONDENSE_IN_LOOP", "CONDENSE_MAX_PER_NIGHT",
                   "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE"],
     "Memory & journal": ["TIMELINE_CHARS_IN_PROMPT", "CONDENSED_CHARS_IN_PROMPT", "CONDENSE_TARGET_CHARS",
-                         "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_DUP_THRESHOLD", "EMBED_ON_CPU", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
+                         "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_MIN_SCORE", "MEMORY_DUP_THRESHOLD", "EMBED_ON_CPU", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
                          "TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000",
                          "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "SLEEP_KEEPER_LOOK", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS", "FOLD_SENSE_FROM", "WINDOW_WARN_AT"],
@@ -274,6 +274,10 @@ _HELP = {
     "MEMORY_TOP_K": "How many long-term memories ride in every prompt: the ones most related to the moment, by "
                     "vector search, each a sentence or two. Signal, not space — fewer (8–12) suit a small window.",
     "MEMORY_RECENT_K": "The newest memories ride too, whatever the moment, this many, marked as recent.",
+    "MEMORY_MIN_SCORE": "A memory below this similarity to the moment does not ride at all — once a visit has surfaced what "
+                        "relates, the search hands back the barely-related next, and 'nothing new surfaces' is the truer block. "
+                        "0: off. Read memory/moment.log (the best…worst similarity on each line) for a day before setting it; "
+                        "on nomic-embed-text 0.66 kept the related and dropped the filler. The newest slice is not held to it.",
     "MEMORY_DUP_THRESHOLD": "No duplicates: a new fact at or above this similarity to one already kept counts as the "
                             "same fact and is handed back; they can revise it (replaces=) or insist (anyway=\"yes\"). "
                             "True repeats score 0.90–0.98; different facts on one theme about 0.89.",

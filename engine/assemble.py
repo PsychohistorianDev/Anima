@@ -709,6 +709,12 @@ def retrieved_ids(context_hint: str, exclude: set | None = None) -> tuple[str, l
     hits = (memory.search(context_hint, diverse=diverse) if context_hint.strip()
             else memory.recent(n=config.MEMORY_TOP_K))
     hits = [m for m in hits if m["id"] not in exclude]
+    # the floor (10-17): a hit below MEMORY_MIN_SCORE of similarity does not ride — once a visit has surfaced
+    # what relates, the search hands back the barely-related next (0.59–0.65 on nomic, nine and six a message);
+    # "nothing new surfaces" is the truer block. 0: off. A hit without a score (the search degraded to recency) rides
+    floor = float(getattr(config, "MEMORY_MIN_SCORE", 0) or 0)
+    if floor > 0:
+        hits = [m for m in hits if m.get("score") is None or float(m["score"]) >= floor]
     lines = [f"- [{m['kind']} · {m['created'][:10]}] {m['text']}" for m in hits]
     ids = [m["id"] for m in hits]
     scores = [float(m["score"]) for m in hits if m.get("score") is not None]

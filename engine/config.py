@@ -456,6 +456,13 @@ LADDER_EPOCH_YEAR = 2026
 # related to the moment. Each is a sentence or two (~50 tokens), so the limit
 # is about signal, not space; on a small context window, fewer (8–12) suit better.
 MEMORY_TOP_K = 30
+# A hit below this similarity (cosine, the embedding model's own scale) does
+# not ride at all: once a visit has surfaced what relates to it, the search
+# hands back the barely-related next, and "nothing new surfaces" is the truer
+# block. 0 turns the floor off. Read memory/moment.log for a day before
+# setting it — on nomic-embed-text, 0.66 kept the related and dropped the
+# filler. The newest slice (MEMORY_RECENT_K) is not held to it.
+MEMORY_MIN_SCORE = 0
 # Spread the picks instead of clustering them: with MEMORY_DIVERSE each pick is
 # weighed against those already chosen (MEMORY_MMR_LAMBDA of relevance, the rest
 # a penalty for resembling one already in), so the slots hold different things.
