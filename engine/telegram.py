@@ -608,7 +608,15 @@ class Bridge:
             parts.append(f"engine turns {q}{engine:,}")
         if steps:
             parts.append(f"their steps this turn {q}{steps:,} ({calls} tool call{'s' if calls != 1 else ''})")
-        known = theirs + mine + moment + engine + steps
+        # the re-rolls' scaffolding (10-17): the attempts set aside and the asks are in THIS line's count (the last
+        # attempt's prompt) and leave the visit after it — so they count here and come off the next line
+        sc_now = int((now or {}).get("scaffold") or 0)
+        sc_prev = int((prev or {}).get("scaffold") or 0)
+        if sc_now:
+            parts.append(f"the re-rolls' scaffolding {sc_now:,} (let go after this line)")
+        if sc_prev:
+            parts.append(f"less the last line's scaffolding {sc_prev:,}")
+        known = theirs + mine + moment + engine + steps + sc_now - sc_prev
         gap = delta - known
         # counted: the turn marks (a few tokens a turn) are the only slack, so a gap past 40 is said; estimated: past a fifth
         if known and abs(gap) > (40 if exact[0] else max(40, delta // 5)):

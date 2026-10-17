@@ -2157,6 +2157,8 @@ class Spent:
         self.uncounted = 0     # replies the server sent without counters
         self.restored = 0      # tokens the door restored from a saved reading instead of reading them (the saved read)
         self.restored_s = 0.0  # seconds the restore took
+        self.scaffold = 0      # tokens of re-roll scaffolding (attempts set aside, the asks) the turn let go of the visit — in this
+                               # turn's last prompt, not in the next (10-17: the token line's tail says so)
 
     def add(self, msg: dict) -> None:
         t = msg.get("tokens") or {}

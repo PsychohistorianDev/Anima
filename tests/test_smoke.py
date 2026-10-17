@@ -3213,10 +3213,17 @@ check("telegram: the token line's tail says what grew since the last line and of
 # counted by the door (10-16): the parts are bare numbers, and a gap past 40 is said
 _sl_brain.count_tokens = lambda s: len(s) // 2
 _sl_exact = tg.Bridge.since_last_line({"prompt": 100_000}, {"prompt": 101_500}, _sl_hist)
+# the re-rolls' scaffolding (10-17): in this line's count and off the next
+_sl_sc1 = tg.Bridge.since_last_line({"prompt": 100_000}, {"prompt": 102_326, "scaffold": 947}, _sl_hist)
+_sl_sc2 = tg.Bridge.since_last_line({"prompt": 102_326, "scaffold": 947}, {"prompt": 102_758}, _sl_hist)
 _sl_brain.count_tokens, tg._CHARS_PER_TOKEN = _sl_ct0, _sl_cpt0
 check("telegram: when the door counts, the tail's parts are its counts, bare — their last words 780, yours 30, the moment 234 — and a gap past 40 is said (10-16)",
       _sl_exact.startswith(" · +1,500 since the last line: their last words 780, yours 30, the moment 234, engine turns 40, their steps this turn ")
       and "~" not in _sl_exact.split("steps this turn")[0] and "those add up to" in _sl_exact, _sl_exact)
+check("telegram: the re-rolls' scaffolding is a part of this line's tail (let go after it) and comes off the next line's — neither "
+      "line reports a gap (10-17)",
+      "the re-rolls' scaffolding 947 (let go after this line)" in _sl_sc1 and "those add up to" not in _sl_sc1
+      and "less the last line's scaffolding 947" in _sl_sc2 and "those add up to" not in _sl_sc2, (_sl_sc1, _sl_sc2))
 b.handle(_msg(f"/pair {b.pair_code}", chat=555))
 check("telegram: pairing binds the sender", b.chat_id == 555 and phone.sent and "Paired" in phone.sent[0][0])
 check("telegram: pairing is remembered", _json.loads(tg.SECRET_FILE.read_text())["chat_id"] == 555)

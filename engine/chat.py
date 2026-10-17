@@ -1085,6 +1085,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                   "wall_s": round(spent.wall_s, 2), "line": line}
             if spent.restored:  # the door restored a saved reading (the saved read)
                 ev.update(restored_tokens=spent.restored, restored_s=round(spent.restored_s, 2))
+            if getattr(spent, "scaffold", 0):  # re-roll scaffolding in this line's count that leaves the visit after it
+                ev["scaffold"] = int(spent.scaffold)
             on_event("tokens", ev)
         else:
             print(f"   ({line})")
@@ -1162,9 +1164,20 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         elif msg.get("sent_extra"):
             # under the door they go (10-16): llama.cpp keeps context checkpoints, the next request re-reads
             # from the last one — the kept answer, seconds — and the window holds only what was said
-            _gone = sum(len(t.get("content") or "") for t in msg["sent_extra"])
+            _gone, _exact = 0, True
+            for t in msg["sent_extra"]:
+                _s = str(t.get("content") or "")
+                try:
+                    import brain
+                    _n = brain.count_tokens(_s) if _s else 0
+                except Exception:  # noqa: BLE001
+                    _n = None
+                if _n is None:
+                    _n, _exact = int(round(len(_s) / 3.5)), False
+                _gone += _n
+            spent.scaffold += _gone  # the line's count still holds it; the next line's will not (the tail says so)
             print(f"   ({len(msg['sent_extra'])} re-roll turn{'s' if len(msg['sent_extra']) != 1 else ''} let go of the visit, "
-                  f"~{_gone // 4:,} tokens — the door re-reads from its last checkpoint)", flush=True)
+                  f"{'' if _exact else '~'}{_gone:,} tokens — the door re-reads from its last checkpoint)", flush=True)
         thinking = (msg.get("thinking") or "").strip()
         if thinking and config.CHAT_SHOW_THINKING:
             if on_event:
