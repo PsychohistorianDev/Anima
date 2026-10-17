@@ -453,8 +453,8 @@ def start_door(wait_s: float = 120) -> tuple[bool, str]:
             warn = brain_find.slot_warning()
             if warn:
                 print(f"  ({warn})", flush=True)
-            _note("opening the brain's door: " + " ".join(cmd[1:]) + (f" — {warn}" if warn else ""))
-            print("  (opening the brain's door — llama-server, the model loading)", flush=True)
+            _note("opening the brain's door: " + " ".join(cmd[1:]) + (f" — {warn}" if warn else ""),
+                  show="opening the brain's door — llama-server, " + _short_command(cmd) + ", the model loading")
             try:
                 log_file().parent.mkdir(parents=True, exist_ok=True)
                 log_file().write_bytes(b"")  # the last run only
@@ -655,11 +655,33 @@ def notes_file() -> Path:
     return Path(config.MEMORY_DIR) / "brain_notes.log"
 
 
-def _note(line: str) -> None:
+def _short_command(cmd: list[str]) -> str:
+    """The door's command in a breath for the console — the model file's name (a blob's sha, shortened), the
+    window, the port — the whole line is in the logs."""
+    import re
+    try:
+        args = list(cmd[1:])
+        model = next((args[i + 1] for i, a in enumerate(args) if a == "-m" and i + 1 < len(args)), "")
+        name = re.split(r"[\\/]", model)[-1] if model else "?"
+        if name.startswith("sha256-") and len(name) > 20:
+            name = name[:19] + "…"
+        ctx = next((args[i + 1] for i, a in enumerate(args) if a == "-c" and i + 1 < len(args)), "")
+        port = next((args[i + 1] for i, a in enumerate(args) if a == "--port" and i + 1 < len(args)), "")
+        bits = [name] + ([f"{int(ctx):,} window"] if ctx.isdigit() else []) + ([f"port {port}"] if port else [])
+        return ", ".join(bits)
+    except Exception:  # noqa: BLE001
+        return "the command is in memory/brain_notes.log"
+
+
+def _note(line: str, show: str | None = None) -> None:
     """A line said, written to memory/brain_notes.log (kept, stamped) and beside the server's lines in
-    memory/brain.log. Never raises."""
+    memory/brain.log. `show`: what the console gets instead of the whole line ("" for nothing — the logs keep
+    the whole; 10-17: the door's command line, four lines of paths and flags on every wake). Never raises."""
     import datetime as _dt
-    print(f"  ({line})", flush=True)
+    if show is None:
+        print(f"  ({line})", flush=True)
+    elif show:
+        print(f"  ({show})", flush=True)
     stamp = _dt.datetime.now().strftime("%m-%d %H:%M:%S")
     for path, text in ((notes_file(), f"[{stamp}] {line}\n"), (log_file(), f"\n({line})\n")):
         try:
@@ -872,7 +894,7 @@ def stop_door(why: str = "", save: bool = True) -> bool:
         _before_stop()
     else:
         _note("closed without a save: a wake's reading is never read twice (the clock and the journal move by the next), "
-              "and the visit's stays for the next message")
+              "and the visit's stays for the next message", show="closed without a save — a wake's reading is never read twice")
     _forget()  # the slot goes with the process
     if os.name == "nt":
         try:

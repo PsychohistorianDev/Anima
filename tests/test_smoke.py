@@ -5526,6 +5526,21 @@ _id_90 = _b5.keep_alive_minutes()
 config.BRAIN_API, config.BRAIN_REST_CLOSES_DOOR, config.BRAIN_KEEP_ALIVE = _id_api0, _id_closes0, _id_ka0
 _id_brain.door_status = _id_ds0
 ollama_client.unload = _id_unl0
+# the door's console lines are short (10-17): the command line goes to the logs whole, the console gets the model's name, the
+# window and the port; _note with show="" says nothing on the console and still writes the logs
+import brain as _dq_brain, io as _dq_io, contextlib as _dq_ctx
+_dq_short = _dq_brain._short_command(["llama-server.exe", "-m", "C:\\x\\blobs\\sha256-0374ce7b0124db9ba96fc649e835c531223ee224a497ce88a374baaea10932ec",
+                                       "--mmproj", "C:\\x\\blobs\\sha256-8e2", "-c", "262144", "-fa", "on", "--port", "8768"])
+_dq_out = _dq_io.StringIO()
+with _dq_ctx.redirect_stdout(_dq_out):
+    _dq_brain._note("a whole line for the logs only", show="")
+    _dq_brain._note("a whole line for the logs", show="a short one")
+_dq_notes = _dq_brain.notes_file().read_text(encoding="utf-8")
+check("the door's console lines are short (10-17): the command becomes the model, the window and the port; show='' keeps a line to the logs; "
+      "show=… says the short line and logs the whole",
+      _dq_short == "sha256-0374ce7b0124…, 262,144 window, port 8768" and "a whole line for the logs only" not in _dq_out.getvalue()
+      and "(a short one)" in _dq_out.getvalue() and "a whole line for the logs" not in _dq_out.getvalue()
+      and "a whole line for the logs only" in _dq_notes and "a whole line for the logs\n" in _dq_notes, (_dq_short, _dq_out.getvalue()))
 check("the door's keep-alive (10-16): BRAIN_KEEP_ALIVE of quiet with the door up sets the brain down once per stretch and tells the phone; "
       "not under Ollama, not when the door is down already, not twice, not at -1, not before 2h when it says 2h; the forms parse",
       _id_ollama is False and _id_1 is True and _id_2 is False and len(_id_unl) == 1 and _id_told
