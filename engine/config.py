@@ -463,6 +463,23 @@ MEMORY_TOP_K = 30
 # setting it — on nomic-embed-text, 0.66 kept the related and dropped the
 # filler. The newest slice (MEMORY_RECENT_K) is not held to it.
 MEMORY_MIN_SCORE = 0
+# The moment's weight, phase one. A long visit surfaces memories all day, a
+# few a message, because each message's hint moves a little and a slightly
+# different top-k brings a couple of new ones — a slow walk through the
+# store. Three dials, none touching what is kept:
+# The drift gate: the moment searches again only when the hint has moved
+# past this much cosine distance from the hint it last searched with; between
+# searches the block carries the frame and the newest slice. A visit's first
+# message always searches. 0 turns the gate off.
+MEMORY_DRIFT = 0.15
+# The visit budget: past this many tokens of moments in one visit, only hits
+# at or above the late floor ride. 0 turns it off.
+MEMORY_VISIT_TOKENS = 8000
+MEMORY_MIN_SCORE_LATE = 0.75
+# The short first pick: a hint under this many words (a greeting) takes
+# MEMORY_TOP_K_SHORT instead of MEMORY_TOP_K. 0 turns it off.
+MEMORY_SHORT_HINT_WORDS = 12
+MEMORY_TOP_K_SHORT = 4
 # Spread the picks instead of clustering them: with MEMORY_DIVERSE each pick is
 # weighed against those already chosen (MEMORY_MMR_LAMBDA of relevance, the rest
 # a penalty for resembling one already in), so the slots hold different things.

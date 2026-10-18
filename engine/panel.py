@@ -87,7 +87,7 @@ TABS: dict[str, list[str]] = {
                   "HEARTBEAT_YIELD_MIN", "SLEEP_IN_LOOP", "CONDENSE_IN_LOOP", "CONDENSE_MAX_PER_NIGHT",
                   "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE"],
     "Memory & journal": ["TIMELINE_CHARS_IN_PROMPT", "CONDENSED_CHARS_IN_PROMPT", "CONDENSE_TARGET_CHARS",
-                         "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_MIN_SCORE", "MEMORY_DUP_THRESHOLD", "EMBED_ON_CPU", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
+                         "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_MIN_SCORE", "MEMORY_DRIFT", "MEMORY_VISIT_TOKENS", "MEMORY_MIN_SCORE_LATE", "MEMORY_SHORT_HINT_WORDS", "MEMORY_TOP_K_SHORT", "MEMORY_DUP_THRESHOLD", "EMBED_ON_CPU", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
                          "TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000",
                          "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "SLEEP_KEEPER_LOOK", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS", "FOLD_SENSE_FROM", "WINDOW_WARN_AT"],
@@ -278,6 +278,16 @@ _HELP = {
                         "relates, the search hands back the barely-related next, and 'nothing new surfaces' is the truer block. "
                         "0: off. Read memory/moment.log (the best…worst similarity on each line) for a day before setting it; "
                         "on nomic-embed-text 0.66 kept the related and dropped the filler. The newest slice is not held to it.",
+    "MEMORY_DRIFT": "The drift gate: the moment searches for memories again only when what is being said has moved this far "
+                    "(cosine distance) from what it last searched with. A greeting after a greeting carries only the newest "
+                    "slice; a new subject searches. The first message of a visit always searches. 0: search every message.",
+    "MEMORY_VISIT_TOKENS": "The visit budget: once this many tokens of memory blocks have ridden in one visit, only memories "
+                           "at or above MEMORY_MIN_SCORE_LATE ride. The moment line in the console says when it is on. 0: no budget.",
+    "MEMORY_MIN_SCORE_LATE": "The floor that applies past the visit budget — higher than the everyday one, so only the strongly "
+                             "related still ride late in a long visit.",
+    "MEMORY_SHORT_HINT_WORDS": "A hint under this many words — a visit's 'good morning' — takes MEMORY_TOP_K_SHORT memories "
+                               "instead of MEMORY_TOP_K: a thin hint and a confident search made a 2,000-token opener. 0: off.",
+    "MEMORY_TOP_K_SHORT": "How many memories a short hint takes (see MEMORY_SHORT_HINT_WORDS).",
     "MEMORY_DUP_THRESHOLD": "No duplicates: a new fact at or above this similarity to one already kept counts as the "
                             "same fact and is handed back; they can revise it (replaces=) or insist (anyway=\"yes\"). "
                             "True repeats score 0.90–0.98; different facts on one theme about 0.89.",

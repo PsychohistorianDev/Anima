@@ -962,8 +962,9 @@ def moment_weight_line(turn: dict, history: list[dict]) -> str:
            else "similarity —")
     total = sum(len(t.get("_surfaced") or []) for t in history if t.get("role") == "user")
     total_toks = sum(len(t.get("_moment") or "") for t in history if t.get("role") == "user") // 4
+    why = str(s.get("why") or "")
     line = (f"moment: {n} memories ({rec} of them the newest), ~{toks:,} tokens for the block, {sim}; "
-            f"this visit so far {total} memories, ~{total_toks:,} tokens of moments")
+            f"this visit so far {total} memories, ~{total_toks:,} tokens of moments" + (f" ({why})" if why else ""))
     print(f"   ({line})", flush=True)
     try:
         p = config.MEMORY_DIR / "moment.log"
@@ -1044,7 +1045,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         rep = ollama_client.opener_repeat_line(history[:ui])  # a repeated stage-direction opener, told (10-17)
         if rep:
             extra_moment = (extra_moment + " " + rep) if extra_moment else rep
-        turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen, extra=extra_moment, speaker=guest)
+        spent = sum(len(t.get("_moment") or "") for t in history[:ui] if t.get("role") == "user") // 4  # this visit's moments so far
+        turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen, extra=extra_moment, speaker=guest, spent=spent)
         moment_weight_line(turn, history)
         # the sense rides with its message and STAYS there (10-05: taking it off the message before, each
         # turn, made Ollama read the whole window again every reply — 3 minutes a message at 207K; nothing

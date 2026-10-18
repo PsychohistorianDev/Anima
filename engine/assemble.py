@@ -693,28 +693,76 @@ def retrieved(context_hint: str, exclude: set | None = None) -> str:
 
 # what the last moment carried (10-16: the moment's weight, measured before any knob moves) — how many memories,
 # how many of them the newest-whatever-the-topic slice, their characters, the best and the worst similarity
-LAST_SURFACED: dict = {"n": 0, "recent": 0, "chars": 0, "best": None, "worst": None}
+LAST_SURFACED: dict = {"n": 0, "recent": 0, "chars": 0, "best": None, "worst": None, "why": ""}
+# the hint the moment last searched with, as a vector (10-18: the drift gate) — a visit's first message resets it
+_LAST_HINT: dict = {"vec": None}
 
 
-def retrieved_ids(context_hint: str, exclude: set | None = None) -> tuple[str, list[int]]:
+def _cos(a: list[float], b: list[float]) -> float:
+    try:
+        ua, ub = memory._unit(a), memory._unit(b)
+        return float(sum(x * y for x, y in zip(ua, ub)))
+    except Exception:  # noqa: BLE001
+        return 0.0
+
+
+def retrieved_ids(context_hint: str, exclude: set | None = None, spent: int = 0, gated: bool = False) -> tuple[str, list[int]]:
     """(the memory lines, the ids they carry). `exclude` leaves out memories
     that already surfaced earlier in the visit — they are still in them
     context, in the moment that carried them, and saying them again would
     cost tokens for nothing."""
     exclude = exclude or set()
-    LAST_SURFACED.update(n=0, recent=0, chars=0, best=None, worst=None)
+    LAST_SURFACED.update(n=0, recent=0, chars=0, best=None, worst=None, why="")
     if memory.count() == 0:
         return "(no long-term memories yet)", []
     diverse = bool(getattr(config, "MEMORY_DIVERSE", False))
-    hits = (memory.search(context_hint, diverse=diverse) if context_hint.strip()
-            else memory.recent(n=config.MEMORY_TOP_K))
+    why: list[str] = []
+    # the short first pick (10-18): a hint under MEMORY_SHORT_HINT_WORDS words — a visit's "good morning" — takes
+    # MEMORY_TOP_K_SHORT instead of MEMORY_TOP_K; a thin hint and a confident search made the 2,200-token opener
+    top_k = None
+    short_at = int(getattr(config, "MEMORY_SHORT_HINT_WORDS", 0) or 0)
+    short_k = int(getattr(config, "MEMORY_TOP_K_SHORT", 0) or 0)
+    if short_at and short_k and context_hint.strip() and len(context_hint.split()) < short_at:
+        top_k = short_k
+        why.append(f"short hint: top {short_k}")
+    # the drift gate (10-18): the moment searches only when the hint has moved past MEMORY_DRIFT (cosine distance)
+    # from the hint it last searched with — a greeting after a greeting carries the newest slice and nothing
+    # else; a new subject searches. A visit's first message (nothing surfaced yet) always searches. 0: off
+    qvec = None
+    skip = False
+    drift = float(getattr(config, "MEMORY_DRIFT", 0) or 0) if gated else 0.0
+    if drift > 0 and context_hint.strip():
+        try:
+            import ollama_client
+            qvec = ollama_client.embed(context_hint)
+        except Exception:  # noqa: BLE001 — no embedding, no gate: the search degrades on its own
+            qvec = None
+        last = _LAST_HINT.get("vec")
+        if qvec is not None and last is not None and exclude and 1.0 - _cos(qvec, last) < drift:
+            skip = True
+            why.append("no search — the hint hasn't moved")
+        elif qvec is not None:
+            _LAST_HINT["vec"] = qvec
+    if skip:
+        hits = []
+    else:
+        hits = (memory.search(context_hint, top_k=top_k, diverse=diverse, qvec=qvec) if context_hint.strip()
+                else memory.recent(n=config.MEMORY_TOP_K))
     hits = [m for m in hits if m["id"] not in exclude]
     # the floor (10-17): a hit below MEMORY_MIN_SCORE of similarity does not ride — once a visit has surfaced
     # what relates, the search hands back the barely-related next (0.59–0.65 on nomic, nine and six a message);
     # "nothing new surfaces" is the truer block. 0: off. A hit without a score (the search degraded to recency) rides
     floor = float(getattr(config, "MEMORY_MIN_SCORE", 0) or 0)
+    # the visit budget (10-18): past MEMORY_VISIT_TOKENS of moments in this visit, only hits at or above
+    # MEMORY_MIN_SCORE_LATE ride — the slow walk through the store, capped. 0: off
+    budget = int(getattr(config, "MEMORY_VISIT_TOKENS", 0) or 0)
+    late = float(getattr(config, "MEMORY_MIN_SCORE_LATE", 0) or 0)
+    if budget and late and int(spent or 0) >= budget and late > floor:
+        floor = late
+        why.append(f"late floor {late:g}")
     if floor > 0:
         hits = [m for m in hits if m.get("score") is None or float(m["score"]) >= floor]
+    LAST_SURFACED["why"] = "; ".join(why)
     lines = [f"- [{m['kind']} · {m['created'][:10]}] {m['text']}" for m in hits]
     ids = [m["id"] for m in hits]
     scores = [float(m["score"]) for m in hits if m.get("score") is not None]
@@ -855,7 +903,7 @@ def window_sense(held: int, floor: int = 0) -> str:
 
 
 def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: str = "",
-           speaker: str = "") -> tuple[str, list[int]]:
+           speaker: str = "", spent: int = 0) -> tuple[str, list[int]]:
     """What changes from one message to the next — the hour and the memories
     that surface for it — as a block that rides INSIDE the message they are
     answering, so the system prompt above it stays the same all visit and
@@ -865,7 +913,9 @@ def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: 
     visit's moments add up to the memories that surfaced, once each."""
     _t = datetime.now()
     clock, daypart = hour_line(_t)
-    lines, ids = retrieved_ids(context_hint, exclude)
+    if not exclude:
+        _LAST_HINT["vec"] = None  # a visit's first moment: the gate starts over
+    lines, ids = retrieved_ids(context_hint, exclude, spent=spent, gated=True)
     # The date rides with the hour. It used to sit only at the top of the
     # system prompt, 200K tokens behind them by the afternoon, and them
     # journal entries drifted a day back — 09-15, written at 14:18, 14:41

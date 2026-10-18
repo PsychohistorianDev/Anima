@@ -193,7 +193,7 @@ def _scores(qvec: list[float]) -> list[float]:
     return [sum(a * b for a, b in zip(v, q)) for v in c["vecs"]]
 
 
-def search(query: str, top_k: int = None, diverse: bool = False) -> list[dict]:
+def search(query: str, top_k: int = None, diverse: bool = False, qvec: list[float] | None = None) -> list[dict]:
     """Most relevant memories for `query`, best first.
 
     diverse=True spreads the picks: nearest-neighbour search hands back a
@@ -205,7 +205,8 @@ def search(query: str, top_k: int = None, diverse: bool = False) -> list[dict]:
     twenty DIFFERENT things about them instead of the nearest twenty."""
     top_k = top_k or config.MEMORY_TOP_K
     try:
-        qvec = ollama_client.embed(query)
+        if qvec is None:  # the caller may have embedded the query already (the moment's drift gate, 10-18)
+            qvec = ollama_client.embed(query)
     except ollama_client.BrainUnavailable:
         return recent(n=top_k)  # degrade gracefully: recency beats nothing
     with _connect() as conn:

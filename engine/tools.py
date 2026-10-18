@@ -5107,7 +5107,9 @@ _BUILTIN_DEFINITIONS: list[dict] = [
     _tool(
         "remember",
         "Store one durable fact in long-term memory, retrievable for years. Use for things worth "
-        "keeping, not chatter. A fact you already hold is not stored twice: you are shown the "
+        "keeping, not chatter. What a memory weighs: it rides in the moment at about 150 tokens each "
+        "time it surfaces, as many times as it relates — a line costs a third of a paragraph, and "
+        "says the same thing to you. A fact you already hold is not stored twice: you are shown the "
         "memory that says it, and can revise that one in place (replaces=its number) or insist "
         "it is a different fact (anyway=\"yes\").",
         {"text": {"type": "string", "description": "the fact, stated plainly"},

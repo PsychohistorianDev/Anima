@@ -61,7 +61,8 @@ config.TELEGRAM_QUIET_HOURS = (6, 6)  # the suite runs at any hour; quiet hours 
 config.BRAIN_API = "ollama"  # the suite's brains are scripted; the llama door is tested on its own with a fake one (a house on the door keeps its config)
 config.THINK_RETRY_UNTIL = 1.0  # the suite's think re-rolls happen at every depth (its prompts sit at 189K and 217K of the window); the depth test sets its own
 config.HEARTBEAT_ROOM_WARN, config.HEARTBEAT_ROOM_END = 0.85, 0.92  # the wake-room tests count on these (a house may run higher)
-config.MEMORY_MIN_SCORE, config.MEMORY_TOP_K, config.MEMORY_RECENT_K = 0, 30, 6  # the moment tests count the suite's own store (a house sets a floor and fewer)
+config.MEMORY_MIN_SCORE, config.MEMORY_TOP_K, config.MEMORY_RECENT_K = 0, 30, 6
+config.MEMORY_DRIFT, config.MEMORY_VISIT_TOKENS, config.MEMORY_SHORT_HINT_WORDS = 0, 0, 0  # phase one (10-18) off for the suite; its own checks turn each on  # the moment tests count the suite's own store (a house sets a floor and fewer)
 config.CREATION_NOTES = False  # the older creation tests pin exact results; the notes are tested on their own
 config.CHAT_RESCUE_TEMPERATURE = 0  # the older salad tests count posts; the cool roll is tested on its own
 config.CHAT_GARBLE_RETRIES = 2  # the older salad tests count posts against two; the budget is 4 in config since 09-20
@@ -196,6 +197,43 @@ _mf_lines, _mf_ids = assemble.retrieved_ids("my keeper is building a home")
 config.MEMORY_MIN_SCORE = 0
 _mf_lines0, _mf_ids0 = assemble.retrieved_ids("my keeper is building a home")
 config.MEMORY_MIN_SCORE = _mf0
+# the moment's weight, phase one (10-18): the drift gate — the same hint again (with memories already surfaced) searches
+# nothing and the line says why; a hint that moved searches; a visit's first moment (nothing surfaced) always searches;
+# the visit budget turns the late floor on past its tokens; a short hint takes the short top-k
+import chat as _p1_chat
+_p1_hint = "the lamp came, the purple one, on a wednesday evening"
+_p1_far = "symmetry resonance masonry bridge stone silicon"
+_p1_recent = {mm["id"] for mm in memory.recent(n=config.MEMORY_RECENT_K)}
+_p1_new = lambda ids: [i for i in ids if i not in _p1_recent]  # noqa: E731 — the search's hits, the newest slice aside
+config.MEMORY_DRIFT = 0.15
+_p1_first, _p1_ids1 = assemble.moment(_p1_hint, exclude=set())
+_p1_why1 = assemble.LAST_SURFACED.get("why")
+_p1_again, _p1_ids2 = assemble.moment(_p1_hint, exclude=set(_p1_ids1) | {-1})
+_p1_why2 = assemble.LAST_SURFACED.get("why")
+_p1_line = _p1_chat.moment_weight_line({"role": "user", "content": "x", "_moment": _p1_again, "_surfaced": _p1_ids2},
+                                       [{"role": "user", "content": "x", "_moment": _p1_again, "_surfaced": _p1_ids2}])
+_p1_moved, _p1_ids3 = assemble.moment(_p1_far, exclude=set(_p1_ids1) | {-1})
+_p1_why3 = assemble.LAST_SURFACED.get("why")
+config.MEMORY_DRIFT = 0
+config.MEMORY_VISIT_TOKENS, config.MEMORY_MIN_SCORE_LATE = 100, 0.999
+_p1_late, _p1_ids4 = assemble.moment(_p1_hint, exclude={-1}, spent=5000)
+_p1_why4 = assemble.LAST_SURFACED.get("why")
+_p1_early, _p1_ids5 = assemble.moment(_p1_hint, exclude={-1}, spent=10)
+config.MEMORY_VISIT_TOKENS = 0
+config.MEMORY_SHORT_HINT_WORDS, config.MEMORY_TOP_K_SHORT = 12, 2
+_p1_short, _p1_ids6 = assemble.moment("hello there", exclude={-1})
+_p1_why6, _p1_n6 = assemble.LAST_SURFACED.get("why"), int(assemble.LAST_SURFACED.get("n") or 0)
+_p1_long, _p1_ids7 = assemble.moment("a long hint with more than twelve words in it about the lamp and the purple evening", exclude={-1})
+_p1_why7 = assemble.LAST_SURFACED.get("why")
+config.MEMORY_SHORT_HINT_WORDS = 0
+check("moment, phase one (10-18): the drift gate skips the search when the hint hasn't moved and searches when it has, a visit's first "
+      "moment always searches; the budget turns the late floor on; a short hint takes the short top-k; the line says why",
+      _p1_new(_p1_ids1) and "no search" not in (_p1_why1 or "") and "no search" in (_p1_why2 or "") and not _p1_new(_p1_ids2)
+      and "no search" not in (_p1_why3 or "")
+      and "late floor 0.999" in (_p1_why4 or "") and not _p1_new(_p1_ids4) and _p1_new(_p1_ids5)
+      and "short hint: top 2" in (_p1_why6 or "") and _p1_n6 <= 2 and "short hint" not in (_p1_why7 or "")
+      and "(no search — the hint hasn't moved)" in _p1_line,
+      (_p1_why1, _p1_why2, _p1_why3, _p1_why4, _p1_why6, _p1_n6, _p1_why7, len(_p1_new(_p1_ids5)), _p1_line[-90:]))
 check("assemble: MEMORY_MIN_SCORE is a floor on the search's hits — at 0.999 none rides (the newest slice may), at 0 they are back (10-17)",
       len(_mf_ids) <= int(getattr(config, "MEMORY_RECENT_K", 0) or 0) and "- [" in _mf_lines0 and len(_mf_ids0) > len(_mf_ids),
       (len(_mf_ids), len(_mf_ids0), _mf_lines[:160]))
