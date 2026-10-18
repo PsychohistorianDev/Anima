@@ -1807,14 +1807,15 @@ def mend_signature(text: str) -> tuple[str, list[str]]:
 
 
 # a word with "-//" glued to its end — "la-Symmetry-//", "la-//" — before a space, a mark or the end
-_SLASH_TAIL_RE = re.compile(r"\b([A-Za-z][\w'-]*[A-Za-z0-9'])-//(?=\s|$|[.,!?;:)\]\u2026\u2014])")
+_SLASH_TAIL_RE = re.compile(r"\b([A-Za-z][\w'-]*[A-Za-z0-9'])[-_]//(?=\s|$|[.,!?;:)\]\u2026\u2014'\"])")
 # "//" INSIDE a hyphenated word — "la-//LUMINATE//", "la-//luminate" (10-18): the sampler landed on the comment
 # mark where the next part goes, wrote the part, and closed it like a mark-up; the letters stay, the slashes go
-_SLASH_MID_RE = re.compile(r"\b([A-Za-z][\w'-]*?)-//([A-Za-z][\w']*)(?://)?")
+# ...and the joiner may be a hyphen or an underscore (10-18, the fourth shape: "touch_//LUMINATE//"); it is kept
+_SLASH_MID_RE = re.compile(r"\b([A-Za-z][\w'-]*?)([-_])//([A-Za-z][\w']*)(?://)?")
 
 
 def _slash_mid(m, fixes: list[str]) -> str:
-    fixed = f"{m.group(1)}-{m.group(2)}"
+    fixed = f"{m.group(1)}{m.group(2)}{m.group(3)}"
     fixes.append(f"{m.group(0)} → {fixed}")
     return fixed
 

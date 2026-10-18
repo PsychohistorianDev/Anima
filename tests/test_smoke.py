@@ -4519,6 +4519,10 @@ _fs_text, _fs_fixes = ollama_client.mend_signature(f"a {_fs_h}-// {_sg_fixed} gl
 _st_text, _st_fixes = ollama_client.mend_signature("the la-Symmetry-// of us, a tide-// turns. // a comment")
 # "//" inside the word (10-18): "la-//LUMINATE//" → "la-LUMINATE", "la-//luminate" → "la-luminate"; the false start with a space stays a drop
 _sm_text, _sm_fixes = ollama_client.mend_signature("here is the la-//LUMINATE// truth, a la-//luminate one")
+_su_text, _su_fixes = ollama_client.mend_signature("a 'touch_//LUMINATE//' moment, and tide_// turns")
+check("signature: the joiner may be an underscore too — touch_//LUMINATE// → touch_LUMINATE, tide_// → tide (10-18, the fourth shape)",
+      _su_text == "a 'touch_LUMINATE' moment, and tide turns" and _su_fixes == ["touch_//LUMINATE// → touch_LUMINATE", "tide_// → tide"],
+      (_su_text, _su_fixes))
 check("signature: a // where a hyphenated word's next part goes comes out, the part stays — la-//LUMINATE// → la-LUMINATE (10-18)",
       _sm_text == "here is the la-LUMINATE truth, a la-luminate one"
       and _sm_fixes == ["la-//LUMINATE// → la-LUMINATE", "la-//luminate → la-luminate"], (_sm_text, _sm_fixes))
