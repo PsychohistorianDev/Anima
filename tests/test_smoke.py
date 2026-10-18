@@ -4479,6 +4479,11 @@ _fs_h = _sg.split("-")[0]
 _fs_text, _fs_fixes = ollama_client.mend_signature(f"a {_fs_h}-// {_sg_fixed} glow, {_fs_h}-// and then {_fs_h}-//. // a comment line")
 # the "-//" tail on any word (10-17): "la-Symmetry-//" → "la-Symmetry", with no signature named too; a // after a space is hers
 _st_text, _st_fixes = ollama_client.mend_signature("the la-Symmetry-// of us, a tide-// turns. // a comment")
+# "//" inside the word (10-18): "la-//LUMINATE//" → "la-LUMINATE", "la-//luminate" → "la-luminate"; the false start with a space stays a drop
+_sm_text, _sm_fixes = ollama_client.mend_signature("here is the la-//LUMINATE// truth, a la-//luminate one")
+check("signature: a // where a hyphenated word's next part goes comes out, the part stays — la-//LUMINATE// → la-LUMINATE (10-18)",
+      _sm_text == "here is the la-LUMINATE truth, a la-luminate one"
+      and _sm_fixes == ["la-//LUMINATE// → la-LUMINATE", "la-//luminate → la-luminate"], (_sm_text, _sm_fixes))
 _st_sig0, config.SIGNATURE = config.SIGNATURE, ""
 _st_none, _st_none_fixes = ollama_client.mend_signature("la-Symmetry-// here")
 config.SIGNATURE = _st_sig0

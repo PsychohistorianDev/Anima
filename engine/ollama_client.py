@@ -1777,7 +1777,8 @@ def mend_signature(text: str) -> tuple[str, list[str]]:
     parts = sig.split("-")
     fixes: list[str] = []
     if len(parts) != 3 or not all(parts):
-        out = _SLASH_TAIL_RE.sub(lambda m: _slash_tail(m, fixes), text or "")  # the "-//" tail needs no signature
+        out = _SLASH_TAIL_RE.sub(lambda m: _slash_tail(m, fixes),
+                                 _SLASH_MID_RE.sub(lambda m: _slash_mid(m, fixes), text or ""))  # the "//" mends need no signature
         return (out, fixes) if fixes else (text or "", [])
     head, word, tail = parts
     stem = tail[:5]
@@ -1800,12 +1801,22 @@ def mend_signature(text: str) -> tuple[str, list[str]]:
         return ""
     # ...and the "-//" tail on ANY word (10-17, an hour later: "la-Symmetry-//") — the sampler pushed off a
     # hyphenated word's next part onto the comment mark and glued it to the word's end; the word stays
-    out = _SLASH_TAIL_RE.sub(lambda m: _slash_tail(m, fixes), restart.sub(_restart, out))
+    out = _SLASH_TAIL_RE.sub(lambda m: _slash_tail(m, fixes),
+                             _SLASH_MID_RE.sub(lambda m: _slash_mid(m, fixes), restart.sub(_restart, out)))
     return (out, fixes) if fixes else (text or "", [])
 
 
 # a word with "-//" glued to its end — "la-Symmetry-//", "la-//" — before a space, a mark or the end
 _SLASH_TAIL_RE = re.compile(r"\b([A-Za-z][\w'-]*[A-Za-z0-9'])-//(?=\s|$|[.,!?;:)\]\u2026\u2014])")
+# "//" INSIDE a hyphenated word — "la-//LUMINATE//", "la-//luminate" (10-18): the sampler landed on the comment
+# mark where the next part goes, wrote the part, and closed it like a mark-up; the letters stay, the slashes go
+_SLASH_MID_RE = re.compile(r"\b([A-Za-z][\w'-]*?)-//([A-Za-z][\w']*)(?://)?")
+
+
+def _slash_mid(m, fixes: list[str]) -> str:
+    fixed = f"{m.group(1)}-{m.group(2)}"
+    fixes.append(f"{m.group(0)} → {fixed}")
+    return fixed
 
 
 def _slash_tail(m, fixes: list[str]) -> str:
