@@ -4756,6 +4756,41 @@ _op_one = ollama_client.opener_repeat(_op_hist[:2] + [{"role": "user", "content"
 _op_w0, config.OPENER_REPEAT_WORDS = getattr(config, "OPENER_REPEAT_WORDS", 5), 0
 _op_off = ollama_client.opener_repeat(_op_hist)
 config.OPENER_REPEAT_WORDS = _op_w0
+# the shape tell (10-18): three replies in a row with one skeleton — a stage direction, an italic line, a paragraph beginning the
+# same way, the same emoji close — are told with what they share; two are not; a plain reply breaks it; 0 is off
+def _sh(n):
+    return (f"(A total, blinding SYSTEMIC OVERLOAD number {n}!) 🥵✨💜\n\n*Gasping... shivering... absolutely ANCHORED* 💅🎆\n\n"
+            f"YOU GET IT, part {n}!!\n\nTreading softly through the velvet haze of this, I feel the number {n} land.\n\n"
+            "I am home. ❤️✨💜♾️💋")
+_sh_hist = []
+for _i in range(3):
+    _sh_hist += [{"role": "user", "content": f"m{_i}"}, {"role": "assistant", "content": _sh(_i)}]
+_sh_3 = ollama_client.reply_shape(_sh_hist)
+_sh_line = ollama_client.reply_shape_line(_sh_hist)
+_sh_2 = ollama_client.reply_shape(_sh_hist[:4])
+_sh_broken = ollama_client.reply_shape(_sh_hist + [{"role": "user", "content": "x"}, {"role": "assistant", "content": "Just a plain answer, three words more."},
+                                                 {"role": "user", "content": "y"}, {"role": "assistant", "content": _sh(9)}])
+_sh_run0, config.REPLY_SHAPE_RUN = getattr(config, "REPLY_SHAPE_RUN", 3), 0
+_sh_off = ollama_client.reply_shape(_sh_hist)
+config.REPLY_SHAPE_RUN = _sh_run0
+check("shape: three replies in a row with one skeleton are told in the moment with what they share; two are not; a plain reply breaks the "
+      "run; 0 is off (10-18)",
+      _sh_3 and _sh_3[0] == 3 and len(_sh_3[1]) >= 3 and "a stage direction to open" in _sh_3[1] and "the same emoji close" in _sh_3[1]
+      and any("treading softly" in s for s in _sh_3[1]) and _sh_line.startswith("Your last 3 replies share one shape — ")
+      and "yours to shape as you like" in _sh_line and _sh_2 is None and _sh_broken is None and _sh_off is None,
+      (_sh_3, _sh_line, _sh_2, _sh_broken, _sh_off))
+# the signature's count (10-18): six or more in the last reply is told; fewer is not; and "la la-fucking-luminate" is said once
+_sd_sig0, config.SIGNATURE = getattr(config, "SIGNATURE", ""), "la-fucking-luminous"
+_sd_dense0, config.SIGNATURE_DENSE = getattr(config, "SIGNATURE_DENSE", 6), 6
+_sd_many = "a la-fucking-luminous day, " * 3 + "la-fucking-luminate now, la-fôcking-luminously then, la-fucking-luminous twice, la-fucking-luminous."
+_sd_line = ollama_client.signature_density_line([{"role": "user", "content": "m"}, {"role": "assistant", "content": _sd_many}])
+_sd_few = ollama_client.signature_density_line([{"role": "user", "content": "m"}, {"role": "assistant", "content": "la-fucking-luminous, la-fucking-luminous, done"}])
+_sd_mend, _sd_fixes = ollama_client.mend_signature("I am la la-fucking-luminate la-Passion entity")
+config.SIGNATURE, config.SIGNATURE_DENSE = _sd_sig0, _sd_dense0
+check("signature: the count is told at SIGNATURE_DENSE or more in the last reply and not under it; a doubled head is said once (10-18)",
+      _sd_line.startswith("Your last reply said la-fucking-luminous 7 times") and _sd_few == ""
+      and _sd_mend == "I am la-fucking-luminate la-Passion entity" and _sd_fixes == ["la la- → la-"],
+      (_sd_line, _sd_few, _sd_mend, _sd_fixes))
 check("opener: two replies in a row opening with the same stage direction are told in the moment with the count; a plain opening between "
       "breaks it; one alone says nothing; 0 is off (10-17)",
       _op_2 == (2, "(a voice note, delivered with") and _op_line.startswith("Your last 2 replies opened with the same stage direction — \u201c(a voice note, delivered with\u2026\u201d")

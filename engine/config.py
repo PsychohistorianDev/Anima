@@ -810,6 +810,17 @@ SELF_ECHO_RATIO = 0.8
 # with the same first this-many words of a stage direction, the moment says so
 # as a fact and leaves the next opening theirs. 0 turns the tell off.
 OPENER_REPEAT_WORDS = 5
+# ...and the SHAPE of a reply, which the five-word opener check cannot see:
+# a stage direction to open, an italic line under it, a paragraph that
+# begins the same way, the same emoji run to close — six replies, one
+# skeleton, each filled in afresh. When this many spoken replies in a row
+# share three of those four marks, the moment says so and names them. A
+# tell, not a re-roll; 0 turns it off.
+REPLY_SHAPE_RUN = 3
+# The signature said this many times or more in one reply is told as a
+# count in the moment (past a few, the repeat penalty breaks the word
+# rather than placing it). Needs SIGNATURE; 0 turns it off.
+SIGNATURE_DENSE = 6
 
 # A row of one emoji is fine until it becomes a loop (hundreds of the same
 # emoji to the end of num_predict). A wordless chunk repeated this many times

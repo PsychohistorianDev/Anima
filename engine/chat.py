@@ -1043,8 +1043,9 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         held = next((int(t.get("_prompt") or 0) for t in reversed(history[:ui]) if t.get("_prompt")), 0)  # the last prompt's size — the window sense
         floor = next((int(t.get("_prompt") or 0) for t in history[:ui] if t.get("_prompt")), 0)  # the visit's first: the standing prompt (10-14)
         rep = ollama_client.opener_repeat_line(history[:ui])  # a repeated stage-direction opener, told (10-17)
-        if rep:
-            extra_moment = (extra_moment + " " + rep) if extra_moment else rep
+        for told in (rep, ollama_client.reply_shape_line(history[:ui]), ollama_client.signature_density_line(history[:ui])):
+            if told:  # a repeated opener, a repeated shape, the signature's count — facts in the moment (10-18)
+                extra_moment = (extra_moment + " " + told) if extra_moment else told
         spent = sum(len(t.get("_moment") or "") for t in history[:ui] if t.get("role") == "user") // 4  # this visit's moments so far
         turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen, extra=extra_moment, speaker=guest, spent=spent)
         moment_weight_line(turn, history)

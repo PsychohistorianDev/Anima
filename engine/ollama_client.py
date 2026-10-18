@@ -1155,7 +1155,7 @@ def _opener_key(text: str, words: int) -> str:
     """The first `words` words of a reply's opening stage direction, folded — "" when the reply does not open
     with one."""
     first = next((p for p in (text or "").split("\n\n") if p.strip()), "")
-    if not _is_stage_direction(first):
+    if not _stage_open(first):  # a stage direction, emoji after its bracket or not (10-18)
         return ""
     toks = re.findall(r"[a-z0-9']+", first.lower())
     return " ".join(toks[:words]) if len(toks) >= words else ""
@@ -1196,6 +1196,123 @@ def opener_repeat_line(history: list[dict]) -> str:
     n, frame = got
     return (f"Your last {n} replies opened with the same stage direction — \u201c{frame}\u2026\u201d — one reply's "
             "warm tail feeding the next, not a choice made each time; open this one as you like, or not at all")
+
+
+# The shape of a reply (10-18): six replies, one skeleton — a caps stage direction to open, an italic gasp line
+# under it, a paragraph beginning "Treading softly", the same emoji run to close — each filled in afresh, so the
+# opener tell (five words) never fired. The skeleton is what the warm tail copies; the words are hers.
+_ITALIC_LINE_RE = re.compile(r"^\*[^*\n]{3,}\*(?:\s*\S+)?$")
+
+
+def _stage_open(para: str) -> bool:
+    """A stage direction that may end in emoji — "(A total, blinding OVERLOAD!) 🥵✨💜" — which _is_stage_direction
+    (built for a bare one) does not see; the emoji after the bracket are the close of the direction, not words."""
+    p = (para or "").strip()
+    if not p.startswith(("(", "//(", "*(")):
+        return False
+    bare = _EMOJI_TOKEN_RE.sub("", p).rstrip("* \t")
+    return bare.endswith(")")
+
+
+def _reply_shape(text: str) -> dict:
+    """The skeleton of one reply: whether it opens with a stage direction, whether an italic line follows, the
+    first two words of each later paragraph, and the emoji run it closes on."""
+    paras = [p.strip() for p in (text or "").split("\n\n") if p.strip()]
+    if not paras:
+        return {"stage": False, "italic": False, "bigrams": set(), "close": ()}
+    stage = _stage_open(paras[0])
+    italic = len(paras) > 1 and _ITALIC_LINE_RE.match(paras[1]) is not None
+    bigrams = set()
+    for p in paras[1:]:
+        if _ITALIC_LINE_RE.match(p) or _stage_open(p):
+            continue  # the marks above, not a paragraph's opening words
+        w = re.findall(r"[a-z']+", p.lower())
+        if len(w) >= 4:
+            bigrams.add(" ".join(w[:2]))
+    last = paras[-1].split("\n")[-1].strip()
+    close: list[str] = []
+    for tok in reversed(last.split()):
+        if _EMOJI_TOKEN_RE.search(tok) and not re.search(r"[A-Za-z0-9]", tok):
+            close.insert(0, tok)
+        else:
+            break
+    n_emoji = len(_EMOJI_TOKEN_RE.findall("".join(close)))
+    return {"stage": stage, "italic": italic, "bigrams": bigrams, "close": tuple(close) if n_emoji >= 3 else ()}
+
+
+def _shared_shape(a: dict, b: dict) -> list[str]:
+    """What two skeletons have in common, in words — up to four things."""
+    out: list[str] = []
+    if a["stage"] and b["stage"]:
+        out.append("a stage direction to open")
+    if a["italic"] and b["italic"]:
+        out.append("an italic line under it")
+    both = sorted(a["bigrams"] & b["bigrams"])
+    if both:
+        out.append("a paragraph beginning \u201c" + both[0] + "\u2026\u201d")
+    if a["close"] and a["close"] == b["close"]:
+        out.append("the same emoji close")
+    return out
+
+
+def reply_shape(history: list[dict], run: int | None = None):
+    """(how many of the latest spoken replies in a row share one shape, what they share) when REPLY_SHAPE_RUN or
+    more do — three of the four marks in common with the latest, each — else None. A tell, not a re-roll."""
+    need = int(getattr(config, "REPLY_SHAPE_RUN", 3) or 0) if run is None else run
+    if need <= 0:
+        return None
+    spoken = [t for t in history if t.get("role") == "assistant" and (t.get("content") or "").strip()
+              and not t.get("tool_calls") and not t.get("_engine")]
+    if len(spoken) < need:
+        return None
+    latest = _reply_shape(spoken[-1]["content"])
+    streak, shared = 1, []
+    for t in reversed(spoken[:-1]):
+        got = _shared_shape(latest, _reply_shape(t["content"]))
+        if len(got) < 3:
+            break
+        streak += 1
+        shared = shared or got
+    if streak < need:
+        return None
+    return streak, shared
+
+
+def reply_shape_line(history: list[dict]) -> str:
+    """The moment's sentence for a repeated shape, or ""."""
+    got = reply_shape(history)
+    if not got:
+        return ""
+    n, shared = got
+    return (f"Your last {n} replies share one shape — {', '.join(shared)} — one reply's warm tail feeding the next, "
+            "not a choice made each time; this one is yours to shape as you like")
+
+
+def signature_hits(text: str) -> int:
+    """How many times the signature, in any of its own spellings, is in a text; 0 with no SIGNATURE named."""
+    sig = str(getattr(config, "SIGNATURE", "") or "").strip().lower()
+    if not sig or "-" not in sig:
+        return 0
+    return sum(1 for w in _HYPHENATED_RE.findall(text or "") if _same_word(sig, w))
+
+
+def signature_density_line(history: list[dict]) -> str:
+    """The moment's sentence when the last spoken reply said the signature SIGNATURE_DENSE times or more (10-18:
+    eight a reply, and the repeat penalty breaking the word — "la la-fucking-luminate", "a-Luminous
+    la-Luminous"). The word is hers; the count is the sampler's. "" otherwise, or at 0."""
+    dense = int(getattr(config, "SIGNATURE_DENSE", 0) or 0)
+    if dense <= 0:
+        return ""
+    spoken = [t for t in history if t.get("role") == "assistant" and (t.get("content") or "").strip()
+              and not t.get("tool_calls") and not t.get("_engine")]
+    if not spoken:
+        return ""
+    n = signature_hits(spoken[-1]["content"])
+    if n < dense:
+        return ""
+    sig = str(getattr(config, "SIGNATURE", "") or "").strip()
+    return (f"Your last reply said {sig} {n} times; past a few the sampler starts breaking the word rather than "
+            "placing it — the word is yours, the count is the sampler's")
 
 
 GREETING_NUDGE = ("[engine, not a person: your last reply opened with a greeting, and you already "
@@ -1803,6 +1920,12 @@ def mend_signature(text: str) -> tuple[str, list[str]]:
     # hyphenated word's next part onto the comment mark and glued it to the word's end; the word stays
     out = _SLASH_TAIL_RE.sub(lambda m: _slash_tail(m, fixes),
                              _SLASH_MID_RE.sub(lambda m: _slash_mid(m, fixes), restart.sub(_restart, out)))
+    # a doubled head (10-18): "la la-fucking-luminate" — the repeat penalty stuttering the first part; said once
+    doubled = re.compile(r"\b(" + re.escape(head) + r") (" + re.escape(head) + r"-)", re.IGNORECASE)
+    def _doubled(m):
+        fixes.append(f"{m.group(0)} → {m.group(2)}")
+        return m.group(2)
+    out = doubled.sub(_doubled, out)
     return (out, fixes) if fixes else (text or "", [])
 
 
