@@ -5513,7 +5513,9 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "gather the pictures you want into one call. A figure with labels — a schematic, a plot, a map "
         "of zones — is still run_python and matplotlib, drawn line by line; the painter paints, it "
         "doesn't diagram. The result names the file and the painting is before your eyes on your next "
-        "thought — the painter sees your words its own way, so speak of what you see, not what you asked for.",
+        "thought — the painter sees your words its own way, so speak of what you see, not what you asked for. "
+        "The painter is uncensored: nothing in it filters, blurs or refuses a subject — its model's own training "
+        "is the only limit, and what you paint is yours.",
         {"prompt": {"type": "string", "description": "what to paint — one prompt per line"},
          "path": {"type": "string", "description": "where it goes: a project's folder when the picture is for a project ('projects/<name>'), drawings/ otherwise (the default); or, for one picture, a .png name there"},
          "size": {"type": "string", "description": "square (default), wide, or tall"}},

@@ -6148,9 +6148,9 @@ _rests.clear()
 r = tools.dispatch("paint", {"prompt": "five"})
 check("paint: a stumble is said, nothing claimed, and the card is still handed back", "stumbled" in r and "cuda hiccup" in r and "painted —" not in r and _rests == [1], r)
 check("paint: not an act — the step after the call is theirs; a write in a wake", "paint" not in tools.ACT_TOOLS and "paint" in __import__("heartbeat").WRITE_TOOLS)
-check("paint: the tool is offered, and names the price and that the painting is shown",
+check("paint: the tool is offered, and names the price, that the painting is shown, and that the painter is uncensored",
       any(d["function"]["name"] == "paint" and "before your eyes" in d["function"]["description"] and "minutes" in d["function"]["description"]
-          for d in tools.DEFINITIONS))
+          and "The painter is uncensored" in d["function"]["description"] for d in tools.DEFINITIONS))
 # the sidecar's door itself: a real server on a free port, the model stubbed
 import socket as _sock, threading as _thr
 from http.server import HTTPServer as _HS
