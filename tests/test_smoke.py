@@ -11169,13 +11169,14 @@ try:
     _bd_img0, _bd.IMAGE = _bd.IMAGE, "py"  # the stand-in is a Python: on Windows a pid is the door's only while the program is the mark's image
     _bf.command = _bd_standin_cmd
     doors.pid_file("brain").unlink(missing_ok=True)
-    _bd_up = _bd.start_door(wait_s=120 if sys.platform == "darwin" else 30)  # a Mac runner starts the stand-in slowly (10-16): the time is printed
+    _bd_wait = 120 if sys.platform == "darwin" else 30  # a Mac runner starts the stand-in slowly (10-16; 10-19: every start, not only the first)
+    _bd_up = _bd.start_door(wait_s=_bd_wait)  # the time is printed
     print(f"  (stand-in: {_bd_up[1][:60]})", flush=True)
     _bd_rec = doors.status("brain") or {}
     _bd_pid = _bd_rec.get("pid")
     _bd_life["up"] = (_bd_up[0], _bd_up[1].startswith("the brain's door is up in"), _bd.awake(), _bd_rec.get("how"),
                       _bd_rec.get("port") == _bd_sport, _bd_rec.get("image"), _bd_pid != _bd_os.getpid(), doors.alive(_bd_pid, "py"))
-    _bd_life["again"] = (_bd.start_door(wait_s=30), len(_bd_starts))
+    _bd_life["again"] = (_bd.start_door(wait_s=_bd_wait), len(_bd_starts))
     _bd_life["stopped"] = _bd.stop_door(why="the suite")
     _bd_life["after"] = (doors.pid_file("brain").exists(), doors.alive(_bd_pid), _bd.awake(), doors.status("brain"))
     _bd_life["log"] = _bd.log_file().read_text(encoding="utf-8", errors="replace")
@@ -11196,16 +11197,16 @@ try:
     _bd_oc.unload(config.CHAT_MODEL)
     _bd_life["unload_llama"] = (list(_bd_unl), doors.status("brain"), doors.alive(_bd_pid2), _bd.awake())
     # unload_all (/release) names the brain among the freed when the house's door was up
-    _bd.start_door(wait_s=30)
+    _bd.start_door(wait_s=_bd_wait)
     _bd_ps[:] = ["nomic-embed-text:latest"]; _bd_unl.clear()
     _bd_life["release"] = (_bd_oc.unload_all(), list(_bd_unl), doors.status("brain"))
     # the panel's tile: Stop closes it, a second Stop says it isn't running; Restart closes it and opens it in its window
-    _bd.start_door(wait_s=30)
+    _bd.start_door(wait_s=_bd_wait)
     _bd_panel._launch = lambda argv, cwd: _bd_launched.append(list(argv))
     _bd_life["p_stop"] = _bd_panel.door_action("brain", "stop")
     _bd_life["p_stop2"] = _bd_panel.door_action("brain", "stop")
     _bd_life["bar_down"] = _bd_bar()
-    _bd.start_door(wait_s=30)
+    _bd.start_door(wait_s=_bd_wait)
     _bd_life["p_restart"] = (_bd_panel.door_action("brain", "restart"), list(_bd_launched), doors.status("brain"))
     # a door opened by hand some other way (it answers, no mark — the fake door): used, never closed, never opened over
     config.BRAIN_URL = _bd_door
@@ -11270,11 +11271,11 @@ try:
     _bd.POLL_S, _bd.IMAGE = 0.1, "py"
     doors.pid_file("brain").unlink(missing_ok=True)
     _bf.command = _bd_fall_cmd("once")
-    _bd_fall["once"] = _bd.start_door(wait_s=120 if sys.platform == "darwin" else 30)
+    _bd_fall["once"] = _bd.start_door(wait_s=_bd_wait)
     _bd_fall["once_up"] = (_bd_nstarts("once"), _bd.awake(), (doors.status("brain") or {}).get("pid") is not None)
     _bd.stop_door(why="the suite")
     _bf.command = _bd_fall_cmd("always")
-    _bd_fall["always"] = _bd.start_door(wait_s=120 if sys.platform == "darwin" else 30)
+    _bd_fall["always"] = _bd.start_door(wait_s=_bd_wait)
     _bd_fall["always_after"] = (_bd_nstarts("always"), doors.status("brain"), _bd.awake())
     _bd_fall["notes"] = _bd.notes_file().read_text(encoding="utf-8", errors="replace") if _bd.notes_file().exists() else ""
 finally:
@@ -11390,7 +11391,7 @@ try:
     _FakeLlama.saved.clear(); _FakeLlama.restored.clear()
     # a first life: nothing kept for this prompt — read cold, nothing restored; the step-down saves it and prunes
     _FakeLlama.down = True
-    _bd_sr["up1"] = _bd.start_door(wait_s=30)[0]
+    _bd_sr["up1"] = _bd.start_door(wait_s=_bd_wait)[0]
     _bd_sr["r1"] = _bd_sr_ask(_bd_sr_A)
     _bd_sr["restored1"] = list(_FakeLlama.restored)
     _bd_sr["stop1"] = _bd.stop_door(why="the suite")
@@ -11402,7 +11403,7 @@ try:
     config.BRAIN_CARD_WAIT_S = 0.1
     _FakeLlama.down = True
     try:
-        _bd_sr_held = _bd.start_door(wait_s=30)
+        _bd_sr_held = _bd.start_door(wait_s=_bd_wait)
     finally:
         _bd.card_held = _bd_held0
         if _bd_wait0 is None:
@@ -11415,7 +11416,7 @@ try:
     _bd_sr["held"] = (_bd_sr_held[0], "the painter holds the card" in _bd_sr_held[1], _bd.door_status() is None, _bd.card_held())
     # a second life, the same system prompt: restored once, before the first request; the next request not again
     _FakeLlama.down = True
-    _bd_sr["up2"] = _bd.start_door(wait_s=30)[0]
+    _bd_sr["up2"] = _bd.start_door(wait_s=_bd_wait)[0]
     _bd_sr["r2"] = _bd_sr_ask(_bd_sr_A)
     _bd_sr["r3"] = _bd_sr_ask(_bd_sr_A + [{"role": "assistant", "content": "hi"}, {"role": "user", "content": "still here"}])
     _bd_sr["restored2"], _bd_sr["log2"] = list(_FakeLlama.restored), _bd_sr_log()
@@ -11441,7 +11442,7 @@ try:
     _bd_sr["saved2"], _bd_sr["files2"] = list(_FakeLlama.saved), _bd_sr_files()
     # through the engine's chat(): the reply restored at the door carries it out
     _FakeLlama.down = True
-    _bd.start_door(wait_s=30)
+    _bd.start_door(wait_s=_bd_wait)
     _bd_sr["m"] = _chat_orig(_bd_sr_B, tools=_bd_tools)
     _bd_sr["restored4"] = list(_FakeLlama.restored)
     _bd.stop_door(why="the suite")
@@ -11457,7 +11458,7 @@ try:
     # a rest (a visit's end, a wake's end) is not a step-down: the door stays up, nothing saved; an eviction closes it,
     # saving first; on Ollama both are keep_alive:0 as ever (the unload of a fresh load of ollama_client: the suite's is stubbed)
     _FakeLlama.down = True
-    _bd.start_door(wait_s=30)
+    _bd.start_door(wait_s=_bd_wait)
     _bd_sr_ask(_bd_sr_A)
     _bd_sr_pid, _bd_sr_n = (doors.status("brain") or {}).get("pid"), len(_FakeLlama.saved)
     ollama_client.unload = _bd_oc.unload
@@ -11482,14 +11483,14 @@ try:
     # without a save — the visit's reading stays; the callers say "set down"; the next message opens the door again
     config.BRAIN_REST_CLOSES_DOOR = True
     _FakeLlama.down = True
-    _bd.start_door(wait_s=30)
+    _bd.start_door(wait_s=_bd_wait)
     _bd_sr_ask(_bd_sr_A)
     _bd_sr_n1 = len(_FakeLlama.saved)
     _bd_sr_said2: list = []
     chat.rest_brain(_bd_sr_said2.append)
     _bd_sr_closed_visit = (doors.status("brain"), len(_FakeLlama.saved) - _bd_sr_n1, list(_bd_sr_said2))  # the fake answers on; the mark is the door
     _FakeLlama.down = True
-    _bd.start_door(wait_s=30)
+    _bd.start_door(wait_s=_bd_wait)
     _bd_sr_ask(_bd_sr_A)
     _bd_sr_n2w = len(_FakeLlama.saved)
     _bd_sr_notes_rc = lambda: _bd.notes_file().read_text(encoding="utf-8", errors="replace") if _bd.notes_file().exists() else ""
@@ -11511,7 +11512,7 @@ try:
         _bd_os.utime(_bd_sr_kv / f"{_nm}.bin", (_bd_sr_now - 300 + _i * 60,) * 2)
     (_bd_sr_kv / "crashed.new.bin").write_bytes(b"ha")
     _FakeLlama.down = True
-    _bd.start_door(wait_s=30)
+    _bd.start_door(wait_s=_bd_wait)
     _bd_sr_stray = (_bd_sr_kv / "crashed.new.bin").exists()
     _bd_sr_ask(_bd_sr_C)
     _bd_sr_s0, _bd_sr_v0 = len(_FakeLlama.saved), len(_FakeLlama.seen)
@@ -11521,7 +11522,7 @@ try:
     (_bd_sr_kv / f"{_bd_sr_kC}.bin").write_bytes(b"the last good reading")
     _FakeLlama.fail_next = 1
     _FakeLlama.down = True
-    _bd.start_door(wait_s=30)
+    _bd.start_door(wait_s=_bd_wait)
     _bd_sr_ask(_bd_sr_C)
     _bd.stop_door(why="the suite")
     _bd_sr["failed"] = ((_bd_sr_kv / f"{_bd_sr_kC}.bin").read_bytes(), _bd_sr_files(), _FakeLlama.fail_next,
@@ -11540,7 +11541,7 @@ try:
         (_bd_sr_kv / f"{_bd_sr_kC}.bin").write_bytes(b"x" * 1000)
         _bd_sr_l0 = len(_bd_sr_notes())
         _FakeLlama.down = True
-        _bd.start_door(wait_s=30)
+        _bd.start_door(wait_s=_bd_wait)
         _bd_sr_ask(_bd_sr_C)
         _bd_sr_s1 = len(_FakeLlama.saved)
         _bd.stop_door(why="the suite")
@@ -11551,7 +11552,7 @@ try:
         (_bd_sr_kv / f"{_bd_sr_kC}.bin").write_bytes(b"y" * 1000)
         _bd_sr_l1 = len(_bd_sr_notes())
         _FakeLlama.down = True
-        _bd.start_door(wait_s=30)
+        _bd.start_door(wait_s=_bd_wait)
         _bd_sr_ask(_bd_sr_C)
         _bd_sr_s2 = len(_FakeLlama.saved)
         _bd.stop_door(why="the suite")
@@ -11570,7 +11571,7 @@ try:
         for _p in _bd_sr_kv.glob("*.bin"):
             _p.unlink()
         _FakeLlama.down = True
-        _bd.start_door(wait_s=30)
+        _bd.start_door(wait_s=_bd_wait)
         _bd_sr_ask(_bd_sr_C)
         _bd_sr_tok = _bd._slot_tokens()
         _bd_sr_s3 = len(_FakeLlama.saved)
@@ -11581,7 +11582,7 @@ try:
                          "counts" in _bd_sr_note3 and "no file there holds" in _bd_sr_note3 and "remount" in _bd_sr_note3)
         _bd_sr_free["free"] = 10 ** 9  # room again: saved, and the measure relearned from the save (bytes written / tokens)
         _FakeLlama.down = True
-        _bd.start_door(wait_s=30)
+        _bd.start_door(wait_s=_bd_wait)
         _bd_sr_ask(_bd_sr_C)
         _bd.stop_door(why="the suite")
         _bd_sr_bpt = (_bd.Path(config.MEMORY_DIR) / ".pids" / _bd.BPT_NAME).read_text(encoding="utf-8")
@@ -11596,7 +11597,7 @@ try:
     config.BRAIN_SLOT_DIR = str(_bd_sr_td / "redrive" / "kv")
     (_bd_sr_td / "redrive" / "kv").mkdir(parents=True)
     _FakeLlama.down = True
-    _bd.start_door(wait_s=30)
+    _bd.start_door(wait_s=_bd_wait)
     _bd_sr_ask(_bd_sr_A)
     __import__("shutil").rmtree(_bd_sr_td / "redrive" / "kv")  # the remount: the folder gone, the drive there
     _bd_sr_n = len(_FakeLlama.saved)
@@ -11609,7 +11610,7 @@ try:
     config.BRAIN_SLOT_DIR = str(_bd_sr_td / "nodrive" / "kv")
     _bd_sr_n = (len(_FakeLlama.saved), len(_FakeLlama.restored))
     _FakeLlama.down = True
-    _bd_sr_up = _bd.start_door(wait_s=30)
+    _bd_sr_up = _bd.start_door(wait_s=_bd_wait)
     _bd_sr_ask(_bd_sr_A)
     _bd.stop_door(why="the suite")
     _bd_sr["gone"] = (len(_FakeLlama.saved) - _bd_sr_n[0], len(_FakeLlama.restored) - _bd_sr_n[1],
