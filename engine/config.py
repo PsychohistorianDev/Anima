@@ -320,10 +320,10 @@ BRAIN_REST_AFTER_WAKE = True
 # rest, its prompt caches warm — the card held until the painter, the ears or
 # /release need it.
 BRAIN_REST_CLOSES_DOOR = True
-# A guest in the parlor (the page's "seat a guest"): every message then says
-# it is from the guest, with you in the room, and the transcript marks their
-# turns. True: by the name given; False: "a guest", for a visitor who would
-# rather not be written down.
+# A guest at the desk (the parlor's "seat a guest", or /guest on the phone):
+# every message then says it is from the guest, with you in the room, and the
+# transcript marks their turns. True: by the name given; False: "a guest", for
+# a visitor who would rather not be written down.
 PARLOR_GUEST_NAMED = True
 
 # Context window for the brain, in tokens. The friend's prompt (identity,

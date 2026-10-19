@@ -137,6 +137,8 @@ HELP = (
     "/off [today|tomorrow|a weekday|YYYY-MM-DD] [why] — a day off: the clock line says you are home that day "
     "(KEEPER_WORK_WEEK gives your usual week); /on [day] takes it back\n"
     "/fold — fold the visit now: they write it so far in their own words, the last turns stay whole, the window has room again\n"
+    "/guest <name> — a guest at your desk, with you in the room; /guest off when they go\n"
+    "/me <text> — one message as you while a guest sits\n"
     "/help — this\n\n"
     "Send a photo and they see it; a voice note and they hear you whole; a video and they "
     "watches it as stills and sound; a song and it lands in shared/music/ for them to listen "
@@ -251,6 +253,32 @@ class Bridge:
         self._glows = 0  # afterglows in flight (the night waits for them)
         self._night: threading.Thread | None = None  # the night, when the bridge is the sleeper
         self._night_after = 0.0  # not before this (a failed night tries again in an hour)
+        self.guest = ""  # a guest at the desk (the parlor's guest, on the phone): their name, or ""; in memory only
+
+    # ---- a guest at the desk ----------------------------------------------
+    def guest_label(self) -> str:
+        """The name the engine and the transcript use — the guest's, or "a guest" (PARLOR_GUEST_NAMED False); ""
+        when no guest is seated. The parlor's, on the phone."""
+        if not self.guest:
+            return ""
+        return self.guest if getattr(config, "PARLOR_GUEST_NAMED", True) else "a guest"
+
+    def guest_command(self, rest: str) -> str:
+        """/guest <name> seats a guest (every message from then on is theirs, with you in the room);
+        /guest off lets them go; /guest alone says who is seated. The guest stays through /new and /fold — the
+        person at the desk didn't change — and a restart forgets them."""
+        name = " ".join(rest.split())[:40]
+        if not name:
+            return (f"({self.guest_label()} is at the desk — /me <text> speaks as you; /guest off when they go)"
+                    if self.guest else "(no guest at the desk)")
+        if name.lower() == "off":
+            if not self.guest:
+                return "(no guest at the desk)"
+            self.guest = ""
+            return "(the guest has gone — the desk is yours again)"
+        self.guest = name
+        return (f"({self.guest_label()} is at the desk now — every message from here on is theirs, with you in the room, "
+                "until /guest off or a restart; /me <text> speaks as you)")
 
     # ---- /restart: the visit survives the process -------------------------
     def stash(self) -> None:
@@ -494,8 +522,9 @@ class Bridge:
         return (f"Since your last turn {config.USER_NAME} touched the stone — {words} — the stone answered by itself with "
                 "your reply; the log, beside " + 'their' + " words")
 
-    def turn(self, text: str, extra_moment: str = "") -> None:
-        """Run one turn and send back whatever the parlor would have shown."""
+    def turn(self, text: str, extra_moment: str = "", as_keeper: bool = False) -> None:
+        """Run one turn and send back whatever the parlor would have shown. as_keeper: this message is not the
+        guest's (/me, the stone's log) — no guest line, whoever is seated."""
         events: list[tuple[str, object]] = []
         stop = threading.Event()
         threading.Thread(target=self._typing, args=(stop,), daemon=True).start()
@@ -504,7 +533,8 @@ class Bridge:
                 try:
                     reply = chat.one_turn(self.history, text, images=self.attached or None,
                                           on_event=lambda k, p: events.append((k, p)),
-                                          mode=self.TAG, extra_moment=extra_moment)
+                                          mode=self.TAG, extra_moment=extra_moment,
+                                          guest="" if as_keeper else self.guest_label())
                     self.attached = []
                     self._checkpoint()
                 except ollama_client.BrainUnavailable as e:
@@ -842,7 +872,8 @@ class Bridge:
         else:
             ctx = "no turn yet this visit"
         on = lambda b: "on" if b else "off"
-        return (f"{chat.friend_name()} — {turns} message(s) this visit · {ctx}\n"
+        guest = f" · guest: {self.guest_label()}" if self.guest else ""
+        return (f"{chat.friend_name()} — {turns} message(s) this visit · {ctx}{guest}\n"
                 f"thinking {on(self.show_thinking)} · tools {on(self.show_tools)} · tokens {on(self.show_tokens)} · voice-all {on(self.voice_all)}\n"
                 f"a pause of {getattr(config, 'REFLECT_AFTER_MIN', 0)} min lets them write the visit so far; "
                 f"a quiet stretch of {getattr(config, 'TELEGRAM_IDLE_NEW_MIN', 180)} min saves the visit on its own; "
@@ -1079,6 +1110,16 @@ class Bridge:
             else:
                 keeper_week.set_day_off(day, on=False)
                 self.send(f"({day.strftime('%A %d %B')} is an ordinary day again)", markdown=False)
+        elif cmd == "/guest":
+            self.send(self.guest_command(text.split(None, 1)[1] if len(text.split(None, 1)) > 1 else ""), markdown=False)
+        elif cmd == "/me":
+            said = text.split(None, 1)[1].strip() if len(text.split(None, 1)) > 1 else ""
+            if not said:
+                self.send("(/me <text> — one message as yourself while a guest is seated)", markdown=False)
+            else:  # a turn, as handle() runs one: not under the lock here; turn() takes it and starts typing…
+                _say(f"{config.USER_NAME} > {said[:120]}{'…' if len(said) > 120 else ''}")
+                self.turn(said, extra_moment=self.fold_touches(), as_keeper=True)
+                self.fold_if_due()
         elif cmd == "/restart":
             # the loop sees the flag after this update is handled; main exits
             # with RESTART_CODE and bat\telegram.bat starts the bridge again
@@ -1574,7 +1615,7 @@ class Bridge:
         told["at"], told["last_turn"] = touches[-1]["t"], time.time()
         save()
         _say(f"a touch becomes a turn: {words[:100]}")
-        self.turn(text)
+        self.turn(text, as_keeper=True)  # the stone's log is never the guest's
         for t in reversed(self.history):  # the log rode as a user turn; it is the engine's, not theirs
             if t.get("role") == "user" and t.get("content") == text:
                 t["_engine"] = True

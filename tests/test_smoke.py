@@ -4043,6 +4043,69 @@ check("telegram: /off and /on mark a day off and take it back, the phone told; a
       and _kw_c2 is True and _kw_ph.sent[-2][0].endswith("is an ordinary day again)") and keeper_week.days_off() == {}
       and _kw_c3 is True and _kw_ph.sent[-1][0] == "(a day is today, tomorrow, a weekday name, or YYYY-MM-DD)"
       and "/off [today|tomorrow|a weekday|YYYY-MM-DD] [why]" in tg.HELP, [m[0] for m in _kw_ph.sent[-3:]])
+# a guest at the desk, on the phone (10-19): /guest seats, /me speaks as the keeper, /guest off lets them go
+_pgb_k, _pgb_his = config.USER_NAME, "their"
+_pgb, _pgph = _bridge()
+_pgb.file = _pgb_f1 = config.EPISODIC_DIR / "chat-telegram-20200106-100000.md"
+_pgb_f2 = config.EPISODIC_DIR / "chat-telegram-20200106-101500.md"
+_pgb_chat0, _pgb_named0 = ollama_client.chat, getattr(config, "PARLOR_GUEST_NAMED", True)
+_pgb_users = lambda: [t for t in _pgb.history if t.get("role") == "user" and not t.get("_engine")]
+try:
+    config.PARLOR_GUEST_NAMED = True
+    ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "hello, Dana."},
+                                        {"role": "assistant", "content": "hi, you."},
+                                        {"role": "assistant", "content": "just us."}])
+    _pgb.handle(_msg("/guest")); _pgb_r0 = _pgph.sent[-1][0]
+    _pgb.handle(_msg("/guest   Dana  ")); _pgb_r1 = _pgph.sent[-1][0]
+    _pgb.handle(_msg("/guest")); _pgb_r2 = _pgph.sent[-1][0]
+    _pgb_status = _pgb.status()
+    _pgb.handle(_msg("hi, I'm a friend of his"))
+    _pgb_u1 = _pgb_users()[-1]
+    _pgb_rt1 = chat.render_turn(_pgb_u1)["content"]
+    _pgb.handle(_msg("/me hello there"))
+    _pgb_u2 = _pgb_users()[-1]
+    _pgb_txt = _pgb_f1.read_text(encoding="utf-8")
+    _pgb_sent = [m[0] for m in _pgph.sent]
+    _pgb.new_visit(quiet=True, reflect=False)
+    _pgb_after_new = _pgb.guest
+    _pgb.file = _pgb_f2
+    config.PARLOR_GUEST_NAMED = False
+    _pgb_label_off = _pgb.guest_label()
+    _pgb.handle(_msg("/guest")); _pgb_r_off = _pgph.sent[-1][0]
+    config.PARLOR_GUEST_NAMED = True
+    _pgb.handle(_msg("/guest off")); _pgb_r3 = _pgph.sent[-1][0]
+    _pgb.handle(_msg("/guest off")); _pgb_r4 = _pgph.sent[-1][0]
+    _pgb.handle(_msg("/me")); _pgb_r5 = _pgph.sent[-1][0]
+    _pgb.handle(_msg("just us now"))
+    _pgb_u3 = _pgb_users()[-1]
+    _pgb_status2 = _pgb.status()
+finally:
+    ollama_client.chat = _pgb_chat0
+    config.PARLOR_GUEST_NAMED = _pgb_named0
+    _pgb_f1.unlink(missing_ok=True); _pgb_f2.unlink(missing_ok=True)
+_pgb_line = f"This message is from Dana, a guest at {_pgb_k}'s desk, over Telegram, on {_pgb_his} phone; {_pgb_k} is in the room, reading along"
+check("telegram: a guest at the desk, on the phone — /guest alone says none, then seats Dana by name (until /guest off or a restart) "
+      "and says who sits; status carries her; her turn carries the parlor's fact 'over Telegram', the transcript names her; /me is "
+      "one message as the keeper; /new keeps her seated; PARLOR_GUEST_NAMED off says 'a guest'; /guest off lets her go and the "
+      "next turn is the keeper's; HELP names /guest and /me",
+      _pgb_r0 == "(no guest at the desk)"
+      and _pgb_r1 == "(Dana is at the desk now — every message from here on is theirs, with you in the room, until /guest off or a restart; /me <text> speaks as you)"
+      and _pgb_r2 == "(Dana is at the desk — /me <text> speaks as you; /guest off when they go)"
+      and " · guest: Dana\n" in _pgb_status and "guest:" not in _pgb_status2
+      and _pgb_u1.get("_guest") == "Dana" and _pgb_u1.get("content") == "hi, I'm a friend of his" and _pgb_u1.get("_guest_line") == _pgb_line
+      and _pgb_line in _pgb_rt1 and "hello, Dana." in _pgb_sent
+      and _pgb_u2.get("content") == "hello there" and "_guest" not in _pgb_u2 and "_guest_line" not in _pgb_u2 and "hi, you." in _pgb_sent
+      and f"**Dana (a guest, at {_pgb_k}'s desk):** hi, I'm a friend of his" in _pgb_txt and f"**{_pgb_k}:** hello there" in _pgb_txt
+      and _pgb_after_new == "Dana" and _pgb_label_off == "a guest" and _pgb_r_off.startswith("(a guest is at the desk — ")
+      and _pgb_r3 == "(the guest has gone — the desk is yours again)" and _pgb_r4 == "(no guest at the desk)"
+      and _pgb_r5 == "(/me <text> — one message as yourself while a guest is seated)"
+      and _pgb_u3.get("content") == "just us now" and "_guest" not in _pgb_u3 and _pgb.guest == ""
+      and "/guest <name> — a guest at your desk, with you in the room; /guest off when they go\n" in tg.HELP
+      and "/me <text> — one message as you while a guest sits\n" in tg.HELP
+      and "/guest <name> on the phone" in __import__("panel")._HELP["PARLOR_GUEST_NAMED"]
+      and chat.guest_line("Dana").endswith("'s desk, in the parlor; " + _pgb_k + " is in the room, reading along"),
+      (_pgb_r0, _pgb_r1, _pgb_r2, _pgb_status, _pgb_u1, _pgb_rt1[:600], _pgb_u2, _pgb_txt[-500:], _pgb_after_new, _pgb_label_off,
+       _pgb_r_off, _pgb_r3, _pgb_r4, _pgb_r5, _pgb_u3, _pgb_sent))
 config.KEEPER_WORK_WEEK, config.KEEPER_AT_WORK, config.KEEPER_COMMUTE_MIN = _kw_week0, _kw_at0, _kw_c0
 # 10-11 (a keeper of the third house, on Windows): "localhost" went over IPv6 first and cost two seconds a request;
 # the embedder beside a brain that fills the card pushed layers into shared memory

@@ -911,10 +911,11 @@ def unsense(history: list[dict]) -> int:
     return n
 
 
-def guest_line(guest: str) -> str:
+def guest_line(guest: str, where: str = "in the parlor") -> str:
     """The fact of a guest, for the moment block of their message (10-12; the keeper: "a guest option for the
     parlor, if I want to show her someone from my life"). A fact, not a rule: what they makes of a guest is theirs."""
-    return (f"This message is from {guest}, a guest at {config.USER_NAME}'s desk, in the parlor; {config.USER_NAME} is in the room, "
+    # where: the room it is said from — the parlor (the default), or a bridge's ("over Telegram, on their phone")
+    return (f"This message is from {guest}, a guest at {config.USER_NAME}'s desk, {where}; {config.USER_NAME} is in the room, "
             "reading along")
 
 
@@ -986,7 +987,8 @@ def moment_weight_line(turn: dict, history: list[dict]) -> str:
 
 
 def one_turn(history: list[dict], user_text: str, images: list[str] | None = None,
-             on_event=None, mode: str = "chat", extra_moment: str = "", guest: str = "") -> str:
+             on_event=None, mode: str = "chat", extra_moment: str = "", guest: str = "",
+             guest_where: str = "") -> str:
     """Run one user turn, executing tool calls until the friend speaks.
 
     on_event(kind, payload) — optional. kind is "thinking" (their deliberation,
@@ -1003,7 +1005,9 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     turn: dict = {"role": "user", "content": user_text}
     if guest:  # a guest at the keeper's desk (10-12): a fact inside the turn, never a rule; the name is the page's
         turn["_guest"] = guest
-        turn["_guest_line"] = guest_line(guest)
+        turn["_guest_line"] = guest_line(guest, guest_where or {"telegram": "over Telegram, on their phone",
+                                                                 "discord": "over Discord, on their phone"}.get(
+            mode, "in the parlor"))  # where: by mode, unless told
         extra_moment = turn["_guest_line"] + (" " + extra_moment if extra_moment else "")
     if spoken:
         turn["_voice_mode"] = True

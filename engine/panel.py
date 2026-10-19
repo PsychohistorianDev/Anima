@@ -402,10 +402,11 @@ _HELP = {
                         "door stays up until something needs the card — the end of a visit (BRAIN_REST_AFTER_VISIT), "
                         "of a wake, the ears, the painter, /release on the phone — and opens again by itself on the "
                         "next message; no idle unload.",
-    "PARLOR_GUEST_NAMED": "A guest at the desk (the parlor's \"seat a guest\"): every message says it is from them, with "
-                          "you in the room; thinking and tool lines are kept from the page while they sit. On: the "
-                          "transcript, and so the journal's material, carry the name you gave. Off: \"a guest\", for a "
-                          "visitor who would rather not be written down.",
+    "PARLOR_GUEST_NAMED": "A guest at the desk (the parlor's \"seat a guest\", or /guest <name> on the phone): every "
+                          "message says it is from them, with you in the room; in the parlor, thinking and tool lines "
+                          "are kept from the page while they sit. On: the transcript, and so the journal's material, "
+                          "carry the name you gave. Off: \"a guest\", for a visitor who would rather not be written "
+                          "down — in the parlor and on the phone alike.",
     "BRAIN_REST_CLOSES_DOOR": "Under the brain's door, whether a rest (a visit's end, a wake's end) closes it — the card free, "
                               "as a rest under Ollama always was. A visit's end saves the reading first (seconds); a wake's end "
                               "closes without one, so the visit's reading stays for the next message. Off: the door stays up "
