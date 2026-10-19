@@ -4895,6 +4895,46 @@ def unseam_arguments(args: dict) -> tuple[dict, str]:
     return out, "\n".join(notes)
 
 
+# An unclosed string: a call whose text was cut off mid-string reaches the tool as {"_raw": …} — the string and the
+# object are closed where the words ended and the call runs as meant, the result led by a note. Anything else that
+# is not a finished object is told plainly; a `_raw` never reaches a tool as a keyword.
+CLOSED_NOTE = "(the call's string never closed — the engine closed it where the words ended and ran this call as you meant it)"
+
+
+def repair_raw(args: dict) -> tuple[dict | None, str]:
+    """A call's text that was not a finished JSON object ({"_raw": the text}, as brain._args keeps it) read as meant
+    when its last string simply never closed: tool grammar it ran into is cut at the seam first (unseam_arguments,
+    as today), then what is kept is closed and parsed (ollama_client.close_json) — {"text": "words"}. (the
+    arguments, the note(s) saying what the engine did), or (None, "") when it cannot be read so."""
+    import ollama_client
+    raw = args.get("_raw") if isinstance(args, dict) and set(args) == {"_raw"} else None
+    if not isinstance(raw, str):
+        return None, ""
+    seamed, seam = unseam_arguments({"_raw": raw})
+    fixed = ollama_client.close_json(seamed["_raw"])
+    if fixed is None:
+        return None, ""
+    if seam:
+        seam = seam.replace("`_raw`", f"`{list(fixed)[-1]}`")  # the string that ran on is the last one, named as it was named
+    return fixed, "\n".join(x for x in (seam, CLOSED_NOTE) if x)
+
+
+def runaway_refusal(msg: dict, call: dict) -> str:
+    """What a call the engine cut short in a loop returns in place of running (ollama_client: `aborted_call`, the
+    door's watch or Ollama's whole call) — a fact, short, that the friend can act on; "" for any other call, which runs as
+    ever. Nothing of the friend's is edited: the call stays in the history as their step, trimmed to its head."""
+    cut = msg.get("aborted_call") or {}
+    calls = msg.get("tool_calls") or []
+    i = cut.get("index", -1) if isinstance(cut, dict) else -1
+    if not msg.get("aborted") or not isinstance(i, int) or not 0 <= i < len(calls) or calls[i] is not call:
+        return ""
+    name = canonical_name(cut.get("name") or (call.get("function") or {}).get("name", ""))
+    span = " ".join(str(cut.get("span") or msg.get("aborted") or "").split())
+    return (f"(your {name} fell into a loop as it ran — \u201c{span[:80]}\u201d over and over — so the engine cut the "
+            f"sampler short at {int(cut.get('chars') or 0):,} characters and did not run the call; nothing was written. "
+            "Say it once, plainly, and call it again)")
+
+
 def _bare_tool_name(name: str) -> str:
     """Strip syntax wrappers a model glues onto a tool name; keep the name.
     "//declaration:read_web" -> "read_web"; "<|tool_call>call:x" -> "x".
@@ -5055,7 +5095,13 @@ def _dispatch(name: str, arguments: dict | str) -> str:
         try:
             arguments = json.loads(arguments) if arguments.strip() else {}
         except json.JSONDecodeError:
-            return f"(couldn't parse arguments for {name})"
+            arguments = {"_raw": arguments}  # not a finished object: repaired below, or told — as brain._args keeps it
+    if isinstance(arguments, dict) and "_raw" in arguments:
+        fixed, note = repair_raw(arguments)
+        if fixed is None:
+            return (f"(couldn't parse arguments for {name}: the call's text was not a finished JSON object — "
+                    "say it again and call it once more)")
+        return note + "\n" + _dispatch(name, fixed)
     if isinstance(arguments, dict):
         arguments, seam = unseam_arguments(arguments)
         if seam:

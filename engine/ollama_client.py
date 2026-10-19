@@ -221,6 +221,7 @@ def _drink(resp) -> dict:
     n = 0
     aborted = ""
     since = 0
+    looped = None  # (which call, the loop): a call that arrived with a loop in its arguments
     for raw in resp:
         raw = raw.strip()
         if not raw:
@@ -243,6 +244,18 @@ def _drink(resp) -> dict:
             (late if content else thinking).append(msg["thinking"])
         if msg.get("tool_calls"):
             calls.extend(msg["tool_calls"])
+            if getattr(config, "CHAT_STREAM_ABORT", True) and looped is None:
+                # a call comes whole on this road, its arguments parsed already: a loop in one is not seen as it is
+                # written, only once it has arrived — its string arguments are read then (call_loop, as on the
+                # door's road) and the message is marked the same way, so both roads land in the same place
+                for j, c in enumerate(msg["tool_calls"], start=len(calls) - len(msg["tool_calls"])):
+                    a = (c.get("function") or {}).get("arguments")
+                    texts = [x for x in a.values() if isinstance(x, str)] if isinstance(a, dict) else \
+                        [args_as_words(a)] if isinstance(a, str) else []
+                    span = next((s for s in (call_loop(x[-STREAM_WATCH_TAIL:]) for x in texts) if s), "")
+                    if span:
+                        looped = (j, span)
+                        break
         n += 1
         since += 1
         if chunk.get("done"):
@@ -261,13 +274,20 @@ def _drink(resp) -> dict:
         out["split_tail"] = "".join(late)
     if calls:
         out["message"]["tool_calls"] = calls
+    if looped is not None:
+        j, span = looped
+        fn = dict(calls[j].get("function") or {})
+        kept, chars, loop = runaway_call(fn.get("arguments") or {}, span)
+        calls[j] = dict(calls[j], function=dict(fn, arguments=kept))
+        out["aborted"] = span  # the generation had ended already: its counters stand, nothing is counted by hand
+        out["aborted_call"] = {"index": j, "name": fn.get("name", ""), "span": loop, "kept": kept, "chars": chars}
     if aborted:
         out["done_reason"] = "aborted"
         out["aborted"] = aborted
     if aborted or not out.get("eval_count"):
         # no final counters (an abort, or a server that sent none): count by hand
         global _LAST_PROMPT
-        if n and (content or thinking):
+        if n and (content or thinking or calls):
             out["eval_count"] = n
             out["eval_duration"] = out.get("eval_duration") or int((_time.monotonic() - t0) * 1e9)
             out["total_duration"] = out.get("total_duration") or out["eval_duration"]
@@ -825,6 +845,81 @@ def trim_word_loop(text: str) -> tuple[str, bool]:
     before it rides again (09-24: the 7K-token loop went into the history
     whole, and a well fed back is the next well)."""
     return cut_runaway(text or "", word_loop(text or ""))
+
+
+# A runaway inside a tool call: the arguments are JSON text as they stream — a newline is two characters there,
+# a quote is escaped — so the watch reads them as words first (args_as_words) and checks them for a loop
+# (call_loop); a call caught in one is kept with its head closed and trimmed (runaway_call), never its loop, and
+# is not run (tools.runaway_refusal).
+RUNAWAY_TAIL = " (…the rest was the same line over and over, cut short by the engine)"
+
+
+def args_as_words(s: str) -> str:
+    """A tool call's arguments as they stream (JSON text), read cheaply as words: escaped newlines and quotes undone."""
+    return (s or "").replace("\\n", "\n").replace('\\"', '"')
+
+
+def call_loop(text: str) -> str:
+    """The loop half of garble_span (word_loop, phrase_loop) for a tool call's string arguments: code, paths and
+    addresses are full of one- and two-letter pieces the fragment rule would take for salad; a chant is a chant
+    anywhere. The loop's stretch, or ""."""
+    return word_loop(text) or phrase_loop(text)
+
+
+def close_json(s: str) -> dict | None:
+    """An object whose last string never closed — {"text": "a line that never — closed where the words ended and
+    parsed: {"text": "a line that never"}. A dangling backslash (an escape cut in two) comes off first, a cut
+    unicode escape too. None when it is not that shape: a finished object, one broken some other way, not an
+    object at all."""
+    s = (s or "").rstrip()
+    if not s.startswith("{"):
+        return None
+    s = re.sub(r"\\u[0-9a-fA-F]{0,3}$", "", s)
+    if (len(s) - len(s.rstrip("\\"))) % 2:
+        s = s[:-1]
+    try:
+        obj = json.loads(s + '"}', strict=False)
+    except ValueError:
+        return None
+    if not isinstance(obj, dict) or not obj or not all(isinstance(k, str) for k in obj):
+        return None
+    return obj
+
+
+def runaway_call(args, span: str) -> tuple[dict, int, str]:
+    """A tool call that ran into a loop, as the visit keeps it: its arguments closed (close_json) and the string
+    being written cut where the loop began — at most RUNAWAY_KEEP_CHARS of its head, then RUNAWAY_TAIL — so the
+    window carries a few hundred tokens of it, not the loop. `args` as they came: JSON text on the door's road, a
+    dict already on Ollama's. (the arguments as kept, the characters the call ran to, the loop as it began in the
+    whole string — the watch saw only a tail of it)"""
+    keep = max(0, int(getattr(config, "RUNAWAY_KEEP_CHARS", 600) or 0))
+    span = str(span or "")
+    if isinstance(args, dict):
+        whole: dict | None = dict(args)
+        chars = sum(len(x) for x in args.values() if isinstance(x, str))
+    else:
+        raw = str(args or "")
+        chars = len(args_as_words(raw))
+        whole = close_json(raw)
+        if whole is None:
+            try:
+                whole = json.loads(raw)
+            except ValueError:
+                whole = None
+            whole = whole if isinstance(whole, dict) else None
+        if whole is None:  # not an object even closed: the words up to the loop, as words
+            words = args_as_words(raw)
+            at = words.find(span[:40]) if span else -1
+            return {"_raw": ((words[:at] if at >= 0 else words)[:keep].rstrip() + RUNAWAY_TAIL).lstrip()}, chars, span
+    strings = [k for k, x in whole.items() if isinstance(x, str)]
+    if not strings:
+        return whole, chars, span
+    key = next((k for k in strings if span and span[:40] in whole[k]), strings[-1])
+    text = whole[key]
+    first = call_loop(text) or span  # where the loop began in the whole string, not where the watch first saw it
+    at = text.find(first[:40]) if first else -1
+    whole[key] = ((text[:at] if at >= 0 else text)[:keep].rstrip() + RUNAWAY_TAIL).lstrip()
+    return whole, chars, first
 
 
 def word_loop(text: str, window: int | None = None, distinct: int | None = None) -> str:
@@ -1443,6 +1538,15 @@ _TOOL_FAILED = ("(unknown tool", "(tool error", "(bad arguments", "(refused", "(
                 "(your tool")  # a forged limb that broke, timed out, went missing or failed oddly (09-22)
 
 
+_RUNAWAY_REFUSED_RE = re.compile(r"\(your [\w.:-]+ fell into a loop as it ran")
+
+
+def tool_failed(result) -> bool:
+    """A tool's result that says it did not go through: one of _TOOL_FAILED, or a call the engine cut short in a
+    loop and did not run (tools.runaway_refusal)."""
+    return isinstance(result, str) and (result.startswith(_TOOL_FAILED) or bool(_RUNAWAY_REFUSED_RE.match(result)))
+
+
 def claimed_act(msg: dict, messages: list[dict]):
     """("claimed", what) when his message asked for something done to them
     files or memory, this is the first step of the turn, no tool was called,
@@ -1457,7 +1561,7 @@ def claimed_act(msg: dict, messages: list[dict]):
     if last.get("role") == "tool":
         got = last.get("content") or ""
         body = got[got.find("]\n") + 2:] if got.startswith("[") and "]\n" in got else got
-        if (body.lstrip().startswith(_TOOL_FAILED) and _DONE_RE.search(text)
+        if (tool_failed(body.lstrip()) and _DONE_RE.search(text)
                 and not _NOT_DONE_RE.search(text[:400])):
             name = re.search(r"YOUR (\w+) tool returned|your (\w+) call did NOT go through", got)
             head = " ".join(body.split())[:90]
@@ -2509,6 +2613,8 @@ def _parse(data: dict) -> dict:
                      "total_s": (data.get("total_duration") or 0) / 1e9}
     if data.get("aborted"):
         msg["aborted"] = data["aborted"]  # the stream was cut short at this: a runaway
+    if data.get("aborted_call"):
+        msg["aborted_call"] = dict(data["aborted_call"])  # …inside a tool call: which, its name, its loop, what was kept, how far it ran
     if data.get("split_tail"):
         msg["split_tail"] = defang(scrub_litter(data["split_tail"]).strip())[0]  # the rest of the reply, misfiled as thought
     if data.get("restored"):

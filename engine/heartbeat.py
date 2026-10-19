@@ -271,7 +271,7 @@ def _note_act(state: dict, name: str, args, result: str) -> None:
     the file (10-08, 19:28: a wake ran run_python, a figure was drawn, looked at,
     and the wake rested with nothing journaled; the drawing was not counted, so
     nothing asked)."""
-    if not isinstance(result, str) or result.startswith(ollama_client._TOOL_FAILED):
+    if not isinstance(result, str) or ollama_client.tool_failed(result):
         return
     if name == "write_journal":
         state["journaled"] = True
@@ -647,7 +647,7 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
         for call in calls:
             fn = call.get("function", {})
             name = fn.get("name", "")
-            result = tools.dispatch(name, fn.get("arguments", {}))
+            result = tools.runaway_refusal(msg, call) or tools.dispatch(name, fn.get("arguments", {}))  # a call cut short in a loop is told, not run
             # what the call DID is decided by the tool it ran as — a wrapped
             # or misspelled do_nothing still ends the wake — and their history
             # keeps the clean name, so one slip doesn't teach the next step
@@ -670,7 +670,7 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                 carried_plan = plan  # the step after this result is the one a thin rest is handed back from
             # a failed call is said first, as in chat (09-16): what came
             # back, that nothing changed, and the two honest ways on
-            if result.startswith(ollama_client._TOOL_FAILED):
+            if ollama_client.tool_failed(result):
                 frame = (f"[your {name} call did NOT go through — it returned: \u201c{tools.headline(result, 200)}\u201d. "
                          "Nothing changed. Read what it says it needs and call it again now, the right way, "
                          "or let it go and say so in your thinking — do not write that it is done.]")

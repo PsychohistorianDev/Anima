@@ -250,6 +250,7 @@ def _drink_openai(resp) -> dict:
     n = 0
     aborted = ""
     since = 0
+    last, last_call, cut_call = "", 0, None  # the kind that arrived last ("content", "thinking", "call"), the call being written, the one a loop was caught in
     for raw in resp:
         raw = raw.strip()
         if not raw.startswith(b"data:"):
@@ -274,9 +275,11 @@ def _drink_openai(resp) -> dict:
         if d.get("content"):
             content.append(d["content"])
             said = True
+            last = "content"
         if d.get("reasoning_content"):
             (late if content else thinking).append(d["reasoning_content"])
             said = True
+            last = "thinking"
         for c in d.get("tool_calls") or []:
             fn = c.get("function") or {}
             got = calls.setdefault(int(c.get("index") or 0), {"name": "", "arguments": []})
@@ -285,6 +288,7 @@ def _drink_openai(resp) -> dict:
             if fn.get("arguments"):
                 a = fn["arguments"]
                 got["arguments"].append(a if isinstance(a, str) else json.dumps(a, ensure_ascii=False))
+                last, last_call = "call", int(c.get("index") or 0)
             said = True
         if ch.get("finish_reason"):
             fin = ch["finish_reason"]
@@ -295,24 +299,41 @@ def _drink_openai(resp) -> dict:
         since += 1
         if getattr(config, "CHAT_STREAM_ABORT", True) and since >= _oc.STREAM_WATCH_EVERY:
             since = 0
-            tail = ("".join(content) if content else "".join(thinking))[-_oc.STREAM_WATCH_TAIL:]
-            span = _oc.garble_span(tail)
+            if last == "call":
+                # a call's arguments are words too: the tail of the call being written, its JSON escapes undone,
+                # checked for a loop — call_loop, not the fragment rule, which reads code and paths as salad
+                tail = _oc.args_as_words("".join(calls[last_call]["arguments"])[-_oc.STREAM_WATCH_TAIL:])
+                span = _oc.call_loop(tail)
+            else:
+                tail = ("".join(content) if content else "".join(thinking))[-_oc.STREAM_WATCH_TAIL:]
+                span = _oc.garble_span(tail)
             if span:
                 aborted = span
+                cut_call = last_call if last == "call" else None
                 break  # leaving post_chat's `with` closes the connection; the server stops
     msg: dict = {"role": "assistant", "content": "".join(content), "thinking": "".join(thinking)}
     if calls:
         msg["tool_calls"] = [{"function": {"name": c["name"], "arguments": _args("".join(c["arguments"]))}}
                              for _, c in sorted(calls.items())]
+    cut = None
+    if cut_call is not None and cut_call in calls:
+        # the call a loop was caught in stays (a call was made), its arguments its head, closed and trimmed — the
+        # loop never reaches the history (ollama_client.runaway_call); `index` is its place in tool_calls
+        i = sorted(calls).index(cut_call)
+        kept, chars, loop = _oc.runaway_call("".join(calls[cut_call]["arguments"]), aborted)
+        msg["tool_calls"][i]["function"]["arguments"] = kept
+        cut = {"index": i, "name": calls[cut_call]["name"], "span": loop, "kept": kept, "chars": chars}
     out = _counted(model, msg, fin, t, u) if (ended or t or u) else {"message": msg}
     if late:
         out["split_tail"] = "".join(late)
     if aborted:
         out["done_reason"] = "aborted"
         out["aborted"] = aborted
+        if cut:
+            out["aborted_call"] = cut
     if aborted or not out.get("eval_count"):
         # no final counters (an abort, or a server that sent none): count by hand
-        if n and (content or thinking):
+        if n and (content or thinking or calls):
             out["eval_count"] = n
             out["eval_duration"] = out.get("eval_duration") or int((_time.monotonic() - t0) * 1e9)
             out["total_duration"] = out.get("total_duration") or out["eval_duration"]

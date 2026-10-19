@@ -10669,6 +10669,174 @@ check("brain door, streamed: with CHAT_STREAM_ABORT = False the same runaway run
       and "counted_by_hand" not in _bd_st_full and _bd_st_full["message"]["content"].count("la ") == 1200,
       ({k: v for k, v in _bd_st_full.items() if k != "message"}, _bd_full_sent))
 
+# a runaway inside a tool call: the door's watch reads the call's arguments too — a write_journal whose text falls
+# into "luminate luminate…" is cut within a few dozen chunks, kept with its head closed and trimmed, not run (told,
+# short), nothing written; a long code call is not salad to it; Ollama's road marks a whole call the same way; the
+# salad rail leaves an aborted call to the step loop; a string that never closed is closed and run
+import chat as _rc_chat, panel as _rc_panel
+_rc_cfg = {k: getattr(config, k, None) for k in ("BRAIN_API", "BRAIN_URL", "CHAT_THINK", "CHAT_THINK_RETRIES", "CHAT_STREAM_ABORT",
+                                                 "CHAT_GARBLE_RETRIES", "CHAT_RESCUE_TEMPERATURE", "CHAT_COLD_RESCUE", "RUNAWAY_KEEP_CHARS")}
+_rc_day = config.JOURNAL_DIR / (_dtnow.now().strftime("%Y-%m-%d") + ".md")
+_rc_day0 = _rc_day.read_bytes() if _rc_day.exists() else None
+_rc_chat0, _rc_post0, _rc_ms0 = ollama_client.chat, ollama_client._post, memory.search
+_rc_loop = [_w + " " for _w in "luminate luminate luminate la-Symmetry luminate la-Luminous".split()]
+_rc_headline = "Today the light came in sideways and I kept it."
+_rc_tail = " (…the rest was the same line over and over, cut short by the engine)"
+_rc_closed = "(the call's string never closed — the engine closed it where the words ended and ran this call as you meant it)"
+_rc_prose = " ".join(f"Sentence {_i} of the afternoon: the {_c} went past the window and I wrote down what it carried." for _i, _c in
+                     enumerate(["postman", "baker", "cyclist", "neighbour", "schoolgirl", "plumber", "dog walker", "florist",
+                                "courier", "old teacher", "painter", "runner", "busker", "gardener", "pharmacist"]))[:1500]
+
+
+def _rc_sse(pieces, head="", name="write_journal", key="text"):
+    def c(delta, fin=None, **extra):
+        return dict({"model": "gemma4:31b-it-qat", "choices": [{"index": 0, "delta": delta, "finish_reason": fin}]}, **extra)
+    return ([c({"role": "assistant", "content": None}), c({"reasoning_content": "the day, into the journal."}),
+             c({"tool_calls": [{"index": 0, "id": "j1", "type": "function", "function": {"name": name, "arguments": ""}}]}),
+             c({"tool_calls": [{"index": 0, "function": {"arguments": '{"' + key + '": "' + head}}]})]
+            + [c({"tool_calls": [{"index": 0, "function": {"arguments": _p}}]}) for _p in pieces]
+            + [c({"tool_calls": [{"index": 0, "function": {"arguments": '"}'}}]}),
+               c({}, "length", timings={"cache_n": 119000, "prompt_n": 1000, "prompt_ms": 900.0, "predicted_n": 1300, "predicted_ms": 40000.0},
+                 usage={"prompt_tokens": 120000, "completion_tokens": 1300}), b"[DONE]"])
+
+
+def _rc_ollama(text):
+    return [{"message": {"role": "assistant", "thinking": "the day."}, "done": False},
+            {"message": {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": text}}}]}, "done": False},
+            {"message": {"role": "assistant", "content": ""}, "done": True, "done_reason": "stop", "eval_count": 420, "prompt_eval_count": 90000}]
+
+
+_rc_raw = _rc_code = _rc_m = _rc_ol = _rc_ol_ok = _rc_olm = {}
+_rc_sent = _rc_code_sent = (0, 0)
+_rc_posts, _rc_ol_posts, _rc_h, _rc_ev = 0, [], [], []
+_rc_reply = _rc_refusal = _rc_r1 = _rc_r2 = _rc_r3 = _rc_r4 = _rc_d1 = _rc_d3 = ""
+_rc_day_turn = b"unset"
+try:
+    config.BRAIN_API, config.BRAIN_URL = "llama", _bd_door
+    config.CHAT_THINK, config.CHAT_THINK_RETRIES = False, 0
+    config.CHAT_STREAM_ABORT, config.CHAT_GARBLE_RETRIES, config.CHAT_RESCUE_TEMPERATURE, config.CHAT_COLD_RESCUE = True, 2, 0, False
+    config.RUNAWAY_KEEP_CHARS = 600
+    # the door's road: write_journal's text falls into the loop after one sentence
+    _FakeLlama.stream_script, _FakeLlama.pace = (lambda: _rc_sse(_rc_loop * 200, head=_rc_headline + "\\n\\n")), 0.001
+    _FakeLlama.streamed.clear()
+    _rc_raw = _bd.post_chat({"model": config.CHAT_MODEL, "messages": [{"role": "user", "content": "write the day down"}], "stream": True})
+    _FakeLlama.streamed.wait(15)
+    _rc_sent = (_FakeLlama.sent, _FakeLlama.total)
+    _rc_p = ollama_client._parse(dict(_rc_raw))
+    # through chat(): one post — the salad rail leaves an aborted call to the step loop
+    _rc_n0 = len(_FakeLlama.posted)
+    _FakeLlama.streamed.clear()
+    _rc_m = _chat_orig([{"role": "user", "content": "write the day down"}], tools=_bd_tools, expect_words=True)
+    _FakeLlama.streamed.wait(15)
+    _rc_posts = len([_p for _p, _d in _FakeLlama.posted[_rc_n0:] if _p == "/v1/chat/completions"])
+    # a long code call (eighty lines, one-letter names) is not salad to the watch: it runs to its end and parses whole
+    _FakeLlama.stream_script = lambda: _rc_sse([f"    v{_i} = np.sin(x * {_i}) + ax.plot(x, y, lw=2, c=c[{_i}])\\n" for _i in range(80)],
+                                               name="run_python", key="code")
+    _FakeLlama.streamed.clear()
+    _rc_code = _bd.post_chat({"model": config.CHAT_MODEL, "messages": [{"role": "user", "content": "draw it"}], "stream": True})
+    _FakeLlama.streamed.wait(15)
+    _rc_code_sent = (_FakeLlama.sent, _FakeLlama.total)
+    _FakeLlama.stream_script, _FakeLlama.pace = None, 0.0
+    # Ollama's road: the call comes whole — a 1,500-character word loop in its text, and a clean call as long
+    config.BRAIN_API = "ollama"
+    _rc_ol = ollama_client._drink(_FakeStream(_rc_ollama("The rain stopped at four.\n\n" + ("luminate luminate luminate la-Symmetry luminate la-Luminous " * 30)[:1500])))
+    _rc_ol_ok = ollama_client._drink(_FakeStream(_rc_ollama(_rc_prose)))
+    ollama_client._post = lambda path, payload, timeout=None: (_rc_ol_posts.append(path), ollama_client._drink(_FakeStream(
+        _rc_ollama("The rain stopped at four.\n\n" + ("luminate luminate luminate la-Symmetry luminate la-Luminous " * 30)[:1500]))))[1]
+    _rc_olm = _chat_orig([{"role": "user", "content": "write it down"}], tools=_bd_tools, expect_words=True)
+    ollama_client._post = _rc_post0
+    _rc_refusal = tools.runaway_refusal(_rc_olm, _rc_olm["tool_calls"][0])
+    # the turn: the door's aborted call as the first step, a plain reply after
+    memory.search = lambda *a, **k: []
+    ollama_client.chat = ScriptedBrain([dict(_rc_m, tokens=dict(_rc_m.get("tokens") or {}, prompt=1400)), {"role": "assistant", "content": "The day ran away from me as I wrote it; here it is "
+                                                "plainly: the light came in sideways and I kept it.", "thinking": "say it once"}])
+    _rc_reply = _rc_chat.one_turn(_rc_h, "write the day down", on_event=lambda k, p: _rc_ev.append((k, p)))
+    ollama_client.chat = _rc_chat0
+    _rc_day_turn = _rc_day.read_bytes() if _rc_day.exists() else None
+    # an unclosed string: closed and run; not an object any other way: told; a seam and an unclosed string: both said
+    _rc_r1 = tools.dispatch("write_journal", '{"text": "a line that never closed')
+    _rc_d1 = _rc_day.read_text(encoding="utf-8") if _rc_day.exists() else ""
+    _rc_r2 = tools.dispatch("write_journal", '{"text": "closed", "x": nope')
+    _rc_r3 = tools.dispatch("write_journal", '{"text": "words <|tool_call>call:remember{')
+    _rc_d3 = _rc_day.read_text(encoding="utf-8") if _rc_day.exists() else ""
+    _rc_r4 = tools.dispatch("write_journal", {"_raw": '{"text": "a"', "text": "b"})
+finally:
+    _FakeLlama.stream_script, _FakeLlama.pace = None, 0.0
+    ollama_client.chat, ollama_client._post, memory.search = _rc_chat0, _rc_post0, _rc_ms0
+    for _k, _v in _rc_cfg.items():
+        setattr(config, _k, _v)
+    if _rc_day0 is None:
+        _rc_day.unlink(missing_ok=True)
+    else:
+        _rc_day.write_bytes(_rc_day0)
+    _rc_chat.mark_visit_over()
+_rc_call = (((_rc_raw.get("message") or {}).get("tool_calls") or [{}])[0].get("function") or {})
+_rc_cut = _rc_raw.get("aborted_call") or {}
+check("runaway call, the door: a write_journal whose text falls into a loop is cut at the watch within a few dozen chunks — aborted "
+      "names the loop, aborted_call the call and how far it ran; the call is kept, its head closed and trimmed (the loop off, the tail "
+      "note on); the tokens counted by hand; the door had sent only a fraction",
+      "luminate" in (_rc_raw.get("aborted") or "") and _rc_raw.get("done_reason") == "aborted"
+      and _rc_cut.get("index") == 0 and _rc_cut.get("name") == "write_journal" and 0 < (_rc_cut.get("chars") or 0) < 2000
+      and _rc_call.get("name") == "write_journal" and _rc_call.get("arguments") == {"text": _rc_headline + _rc_tail}
+      and _rc_cut.get("kept") == {"text": _rc_headline + _rc_tail}
+      and _rc_raw.get("counted_by_hand") is True and 0 < (_rc_raw.get("eval_count") or 0) < 120
+      and 0 < _rc_sent[0] < _rc_sent[1] // 4 and _rc_p.get("aborted") and _rc_p.get("aborted_call") == _rc_cut,
+      ({_k: _v for _k, _v in _rc_raw.items() if _k != "message"}, _rc_call, _rc_sent))
+check("runaway call, the door: through chat() the aborted call comes back after one post — no salad re-roll — carrying aborted, "
+      "aborted_call and the trimmed arguments",
+      _rc_posts == 1 and _rc_m.get("aborted") and (_rc_m.get("aborted_call") or {}).get("name") == "write_journal"
+      and (_rc_m.get("tool_calls") or [{}])[0].get("function", {}).get("arguments") == {"text": _rc_headline + _rc_tail}
+      and not _rc_m.get("regarbled") and not _rc_m.get("retries"),
+      (_rc_posts, {_k: _v for _k, _v in _rc_m.items() if _k != "thinking"}))
+check("runaway call, the door: a long code call (run_python, eighty lines of one-letter names) is not salad to the watch — every "
+      "chunk sent, no abort, the code parsed whole",
+      not _rc_code.get("aborted") and "aborted_call" not in _rc_code and _rc_code_sent[0] == _rc_code_sent[1] > 80
+      and (((_rc_code.get("message") or {}).get("tool_calls") or [{}])[0].get("function") or {}).get("arguments", {}).get("code", "").count("np.sin") == 80,
+      ({_k: _v for _k, _v in _rc_code.items() if _k != "message"}, _rc_code_sent))
+_rc_olc = _rc_ol.get("aborted_call") or {}
+check("runaway call, Ollama's road: a call arriving whole with a 1,500-character word loop in its text is marked the same way — "
+      "aborted, aborted_call, the arguments trimmed to the head — its counters kept (the generation had ended); a clean call as long "
+      "passes untouched; through chat() it comes back after one post, not re-rolled, and the refusal names it",
+      "luminate" in (_rc_ol.get("aborted") or "") and _rc_olc.get("name") == "write_journal" and _rc_olc.get("index") == 0
+      and (_rc_ol.get("message") or {}).get("tool_calls", [{}])[0].get("function", {}).get("arguments") == {"text": "The rain stopped at four." + _rc_tail}
+      and _rc_ol.get("eval_count") == 420 and "counted_by_hand" not in _rc_ol and _rc_olc.get("chars") == 1527
+      and not _rc_ol_ok.get("aborted") and "aborted_call" not in _rc_ol_ok
+      and (_rc_ol_ok.get("message") or {}).get("tool_calls", [{}])[0].get("function", {}).get("arguments") == {"text": _rc_prose}
+      and _rc_ol_posts == ["/api/chat"] and _rc_olm.get("aborted") and not _rc_olm.get("regarbled")
+      and _rc_refusal == ("(your write_journal fell into a loop as it ran — “" + " ".join(str(_rc_olc.get("span")).split())[:80]
+                          + "” over and over — so the engine cut the sampler short at 1,527 characters and did not run the call; "
+                          "nothing was written. Say it once, plainly, and call it again)")
+      and _rc_refusal.startswith("(your write_journal fell into a loop as it ran — “luminate") and ollama_client.tool_failed(_rc_refusal),
+      ({_k: _v for _k, _v in _rc_ol.items() if _k != "message"}, _rc_refusal, _rc_ol_posts))
+_rc_step = next((_t for _t in _rc_h if _t.get("role") == "assistant" and _t.get("tool_calls")), {})
+_rc_tool = next((_t for _t in _rc_h if _t.get("role") == "tool"), {})
+_rc_notes = [_p for _k, _p in _rc_ev if _k == "note"]
+check("runaway call, the turn: the aborted call is not run — its result is the refusal, in the failed-call frame; the step stays in "
+      "the history with its arguments trimmed; the journal is untouched; the turn's notes say what happened; the reply is the next step's",
+      bool(_rc_step) and _rc_step["tool_calls"][0]["function"]["arguments"] == {"text": _rc_headline + _rc_tail}
+      and "did NOT go through" in (_rc_tool.get("content") or "")
+      and "(your write_journal fell into a loop as it ran — “luminate" in (_rc_tool.get("content") or "")
+      and "did not run the call; nothing was written. Say it once, plainly, and call it again)" in (_rc_tool.get("content") or "")
+      and _rc_day_turn == _rc_day0
+      and any(_n.startswith("engine: their write_journal call ran into a loop — “luminate")
+              and _n.endswith("characters; the call did not run, and they were told so") for _n in _rc_notes)
+      and _rc_reply.startswith("The day ran away from me"),
+      (_rc_step.get("tool_calls"), _rc_tool.get("content", "")[:400], _rc_notes, _rc_reply))
+check("runaway call, an unclosed string: closed where the words ended and run, the result led by the note; a call not a finished "
+      "object any other way is told so — no TypeError, no `_raw` keyword; a seam and an unclosed string both said, the words kept to the seam",
+      _rc_r1.startswith(_rc_closed + "\n") and "— a line that never closed\n" in _rc_d1
+      and _rc_r2 == "(couldn't parse arguments for write_journal: the call's text was not a finished JSON object — say it again and call it once more)"
+      and _rc_r3.startswith("(your `text` ran into the call's grammar") and "the `remember` call that followed was swallowed" in _rc_r3
+      and ("\n" + _rc_closed + "\n") in _rc_r3 and "— words\n" in _rc_d3 and "tool_call" not in _rc_d3
+      and _rc_r4.startswith("(couldn't parse arguments for write_journal:")
+      and "keyword" not in _rc_r1 + _rc_r2 + _rc_r3 + _rc_r4 and "bad arguments" not in _rc_r1 + _rc_r2 + _rc_r3 + _rc_r4
+      and (_rc_day.read_bytes() if _rc_day.exists() else None) == _rc_day0,
+      (_rc_r1, _rc_r2, _rc_r3, _rc_r4, _rc_d3[-300:]))
+check("runaway call: RUNAWAY_KEEP_CHARS is 600, on the Talking tab with words; no placeholder in the strings",
+      _rc_cfg["RUNAWAY_KEEP_CHARS"] == 600 and config.RUNAWAY_KEEP_CHARS == 600 and "RUNAWAY_KEEP_CHARS" in _rc_panel.TABS["Talking"]
+      and "loop" in _rc_panel._HELP.get("RUNAWAY_KEEP_CHARS", "") and "{" not in _rc_panel._HELP.get("RUNAWAY_KEEP_CHARS", "")
+      and "{" not in tools.CLOSED_NOTE and ollama_client.RUNAWAY_TAIL == _rc_tail and tools.CLOSED_NOTE == _rc_closed)
+
 # the cold rescue under the door: the reading erased (not Ollama's keep_alive:0); a door that won't erase reads with the cache off
 _bd_cold_posts: list = []
 _bd_cold_answers: list = []

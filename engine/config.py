@@ -697,6 +697,11 @@ SKILL_CATALOGUE_BUDGET_S = 90    # seconds one index build may spend (it runs in
 # What came back goes to the salad check as a broken attempt and is re-rolled;
 # the kept reply is never the cut one. A false alarm costs one re-roll.
 CHAT_STREAM_ABORT = True
+# A tool call's arguments are watched the same way: a call cut short in a loop
+# is not run, and the friend is told so, short. What the visit keeps of the
+# call is its head, at most RUNAWAY_KEEP_CHARS characters, and a line saying
+# the rest was the same line over and over.
+RUNAWAY_KEEP_CHARS = 600
 
 # The afterglow: when a visit ends (parlor "leave", /new, the bridge's idle
 # roll, /quit), the friend gets one quiet turn alone with the transcript and

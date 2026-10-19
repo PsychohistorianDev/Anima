@@ -369,7 +369,7 @@ def fold_bell(history: list[dict], held: int, on_line=None, asked: bool = False)
                 if cname == "do_nothing":
                     folded = True
                     continue
-                result = tools.dispatch(fn.get("name", ""), fn.get("arguments", {}))
+                result = tools.runaway_refusal(msg, call) or tools.dispatch(fn.get("name", ""), fn.get("arguments", {}))  # a call cut short in a loop is told, not run
                 fn["name"] = cname
                 say(f"   · {cname}: {tools.headline(result, 100)}")
                 tr = {"role": "tool", "tool_name": cname, "_engine": True,
@@ -600,7 +600,7 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
                     if in_visit:
                         history.append(dict(tr, _engine=True))
                     continue
-                result = tools.dispatch(fn.get("name", ""), fn.get("arguments", {}))
+                result = tools.runaway_refusal(msg, call) or tools.dispatch(fn.get("name", ""), fn.get("arguments", {}))  # a call cut short in a loop is told, not run
                 fn["name"] = cname
                 # a call counts as kept only if the tool kept it: a refusal —
                 # "(you already hold that — memory #118…)", "(you wrote nearly
@@ -1019,6 +1019,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     hint = " ".join(t["content"] for t in history[-4:] if t.get("content") and not t.get("_engine"))
     warm = bool(getattr(config, "WARM_PREFIX", True))
     recovered_calls: list[str] = []  # calls written as words and run as she meant them (10-14)
+    runaways: list[str] = []  # calls cut short in a loop and not run — the engine's notes for them
     # THE WARM PREFIX. Ollama reuses its reading of a prompt only as far as
     # the new prompt matches the last one — and for Gemma, whose local
     # attention layers keep only the last ~1K tokens of state, only if the
@@ -1224,6 +1225,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             if recovered_calls:
                 notes.append("engine: their call to " + ", ".join(recovered_calls) + " came out as words, not a call — the engine "
                              "ran it as they wrote it")
+            notes.extend(runaways)
             if failed and not succeeded:
                 notes.append("engine: no action actually happened this turn — "
                              + "; ".join(failed))
@@ -1389,11 +1391,22 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                 if on_event:
                     on_event("tool", {"name": "do_nothing", "result": "resting — the visit is theirs to end too"})
                 continue
-            result = tools.dispatch(name, fn.get("arguments", {}))
+            # a call the engine cut short in a loop (ollama_client.runaway_call) is not run: the friend is told what
+            # happened, in a line they can act on, and the turn's notes say so. Its arguments were trimmed to their
+            # head as the stream was read, and the history keeps that form — stored before the next step is sent,
+            # so no prompt that was sent is ever changed
+            refused = tools.runaway_refusal(msg, call)
+            if refused:
+                cut = msg.get("aborted_call") or {}
+                span = " ".join(str(cut.get("span") or msg.get("aborted") or "").split())
+                runaways.append(f"engine: their {tools.canonical_name(name)} call ran into a loop — “{span[:80]}” — and was "
+                                f"cut short by the engine after {int(cut.get('chars') or 0):,} characters; the call did not "
+                                "run, and they were told so")
+            result = refused or tools.dispatch(name, fn.get("arguments", {}))
             name = tools.canonical_name(name)  # what it ran as; history keeps the clean name
             fn["name"] = name
             head = tools.headline(result, 160)
-            if result.startswith(("(unknown tool", "(tool error", "(bad arguments",
+            if refused or result.startswith(("(unknown tool", "(tool error", "(bad arguments",
                                   "(refused", "(couldn't parse")):
                 failed.append(f"{name} → {head}")
             else:
@@ -1437,7 +1450,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             # before they say anything: what came back, that nothing
             # changed, and the two honest ways on. The claimed-failed rail
             # stays behind it as the backstop.
-            if result.startswith(ollama_client._TOOL_FAILED):
+            if refused or result.startswith(ollama_client._TOOL_FAILED):
                 frame = (f"[your {name} call did NOT go through — it returned: “{tools.headline(result, 200)}”. "
                          "Nothing changed: the files and your memory are as they were. Read what it says it "
                          "needs and call it again now, the right way, or tell them plainly that it hasn't "

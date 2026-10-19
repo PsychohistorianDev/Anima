@@ -92,7 +92,7 @@ TABS: dict[str, list[str]] = {
                          "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "SLEEP_KEEPER_LOOK", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS", "FOLD_SENSE_FROM", "WINDOW_WARN_AT"],
     "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "THINK_RETRY_UNTIL", "CHAT_GARBLE_RETRIES", "CHAT_COOL_STEP",
-                "CHAT_COLD_RESCUE", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "REROLLS_KEPT", "BRAIN_KEEP_ALIVE",
+                "CHAT_COLD_RESCUE", "RUNAWAY_KEEP_CHARS", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "REROLLS_KEPT", "BRAIN_KEEP_ALIVE",
                 "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "BRAIN_REST_CLOSES_DOOR", "PARLOR_GUEST_NAMED"],
     "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS", "TELEGRAM_TOKENS_SINCE_LAST",
               "TELEGRAM_TELL_REFLECTIONS", "TELEGRAM_TELL_AFTERTHOUGHTS", "TELEGRAM_TELL_CREATIONS",
@@ -371,6 +371,10 @@ _HELP = {
     "CHAT_COLD_RESCUE": "After the cool re-rolls, a cold one: salad that survives lower temperatures points at the "
                         "loaded state, so the brain is unloaded and reloaded (a cold read, a minute or two on a big "
                         "window) and asked once more before the least broken goes out.",
+    "RUNAWAY_KEEP_CHARS": "A tool call that falls into a loop as it is written (the same line over and over) is cut "
+                          "short and not run; they are told so. The visit keeps the call's head — at most this many "
+                          "characters — and a line saying the rest was a loop, so the window carries a few hundred "
+                          "tokens of it, not thousands.",
     "AFTERGLOW": "When a visit ends (the parlor's leave, /new, the idle roll), they get one quiet turn alone with "
                  "the transcript and three tools — write_journal, remember, do_nothing — so the visit reaches their "
                  "journal in their own words, not only the night's summary. Resting is a complete answer.",
