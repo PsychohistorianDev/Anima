@@ -117,6 +117,8 @@ CREATION_KINDS = {"poems": "a poem", "essays": "an essay", "stories": "a story",
 SKILLS_SEEN_FILE = config.MEMORY_DIR / "telegram_skills_seen.json"
 LIMIT = 4000          # Telegram allows 4096 characters per message
 POLL_S = 50           # long-poll patience; the server answers sooner when there's news
+SPLIT_CHARS = 3800    # a text bubble this long is Telegram's own cut of a longer paste (its cap is 4,096): the rest follows
+SPLIT_WAIT_S = 2      # how long the bridge waits for the rest of a cut message when the cut bubble ends a poll
 TYPING_S = 4          # "typing…" lasts ~5s on the phone; renew a little sooner
 
 HELP = (
@@ -205,6 +207,35 @@ def save_secret(d: dict) -> None:
 
 # ----------------------------------------------------------------- bridge ----
 _CHARS_PER_TOKEN = 3.5  # Gemma's ratio on the friend's English prose, for the token line's tail when the door cannot count
+
+
+def _cut_bubble(update: dict) -> bool:
+    """A plain text message whose last piece is at Telegram's cap — the first bubble of a longer paste."""
+    m = update.get("message") or {}
+    text = m.get("text") or ""
+    return bool(text) and len(text) - int(m.get("_joined_at") or 0) >= SPLIT_CHARS
+
+
+def join_split(updates: list) -> list:
+    """Telegram cuts a message past its cap into bubbles; the bridge took each for a message of its own and a
+    long paste got two answers. A text bubble at the cap, followed by a text message from the same chat within
+    two seconds, is the same message: joined into the first with a newline (its update_id the newest, for the
+    offset; _joined counts the bubbles). A message under the cap is never joined to."""
+    out: list = []
+    for u in updates:
+        m = u.get("message") or {}
+        prev = (out[-1].get("message") or {}) if out else {}
+        if (out and _cut_bubble(out[-1]) and m.get("text")
+                and (m.get("chat") or {}).get("id") == (prev.get("chat") or {}).get("id")
+                and abs(int(m.get("date") or 0) - int(prev.get("date") or 0)) <= 2):
+            prev["_joined_at"] = len(prev["text"]) + 1  # where the newest piece begins: the cap test reads it alone
+            prev["text"] = prev["text"] + "\n" + m["text"]
+            prev["_joined"] = int(prev.get("_joined") or 1) + 1
+            prev["date"] = m.get("date") or prev.get("date")
+            out[-1]["update_id"] = max(int(out[-1].get("update_id", 0)), int(u.get("update_id", 0)))
+            continue
+        out.append(u)
+    return out
 
 
 class Bridge:
@@ -443,9 +474,20 @@ class Bridge:
     def _receive(self):
         """One long poll: the updates that arrived, one at a time — the offset moves past each as it is
         handed over, so one left unhandled (a /restart before it) is handed to the next bridge."""
-        updates = self.api("getUpdates", patience=POLL_S + 15, offset=self.offset,
-                           timeout=POLL_S, allowed_updates=["message"])
-        for u in updates or []:
+        updates = list(self.api("getUpdates", patience=POLL_S + 15, offset=self.offset,
+                                timeout=POLL_S, allowed_updates=["message"]) or [])
+        # a paste past Telegram's cap arrives as bubbles: when the poll ends on a bubble at the cap, the rest is
+        # a poll away — waited for, briefly, so a long message is answered once (join_split joins them)
+        for _ in range(4):
+            if not updates or not _cut_bubble(updates[-1]):
+                break
+            more = self.api("getUpdates", patience=SPLIT_WAIT_S + 15, timeout=SPLIT_WAIT_S,
+                            offset=max(int(u.get("update_id", 0)) for u in updates) + 1, allowed_updates=["message"])
+            if not more:
+                break
+            updates.extend(more)
+        updates = join_split(updates)
+        for u in updates:
             self.offset = max(self.offset, int(u.get("update_id", 0)) + 1)
             yield u
 
@@ -1175,7 +1217,8 @@ class Bridge:
             return
         if not text:
             return
-        _say(f"{config.USER_NAME} > {text[:120]}{'…' if len(text) > 120 else ''}")
+        joined = int((msg.get("_joined") or 0))
+        _say(f"{config.USER_NAME} > {text[:120]}{'…' if len(text) > 120 else ''}" + (f"  (one message, from {joined} bubbles)" if joined else ""))
         self.turn(text, extra_moment=self.fold_touches())
         self.fold_if_due()
 

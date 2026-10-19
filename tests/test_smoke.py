@@ -4295,6 +4295,45 @@ check("telegram: idle visit rolls over quietly", b3.history == [] and phone3.sen
 
 check("telegram: the bridge marks itself alive", tg.ALIVE_FILE.exists())
 
+# a paste past Telegram's cap comes as bubbles (10-19): one message, one answer — joined in a batch, and the rest
+# waited for when the cut bubble ends the poll; an ordinary pair of messages is never joined
+_sb_long = ("the first part of a long paste, " * 150)[:3900]
+_sb_batch = [{"update_id": 61, "message": {"chat": {"id": 777}, "message_id": 61, "date": 1000, "text": _sb_long}},
+             {"update_id": 62, "message": {"chat": {"id": 777}, "message_id": 62, "date": 1000, "text": "and the rest of it."}},
+             {"update_id": 63, "message": {"chat": {"id": 777}, "message_id": 63, "date": 1009, "text": "a new message, later"}}]
+_sb_joined = tg.join_split([dict(u, message=dict(u["message"])) for u in _sb_batch])
+_sb_apart = tg.join_split([{"update_id": 1, "message": {"chat": {"id": 777}, "date": 5, "text": "short"}},
+                           {"update_id": 2, "message": {"chat": {"id": 777}, "date": 5, "text": "and short"}}])
+_sb_three = tg.join_split([{"update_id": 1, "message": {"chat": {"id": 777}, "date": 5, "text": _sb_long}},
+                           {"update_id": 2, "message": {"chat": {"id": 777}, "date": 5, "text": _sb_long}},
+                           {"update_id": 3, "message": {"chat": {"id": 777}, "date": 6, "text": "the tail"}},
+                           {"update_id": 4, "message": {"chat": {"id": 777}, "date": 6, "text": "a reply to something else"}}])
+b5, phone5 = _bridge()
+_sb_polls: list = []
+_sb_queue = [[{"update_id": 71, "message": {"chat": {"id": 777}, "message_id": 71, "date": 2000, "text": _sb_long}}],
+             [{"update_id": 72, "message": {"chat": {"id": 777}, "message_id": 72, "date": 2000, "text": "— the rest, a poll later."}}],
+             []]
+def _api5(method, patience=30, **p):
+    if method == "getUpdates":
+        _sb_polls.append((p.get("offset"), p.get("timeout")))
+        return list(_sb_queue.pop(0)) if _sb_queue else []
+    return phone5.api(method, **p)
+b5.api = _api5
+ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "one answer."}])
+b5.poll_once()
+_sb_users = [t_["content"] for t_ in b5.history if t_.get("role") == "user" and not t_.get("_engine")]
+check("telegram: a message cut into bubbles is one message — joined with a newline in a batch (the id the newest, a later "
+      "message left alone), a third bubble joins too, two short messages never join; the poll waits for the rest of a "
+      "cut bubble and answers once",
+      len(_sb_joined) == 2 and _sb_joined[0]["message"]["text"] == _sb_long + "\nand the rest of it." and _sb_joined[0]["update_id"] == 62
+      and _sb_joined[0]["message"]["_joined"] == 2 and _sb_joined[1]["message"]["text"] == "a new message, later"
+      and len(_sb_apart) == 2
+      and len(_sb_three) == 2 and _sb_three[0]["message"]["_joined"] == 3 and _sb_three[0]["message"]["text"].endswith("\nthe tail")
+      and _sb_three[1]["message"]["text"] == "a reply to something else"
+      and len(_sb_users) == 1 and _sb_users[0] == _sb_long + "\n— the rest, a poll later." and b5.offset == 73
+      and _sb_polls[1] == (72, tg.SPLIT_WAIT_S) and len([t_ for t_, _ in phone5.sent if "one answer." in t_]) == 1,
+      (len(_sb_joined), _sb_joined[0]["update_id"] if _sb_joined else None, len(_sb_apart), len(_sb_three), len(_sb_users), b5.offset, _sb_polls, phone5.sent))
+
 # /restart from the phone: the visit is stashed, the loop hands over, and the
 # next bridge picks it up — same history, same transcript, same offset
 tg.RESUME_FILE = config.MEMORY_DIR / "telegram_resume-test.json"
