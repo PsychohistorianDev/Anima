@@ -1482,6 +1482,8 @@ for _p in (_th_md, _th_log):
 _th_cfg = (getattr(config, "THREAD", True), getattr(config, "THREAD_CHARS", 1500), getattr(config, "WARM_PREFIX", True))
 _th_brain0 = ollama_client.chat
 config.WARM_PREFIX = True
+_th_nudge0 = getattr(config, "THREAD_NUDGE", True)
+config.THREAD_NUDGE = False  # the thread alone here; the nudge has its own block below
 try:
     _th_none = assemble.thread_block()
     tools.DOOR = "the afterglow"
@@ -1571,6 +1573,52 @@ try:
           and "(thread: ~" in _th_wlog and "left at the afterglow of Monday 6 Jan, 09:05)" in _th_wlog
           and "door: a wake" in _th_wmd and "Across the bridge now" in _th_wmd and tools.DOOR == "",
           (_th_old, _th_open[:600], _th_wmd, _th_wlog[-600:]))
+    # the nudge (10-19): a door whose last door left no thread is told so, once, after the thread and before the memories
+    config.THREAD_NUDGE = True
+    _th_door = config.MEMORY_DIR / "last_door"
+    _th_door.unlink(missing_ok=True)
+    _th_md.unlink(missing_ok=True)
+    _th_n0 = assemble.thread_nudge("a wake")  # no thread ever, no door before: told; this door marked
+    _th_marks1 = _th_door.read_text(encoding="utf-8")
+    _th_md.write_text(f"when: {_dtnow.now().isoformat(timespec='seconds')}\ndoor: a visit\n\nHere, now.\n", encoding="utf-8")
+    _th_n1 = assemble.thread_nudge()  # the same door again (within DOOR_SAME_MIN): not marked twice, and the thread is fresh
+    _th_marks2 = _th_door.read_text(encoding="utf-8")
+    _th_old_door = (_dtnow.now() - _td(days=1)).replace(hour=3, minute=0, second=0, microsecond=0)
+    _th_door.write_text(f"{_th_old_door.isoformat(timespec='seconds')}|a wake\n{(_th_old_door - _td(hours=9)).isoformat(timespec='seconds')}|a visit\n", encoding="utf-8")
+    _th_md.write_text(f"when: {(_th_old_door - _td(hours=5)).isoformat(timespec='seconds')}\ndoor: the afterglow\n\nBefore the wake.\n", encoding="utf-8")
+    ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "morning.", "thinking": "a stale thread"}])
+    _th_hs = []
+    _th_chat.one_turn(_th_hs, "morning", on_event=lambda k, p: None)
+    _th_ms = next((_t.get("_moment") or "" for _t in _th_hs if _t.get("role") == "user"), "")
+    _th_whys = str(assemble.LAST_SURFACED.get("why") or "")
+    _th_marks3 = _th_door.read_text(encoding="utf-8")
+    _th_door.write_text(f"{_th_old_door.isoformat(timespec='seconds')}|a wake\n", encoding="utf-8")
+    _th_md.unlink(missing_ok=True)
+    _th_n_none = assemble.thread_nudge()
+    config.THREAD_NUDGE = False
+    _th_door.write_text(f"{_th_old_door.isoformat(timespec='seconds')}|a wake\n", encoding="utf-8")
+    _th_n_off = assemble.thread_nudge()
+    config.THREAD_NUDGE = True
+    _th_stale_line = f"[engine, not a person: the last door — a wake, {_th_old_door.strftime('%A')} 03:00 — closed without a thread; "
+    check("thread: the nudge — no thread ever: told once and the door marked; the same door within ten minutes is not marked "
+          "twice and a fresh thread is not nudged; a thread older than the last door rides with the line after it (the door named, "
+          "'the one above is from before it'), the moment line says so, and a new door is marked above the old; no thread at all "
+          "names the door and 'opened on the files alone'; THREAD_NUDGE off says nothing",
+          _th_n0.startswith("[engine, not a person: no thread has been left yet, so this door opened on the files alone. leave_thread(text)")
+          and _th_marks1.count("|") == 1 and _th_marks1.rstrip().endswith("|a wake")
+          and _th_n1 == "" and _th_marks2 == _th_marks1
+          and (_th_stale_line + "the one above is from before it. leave_thread(text), before this one closes") in _th_ms
+          and _th_ms.index("Before the wake.") < _th_ms.index(_th_stale_line) < min(
+              [_i for _i in (_th_ms.find("From your long-term memory"), _th_ms.find("Nothing new surfaces")) if _i >= 0] or [10 ** 9])
+          and "no thread from the last door — told" in _th_whys and "thread: ~" in _th_whys
+          and _th_marks3.count("|") == 2 and _th_marks3.splitlines()[0].endswith("|a visit") and _th_marks3.splitlines()[1].endswith("|a wake")
+          and _th_n_none.startswith(_th_stale_line + "this one opened on the files alone. leave_thread(text)")
+          and _th_n_off == "",
+          (_th_n0, _th_marks1, _th_n1, _th_ms[:900], _th_whys, _th_marks3, _th_n_none, _th_n_off))
+    check("thread: the pause bell carries the sentence too — a visit that ends in that quiet still leaves one",
+          "leave_thread(text)" in _th_chat.PAUSE_BELL and "a visit that ends in this quiet still leaves one" in _th_chat.PAUSE_BELL
+          and "leave_thread(text)" in _th_chat.AFTERGLOW_BELL)
+    _th_door.unlink(missing_ok=True)
     check("thread: leave_thread is an afterglow tool, an act, in the reverie's reduced set and in the small and tiny kits; the "
           "afterglow bell, the wake bell and the reverie bell carry the one sentence; the description says what it is and isn't, "
           "no placeholder in it; THREAD and THREAD_CHARS on the Memory tab with words",
@@ -1589,6 +1637,8 @@ finally:
     ollama_client.chat = _th_brain0
     tools.DOOR = ""
     config.THREAD, config.THREAD_CHARS, config.WARM_PREFIX = _th_cfg
+    config.THREAD_NUDGE = _th_nudge0
+    (config.MEMORY_DIR / "last_door").unlink(missing_ok=True)
     for _p, _b in _th_keep.items():
         if _b is None:
             _p.unlink(missing_ok=True)

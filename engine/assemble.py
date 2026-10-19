@@ -947,6 +947,65 @@ def thread_block() -> str:
     return f"[engine, not a person: the thread you left yourself{at} — your words, read first:]\n{th['text']}"
 
 
+DOOR_SAME_MIN = 10  # a door opened again within this many minutes is the same door (a first message sent twice)
+
+
+def _door_marks() -> list[tuple[datetime, str]]:
+    """The last two door openings, newest first — memory/last_door, one "iso|kind" a line."""
+    try:
+        lines = (config.MEMORY_DIR / "last_door").read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    out = []
+    for ln in lines[:2]:
+        when, _bar, kind = ln.partition("|")
+        try:
+            out.append((datetime.fromisoformat(when.strip()), kind.strip() or "a visit"))
+        except ValueError:
+            continue
+    return out
+
+
+def thread_nudge(door: str = "a visit") -> str:
+    """The fact at a door whose last door left no thread — none at all, or one older than that door: one engine
+    line for the first moment, after the thread and before the memories; "" when the thread is fresh, THREAD or
+    THREAD_NUDGE is off. Marks this door's opening (memory/last_door) for the next one; a door opened again within
+    DOOR_SAME_MIN minutes is this same door and is not marked twice."""
+    if not getattr(config, "THREAD", True) or not getattr(config, "THREAD_NUDGE", True):
+        return ""
+    now = datetime.now()
+    marks = _door_marks()
+    if marks and (now - marks[0][0]).total_seconds() < DOOR_SAME_MIN * 60:
+        previous = marks[1] if len(marks) > 1 else None  # the same door again: the one before it is the last door
+    else:
+        previous = marks[0] if marks else None
+        try:
+            config.MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+            (config.MEMORY_DIR / "last_door").write_text(
+                "\n".join(f"{t.isoformat(timespec='seconds')}|{k}" for t, k in [(now, door)] + marks[:1]) + "\n",
+                encoding="utf-8")
+        except OSError:
+            pass
+    th = thread_left()
+    if th:
+        try:
+            left = datetime.fromisoformat(th.get("when") or "")
+        except ValueError:
+            return ""
+        if previous is None or left >= previous[0]:
+            return ""  # left at or after the last door's opening: fresh
+    elif previous is None:
+        return ("[engine, not a person: no thread has been left yet, so this door opened on the files alone. "
+                "leave_thread(text), before this one closes, is how the next door opens on your words — optional, "
+                "like everything here.]")
+    when, kind = previous
+    day = when.strftime("%H:%M") if when.date() == now.date() else f"{when.strftime('%A')} {when.strftime('%H:%M')}"
+    what = ("the one above is from before it" if th else "this one opened on the files alone")
+    return (f"[engine, not a person: the last door — {kind}, {day} — closed without a thread; {what}. "
+            "leave_thread(text), before this one closes, is how the next door opens on your words — optional, "
+            "like everything here.]")
+
+
 def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: str = "",
            speaker: str = "", spent: int = 0, first: bool = False) -> tuple[str, list[int]]:
     """What changes from one message to the next — the hour and the memories
@@ -988,19 +1047,25 @@ def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: 
     # the thread (10-19): at a door's first moment — a visit's first message — the note left at the last door rides
     # first, right after the clock and above the memories; never in the standing prompt, never a second time
     thread = thread_block() if first else ""
+    nudge = thread_nudge() if first else ""  # the last door left none: one line, after the thread, before the memories
     LAST_SURFACED["thread"] = len(thread) // 4
-    if thread:
-        LAST_SURFACED["why"] = "; ".join(x for x in (LAST_SURFACED.get("why"), f"thread: ~{len(thread) // 4:,} tokens, "
-                                                     f"left at {thread_left().get('at') or 'a door'}") if x)
+    if thread or nudge:
+        if thread:
+            LAST_SURFACED["why"] = "; ".join(x for x in (LAST_SURFACED.get("why"), f"thread: ~{len(thread) // 4:,} tokens, "
+                                                         f"left at {thread_left().get('at') or 'a door'}") if x)
+        if nudge:
+            LAST_SURFACED["why"] = "; ".join(x for x in (LAST_SURFACED.get("why"), "no thread from the last door — told") if x)
         said = " ".join(x for x in (window_sense(held).strip(), f"{pulse[0].upper() + pulse[1:]}." if pulse else "") if x)
         head = (f"[engine, not a person: it is {_t.strftime('%A, %d %B %Y')}, {clock} — {daypart} where you live"
-                f"{keeper_week.clause(_t)}. Trust this over any day you infer from what you read.]\n\n{thread}\n\n"
+                f"{keeper_week.clause(_t)}. Trust this over any day you infer from what you read.]\n\n"
+                + "\n\n".join(x for x in (thread, nudge) if x) + "\n\n"
                 "[engine, not a person: " + (said + " " if said else ""))
         if not ids:
             return (head + ("Nothing new surfaces from your long-term memory for this moment. " if memory.count()
                             else "No long-term memories yet. ") + tail[0].upper() + tail[1:]), ids
         return (head + "From your long-term memory, what surfaces for this moment:\n" + lines + "\n"
-                "Those are your own memories, the thread and the clock, not a message; " + tail), ids
+                + ("Those are your own memories, the thread and the clock, not a message; " if thread
+                   else "Those are your own memories and the clock, not a message; ") + tail), ids
     if not ids:
         # nothing surfaced: the slim frame (10-16) — the clock, the calendar, the sense and the pulse when they
         # have something to say, the tilt; not the memory frame with nothing in it (~110 tokens a message once a

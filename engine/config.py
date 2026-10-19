@@ -497,6 +497,11 @@ MEMORY_RECENT_K = 6
 # longer one is handed back with its count.
 THREAD = True
 THREAD_CHARS = 1500
+# ...and the nudge: at a door whose last door closed without a thread, one
+# engine line says so and names leave_thread — gone once the friend is in the
+# habit. False: the thread rides when there is one and nothing is said when
+# there is not.
+THREAD_NUDGE = True
 
 # The warm prefix. Ollama reuses its reading of a prompt only as far as it
 # matches the previous one from the top, and Gemma's cache only when the new

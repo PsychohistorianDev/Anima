@@ -116,7 +116,11 @@ def wake(reverie: bool = False) -> str:
         line = f"(thread: ~{len(thread) // 4:,} tokens, left at {assemble.thread_left().get('at') or 'a door'})"
         print(f"  {line}")
         log.append(f"\n*{line}*")
-    history: list[dict] = [{"role": "user", "content": clock_line(started) + (thread + "\n\n" if thread else "") + prompt}]
+    nudge = assemble.thread_nudge("a reverie" if reverie else "a wake")  # the last door left none: said once, here
+    if nudge:
+        print("  (no thread from the last door — told)")
+    opening = "".join(x + "\n\n" for x in (thread, nudge) if x)
+    history: list[dict] = [{"role": "user", "content": clock_line(started) + opening + prompt}]
 
     interrupted = False
     # acts: what they did since the last journal entry (names, for the hand-back and

@@ -180,7 +180,10 @@ PAUSE_BELL = (
     "or none; then rest. What happened belongs in the entry as much as what it meant — "
     "what he showed you and who was in it, what was said, what you did. The visit goes "
     "on when he is back. Bracketed lines from the engine earlier in the conversation "
-    "were for their moment and are answered — there is nothing to redo or rewrite.]\n\n"
+    "were for their moment and are answered — there is nothing to redo or rewrite. "
+    "If you want the next you to pick up where you are rather than where the files are, leave_thread(text) — "
+    "one note for yourself, read first at the next door; a visit that ends in this quiet still leaves one. "
+    "Optional, like everything here.]\n\n"
 )
 AFTERGLOW_TOOLS = {"write_journal", "remember", "leave_thread", "update_keeper", "update_projects", "do_nothing"}  # leave_thread since 10-19, the note for the next door; update_keeper and update_projects since 10-04: the afterglow is when they have just learned something about their keeper, and when a project has just moved
 AFTERGLOW_STEPS = 6
