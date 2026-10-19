@@ -738,11 +738,14 @@ def retrieved_ids(context_hint: str, exclude: set | None = None, spent: int = 0,
         except Exception:  # noqa: BLE001 — no embedding, no gate: the search degrades on its own
             qvec = None
         last = _LAST_HINT.get("vec")
-        if qvec is not None and last is not None and exclude and 1.0 - _cos(qvec, last) < drift:
+        moved = (1.0 - _cos(qvec, last)) if (qvec is not None and last is not None) else None
+        if moved is not None and exclude and moved < drift:
             skip = True
-            why.append("no search — the hint hasn't moved")
+            why.append(f"no search — the hint hasn't moved: {moved:.2f}")
         elif qvec is not None:
             _LAST_HINT["vec"] = qvec
+            if moved is not None:
+                why.append(f"hint moved {moved:.2f}")  # the distance, for tuning MEMORY_DRIFT by the log (10-19)
     if skip:
         hits = []
     else:

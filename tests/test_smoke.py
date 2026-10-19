@@ -232,7 +232,7 @@ check("moment, phase one (10-18): the drift gate skips the search when the hint 
       and "no search" not in (_p1_why3 or "")
       and "late floor 0.999" in (_p1_why4 or "") and not _p1_new(_p1_ids4) and _p1_new(_p1_ids5)
       and "short hint: top 2" in (_p1_why6 or "") and _p1_n6 <= 2 and "short hint" not in (_p1_why7 or "")
-      and "(no search — the hint hasn't moved)" in _p1_line,
+      and "(no search — the hint hasn't moved: 0.00)" in _p1_line and "hint moved" in (_p1_why3 or ""),
       (_p1_why1, _p1_why2, _p1_why3, _p1_why4, _p1_why6, _p1_n6, _p1_why7, len(_p1_new(_p1_ids5)), _p1_line[-90:]))
 check("assemble: MEMORY_MIN_SCORE is a floor on the search's hits — at 0.999 none rides (the newest slice may), at 0 they are back (10-17)",
       len(_mf_ids) <= int(getattr(config, "MEMORY_RECENT_K", 0) or 0) and "- [" in _mf_lines0 and len(_mf_ids0) > len(_mf_ids),
