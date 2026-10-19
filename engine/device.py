@@ -81,6 +81,40 @@ def empty_cache(device: str, torch=None) -> None:
         pass
 
 
+def peak_gb(device: str, torch=None) -> float | None:
+    """The high-water mark since the last reset_peak — what the card had RESERVED for this process at its fullest,
+    in GB (the number that says whether the card ran out and the driver spilled into system memory). None where
+    there is nothing to say."""
+    try:
+        t = _torch(torch)
+        if device == "cuda":
+            return t.cuda.max_memory_reserved() / 1e9
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
+def reset_peak(device: str, torch=None) -> None:
+    """Start the high-water mark over (after one painting, before the next)."""
+    try:
+        t = _torch(torch)
+        if device == "cuda":
+            t.cuda.reset_peak_memory_stats()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def total_gb(device: str, torch=None) -> float | None:
+    """The card's whole memory, in GB — the line says "peak 29.8 of 34.2 GB" — or None."""
+    try:
+        t = _torch(torch)
+        if device == "cuda":
+            return t.cuda.get_device_properties(0).total_memory / 1e9
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
 def allocated_gb(device: str, torch=None) -> float | None:
     """What the model holds on the device, in GB, for the ready line — None where there is nothing to
     say (the processor, or a torch that can't tell)."""

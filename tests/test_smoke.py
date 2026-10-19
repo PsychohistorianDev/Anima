@@ -9860,7 +9860,7 @@ check("painter and music ear on a Mac: auto picks mps — the painter in float16
       _x_loaded[0] == ("from_pretrained", {"torch_dtype": "float16"}) and _x_loaded[1] == ("to", "mps")
       and _x_img == "a picture" and _x_seed == 7 and ("generator", "cpu") in _x_calls
       and ("from_pretrained", {"device_map": {"": "mps"}, "dtype": "float16", "attn_implementation": "sdpa"}) in _x_loaded
-      and _x_calls.count("mps.empty_cache") == 2 and "cuda.empty_cache" not in _x_calls
+      and _x_calls.count("mps.empty_cache") == 3 and "cuda.empty_cache" not in _x_calls  # after the painting too, since 10-19
       and _xpa._device == "mps" and _xme._device == "mps" and "on mps, 2.0 GB" in _x_said.getvalue(), (_x_loaded, _x_calls, _x_said.getvalue()))
 sys.modules["torch"] = _x_torch(True, False)
 _x_loaded.clear()
@@ -9869,6 +9869,16 @@ with _xcl.redirect_stdout(_xio.StringIO()):
     _xpa._unload()
 check("painter on a card: as before — bfloat16, to cuda, the card's cache",
       _x_loaded[:2] == [("from_pretrained", {"torch_dtype": "bfloat16"}), ("to", "cuda")] and "cuda.empty_cache" in _x_calls, _x_loaded)
+# the peak (10-19): a card that can say its high-water mark puts it on the painted line; one that can't says nothing
+_xt_peak = _x_torch(True, False)
+_xt_peak.cuda.max_memory_reserved = lambda: 29.8e9
+_xt_peak.cuda.reset_peak_memory_stats = lambda: _x_calls.append("reset_peak")
+_xt_peak.cuda.get_device_properties = lambda i: _xty.SimpleNamespace(total_memory=34.2e9)
+check("device: the peak, the reset and the card's size on a card; nothing to say elsewhere or on a torch without them",
+      _xdev.peak_gb("cuda", _xt_peak) == 29.8 and _xdev.total_gb("cuda", _xt_peak) == 34.2
+      and (_xdev.reset_peak("cuda", _xt_peak), "reset_peak" in _x_calls)[1]
+      and _xdev.peak_gb("mps", _xt_peak) is None and _xdev.peak_gb("cuda", _xt) is None and _xdev.total_gb("cpu", _xt_peak) is None,
+      (_xdev.peak_gb("cuda", _xt_peak), _xdev.total_gb("cuda", _xt_peak)))
 _xme._model, _xme._processor, _xme._device = None, None, "cuda"
 _xoc.unload = _x_unload0
 for _xm_, _xv_ in [*_x_mods0.items(), ("torch", _x_torch0)]:

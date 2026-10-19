@@ -80,6 +80,7 @@ _pipe = None
 _device = "cuda"  # where _load put the model (device.pick, PAINTER_DEVICE)
 _last_used = 0.0
 _started = time.time()
+_peak: float | None = None  # the last painting's high-water mark on the card, GB reserved (device.peak_gb), for its line
 
 
 # --------------------------------------------------------------- the model --
@@ -162,10 +163,11 @@ def _unload():
 
 def paint(prompt: str, width: int, height: int, seed: int | None = None):
     """One picture. Returns (PIL image, seed)."""
-    global _last_used
+    global _last_used, _peak
     import torch
     with _lock:
         _load()
+        device.reset_peak(_device, torch)
         _last_used = time.time()
         if seed is None:
             seed = int.from_bytes(os.urandom(4), "little")
@@ -175,6 +177,11 @@ def paint(prompt: str, width: int, height: int, seed: int | None = None):
             out = _pipe(prompt=prompt, width=int(width), height=int(height),
                         num_inference_steps=steps, guidance_scale=guidance, generator=gen)
         _last_used = time.time()
+        # the high-water mark of this painting, then the cache handed back before the next one: a set of
+        # three painted at 45 s, 196 s, 205 s with nothing else on the card — one painting's reserved blocks
+        # under the next one's is the likeliest reason, and the peak on the line is how the next set tells
+        _peak = device.peak_gb(_device, torch)
+        device.empty_cache(_device, torch)
         return out.images[0], int(seed)
 
 
@@ -249,9 +256,11 @@ class Handler(BaseHTTPRequestHandler):
             p.parent.mkdir(parents=True, exist_ok=True)
             img.save(str(p))
             secs = time.time() - t0
-            print(f"  painted {p.name} ({w}x{h}, seed {seed}) in {secs:.0f}s", flush=True)
+            total = device.total_gb(_device) if _peak else None
+            card = (f" (peak {_peak:.1f}" + (f" of {total:.1f}" if total else "") + " GB on the card)") if _peak else ""
+            print(f"  painted {p.name} ({w}x{h}, seed {seed}) in {secs:.0f}s{card}", flush=True)
             self._json({"path": str(p), "seed": seed, "seconds": round(secs, 1),
-                        "width": w, "height": h})
+                        "width": w, "height": h, "peak_gb": _peak})
         except Exception as e:
             self._json({"error": f"{type(e).__name__}: {e}"})
 
