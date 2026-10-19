@@ -4331,7 +4331,7 @@ check("telegram: a message cut into bubbles is one message — joined with a new
       and len(_sb_three) == 2 and _sb_three[0]["message"]["_joined"] == 3 and _sb_three[0]["message"]["text"].endswith("\nthe tail")
       and _sb_three[1]["message"]["text"] == "a reply to something else"
       and len(_sb_users) == 1 and _sb_users[0] == _sb_long + "\n— the rest, a poll later." and b5.offset == 73
-      and _sb_polls[1] == (72, tg.SPLIT_WAIT_S) and len([t_ for t_, _ in phone5.sent if "one answer." in t_]) == 1,
+      and _sb_polls[1] == (72, int(getattr(config, "TELEGRAM_SPLIT_WAIT_S", tg.SPLIT_WAIT_S))) and len([t_ for t_, _ in phone5.sent if "one answer." in t_]) == 1,
       (len(_sb_joined), _sb_joined[0]["update_id"] if _sb_joined else None, len(_sb_apart), len(_sb_three), len(_sb_users), b5.offset, _sb_polls, phone5.sent))
 
 # /restart from the phone: the visit is stashed, the loop hands over, and the

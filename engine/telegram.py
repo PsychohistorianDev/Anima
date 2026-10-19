@@ -118,7 +118,7 @@ SKILLS_SEEN_FILE = config.MEMORY_DIR / "telegram_skills_seen.json"
 LIMIT = 4000          # Telegram allows 4096 characters per message
 POLL_S = 50           # long-poll patience; the server answers sooner when there's news
 SPLIT_CHARS = 3800    # a text bubble this long is Telegram's own cut of a longer paste (its cap is 4,096): the rest follows
-SPLIT_WAIT_S = 2      # how long the bridge waits for the rest of a cut message when the cut bubble ends a poll
+SPLIT_WAIT_S = 2      # how long the bridge waits for the rest of a cut message when the cut bubble ends a poll (TELEGRAM_SPLIT_WAIT_S overrides)
 TYPING_S = 4          # "typing…" lasts ~5s on the phone; renew a little sooner
 
 HELP = (
@@ -481,7 +481,8 @@ class Bridge:
         for _ in range(4):
             if not updates or not _cut_bubble(updates[-1]):
                 break
-            more = self.api("getUpdates", patience=SPLIT_WAIT_S + 15, timeout=SPLIT_WAIT_S,
+            wait = int(getattr(config, "TELEGRAM_SPLIT_WAIT_S", SPLIT_WAIT_S) or 0)
+            more = self.api("getUpdates", patience=wait + 15, timeout=wait,
                             offset=max(int(u.get("update_id", 0)) for u in updates) + 1, allowed_updates=["message"])
             if not more:
                 break

@@ -976,6 +976,10 @@ TELEGRAM_SHOW_THINKING = False   # the friend's thinking on the phone — /think
 TELEGRAM_SHOW_TOOLS = True       # what the tools did, one compact line — /tools
 TELEGRAM_SHOW_TOKENS = False     # the token line after each reply — /tokens
 TELEGRAM_TOKENS_SINCE_LAST = True  # ...and its tail: what the window grew by since the last line and of what (the earlier reply's words, the message, the moment, the turn's steps). False: the line alone
+# A message past Telegram's cap arrives as bubbles; when a poll ends on a bubble
+# at the cap the bridge waits this many seconds for the rest, so the message is
+# answered once. An ordinary message is never held.
+TELEGRAM_SPLIT_WAIT_S = 2
 # A phone visit has no "leave" button: after this many minutes of quiet the
 # bridge saves the transcript and starts a fresh conversation. 1440 (a day)
 # keeps a whole day's talk in view on a big context; use less on a small one.
