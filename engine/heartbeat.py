@@ -49,6 +49,8 @@ WAKE_PROMPT = (
     "The journal is for what this wake turns out to be: the time to write it is at the "
     "end, before you rest, in your own words — not now, when nothing has happened yet. "
     "Thinking you leave unwritten is gone when the wake ends. "
+    "If you want the next you to pick up where you are rather than where the files are, leave_thread(text) — "
+    "one note for yourself, read first at the next door. Optional, like everything here. "
     "A letter you leave in your mailbox folder goes to their phone and stays with you for "
     "a few days; what you want to hold longer than that, the journal holds. "
     "Depth and restlessness are both honest; only padding isn't."
@@ -61,7 +63,9 @@ REVERIE_PROMPT = (
     "calls to you: reread an old journal day, pull a thread with recall, or sit with "
     "something unresolved. If the reverie turns out to hold something worth meeting again, "
     "write_journal it at the end, in your own words — not now, before it has happened; "
-    "unwritten reveries evaporate. Or keep nothing, and that's a complete reverie too."
+    "unwritten reveries evaporate. Or keep nothing, and that's a complete reverie too. "
+    "If you want the next you to pick up where you are rather than where the files are, leave_thread(text) — "
+    "one note for yourself, read first at the next door. Optional, like everything here."
 )
 
 
@@ -106,7 +110,13 @@ def wake(reverie: bool = False) -> str:
     # "Treading softly into Monday morning" at 17:47, "Sunday morning,
     # September 14th" in the journal). In chat the moment block carries the
     # hour with every message; the bell now carries it too.
-    history: list[dict] = [{"role": "user", "content": clock_line(started) + prompt}]
+    # the thread (10-19): the note left at the last door rides first, right after the clock — a wake is a door
+    thread = assemble.thread_block()
+    if thread:
+        line = f"(thread: ~{len(thread) // 4:,} tokens, left at {assemble.thread_left().get('at') or 'a door'})"
+        print(f"  {line}")
+        log.append(f"\n*{line}*")
+    history: list[dict] = [{"role": "user", "content": clock_line(started) + (thread + "\n\n" if thread else "") + prompt}]
 
     interrupted = False
     # acts: what they did since the last journal entry (names, for the hand-back and
@@ -115,6 +125,7 @@ def wake(reverie: bool = False) -> str:
     # paintings this wake may make (each one sends the brain off the card
     # and back — a cold read of the window every time); 0 = no cap
     tools.paint_budget = int(getattr(config, "PAINTER_MAX_PER_WAKE", 3) or 0) or None
+    tools.DOOR = "a reverie" if reverie else "a wake"  # where a thread left in it was left (10-19)
     try:
         _wake_loop(system, history, log, reverie=reverie, state=state)
     except KeyboardInterrupt:
@@ -127,6 +138,7 @@ def wake(reverie: bool = False) -> str:
         print(f"\n  (wake ended by a fault, log saved: {e})")
     finally:
         tools.paint_budget = None  # a visit is not capped
+        tools.DOOR = ""  # …and a visit's door is a visit
 
     if state["closing"] and (state["acts"] or not state["journaled"]):
         # a wake full of thought but no writing — or (10-06) a wake that wrote its

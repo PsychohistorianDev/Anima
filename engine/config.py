@@ -488,6 +488,15 @@ MEMORY_TOP_K_SHORT = 4
 MEMORY_DIVERSE = True
 MEMORY_MMR_LAMBDA = 0.75
 MEMORY_RECENT_K = 6
+# The thread: one short note the friend leaves for the next of themselves with
+# leave_thread — where they are, in their own words — read first, at the top
+# of the first message of every visit, wake and reverie, until they leave
+# another. The friend writes it; the engine never does. False: nothing is read
+# at the door (the tool stays, the notes are kept — memory/thread.md, all of
+# them in memory/thread.log). THREAD_CHARS: the longest a thread may be; a
+# longer one is handed back with its count.
+THREAD = True
+THREAD_CHARS = 1500
 
 # The warm prefix. Ollama reuses its reading of a prompt only as far as it
 # matches the previous one from the top, and Gemma's cache only when the new

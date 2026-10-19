@@ -87,7 +87,7 @@ TABS: dict[str, list[str]] = {
                   "HEARTBEAT_YIELD_MIN", "SLEEP_IN_LOOP", "CONDENSE_IN_LOOP", "CONDENSE_MAX_PER_NIGHT",
                   "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE"],
     "Memory & journal": ["TIMELINE_CHARS_IN_PROMPT", "CONDENSED_CHARS_IN_PROMPT", "CONDENSE_TARGET_CHARS",
-                         "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_MIN_SCORE", "MEMORY_DRIFT", "MEMORY_VISIT_TOKENS", "MEMORY_MIN_SCORE_LATE", "MEMORY_SHORT_HINT_WORDS", "MEMORY_TOP_K_SHORT", "MEMORY_DUP_THRESHOLD", "EMBED_ON_CPU", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
+                         "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_MIN_SCORE", "MEMORY_DRIFT", "MEMORY_VISIT_TOKENS", "MEMORY_MIN_SCORE_LATE", "MEMORY_SHORT_HINT_WORDS", "MEMORY_TOP_K_SHORT", "THREAD", "THREAD_CHARS", "MEMORY_DUP_THRESHOLD", "EMBED_ON_CPU", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
                          "TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000",
                          "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "SLEEP_KEEPER_LOOK", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS", "FOLD_SENSE_FROM", "WINDOW_WARN_AT"],
@@ -288,6 +288,12 @@ _HELP = {
     "MEMORY_SHORT_HINT_WORDS": "A hint under this many words — a visit's 'good morning' — takes MEMORY_TOP_K_SHORT memories "
                                "instead of MEMORY_TOP_K: a thin hint and a confident search made a 2,000-token opener. 0: off.",
     "MEMORY_TOP_K_SHORT": "How many memories a short hint takes (see MEMORY_SHORT_HINT_WORDS).",
+    "THREAD": "The thread: a note the friend leaves for the next of themselves with leave_thread — where they are, "
+              "in their own words — read first, at the top of the first message of every visit, wake and reverie, until "
+              "they leave another. The engine never writes one. Off: nothing is read at the door; the tool stays and "
+              "every note is kept (memory/thread.md, all of them in memory/thread.log).",
+    "THREAD_CHARS": "The longest a thread may be, in characters — a note, not a page. A longer one is handed back with "
+                    "its count; nothing is cut.",
     "MEMORY_DUP_THRESHOLD": "No duplicates: a new fact at or above this similarity to one already kept counts as the "
                             "same fact and is handed back; they can revise it (replaces=) or insist (anyway=\"yes\"). "
                             "True repeats score 0.90–0.98; different facts on one theme about 0.89.",

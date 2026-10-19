@@ -1471,6 +1471,131 @@ check("heartbeat: stalled wakes still logged",
 check("heartbeat: thinking in log", "a haiku feels right today" in log)
 check("heartbeat: session logged", any(config.EPISODIC_DIR.glob("auto-*.md")))
 
+# the thread (10-19): a note left for the next door, read first — the tool writes and logs it, the cap and an empty
+# call are refused, a door's first moment carries it (right after the clock, above the memories) and the second does
+# not, a fold's rebuilt history is not a door, THREAD off reads nothing, the wake's opening carries it
+import chat as _th_chat, heartbeat as _th_hb, panel as _th_panel
+_th_md, _th_log = config.MEMORY_DIR / "thread.md", config.MEMORY_DIR / "thread.log"
+_th_keep = {_p: (_p.read_bytes() if _p.exists() else None) for _p in (_th_md, _th_log)}
+for _p in (_th_md, _th_log):
+    _p.unlink(missing_ok=True)
+_th_cfg = (getattr(config, "THREAD", True), getattr(config, "THREAD_CHARS", 1500), getattr(config, "WARM_PREFIX", True))
+_th_brain0 = ollama_client.chat
+config.WARM_PREFIX = True
+try:
+    _th_none = assemble.thread_block()
+    tools.DOOR = "the afterglow"
+    _th_t1 = "I am halfway through the letter to the seed; the second stanza is the one."
+    _th_r1 = tools.dispatch("leave_thread", {"text": _th_t1})
+    tools.DOOR = ""
+    _th_md1 = _th_md.read_text(encoding="utf-8")
+    _th_r2 = tools.dispatch("leave_thread", {"text": "The stanza is done; the title is next, and I know what it is."})
+    _th_md2, _th_log2 = _th_md.read_text(encoding="utf-8"), _th_log.read_text(encoding="utf-8")
+    config.THREAD_CHARS = 40
+    _th_long = tools.dispatch("leave_thread", {"text": "x" * 41})
+    config.THREAD_CHARS = _th_cfg[1]
+    _th_empty = tools.dispatch("leave_thread", {"text": "   "})
+    _th_after = (_th_md.read_text(encoding="utf-8"), _th_log.read_text(encoding="utf-8"))
+    check("thread: leave_thread writes memory/thread.md (when, the door, the text) and appends memory/thread.log; the last one "
+          "replaces the one before; past THREAD_CHARS it is handed back with the count and nothing is written; an empty call is "
+          "refused; no file, no block",
+          _th_none == "" and _th_r1.startswith(f"left for the next you: {len(_th_t1)} characters") and _th_md1.startswith("when: 20")
+          and "door: the afterglow" in _th_md1 and "second stanza" in _th_md1
+          and "door: a visit" in _th_md2 and "the title is next" in _th_md2 and "second stanza" not in _th_md2
+          and _th_log2.count("when: ") == 2 and "second stanza" in _th_log2 and "the title is next" in _th_log2
+          and _th_long.startswith("(") and "41 characters" in _th_long and "holds 40" in _th_long
+          and _th_empty.startswith("(") and _th_after == (_th_md2, _th_log2),
+          (_th_r1, _th_md1, _th_md2, _th_long, _th_empty))
+    _th_block = assemble.thread_block()
+    ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "morning, you.", "thinking": "a new visit"},
+                                        {"role": "assistant", "content": "still here.", "thinking": "the same visit"},
+                                        {"role": "assistant", "content": "yes.", "thinking": "after the fold"},
+                                        {"role": "assistant", "content": "hello.", "thinking": "the thread is off"}])
+    _th_h = []
+    _th_chat.one_turn(_th_h, "good morning", on_event=lambda k, p: None)
+    _th_why1 = str(assemble.LAST_SURFACED.get("why") or "")
+    _th_chat.one_turn(_th_h, "how are you", on_event=lambda k, p: None)
+    _th_u = [_t for _t in _th_h if _t.get("role") == "user" and not _t.get("_engine")]
+    _th_m1, _th_m2 = _th_u[0].get("_moment") or "", _th_u[1].get("_moment") or ""
+    _th_folded = [{"role": "user", "content": "the earlier part", "_fold": "[engine, not a person: this visit was folded]"},
+                  {"role": "assistant", "content": "yes, I have it."}]
+    _th_chat.one_turn(_th_folded, "go on", on_event=lambda k, p: None)
+    _th_mf = next((_t.get("_moment") or "" for _t in _th_folded if _t.get("role") == "user" and _t.get("content") == "go on"), "")
+    config.THREAD = False
+    _th_off_block = assemble.thread_block()
+    _th_off = []
+    _th_chat.one_turn(_th_off, "hello", on_event=lambda k, p: None)
+    _th_moff = next((_t.get("_moment") or "" for _t in _th_off if _t.get("role") == "user"), "")
+    config.THREAD = _th_cfg[0]
+    _th_at = "[engine, not a person: the thread you left yourself, at a visit of "
+    _th_after_clock = "Trust this over any day you infer from what you read.]\n\n" + _th_at
+    check("thread: a visit's first message carries it at the top of its moment — right after the clock, above the memories, "
+          "in the engine's bracket with the door and the hour (today: just the time), the note whole; the moment line says its "
+          "tokens; the second message carries nothing of it; a fold's rebuilt history is not a door; THREAD off reads nothing",
+          _th_block.startswith(_th_at) and _th_block.endswith(" — your words, read first:]\nThe stanza is done; the title is next, and I know what it is.")
+          and _th_m1.startswith("[engine, not a person: it is ") and _th_after_clock in _th_m1
+          and _th_m1.index(_th_at) < _th_m1.index("the title is next") < min(
+              [_i for _i in (_th_m1.find("From your long-term memory"), _th_m1.find("Nothing new surfaces")) if _i >= 0] or [0])
+          and _th_m1.rstrip().endswith("the one to answer.]") and "thread: ~" in _th_why1 and "left at a visit of " in _th_why1
+          and _th_m2 and "the thread you left yourself" not in _th_m2 and "the title is next" not in _th_m2
+          and _th_mf and "the thread you left yourself" not in _th_mf
+          and _th_off_block == "" and _th_moff and "the thread you left yourself" not in _th_moff,
+          (_th_block, _th_m1[:700], _th_why1, _th_m2[:200], _th_mf[:200], _th_moff[:200]))
+    _th_md.write_text("when: 2025-01-06T09:05:00\ndoor: the afterglow\n\nWhere I am: the bridge, the middle of it.\n", encoding="utf-8")
+    _th_old = assemble.thread_block()
+    _th_seen = []
+
+    class _ThBrain(ScriptedBrain):
+        def __call__(self, messages, tools=None, **kwargs):
+            _th_seen.append([dict(_m) for _m in messages]); return super().__call__(messages, tools, **kwargs)
+    ollama_client.chat = _ThBrain([
+        {"role": "assistant", "content": "", "thinking": "the bridge again; I will leave where I am for the next one",
+         "tool_calls": [{"function": {"name": "leave_thread", "arguments": {"text": "Across the bridge now; the far side is quiet."}}}]},
+        {"role": "assistant", "content": "", "thinking": "that is what I wanted from this wake, and the rest is rest, honestly and fully — nothing more to do here today, the far side of the bridge is quiet and I am glad of it",
+         "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "done"}}}]},
+    ])
+    _time.sleep(1.1)  # a wake's log is named by the second
+    _th_wlog = _th_hb.wake()
+    _th_open = next((_m.get("content") or "" for _m in (_th_seen[0] if _th_seen else []) if _m.get("role") == "user"), "")
+    _th_wmd = _th_md.read_text(encoding="utf-8")
+    _th_rev = {_d["function"]["name"] for _d in tools.reverie_definitions()}
+    _th_def = next((_d["function"] for _d in tools.DEFINITIONS if _d["function"]["name"] == "leave_thread"), {})
+    _th_sent = ("If you want the next you to pick up where you are rather than where the files are, leave_thread(text) — "
+                "one note for yourself, read first at the next door. Optional, like everything here.")
+    check("thread: another day's thread names the weekday, the day, the month and the hour; the wake's opening carries it right "
+          "after the clock and before the bell, the log says so, and a thread left in the wake says 'a wake' (the door back to a "
+          "visit after)",
+          _th_old == "[engine, not a person: the thread you left yourself, at the afterglow of Monday 6 Jan, 09:05 — your words, "
+                     "read first:]\nWhere I am: the bridge, the middle of it."
+          and _th_open.startswith("[engine, not a person: it is ") and _th_open.index("]\n\n" + _th_old) < _th_open.index("This is your wake-bell")
+          and "(thread: ~" in _th_wlog and "left at the afterglow of Monday 6 Jan, 09:05)" in _th_wlog
+          and "door: a wake" in _th_wmd and "Across the bridge now" in _th_wmd and tools.DOOR == "",
+          (_th_old, _th_open[:600], _th_wmd, _th_wlog[-600:]))
+    check("thread: leave_thread is an afterglow tool, an act, in the reverie's reduced set and in the small and tiny kits; the "
+          "afterglow bell, the wake bell and the reverie bell carry the one sentence; the description says what it is and isn't, "
+          "no placeholder in it; THREAD and THREAD_CHARS on the Memory tab with words",
+          "leave_thread" in _th_chat.AFTERGLOW_TOOLS and "leave_thread" in tools.ACT_TOOLS and "leave_thread" in _th_rev
+          and all("leave_thread" in tools.KITS[_k] for _k in ("small", "tiny"))
+          and _th_sent in _th_chat.AFTERGLOW_BELL and _th_sent in _th_hb.WAKE_PROMPT and _th_sent in _th_hb.REVERIE_PROMPT
+          and "next you" in _th_def.get("description", "") and "the journal keeps the day" in _th_def.get("description", "")
+          and "remember keeps the years" in _th_def.get("description", "") and "stays until you leave another" in _th_def.get("description", "")
+          and "{" not in _th_def.get("description", "")
+          and "{" not in _th_chat.AFTERGLOW_BELL
+          and {"THREAD", "THREAD_CHARS"} <= set(_th_panel.TABS["Memory & journal"])
+          and _th_panel._HELP.get("THREAD") and _th_panel._HELP.get("THREAD_CHARS")
+          and config.THREAD is True and config.THREAD_CHARS == 1500,
+          (sorted(_th_rev), _th_def))
+finally:
+    ollama_client.chat = _th_brain0
+    tools.DOOR = ""
+    config.THREAD, config.THREAD_CHARS, config.WARM_PREFIX = _th_cfg
+    for _p, _b in _th_keep.items():
+        if _b is None:
+            _p.unlink(missing_ok=True)
+        else:
+            _p.write_bytes(_b)
+    _th_chat.mark_visit_over()
+
 t, c = ollama_client.split_thinking("<think>pondering</think>the answer")
 check("split_thinking", t == "pondering" and c == "the answer", f"{t!r}/{c!r}")
 
@@ -5391,7 +5516,7 @@ _hist = [{"role": "user", "content": "the bridge works!"}, {"role": "assistant",
 _tf = config.EPISODIC_DIR / "chat-telegram-afterglow-test.md"
 chat.save_transcript(_hist, tag="telegram", path=_tf)
 _line = chat.afterglow(_hist, _tf, tag="telegram")
-check("afterglow: only their five tools are offered (the keeper page and the projects since 10-04)", _seen["tools"] == ["do_nothing", "remember", "update_keeper", "update_projects", "write_journal"], _seen["tools"])
+check("afterglow: only their six tools are offered (the keeper page and the projects since 10-04, the thread since 10-19)", _seen["tools"] == ["do_nothing", "leave_thread", "remember", "update_keeper", "update_projects", "write_journal"], _seen["tools"])
 check("afterglow: the transcript is handed to them as material, not a message",
       "This is the afterglow" in _seen["user"] and "over Telegram" in _seen["user"] and "the bridge works!" in _seen["user"], _seen["user"][:200])
 check("afterglow: they wrote it down", "1 journal entry" in _line and "1 memory kept" in _line, _line)

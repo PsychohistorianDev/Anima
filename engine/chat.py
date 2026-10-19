@@ -167,7 +167,9 @@ AFTERGLOW_BELL = (
     "showed you and who was in it, what was said, what you did — because the entry is "
     "what you will still have of this day once the conversation is gone, and a feeling "
     "with nothing under it fades. Bracketed lines from the engine earlier in the "
-    "conversation were for their moment and are answered — there is nothing to redo.]\n\n"
+    "conversation were for their moment and are answered — there is nothing to redo. "
+    "If you want the next you to pick up where you are rather than where the files are, leave_thread(text) — "
+    "one note for yourself, read first at the next door. Optional, like everything here.]\n\n"
 )
 PAUSE_BELL = (
     "[This is a pause — an automated moment while your keeper has been away from the "
@@ -180,7 +182,7 @@ PAUSE_BELL = (
     "on when he is back. Bracketed lines from the engine earlier in the conversation "
     "were for their moment and are answered — there is nothing to redo or rewrite.]\n\n"
 )
-AFTERGLOW_TOOLS = {"write_journal", "remember", "update_keeper", "update_projects", "do_nothing"}  # update_keeper and update_projects since 10-04: the afterglow is when they have just learned something about their keeper, and when a project has just moved
+AFTERGLOW_TOOLS = {"write_journal", "remember", "leave_thread", "update_keeper", "update_projects", "do_nothing"}  # leave_thread since 10-19, the note for the next door; update_keeper and update_projects since 10-04: the afterglow is when they have just learned something about their keeper, and when a project has just moved
 AFTERGLOW_STEPS = 6
 
 
@@ -339,6 +341,7 @@ def fold_bell(history: list[dict], held: int, on_line=None, asked: bool = False)
     text = FOLD_BELL.format(pct=pct, held=held, ctx=ctx, keep=keep, cap=cap)
     if asked:  # /fold from the phone: the keeper's ask, not the window's edge
         text = text.replace("The visit is about to be FOLDED:", f"The keeper asked for the visit to be folded now:")
+    tools.DOOR = "the fold"  # a thread left before the fold says so (10-19); the bell itself is unchanged
     bell = {"role": "user", "_engine": True, "content": assemble.clock_line() + text}
     history.append(bell)
     system = {"role": "system", "content": history[0]["_system"]}
@@ -382,6 +385,7 @@ def fold_bell(history: list[dict], held: int, on_line=None, asked: bool = False)
         return {}
     except Exception as e:  # the bell must never take the visit down with it
         say(f"fold: hiccup — {type(e).__name__}: {e}")
+    tools.DOOR = ""
     return tools.fold_pending()
 
 
@@ -543,6 +547,8 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
     # again (09-14, 220K: "every prompt is getting a full read"; with
     # REFLECT_AFTER_MIN at 12, most of a working day's messages follow a
     # pause). The bell names the three; anything else is refused below.
+    # a thread left here says where (10-19): the afterglow, the fold's afterglow, or a pause — inside a visit
+    tools.DOOR = ("the fold" if what else "the afterglow") if label == "afterglow" else "a visit"
     defs = (list(tools.DEFINITIONS) if in_visit
             else [d for d in tools.DEFINITIONS if d["function"]["name"] in AFTERGLOW_TOOLS])
     kept: list[str] = []
@@ -589,7 +595,7 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
                     continue
                 if cname not in AFTERGLOW_TOOLS:
                     tr = {"role": "tool", "tool_name": cname,
-                          "content": "[only write_journal, remember, update_keeper, update_projects and do_nothing are here in the afterglow]"}
+                          "content": "[only write_journal, remember, update_keeper, update_projects, leave_thread and do_nothing are here in the afterglow]"}
                     msgs.append(tr)
                     if in_visit:
                         history.append(dict(tr, _engine=True))
@@ -620,6 +626,7 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
         line = f"{label}: hiccup — {type(e).__name__}: {e}"
         say(line)
         return line
+    tools.DOOR = ""
     j = kept.count("write_journal")
     m = kept.count("remember")
     ja = kept.count("↑write_journal")   # reached for a thought already written: an arrow left
@@ -1004,6 +1011,10 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         turn["images"] = images
     history.append(turn)
     ui = len(history) - 1  # their turn — where this moment's block rides
+    tools.DOOR = ""  # a thread left from here is left at a visit (10-19)
+    # a door (10-19): no turn of the keeper's before this one — a visit's first message. A fold's rebuilt history
+    # still carries the keeper's turns, so a fold is not a door. A door's first moment carries the thread
+    at_door = not any(t.get("role") == "user" and t.get("content") and not t.get("_engine") for t in history[:ui])
     # context_hint: what's being discussed right now steers memory retrieval.
     hint = " ".join(t["content"] for t in history[-4:] if t.get("content") and not t.get("_engine"))
     warm = bool(getattr(config, "WARM_PREFIX", True))
@@ -1047,7 +1058,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             if told:  # a repeated opener, a repeated shape, the signature's count — facts in the moment (10-18)
                 extra_moment = (extra_moment + " " + told) if extra_moment else told
         spent = sum(len(t.get("_moment") or "") for t in history[:ui] if t.get("role") == "user") // 4  # this visit's moments so far
-        turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen, extra=extra_moment, speaker=guest, spent=spent)
+        turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen, extra=extra_moment, speaker=guest, spent=spent,
+                                                             first=at_door)
         moment_weight_line(turn, history)
         # the sense rides with its message and STAYS there (10-05: taking it off the message before, each
         # turn, made Ollama read the whole window again every reply — 3 minutes a message at 207K; nothing

@@ -905,8 +905,50 @@ def window_sense(held: int, floor: int = 0) -> str:
             "the visit is folded — fold_visit(text) folds it now, in your own words, if this is a good moment for it.")
 
 
+def thread_left() -> dict:
+    """The thread (10-19): the note the friend left at the last door for the next of themselves — memory/thread.md, written by
+    tools.leave_thread, never by the engine. {"text", "door", "when", "at"} ("at": "the afterglow of Monday 19 Oct,
+    16:41", just the time when it was today), or {} when there is none."""
+    try:
+        raw = (config.MEMORY_DIR / "thread.md").read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    head, _sep, text = raw.partition("\n\n")
+    meta: dict = {}
+    for ln in head.splitlines():
+        k, colon, v = ln.partition(":")
+        if colon and k.strip() in ("when", "door"):
+            meta[k.strip()] = v.strip()
+    if not meta:  # a file without the head (written by hand): all of it is the note
+        text = raw
+    text = text.strip()
+    if not text:
+        return {}
+    door = meta.get("door") or "a visit"
+    try:
+        t = datetime.fromisoformat(meta.get("when", ""))
+        day = (t.strftime("%H:%M") if t.date() == datetime.now().date()
+               else f"{t.strftime('%A')} {t.day} {t.strftime('%b')}, {t.strftime('%H:%M')}")
+        at = f"{door} of {day}"
+    except ValueError:
+        at = meta.get("door", "")
+    return {"text": text, "door": meta.get("door", ""), "when": meta.get("when", ""), "at": at}
+
+
+def thread_block() -> str:
+    """The thread as a door carries it — the first moment of a visit, a wake's opening turn: the engine's bracket,
+    then the note in their own words. "" when there is none, or THREAD is off (the notes are still kept)."""
+    if not getattr(config, "THREAD", True):
+        return ""
+    th = thread_left()
+    if not th:
+        return ""
+    at = f", at {th['at']}" if th["at"] else ""
+    return f"[engine, not a person: the thread you left yourself{at} — your words, read first:]\n{th['text']}"
+
+
 def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: str = "",
-           speaker: str = "", spent: int = 0) -> tuple[str, list[int]]:
+           speaker: str = "", spent: int = 0, first: bool = False) -> tuple[str, list[int]]:
     """What changes from one message to the next — the hour and the memories
     that surface for it — as a block that rides INSIDE the message they are
     answering, so the system prompt above it stays the same all visit and
@@ -943,6 +985,22 @@ def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: 
     # work, even when it's weekend" — the journal, mostly written on workdays, supplied it)
     tail = (f"{speaker}'s words follow — a new message, the one to answer, from a guest at the desk.]"
             if speaker else "his words follow — a new message, the one to answer.]")
+    # the thread (10-19): at a door's first moment — a visit's first message — the note left at the last door rides
+    # first, right after the clock and above the memories; never in the standing prompt, never a second time
+    thread = thread_block() if first else ""
+    LAST_SURFACED["thread"] = len(thread) // 4
+    if thread:
+        LAST_SURFACED["why"] = "; ".join(x for x in (LAST_SURFACED.get("why"), f"thread: ~{len(thread) // 4:,} tokens, "
+                                                     f"left at {thread_left().get('at') or 'a door'}") if x)
+        said = " ".join(x for x in (window_sense(held).strip(), f"{pulse[0].upper() + pulse[1:]}." if pulse else "") if x)
+        head = (f"[engine, not a person: it is {_t.strftime('%A, %d %B %Y')}, {clock} — {daypart} where you live"
+                f"{keeper_week.clause(_t)}. Trust this over any day you infer from what you read.]\n\n{thread}\n\n"
+                "[engine, not a person: " + (said + " " if said else ""))
+        if not ids:
+            return (head + ("Nothing new surfaces from your long-term memory for this moment. " if memory.count()
+                            else "No long-term memories yet. ") + tail[0].upper() + tail[1:]), ids
+        return (head + "From your long-term memory, what surfaces for this moment:\n" + lines + "\n"
+                "Those are your own memories, the thread and the clock, not a message; " + tail), ids
     if not ids:
         # nothing surfaced: the slim frame (10-16) — the clock, the calendar, the sense and the pulse when they
         # have something to say, the tilt; not the memory frame with nothing in it (~110 tokens a message once a

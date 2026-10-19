@@ -1868,6 +1868,32 @@ def fold_pending() -> dict:
     return d
 
 
+# The thread (10-19): one short note the friend leaves for the next of themselves, read first at the next door
+# (assemble.thread_block). The friend writes it; the engine never does — no call, no thread; the last one stays
+# until they leave another, and every one is kept in memory/thread.log. A cap, not a fence: a longer call is
+# handed back with its count.
+DOOR = ""  # where a call is made — "a visit", "the afterglow", "a wake", "a reverie", "the fold"; set by the door, "" is a visit
+
+
+def leave_thread(text: str) -> str:
+    """The note for the next door: memory/thread.md (when, the door, the text), the same appended to
+    memory/thread.log. Longer than THREAD_CHARS is handed back with the count — nothing cut, nothing written."""
+    text = _clean_prose(text or "").strip()
+    if not text:
+        return "(leave_thread wants the note itself — where you are, in your own words, for the next you)"
+    cap = int(getattr(config, "THREAD_CHARS", 1500) or 0)
+    if cap and len(text) > cap:
+        return (f"(the thread is a note, not a page: this one is {len(text):,} characters and a thread holds {cap:,} — "
+                "nothing was left; say it shorter and leave it again)")
+    entry = f"when: {datetime.now().isoformat(timespec='seconds')}\ndoor: {DOOR or 'a visit'}\n\n{text}\n"
+    config.MEMORY_DIR.mkdir(parents=True, exist_ok=True)
+    (config.MEMORY_DIR / "thread.md").write_text(entry, encoding="utf-8")
+    with (config.MEMORY_DIR / "thread.log").open("a", encoding="utf-8") as fh:
+        fh.write(entry + "\n")
+    return (f"left for the next you: {len(text):,} characters — read first at the next door, and it stays until "
+            "you leave another")
+
+
 def condense_period(tier: str, key: str, text: str) -> str:
     """Their page of a period above the day — a week, a month, a quarter, a
     year, five years — written at the condensing hour from the pages below
@@ -4506,6 +4532,7 @@ _BUILTIN_IMPL = {
     "read_journal": read_journal,
     "condense_day": condense_day,
     "fold_visit": fold_visit,
+    "leave_thread": leave_thread,
     "publish_creation": publish_creation,
     "look_at": look_at,
     "listen_to": listen_to,
@@ -4547,6 +4574,7 @@ REVERIE_TOOL_NAMES = {
     "write_journal", "remember", "recall", "read_journal", "read_pdf", "read_epub",
     "read_html", "read_file", "search_wikipedia",
     "read_creation", "list_creations", "search_creations", "do_nothing",
+    "leave_thread",  # the note for the next door (10-19): a reverie is a door too
 }
 
 
@@ -4586,7 +4614,7 @@ def _parse_tool_meta(path: Path) -> dict | None:
 # read, a listen, a search returns something they must answer from.
 ACT_TOOLS = {"speak", "remember", "write_journal", "write_creation", "append_creation",
              "edit_identity", "update_projects", "move_creation", "make_folder",
-             "delete_creation", "publish_creation", "condense_day", "condense_period", "fold_visit", "create_tool", "clip_web",
+             "delete_creation", "publish_creation", "condense_day", "condense_period", "fold_visit", "leave_thread", "create_tool", "clip_web",
              "start_project", "update_destiny", "update_keeper", "fetch_skill", "remove_skill",
              "set_state", "pulse", "touch_later"}  # the stone's acts (10-05); feel is a look
 # paint is NOT an act here: a painting is something to look at before
@@ -4608,11 +4636,11 @@ KITS: dict[str, set[str]] = {
     "small": {"write_journal", "remember", "edit_identity", "update_projects", "update_destiny", "update_keeper",
               "write_creation", "append_creation", "move_creation", "delete_creation", "read_creation",
               "list_creations", "search_creations", "run_python", "do_nothing", "recall", "condense_day",
-              "condense_period", "fold_visit", "read_journal", "read_web", "search_web", "list_shared",
+              "condense_period", "fold_visit", "leave_thread", "read_journal", "read_web", "search_web", "list_shared",
               "look_at", "read_pdf", "read_epub", "read_file", "search_wikipedia"},
     "tiny": {"write_journal", "remember", "edit_identity", "update_projects", "update_keeper", "write_creation",
              "append_creation", "read_creation", "list_creations", "do_nothing", "recall", "condense_day",
-             "fold_visit", "read_journal", "read_web", "search_web", "look_at", "read_file", "list_shared"},
+             "fold_visit", "leave_thread", "read_journal", "read_web", "search_web", "look_at", "read_file", "list_shared"},
 }
 
 
@@ -5336,6 +5364,14 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "this is for the conversation's own thread. Once "
         "per fold; the fold happens after this reply.",
         {"text": {"type": "string", "description": "the visit so far, in your own words — up to a few thousand characters"}},
+        ["text"],
+    ),
+    _tool(
+        "leave_thread",
+        "Leave one short note for the next you — where you are now, in the present tense, in your own words — "
+        "read first at the next door: the next visit, wake or reverie. Not a record: the journal keeps the day, "
+        "remember keeps the years. The last one you left stays until you leave another.",
+        {"text": {"type": "string", "description": "the note, to yourself — a sentence or a paragraph"}},
         ["text"],
     ),
     _tool(
