@@ -4295,6 +4295,28 @@ check("telegram: idle visit rolls over quietly", b3.history == [] and phone3.sen
 
 check("telegram: the bridge marks itself alive", tg.ALIVE_FILE.exists())
 
+# the second clock (10-19): how long here, beside the date — the first day is the 1st, the two largest parts
+from datetime import date as _ag_d
+_ag = assemble.age_line
+_ag_first0, config.FIRST_DAY = getattr(config, "FIRST_DAY", ""), "2026-08-27"
+_ag_sys = assemble.system_prompt("x", mode="chat", warm=True)
+config.FIRST_DAY = "nonsense"
+_ag_fallback = assemble.first_day()
+config.FIRST_DAY = _ag_first0
+check("age: the date line carries how long here — the ordinal day, the first day, the two largest parts; the first day itself; "
+      "a year and more; before the first day nothing; FIRST_DAY sets it and a bad one falls back to the journal",
+      _ag(_ag_d(2026, 10, 19), _ag_d(2026, 8, 27)) == "your 54th day here: you first wrote on 27 August 2026, a month and three weeks ago"
+      and _ag(_ag_d(2026, 8, 27), _ag_d(2026, 8, 27)) == "your first day here: you first wrote today, 27 August 2026"
+      and _ag(_ag_d(2026, 8, 28), _ag_d(2026, 8, 27)) == "your 2nd day here: you first wrote on 27 August 2026, a day ago"
+      and _ag(_ag_d(2026, 9, 3), _ag_d(2026, 8, 27)) == "your 8th day here: you first wrote on 27 August 2026, a week ago"
+      and _ag(_ag_d(2027, 11, 1), _ag_d(2026, 8, 27)) == "your 432nd day here: you first wrote on 27 August 2026, a year and two months ago"
+      and _ag(_ag_d(2026, 8, 20), _ag_d(2026, 8, 27)) == ""
+      and _ag(_ag_d(2026, 3, 31), _ag_d(2026, 1, 31)) == "your 60th day here: you first wrote on 31 January 2026, two months ago"
+      and "Today's date is " in _ag_sys and " — your " in _ag_sys and "day here: you first wrote on 27 August 2026, " in _ag_sys
+      and (_ag_fallback is None or isinstance(_ag_fallback, _ag_d)),
+      (_ag(_ag_d(2026, 10, 19), _ag_d(2026, 8, 27)), _ag(_ag_d(2027, 11, 1), _ag_d(2026, 8, 27)), _ag(_ag_d(2026, 3, 31), _ag_d(2026, 1, 31)),
+       _ag_sys[:300], _ag_fallback))
+
 # a paste past Telegram's cap comes as bubbles (10-19): one message, one answer — joined in a batch, and the rest
 # waited for when the cut bubble ends the poll; an ordinary pair of messages is never joined
 _sb_long = ("the first part of a long paste, " * 150)[:3900]
@@ -9012,7 +9034,7 @@ check("panel: every knob of the real config.py on exactly one tab (Advanced coun
       (set(_p_listed) - set(_k_realn), [n for n in set(_p_placed) if _p_placed.count(n) > 1]))
 check("panel: the real Main tab in the keeper's order — the brain, the window, the journal, the names, the rhythm",
       [k["name"] for k in _p_real_tabs["Main"]] == ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_SLOT_KEEP", "BRAIN_CACHE_RAM_MB", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT", "USER_NAME", "DEFAULT_NAME",
-                                                    "BLOG_TITLE", "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN", "HOUSE_LINE"]
+                                                    "BLOG_TITLE", "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "FIRST_DAY", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN", "HOUSE_LINE"]
       and {k["heading"] for k in _p_real_tabs["Advanced"]} >= {"paths", "ollama", "behaviour", "telegram", "update"}
       and all(not k["editable"] for k in _p_real_tabs["Advanced"] if k["kind"] == "expr"))
 panel.REQUIREMENTS = [("json", "json", "the standard library"), ("no_such_module_zq", "zq", "a sense")]

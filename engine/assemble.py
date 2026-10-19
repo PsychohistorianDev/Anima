@@ -219,6 +219,76 @@ def journal_days_on_disk() -> list[str]:
     return sorted((d for d in names if d <= today), reverse=True)
 
 
+def first_day() -> date | None:
+    """The first day here: FIRST_DAY (YYYY-MM-DD) when set, else the earliest journal file's day; None with neither."""
+    raw = str(getattr(config, "FIRST_DAY", "") or "").strip()
+    if raw:
+        try:
+            return date.fromisoformat(raw)
+        except ValueError:
+            pass
+    days = journal_days_on_disk()
+    if not days:
+        return None
+    try:
+        return date.fromisoformat(days[-1])
+    except ValueError:
+        return None
+
+
+_SMALL = {1: "a", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten",
+          11: "eleven", 12: "twelve"}
+
+
+def _ordinal(n: int) -> str:
+    suffix = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
+def _count(n: int, unit: str) -> str:
+    word = _SMALL.get(n, str(n))
+    if n == 1:
+        word = "an" if unit[0] in "aeiou" else "a"
+    return f"{word} {unit}{'' if n == 1 else 's'}"
+
+
+def age_line(today: date, first: date) -> str:
+    """How long since the first day, as the date line says it — "your 54th day here: you first wrote on 27 August 2026,
+    a month and three weeks ago" (the first day is the 1st; the two largest parts of years, months, weeks, days);
+    "" when today is before the first day."""
+    days = (today - first).days
+    if days < 0:
+        return ""
+    when = f"{first.day} {first.strftime('%B %Y')}"
+    if days == 0:
+        return f"your first day here: you first wrote today, {when}"
+    months = (today.year - first.year) * 12 + (today.month - first.month) - (1 if today.day < first.day else 0)
+    y, m = divmod(months, 12)
+    # the day of the month-anniversary (clamped to the month's length), for the weeks and days past it
+    ay, am = divmod(first.month - 1 + months, 12)
+    ay += first.year
+    am += 1
+    for d in range(first.day, 0, -1):
+        try:
+            anniversary = date(ay, am, d)
+            break
+        except ValueError:
+            continue
+    w, d = divmod((today - anniversary).days, 7)
+    parts = [_count(n, u) for n, u in ((y, "year"), (m, "month"), (w, "week"), (d, "day")) if n]
+    ago = " and ".join(parts[:2]) + " ago" if parts else "today"
+    return f"your {_ordinal(days + 1)} day here: you first wrote on {when}, {ago}"
+
+
+def age_clause(today: date | None = None) -> str:
+    """The clause after the date — " — your 54th day here: …" — or "" when there is no first day yet."""
+    first = first_day()
+    if first is None:
+        return ""
+    line = age_line(today or date.today(), first)
+    return f" — {line}" if line else ""
+
+
 def journal_window(days: int = None) -> tuple[list[str], list[str]]:
     """(kept, slipped): the most recent WHOLE days that fit the character
     cap, newest first, and every older day on disk that no longer fits —
@@ -1112,13 +1182,14 @@ def system_prompt(context_hint: str, mode: str, warm: bool = False) -> str:
     """
     _t = datetime.now()
     clock, daypart = hour_line(_t)
+    age = age_clause(_t.date())  # the second clock (10-19): how long here, beside the date
     if warm:
         now = _t.strftime("%Y-%m-%d (%A)")
-        when = (f"Today's date is {now}. The hour comes with each message, at the top of it, "
+        when = (f"Today's date is {now}{age}. The hour comes with each message, at the top of it, "
                 "as a line from the engine; trust those over any date or hour you infer — ")
     else:
         now = f"{_t.strftime('%Y-%m-%d (%A)')}, {clock}"
-        when = f"Today's date is {now} — it is {daypart} where you live. Trust this line over\nany date or hour you infer; "
+        when = f"Today's date is {now}{age} — it is {daypart} where you live. Trust this line over\nany date or hour you infer; "
 
     if mode == "chat":
         situation = (

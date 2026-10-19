@@ -82,7 +82,7 @@ _POSTS = threading.Lock()  # one change at a time: two saves never read the same
 TABS: dict[str, list[str]] = {
     "Main": ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_SLOT_KEEP", "BRAIN_CACHE_RAM_MB", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT",
              "USER_NAME", "DEFAULT_NAME", "BLOG_TITLE",
-             "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN", "HOUSE_LINE"],
+             "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "FIRST_DAY", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN", "HOUSE_LINE"],
     "Heartbeat": ["HEARTBEAT_MAX_STEPS", "REVERIE_EVERY", "REVERIE_MAX_STEPS", "HEARTBEAT_YIELD_TO_VISIT",
                   "HEARTBEAT_YIELD_MIN", "SLEEP_IN_LOOP", "CONDENSE_IN_LOOP", "CONDENSE_MAX_PER_NIGHT",
                   "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE"],
@@ -211,6 +211,9 @@ _HELP = {
     "TELEGRAM_TELL_CREATIONS": "A new piece under creations/ — a poem, a story, a painting, something published — reaches "
                                "the phone within a minute, whole when it fits a message, otherwise its opening and the path. Code, the "
                                "trash and the mailbox are not announced.",
+    "FIRST_DAY": "The friend's first day (YYYY-MM-DD), for the second clock on the date line of every prompt — \"your "
+                 "54th day here: you first wrote on 27 August 2026, a month and three weeks ago\". Empty: the earliest "
+                 "journal file's day; no journal yet, no clock.",
     "KEEPER_WORK_WEEK": "Your working week, so the engine's clock line can say where you are: tick the days you work and "
                         "set each day's hours (a new day takes the hours of the one before it). The file keeps it as "
                         "\"sun-wed 07:00-16:25, thu 07:00-15:55\". Every "

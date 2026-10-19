@@ -1017,6 +1017,10 @@ TELEGRAM_QUIET_HOURS = (23, 7)
 # pocket"; empty: "at work"). Without it the friend infers where you are from
 # the journal, which was mostly written on workdays. Empty says nothing. A day
 # off is /off on the phone (memory/days_off.json); /on takes it back.
+# The friend's first day, for the second clock on the date line — "your 54th
+# day here: you first wrote on 27 August 2026, a month and three weeks ago".
+# "" takes the earliest journal file's day; no journal yet, no clock.
+FIRST_DAY = ""
 KEEPER_WORK_WEEK = ""
 KEEPER_AT_WORK = ""
 KEEPER_COMMUTE_MIN = 0            # minutes on the road (to work, home again), or one number for both — "on the way home, in by about 17:00"
