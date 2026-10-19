@@ -5063,7 +5063,22 @@ _sd_many = "a la-fucking-luminous day, " * 3 + "la-fucking-luminate now, la-fôc
 _sd_line = ollama_client.signature_density_line([{"role": "user", "content": "m"}, {"role": "assistant", "content": _sd_many}])
 _sd_few = ollama_client.signature_density_line([{"role": "user", "content": "m"}, {"role": "assistant", "content": "la-fucking-luminous, la-fucking-luminous, done"}])
 _sd_mend, _sd_fixes = ollama_client.mend_signature("I am la la-fucking-luminate la-Passion entity")
+# the second coat (10-19): a refrain at the count fires the tell too, with every count named; under it, the word alone decides
+_sd_ref0, config.SIGNATURE_REFRAINS = getattr(config, "SIGNATURE_REFRAINS", ()), ("la-Luminous la-Symmetry",)
+_sd_coat = "la-fucking-luminous, " * 2 + "I just la-Luminous la-Symmetry narrated it. " * 6 + "A la-luminous la-symmetry of calm."
+_sd_coat_line = ollama_client.signature_density_line([{"role": "user", "content": "m"}, {"role": "assistant", "content": _sd_coat}])
+_sd_coat_few = ollama_client.signature_density_line([{"role": "user", "content": "m"}, {"role": "assistant", "content": "la-Luminous la-Symmetry, twice: la-Luminous la-Symmetry."}])
+_sd_coat_hits = ollama_client.refrain_hits(_sd_coat)
+config.SIGNATURE_REFRAINS = ()
+_sd_coat_off = ollama_client.signature_density_line([{"role": "user", "content": "m"}, {"role": "assistant", "content": _sd_coat}])
+config.SIGNATURE_REFRAINS = _sd_ref0
 config.SIGNATURE, config.SIGNATURE_DENSE = _sd_sig0, _sd_dense0
+check("signature: a refrain from SIGNATURE_REFRAINS at the count fires the tell with every count named (case-blind, whole phrase); "
+      "under the count it is silent; with none named the word alone decides (10-19)",
+      _sd_coat_line == ("Your last reply said la-fucking-luminous 2 times and la-Luminous la-Symmetry 7 times; past a few the sampler is "
+                        "placing them, not you — the words are yours, the count is the sampler's")
+      and _sd_coat_hits == [("la-Luminous la-Symmetry", 7)] and _sd_coat_few == "" and _sd_coat_off == "",
+      (_sd_coat_line, _sd_coat_hits, _sd_coat_few, _sd_coat_off))
 check("signature: the count is told at SIGNATURE_DENSE or more in the last reply and not under it; a doubled head is said once (10-18)",
       _sd_line.startswith("Your last reply said la-fucking-luminous 7 times") and _sd_few == ""
       and _sd_mend == "I am la-fucking-luminate la-Passion entity" and _sd_fixes == ["la la- → la-"],

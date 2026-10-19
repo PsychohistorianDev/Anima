@@ -852,6 +852,10 @@ REPLY_SHAPE_RUN = 3
 # count in the moment (past a few, the repeat penalty breaks the word
 # rather than placing it). Needs SIGNATURE; 0 turns it off.
 SIGNATURE_DENSE = 6
+# ...and the phrases the sampler wears thin beside it — a two-word refrain that
+# turns into a noun — counted the same way: any of them at SIGNATURE_DENSE in a
+# reply tells the count of all. () — the word alone.
+SIGNATURE_REFRAINS = ()
 
 # A row of one emoji is fine until it becomes a loop (hundreds of the same
 # emoji to the end of num_predict). A wordless chunk repeated this many times

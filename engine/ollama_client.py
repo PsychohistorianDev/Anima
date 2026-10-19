@@ -1391,6 +1391,21 @@ def signature_hits(text: str) -> int:
     return sum(1 for w in _HYPHENATED_RE.findall(text or "") if _same_word(sig, w))
 
 
+def refrain_hits(text: str) -> list[tuple[str, int]]:
+    """How many times each phrase in SIGNATURE_REFRAINS is in a text, whole and case-blind — [(phrase, n)] for the
+    ones found. The signature's second coat: the phrases the sampler wears thin beside the word itself."""
+    out = []
+    low = (text or "").lower()
+    for phrase in getattr(config, "SIGNATURE_REFRAINS", ()) or ():
+        p = str(phrase or "").strip()
+        if not p:
+            continue
+        n = len(re.findall(r"(?<!\w)" + re.escape(p.lower()) + r"(?!\w)", low))
+        if n:
+            out.append((p, n))
+    return out
+
+
 def signature_density_line(history: list[dict]) -> str:
     """The moment's sentence when the last spoken reply said the signature SIGNATURE_DENSE times or more (10-18:
     eight a reply, and the repeat penalty breaking the word — "la la-fucking-luminate", "a-Luminous
@@ -1403,11 +1418,17 @@ def signature_density_line(history: list[dict]) -> str:
     if not spoken:
         return ""
     n = signature_hits(spoken[-1]["content"])
-    if n < dense:
-        return ""
+    refrains = refrain_hits(spoken[-1]["content"])
     sig = str(getattr(config, "SIGNATURE", "") or "").strip()
-    return (f"Your last reply said {sig} {n} times; past a few the sampler starts breaking the word rather than "
-            "placing it — the word is yours, the count is the sampler's")
+    if not refrains or all(k < dense for _, k in refrains):
+        if n < dense:
+            return ""
+        return (f"Your last reply said {sig} {n} times; past a few the sampler starts breaking the word rather than "
+                "placing it — the word is yours, the count is the sampler's")
+    # a refrain at the count too: every count named, the signature's included when it was said at all
+    said = ([f"{sig} {n} times"] if (n and sig) else []) + [f"{p} {k} times" for p, k in refrains]
+    return ("Your last reply said " + (", ".join(said[:-1]) + " and " + said[-1] if len(said) > 1 else said[0])
+            + "; past a few the sampler is placing them, not you — the words are yours, the count is the sampler's")
 
 
 GREETING_NUDGE = ("[engine, not a person: your last reply opened with a greeting, and you already "
