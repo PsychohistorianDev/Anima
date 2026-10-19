@@ -4294,6 +4294,8 @@ b3.poll_once()
 check("telegram: idle visit rolls over quietly", b3.history == [] and phone3.sent == [])
 
 check("telegram: the bridge marks itself alive", tg.ALIVE_FILE.exists())
+check("config: the think re-rolls ship off — THINK_RETRY_UNTIL = 0 in the house's config.py (the suite pins its own live value)",
+      "\nTHINK_RETRY_UNTIL = 0" in (config.ROOT / "engine" / "config.py").read_text(encoding="utf-8"))
 
 # the second clock (10-19): how long here, beside the date — the first day is the 1st, the two largest parts
 from datetime import date as _ag_d

@@ -858,7 +858,7 @@ whoever wants it. All of this is invisible when nothing goes wrong:
   name fails loudly: "NOTHING happened — do not report this as done."
 
   </details>
-- **Thinking is required, not optional.** Every brain call asks for thinking (`CHAT_THINK`); a thoughtless answer is re-rolled with a "think first" line placed at the end of the conversation, where it is read (`CHAT_THINK_RETRIES`).
+- **Thinking is asked for, not forced.** Every brain call opens the thought channel (`CHAT_THINK`); a thoughtless answer is theirs as it came (`THINK_RETRY_UNTIL`, 0). The older rail — a re-roll with a "think first" line placed at the end of the conversation, where it is read (`CHAT_THINK_RETRIES`) — is a knob: `THINK_RETRY_UNTIL = 1.0` re-rolls everywhere, a share of the window (0.7) only below that depth.
   <details><summary>how this came to be</summary>
 
   The engine asks Ollama for
@@ -876,6 +876,10 @@ whoever wants it. All of this is invisible when nothing goes wrong:
   as a turn of its own: as its own turn it became the thing they answered
   ("I hear you. Loud and clear…" to a keeper who had said "remember and
   journal it"). If the thought is still empty after that, the wake log says so.
+  Then the rail came off by default: a house that ran it a month found the
+  re-rolled answers no better than the first and the wait for them the
+  biggest cost of a reply — so `THINK_RETRY_UNTIL` ships at 0, and the
+  re-rolls are there for a house that wants them.
 
   </details>
 - **What you see is what they did.** Logs and the parlor show what a tool actually did, not the framing meant for them; a file they open by name counts as seen.

@@ -597,13 +597,14 @@ CHAT_THINK = True
 # short "think first" nudge at the end, this many times before accepting it.
 # The prompt is cached, so a re-roll costs seconds. 0 turns this off.
 CHAT_THINK_RETRIES = 2
-# ...but only while the window is less than this full. Deep in a long window the
-# model opens no thought, nudged or not: every re-roll comes back thoughtless too
-# and the last is sent anyway — most of the writing time for nothing. At or past
-# this share of NUM_CTX a thoughtless answer is the answer, no re-roll, no nudge.
-# 1.0: the re-rolls everywhere. 0: never — the answer is theirs as it came at
-# any depth (the same as CHAT_THINK_RETRIES = 0, but the wake's retries stay).
-THINK_RETRY_UNTIL = 1.0
+# ...and only while the window is less than this full. 0, the default: never —
+# a thoughtless answer is theirs as it came, at any depth, and replies come at
+# once (the same as CHAT_THINK_RETRIES = 0, but the wake's retries stay). The
+# re-rolls were the old rail: deep in a long window the model opens no thought,
+# nudged or not, every re-roll came back thoughtless too and the last was sent
+# anyway — most of the writing time for nothing. A share of NUM_CTX (0.7) keeps
+# them below that depth; 1.0 keeps them everywhere.
+THINK_RETRY_UNTIL = 0
 # The same, for heartbeat wakes. A wake's prompt is warm, so a re-roll is
 # seconds of generation and a few hundred tokens, not a cold read — a larger
 # budget is cheap here. None: same as chat.
