@@ -162,6 +162,10 @@ _HELP = {
                   "model, counted as in use under no process line; a Mac, where the card shares the memory, may load faster that way.",
     "LLAMA_SERVER": "The full path to llama-server.exe when it is not on the PATH and not in a llama\\ folder inside or "
                     "beside this one. Empty looks in those places.",
+    "BRAIN_CUDA_RETRY_S": "When a door the engine opened falls at its first kernel — \"CUDA error\" or \"out of memory\" in "
+                          "memory/brain.log, the card not free yet after the painter or an ear set it down — the engine waits "
+                          "this many seconds and opens it once more, and says so; a second fall is said as it is (\"twice — \"). "
+                          "0: again at once.",
     "BRAIN_MODEL_FILE": "A GGUF for llama-server instead of the one Ollama's manifest names for CHAT_MODEL. Empty: "
                         "found in Ollama's own files. Read when bat\\brain.bat starts the door.",
     "BRAIN_MMPROJ_FILE": "The projector (the eyes) to go with BRAIN_MODEL_FILE. Empty: the one Ollama's manifest "
@@ -465,6 +469,9 @@ _HELP = {
     "PAINTER_DEVICE": "Where it paints: \"auto\" takes an NVIDIA (or ROCm) card, else a Mac's GPU, else the processor "
                       "(slow); \"cuda\", \"mps\" or \"cpu\" names one.",
     "PAINTER_STEPS": "Diffusion steps per picture; 0 is the model's own default (Z-Image-Turbo 9, FLUX.2 klein 4).",
+    "PAINTER_REST_LEAVES": "When the painter rests after a painting, its process leaves too: the CUDA context it holds while it "
+                           "lingers (~0.5-1 GB) goes with it, and paint waits until it is gone before the brain's door opens "
+                           "again. Off: it rests and lingers for PAINTER_EXIT_S, ready for a second painting without a load.",
     "MUSIC_EARS_MODEL": "The music ear's model on Hugging Face (Music Flamingo). The licence is accepted there once.",
     "MUSIC_EARS_AUTOSTART": "listen_to starts the ear's sidecar when a song needs it; off, bat\\music_ears.bat by hand.",
     "MUSIC_EARS_PYTHON": "The Python the ear runs in, if torch lives elsewhere than the engine's own: \"py -3.12\" "

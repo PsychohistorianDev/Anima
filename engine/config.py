@@ -91,6 +91,11 @@ BRAIN_MMAP = False
 # prompt (memory/brain_template.jinja; Ollama's renderer did the same) and opens with it;
 # only for Gemma 4's template — any other is left to itself. False: the model's to open.
 BRAIN_THINK_OPEN = True
+# When a door the engine opened falls at its first kernel ("CUDA error", "out of
+# memory" in memory/brain.log) — the card not free yet after the painter or an
+# ear set it down — the engine waits this many seconds and opens it once more; a
+# second fall is said as it is. 0 opens it again at once.
+BRAIN_CUDA_RETRY_S = 8.0
 
 # The brain (the chat model). Swap freely; memories and identity survive a swap.
 #   fits a 12 GB card : "gemma4:12b-it-qat" (7.2 GB; the build Google trained
@@ -260,6 +265,13 @@ PAINTER_PYTHON = ""           # "" = the engine's own; e.g. "py -3.12" (Windows)
 # GPU ("mps", float16), else the processor (slow); "cuda", "mps" or "cpu" names one.
 PAINTER_DEVICE = "auto"
 PAINTER_REST_AFTER = True     # free the GPU as soon as a painting is done
+# ...and the sidecar's process leaves with the rest. A rested painter that lingers
+# for PAINTER_EXIT_S still holds its CUDA context (~0.5-1 GB), and a large brain
+# opened beside it on a card with little to spare can fall at its first kernel.
+# True: /rest frees the model and the process goes, and paint waits (a few
+# seconds at most) until it is gone before the brain comes back. False: it rests
+# and lingers, ready for a second painting without a load.
+PAINTER_REST_LEAVES = True
 PAINTER_IDLE_S = 120          # seconds; fallback: the sidecar frees the GPU after this much idle time
 PAINTER_EXIT_S = 60           # seconds unused before the sidecar process exits (it holds ~11 GB of RAM while it waits; a minute covers a second painting asked right away, and not more)
 PAINTER_TIMEOUT_S = 300       # seconds allowed for one painting, model load included

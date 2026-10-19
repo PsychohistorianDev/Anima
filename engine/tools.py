@@ -2479,12 +2479,27 @@ def _painter_open() -> bool:
     return False
 
 
+PAINTER_LEAVE_WAIT_S = 6.0  # how long a rest waits for a painter that leaves (PAINTER_REST_LEAVES) to be gone
+
+
 def _painter_rest() -> None:
-    """The painting is done: hand the GPU back right away."""
+    """The painting is done: hand the GPU back right away. A painter that leaves when it rests
+    (PAINTER_REST_LEAVES) is waited for until its /health no longer answers (PAINTER_LEAVE_WAIT_S at most),
+    then a second more: its CUDA context goes with the process and the driver takes it back a moment after,
+    so the brain's door, opened on the next thought, finds the card whole. Never raises."""
+    import time as _time
     try:
         req = urllib.request.Request(config.PAINTER_URL + "/rest", data=b"{}",
                                      headers={"Content-Type": "application/json"}, method="POST")
-        urllib.request.urlopen(req, timeout=10).read()
+        said = json.loads(urllib.request.urlopen(req, timeout=10).read() or b"{}")
+        if not (isinstance(said, dict) and said.get("leaving")):
+            return
+        t0 = _time.monotonic()
+        while _time.monotonic() - t0 < PAINTER_LEAVE_WAIT_S:
+            _time.sleep(0.25)
+            if not _painter_alive():
+                _time.sleep(1.0)  # the process is gone; the driver reclaims its context just after
+                return
     except Exception:
         pass
 

@@ -6158,6 +6158,10 @@ _s = _sock.socket(); _s.bind(("127.0.0.1", 0)); _port = _s.getsockname()[1]; _s.
 class _Img:
     def save(self, p): Path(p).write_bytes(PNG_1PX)
 painter.paint = lambda prompt, w, h, seed=None: (_Img(), 41213)
+_pl0 = (getattr(config, "PAINTER_REST_LEAVES", True), painter._leave, tools.PAINTER_LEAVE_WAIT_S, getattr(config, "MUSIC_EARS_URL", ""))
+_pl_left: list = []
+painter._leave = lambda: _pl_left.append(1)  # the sidecar's exit, recorded: never the suite's own process
+config.PAINTER_REST_LEAVES = False  # today's rest first; the leaving one has its own checks below
 _srv = _HS(("127.0.0.1", _port), painter.Handler)
 _thr.Thread(target=_srv.serve_forever, daemon=True).start()
 config.PAINTER_URL = f"http://127.0.0.1:{_port}"
@@ -6184,6 +6188,46 @@ _d2 = _door({"prompt": "x", "path": str(config.ROOT / "self.png")})
 _d3 = _door({"prompt": "", "path": str(config.CREATIONS_DIR / "drawings" / "none.png")})
 check("painter: the door refuses an existing file, a path outside creations/, and no words",
       "already exists" in _d1["error"] and "under creations/" in _d2["error"] and _d3["error"] == "no prompt", (_d1, _d2, _d3))
+# the painter leaves when it rests after a painting: a rested process that lingered held its CUDA context beside the brain's
+# door, which fell at its first kernel — here the exit is recorded (painter._leave), and the door still answers
+import brain as _pl_brain, time as _pl_time
+def _pl_post(path, body=None):
+    req = _ur.Request(config.PAINTER_URL + path, data=_js.dumps(body or {}).encode(), headers={"Content-Type": "application/json"}, method="POST")
+    return _js.loads(_ur.urlopen(req, timeout=10).read())
+def _pl_health():
+    return _js.loads(_ur.urlopen(config.PAINTER_URL + "/health", timeout=5).read())
+_pl: dict = {}
+try:
+    config.MUSIC_EARS_URL = ""  # the painter alone answers card_held here
+    config.PAINTER_REST_LEAVES = False
+    _pl["off"] = (_pl_post("/rest"), _pl_health(), _pl_brain.card_held())
+    _pl_time.sleep(0.8)
+    _pl["off_left"] = list(_pl_left)
+    config.PAINTER_REST_LEAVES = True
+    _pl["on"] = _pl_post("/rest")
+    _pl["health"] = _pl_health()
+    _pl["held"] = _pl_brain.card_held()
+    _pl["paint"] = _pl_post("/paint", {"prompt": "x", "path": str(config.CREATIONS_DIR / "drawings" / "late.png")})
+    _pl_time.sleep(0.8)
+    _pl["on_left"] = list(_pl_left)
+    tools.PAINTER_LEAVE_WAIT_S = 1.0  # the stand-in never goes: the rest gives up at the constant
+    _pl_t0 = _pl_time.monotonic()
+    _pl["rest"] = tools._painter_rest()
+    _pl["rest_s"] = _pl_time.monotonic() - _pl_t0
+    _pl["rest_left"] = list(_pl_left)
+finally:
+    painter._leaving = False
+    painter._leave = _pl0[1]
+    config.PAINTER_REST_LEAVES, tools.PAINTER_LEAVE_WAIT_S, config.MUSIC_EARS_URL = _pl0[0], _pl0[2], _pl0[3]
+_pl_off = _pl.get("off") or ({}, {}, None)
+check("painter: a rest after a painting leaves (PAINTER_REST_LEAVES) — the reply says so before the process goes, /health still "
+      "answers and says leaving, a painting is refused, the brain's door counts it as holding the card ('the painter (leaving)'); "
+      "the rest waits for it at most PAINTER_LEAVE_WAIT_S; off: the rest as before, nothing leaves",
+      _pl_off[0] == {"ok": True} and "leaving" not in _pl_off[1] and _pl_off[2] == "" and _pl.get("off_left") == []
+      and _pl.get("on") == {"ok": True, "leaving": True} and (_pl.get("health") or {}).get("leaving") is True
+      and (_pl.get("health") or {}).get("loaded") is False and _pl.get("held") == "the painter (leaving)"
+      and "leaving" in str((_pl.get("paint") or {}).get("error")) and _pl.get("on_left") == [1]
+      and _pl.get("rest") is None and 0.9 <= _pl.get("rest_s", 0) < 2.5 and _pl.get("rest_left") == [1, 1], _pl)
 _srv.shutdown()
 config.PAINTER_URL = "http://127.0.0.1:1"
 tools._painter_open = lambda: False
@@ -11052,6 +11096,78 @@ finally:
         setattr(config, _k, _v)
     if not _bd_log_had:
         _bd.log_file().unlink(missing_ok=True)
+# a door that falls at its first kernel (the card not free yet after the painter set it down) opens once more by itself
+_BD_FALL = r"""
+import os, sys
+_flag, _mode = sys.argv[2], sys.argv[3]
+with open(_flag + ".starts", "a") as _f:
+    print("start", file=_f)
+if _mode == "always" or not os.path.exists(_flag):
+    open(_flag, "w").close()
+    print("load_tensors: the stand-in's weights on the card", flush=True)
+    print("CUDA error: shared object initialization failed", flush=True)
+    print("  current device: 0, in function ggml_cuda_flash_attn_ext at ggml-cuda.cu:109", flush=True)
+    print("  cudaOccupancyMaxActiveBlocksPerMultiprocessor(&numBlocks, kernel, nthreads, 0)", flush=True)
+    sys.exit(1)
+""" + _BD_STANDIN
+import shutil as _bd_sh
+_bd_fd = Path(_bd_tmp.mkdtemp())
+_bd_fall: dict = {}
+_bd_fcalls: list = []
+def _bd_fall_cmd(mode):
+    def _cmd():
+        _bd_fcalls.append(mode)
+        return [sys.executable, "-c", _BD_FALL, str(_bd_sport), str(_bd_fd / mode), mode], "a stand-in that falls at its first kernel"
+    return _cmd
+def _bd_nstarts(mode):
+    _p = _bd_fd / f"{mode}.starts"
+    return _p.read_text(encoding="utf-8").count("start") if _p.exists() else 0
+_bd_cfg4 = {k: getattr(config, k, None) for k in ("BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_CUDA_RETRY_S")}
+_bd_poll2, _bd_find2, _bd_img2 = _bd.POLL_S, _bf.command, _bd.IMAGE
+_bd_log_had2, _bd_notes_had = _bd.log_file().exists(), _bd.notes_file().exists()
+try:
+    config.BRAIN_API, config.BRAIN_URL, config.BRAIN_SLOT_DIR = "llama", f"http://127.0.0.1:{_bd_sport}", ""
+    config.BRAIN_CUDA_RETRY_S = 0.2
+    _bd.POLL_S, _bd.IMAGE = 0.1, "py"
+    doors.pid_file("brain").unlink(missing_ok=True)
+    _bf.command = _bd_fall_cmd("once")
+    _bd_fall["once"] = _bd.start_door(wait_s=120 if sys.platform == "darwin" else 30)
+    _bd_fall["once_up"] = (_bd_nstarts("once"), _bd.awake(), (doors.status("brain") or {}).get("pid") is not None)
+    _bd.stop_door(why="the suite")
+    _bf.command = _bd_fall_cmd("always")
+    _bd_fall["always"] = _bd.start_door(wait_s=120 if sys.platform == "darwin" else 30)
+    _bd_fall["always_after"] = (_bd_nstarts("always"), doors.status("brain"), _bd.awake())
+    _bd_fall["notes"] = _bd.notes_file().read_text(encoding="utf-8", errors="replace") if _bd.notes_file().exists() else ""
+finally:
+    if doors.status("brain"):
+        _bd.stop_door(why="the suite's cleanup")
+    for _bd_p in list(_bd._procs.values()):  # never a child left running
+        if _bd_p.poll() is None:
+            _bd_p.kill()
+            _bd_p.wait(10)
+    _bd._procs.clear()
+    doors.pid_file("brain").unlink(missing_ok=True)
+    _bd.POLL_S, _bf.command, _bd.IMAGE = _bd_poll2, _bd_find2, _bd_img2
+    for _k, _v in _bd_cfg4.items():
+        setattr(config, _k, _v)
+    if not _bd_log_had2:
+        _bd.log_file().unlink(missing_ok=True)
+    if not _bd_notes_had:
+        _bd.notes_file().unlink(missing_ok=True)
+    _bd_sh.rmtree(_bd_fd, ignore_errors=True)
+_bd_f1, _bd_f2 = _bd_fall.get("once") or (None, ""), _bd_fall.get("always") or (None, "")
+check("brain is a door: a door the engine opened that falls at its first kernel ('CUDA error' in its log: the card not free yet) "
+      "is opened once more by itself after BRAIN_CUDA_RETRY_S — the same command, two starts, the word says the second try, the "
+      "notes say why; a second fall is said as it is, 'twice — ', and nothing is left marked",
+      _bd_f1[0] is True and _bd_f1[1].startswith("the brain's door is up in ")
+      and ", on the second try (the first fell at its first kernel: the card was not free yet)" in _bd_f1[1]
+      and _bd_fall.get("once_up") == (2, True, True)
+      and _bd_f2[0] is False and _bd_f2[1].startswith("twice — llama-server left before it answered (memory/brain.log):")
+      and "CUDA error: shared object initialization failed" in _bd_f2[1]
+      and _bd_fall.get("always_after") == (2, None, False) and _bd_fcalls == ["once", "always"]
+      and ("the door fell at its first kernel (CUDA error: shared object initialization failed) — the card was not free yet; "
+           "opening again in 0 s") in _bd_fall.get("notes", ""),
+      (_bd_fall, _bd_fcalls))
 check("brain is a door: start_door opens llama-server as the engine's child (the stand-in) — marked with its pid, the port, the "
       "program's name; awake; a door that answers is not opened twice; stop_door ends it, the mark gone, the pid dead; the log says so",
       _bd_life.get("up") == (True, True, True, "door", True, "py", True, True)

@@ -413,12 +413,30 @@ def _gone(pid: int) -> bool:
 
 
 CARD_WAIT_S = 300.0  # how long a door on its way up waits for a sidecar to set the card down (a painting is ~40 s)
+CUDA_RETRY_S = 8.0  # a door the engine opened that fell at its first kernel waits this long and opens once more (BRAIN_CUDA_RETRY_S)
+_CUDA_FALLS = ("CUDA error", "cudaMalloc", "out of memory")  # what a door that fell for want of the card says in brain.log
+
+
+def _cuda_fall() -> str:
+    """What the door said of the card when it left for want of it: the brain.log line from the first of
+    "CUDA error" / "cudaMalloc" / "out of memory" on, cut short; "" when it left for another reason."""
+    try:
+        lines = log_file().read_text(encoding="utf-8", errors="replace").splitlines()[-80:]
+    except OSError:
+        return ""
+    for ln in lines:
+        for mark in _CUDA_FALLS:
+            i = ln.find(mark)
+            if i >= 0:
+                return ln[i:].strip()[:100]
+    return ""
 
 
 def card_held() -> str:
     """Who holds the card right now, by the sidecars' own word — "the painter" / "the music ear" when its
     /health says the weights are loaded; "" when none does or none answers (a sidecar that isn't running
-    holds nothing). The brain and a sidecar never share the card: 28.7 GB beside a 20 GB painter is a crash
+    holds nothing). "the painter (leaving)" while one that rested is on its way out (PAINTER_REST_LEAVES): its
+    process still holds a CUDA context. The brain and a sidecar never share the card: 28.7 GB beside a 20 GB painter is a crash
     at the first kernel, not a slow door (10-16, 12:57)."""
     import urllib.request
 
@@ -428,8 +446,11 @@ def card_held() -> str:
             continue
         try:
             with urllib.request.urlopen(base + "/health", timeout=1) as r:
-                if json.loads(r.read().decode("utf-8")).get("loaded"):
-                    return name
+                said = json.loads(r.read().decode("utf-8"))
+            if said.get("loaded"):
+                return name
+            if said.get("leaving"):
+                return f"{name} (leaving)"  # rested, on its way out, its CUDA context still on the card: waited for too
         except Exception:  # noqa: BLE001 — not running, not answering: holds nothing
             continue
     return ""
@@ -453,6 +474,23 @@ def start_door(wait_s: float = 120) -> tuple[bool, str]:
         _forget()  # a door on its way up holds no reading yet: nothing restored, nothing served
         _clear_temps(slot_dir())  # a save cut short by a crash leaves a half file: never a reading
         warn = ""
+        cmd = None  # the command, when this call opens the door itself: a door that falls at its first kernel is opened once more
+
+        def _spawn(fresh: bool = True) -> int:
+            """llama-server started as the engine's child, owned and marked; OSError when it won't start. `fresh`
+            empties brain.log first (the last run only); a second try appends, the first fall kept above it."""
+            log_file().parent.mkdir(parents=True, exist_ok=True)
+            if fresh:
+                log_file().write_bytes(b"")
+            with open(log_file(), "ab") as log:  # appended to: the engine's own lines (the saved read) are not written over
+                kw = ({"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt"
+                      else {"start_new_session": True})
+                proc = subprocess.Popen(cmd, cwd=str(brain_find.ROOT), stdin=subprocess.DEVNULL,
+                                        stdout=log, stderr=subprocess.STDOUT, **kw)
+            _procs[proc.pid] = proc
+            doors.mark(DOOR, "door", pid=proc.pid, port=port(), image=IMAGE)
+            return proc.pid
+
         st = door_status()
         if st:
             pid = int(st["pid"])
@@ -477,28 +515,37 @@ def start_door(wait_s: float = 120) -> tuple[bool, str]:
             _note("opening the brain's door: " + " ".join(cmd[1:]) + (f" — {warn}" if warn else ""),
                   show="opening the brain's door — llama-server, " + _short_command(cmd) + ", the model loading")
             try:
-                log_file().parent.mkdir(parents=True, exist_ok=True)
-                log_file().write_bytes(b"")  # the last run only
-                with open(log_file(), "ab") as log:  # appended to: the engine's own lines (the saved read) are not written over
-                    kw = ({"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt"
-                          else {"start_new_session": True})
-                    proc = subprocess.Popen(cmd, cwd=str(brain_find.ROOT), stdin=subprocess.DEVNULL,
-                                            stdout=log, stderr=subprocess.STDOUT, **kw)
+                pid = _spawn()
             except OSError as e:
                 return False, f"llama-server wouldn't start: {e}"
-            pid = proc.pid
-            _procs[pid] = proc
-            doors.mark(DOOR, "door", pid=pid, port=port(), image=IMAGE)
         t0 = time.monotonic()
+        fell = ""  # what the first fall said, once the door was opened a second time
         while True:
             if props() is not None:
-                said = f"the brain's door is up in {time.monotonic() - t0:.0f} s" + (f" — {warn}" if warn else "")
+                said = (f"the brain's door is up in {time.monotonic() - t0:.0f} s"
+                        + (", on the second try (the first fell at its first kernel: the card was not free yet)" if fell else "")
+                        + (f" — {warn}" if warn else ""))
                 print(f"  ({said})", flush=True)
                 return True, said
             if _gone(pid):
                 _procs.pop(pid, None)
                 doors.unmark(DOOR, pid=pid)
-                return False, f"llama-server left before it answered (memory/brain.log):\n{_log_tail()}"
+                reason = _cuda_fall()
+                if reason and not fell and cmd is not None:
+                    # a sidecar's context not yet gone from the card (a painter that rested, the driver not done
+                    # reclaiming): a race, not a constant — the same door, opened once more after a breath
+                    wait = float(getattr(config, "BRAIN_CUDA_RETRY_S", CUDA_RETRY_S))
+                    _note(f"the door fell at its first kernel ({reason}) — the card was not free yet; opening again in {wait:.0f} s")
+                    time.sleep(max(0.0, wait))
+                    try:
+                        pid = _spawn(fresh=False)
+                    except OSError as e:
+                        return False, f"llama-server wouldn't start again: {e}"
+                    fell = reason
+                    t0 = time.monotonic()
+                    continue
+                return False, (("twice — " if fell else "")
+                               + f"llama-server left before it answered (memory/brain.log):\n{_log_tail()}")
             if time.monotonic() - t0 >= wait_s:
                 return False, (f"the brain's door didn't answer in {wait_s:.0f} s — still loading? left as it is "
                                f"(memory/brain.log):\n{_log_tail()}")
