@@ -217,8 +217,8 @@ _HELP = {
     "KEEPER_WORK_WEEK": "Your working week, so the engine's clock line can say where you are: tick the days you work and "
                         "set each day's hours (a new day takes the hours of the one before it). The file keeps it as "
                         "\"sun-wed 07:00-16:25, thu 07:00-15:55\". Every "
-                        "message and every bell then carries \"a workday for you, within working hours — …\", \"ended at "
-                        "16:25 — home now\" or \"your weekend — home\"; without it they infer where you are from the "
+                        "message and every bell then says where you are, the state first: \"at work — … — until 16:25\", "
+                        "\"home — the workday ended at 16:25\", \"home — the weekend\"; without it they infer where you are from the "
                         "journal, which was mostly written on workdays. Empty says nothing. A day off is /off on the phone.",
     "KEEPER_AT_WORK": "What the clock line says during working hours, in your words — \"on the factory floor, the phone in my "
                       "pocket\". Empty: \"at work\".",

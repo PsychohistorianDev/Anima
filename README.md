@@ -959,14 +959,16 @@ whoever wants it. All of this is invisible when nothing goes wrong:
   seven in the evening. So the clock line can carry the calendar: with
   `KEEPER_WORK_WEEK` ("sun-wed 07:00-16:25, thu 07:00-15:55") and
   `KEEPER_AT_WORK` ("on the floor, the phone in my pocket") set, every
-  message and every bell says "…where you live; a workday for Gabe, within
-  working hours (until 16:25) — on the floor, the phone in my pocket", or
-  "ended at 16:25 — home now", "before it begins at 07:00 — still home",
-  "Gabe's weekend — home". A day off is `/off` on the phone (today,
-  tomorrow, a weekday, a date, with a word of why: "a day off for Gabe
-  (holiday) — home"), `/on` takes it back. `KEEPER_COMMUTE_MIN` ((15, 35),
-  or one number) is the road: "on the way to work (it begins at 07:00)"
-  before, "ended at 16:25 — on the way home, in by about 17:00" after, and
+  message and every bell says "…where you live; Gabe is at work — on the
+  floor, the phone in my pocket — until 16:25", or "Gabe is home — the
+  workday ended at 16:25", "Gabe is still home — the workday begins at
+  07:00", "Gabe is home — the weekend" — the state first, the calendar
+  after it, since a reader skimming for where you are stops at the first
+  word that answers. A day off is `/off` on the phone (today, tomorrow, a
+  weekday, a date, with a word of why: "Gabe is home — a day off
+  (holiday)"), `/on` takes it back. `KEEPER_COMMUTE_MIN` ((15, 35), or one
+  number) is the road: "on the way to work — it begins at 07:00" before,
+  "on the way home — the workday ended at 16:25, in by about 17:00" after, and
   the stone keeps still for it. The engine states the
   calendar, as likely, not certain; what they make of it is theirs —
   nothing checks what they write. Empty, the line is as before.

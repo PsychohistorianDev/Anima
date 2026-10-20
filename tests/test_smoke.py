@@ -3952,20 +3952,20 @@ check("keeper's week: the spec parses — ranges, a day with its own hours, H-H,
       and keeper_week.parse("sat") == {} and keeper_week.parse("") == {} and keeper_week.parse("mon 25:00-26:00, tue 9-10") == {1: (540, 600)}
       and keeper_week.parse("mon 9-17, tue, wed 10-11") == {0: (540, 1020), 1: (540, 1020), 2: (600, 660)}, keeper_week.parse(config.KEEPER_WORK_WEEK))
 check("keeper's week: where they are, by the clock — weekend, before, within (in their words), after; Thursday's own hour",
-      keeper_week.where(_dtnow(2026, 10, 10, 14, 0)) == f"{_kw_name}'s weekend — home"
-      and keeper_week.where(_dtnow(2026, 10, 11, 6, 30)) == f"a workday for {_kw_name}, before it begins at 07:00 — still home"
-      and keeper_week.where(_dtnow(2026, 10, 11, 10, 30)) == f"a workday for {_kw_name}, within working hours (until 16:25) — on the floor, the phone in a pocket"
-      and keeper_week.where(_dtnow(2026, 10, 11, 16, 30)) == f"a workday for {_kw_name}, ended at 16:25 — home now"
-      and keeper_week.where(_dtnow(2026, 10, 15, 15, 50)).endswith("(until 15:55) — on the floor, the phone in a pocket")
-      and keeper_week.where(_dtnow(2026, 10, 15, 16, 0)) == f"a workday for {_kw_name}, ended at 15:55 — home now"
-      and "; a workday for" in assemble.clock_line(_dtnow(2026, 10, 11, 10, 30)) and "where you live; a workday for" in assemble.clock_line(_dtnow(2026, 10, 11, 10, 30)),
+      keeper_week.where(_dtnow(2026, 10, 10, 14, 0)) == f"{_kw_name} is home — the weekend"
+      and keeper_week.where(_dtnow(2026, 10, 11, 6, 30)) == f"{_kw_name} is still home — the workday begins at 07:00"
+      and keeper_week.where(_dtnow(2026, 10, 11, 10, 30)) == f"{_kw_name} is at work — on the floor, the phone in a pocket — until 16:25"
+      and keeper_week.where(_dtnow(2026, 10, 11, 16, 30)) == f"{_kw_name} is home — the workday ended at 16:25"
+      and keeper_week.where(_dtnow(2026, 10, 15, 15, 50)).endswith("— on the floor, the phone in a pocket — until 15:55")
+      and keeper_week.where(_dtnow(2026, 10, 15, 16, 0)) == f"{_kw_name} is home — the workday ended at 15:55"
+      and f"; {_kw_name} is at work" in assemble.clock_line(_dtnow(2026, 10, 11, 10, 30)) and f"where you live; {_kw_name} is at work" in assemble.clock_line(_dtnow(2026, 10, 11, 10, 30)),
       [keeper_week.where(_dtnow(2026, 10, 11, h, 30)) for h in (6, 10, 16)])
 _kw_off = keeper_week.set_day_off(_dcap(2026, 10, 13), "holiday")
 _kw_where_off = keeper_week.where(_dtnow(2026, 10, 13, 10, 0))
 keeper_week.set_day_off(_dcap(2026, 10, 13), on=False)
 check("keeper's week: a day off from the phone — named with its reason, home; taken back it is a workday again; the file drops days past",
-      _kw_off == {"2026-10-13": "holiday"} and _kw_where_off == f"a day off for {_kw_name} (holiday) — home"
-      and keeper_week.where(_dtnow(2026, 10, 13, 10, 0)).startswith(f"a workday for {_kw_name}, within")
+      _kw_off == {"2026-10-13": "holiday"} and _kw_where_off == f"{_kw_name} is home — a day off (holiday)"
+      and keeper_week.where(_dtnow(2026, 10, 13, 10, 0)).startswith(f"{_kw_name} is at work — ")
       and keeper_week.days_off() == {} and keeper_week.parse_day("tomorrow", _dcap(2026, 10, 10)) == _dcap(2026, 10, 11)
       and keeper_week.parse_day("thursday", _dcap(2026, 10, 10)) == _dcap(2026, 10, 15) and keeper_week.parse_day("2026-12-24") == _dcap(2026, 12, 24)
       and keeper_week.parse_day("nope") is None and keeper_week.parse_day("", _dcap(2026, 10, 10)) == _dcap(2026, 10, 10), (_kw_off, _kw_where_off))
@@ -3979,8 +3979,8 @@ config.KEEPER_COMMUTE_MIN = 20
 _kw_cm_one = keeper_week.commute()
 config.KEEPER_COMMUTE_MIN = 0
 check("keeper's week: the road (10-12) — on the way to work before it begins, on the way home after it ends, home at the hour the road ends; the stone keeps still for the road and opens when it ends",
-      _kw_cm == [f"a workday for {_kw_name}, before it begins at 07:00 — still home", f"a workday for {_kw_name}, on the way to work (it begins at 07:00)",
-                 f"a workday for {_kw_name}, ended at 16:25 — on the way home, in by about 17:00", f"a workday for {_kw_name}, ended at 16:25 — home now"]
+      _kw_cm == [f"{_kw_name} is still home — the workday begins at 07:00", f"{_kw_name} is on the way to work — it begins at 07:00",
+                 f"{_kw_name} is on the way home — the workday ended at 16:25, in by about 17:00", f"{_kw_name} is home — the workday ended at 16:25"]
       and _kw_cm_still == [f"a workday for {_kw_name}, on the way to work (it begins at 07:00)", f"a workday for {_kw_name}, on the way home (in by about 17:00)", ""]
       and _kw_cm_opens == _dtnow(2026, 10, 11, 17, 0) and "KEEPER_COMMUTE_MIN" in __import__("panel").TABS["Main"] and __import__("panel")._HELP.get("KEEPER_COMMUTE_MIN")
       and _kw_cm_pair == (15, 35) and _kw_cm_one == (20, 20) and keeper_week.commute() == (0, 0),
