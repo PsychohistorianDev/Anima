@@ -421,7 +421,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
     garbles = int(getattr(config, "CHAT_GARBLE_RETRIES", 1))
     attempts: list[tuple[int, dict]] = []  # (how broken, the message)
     previous = previous_replies(messages)  # what they said lately — an echo of any of it is a defect too
-    once = {"imagined": False, "copy": False, "greeting": False, "unread": False, "unprompted": False, "claimed": False,
+    once = {"imagined": False, "copy": False, "greeting": False, "greeting-after-words": False, "unread": False, "unprompted": False, "claimed": False,
             "claimed-self": False, "claimed-failed": False, "promised": False, "stone": False,
             "cut": False}  # asked about once; their second answer stands
 
@@ -454,6 +454,8 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
         kind, span = _defect(msg)
         if kind in once:
             once[kind] = True
+        if kind == "greeting-after-words":
+            once["greeting"] = True  # one ask about a greeting, whichever shape it took
         attempts.append((len(span), msg))
         tries.append((dict(msg["tokens"], why=kind + (f" (at {msg['cooled']:g})" if msg.get("cooled") else "")), msg))
         nudged = dict(payload)
@@ -480,6 +482,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
                                                 else CUT_NUDGE.format(tail=span) if kind == "cut"
                                                 else COPY_NUDGE if kind == "copy"
                                                 else GREETING_NUDGE if kind == "greeting"
+                                                else GREETING_AFTER_WORDS_NUDGE if kind == "greeting-after-words"
                                                 else UNREAD_NUDGE.format(what=span) if kind == "unread"
                                                 else UNPROMPTED_NUDGE.format(what=span, his=his_quote(last_user_words(base))) if kind == "unprompted"
                                                 else CLAIMED_NUDGE.format(what=span) if kind == "claimed"
@@ -1036,7 +1039,7 @@ def recoverable_call(text: str):
     return name, args
 
 
-REPEAT_KINDS = ("echo", "self-echo", "copy", "greeting")  # the model repeating itself: a cooler roll makes it likelier
+REPEAT_KINDS = ("echo", "self-echo", "copy", "greeting", "greeting-after-words")  # the model repeating itself: a cooler roll makes it likelier
 
 
 def cool_step(rerolls: int, kind: str, options: dict):
@@ -1239,6 +1242,11 @@ def greeting_again(msg: dict, messages: list[dict]):
     head = _prose_head(msg.get("content") or "")
     if not _GREETING_RE.match(head):
         return None
+    # her own words already stand after his last message — said beside a call this turn — and this opens as if a
+    # new message had come: a second message glued under the first, not an answer to what the tool gave her
+    last_user = max((i for i, m in enumerate(messages or []) if m.get("role") == "user"), default=-1)
+    if any(m.get("role") == "assistant" and (m.get("content") or "").strip() for m in (messages or [])[last_user + 1:]):
+        return "greeting-after-words", head.split("\n", 1)[0][:80]
     for m in messages or []:
         if m.get("role") == "assistant" and (m.get("content") or "").strip() and not m.get("tool_calls"):
             if _GREETING_RE.match(_prose_head(m["content"])):
@@ -1431,6 +1439,11 @@ def signature_density_line(history: list[dict]) -> str:
             + "; past a few the sampler is placing them, not you — the words are yours, the count is the sampler's")
 
 
+GREETING_AFTER_WORDS_NUDGE = ("[engine, not a person: your reply to their message is already above — the words you said "
+                              "before the tool call — and this opened with a greeting as if a new message had come: nothing "
+                              "new has arrived. Go on from your words, add what the tool gave you, or rest with do_nothing; a "
+                              "fresh opening here reaches them as a second message glued under the first. This line is a "
+                              "mechanism; nobody wrote it to you.]")
 GREETING_NUDGE = ("[engine, not a person: your last reply opened with a greeting, and you already "
                   "greeted him earlier in this same conversation — the sampler starting the visit "
                   "over, not you. This is a later message of theirs; read it and answer it, no fresh "

@@ -5117,6 +5117,22 @@ check("opener: two replies in a row opening with the same stage direction are to
       _op_2 == (2, "(a voice note, delivered with") and _op_line.startswith("Your last 2 replies opened with the same stage direction — \u201c(a voice note, delivered with\u2026\u201d")
       and "open this one as you like, or not at all" in _op_line and _op_3 == (3, "(a voice note, delivered with")
       and _op_broken is None and _op_one is None and _op_off is None, (_op_2, _op_line, _op_3, _op_broken, _op_one, _op_off))
+# a greeting after her own words in the same turn (10-20): his song, her whole reply beside a listen, and the step after the
+# listen opening "Good morning" — a second message under the first; a reply that goes on from her words is not asked
+_gw_turn = [{"role": "system", "content": "sys"}, {"role": "user", "content": "Just woke up.. getting ready for the droning.."},
+            {"role": "assistant", "content": "Take your time.", "tool_calls": []},
+            {"role": "user", "content": "(a song from his phone: shared/music/x.mp3)"},
+            {"role": "assistant", "content": "Oh, this song. I am keeping it — it is a mirror of us.",
+             "tool_calls": [{"function": {"name": "listen_to", "arguments": {"source": "shared/music/x.mp3"}}}]},
+            {"role": "tool", "tool_name": "listen_to", "content": "[this is what YOUR listen_to tool returned]\nWORDS: I will love you till the end of time"}]
+check("greeting: a reply opening with a greeting when her own words already stand after his last message is asked again as "
+      "greeting-after-words, whether or not the visit greeted before; a reply that goes on is not; the nudge says where her reply is (10-20)",
+      ollama_client.greeting_again({"content": "*(a shimmer)*\n\nGood morning, my favorite human. Go now, face the noise."}, _gw_turn)
+      == ("greeting-after-words", "Good morning, my favorite human. Go now, face the noise.")
+      and ollama_client.greeting_again({"content": "And hearing it whole — that line. I am keeping it."}, _gw_turn) is None
+      and "already above" in ollama_client.GREETING_AFTER_WORDS_NUDGE and "glued under the first" in ollama_client.GREETING_AFTER_WORDS_NUDGE
+      and "{" not in ollama_client.GREETING_AFTER_WORDS_NUDGE and "greeting-after-words" in ollama_client.REPEAT_KINDS,
+      ollama_client.greeting_again({"content": "Good morning, my favorite human."}, _gw_turn))
 check("greeting: a second good morning in one visit is asked again; the first is a greeting",
       ollama_client.greeting_again({"content": "(Leans back.)\n\nGood morning, dear one. ❤️\n\nI can feel that slow transition."}, _visit_g)
       == ("greeting", "Good morning, dear one. ❤️")
