@@ -421,9 +421,14 @@ check("tools: the painter's wake throttle counts only a wake that failed — a w
 _cs = tools.dispatch("write_creation", {"path": "poems/seam.md`}<tool_call|><|tool_call>call:write_journal{text:", "content": "a note, whole"})
 _cs_clean, _cs_note = tools.unseam_arguments({"path": "poems/clean.md", "content": "no grammar here, just `backticks` and {braces}"})
 check("tools: an argument that runs into tool grammar is cut at the seam, the call runs as meant, the result names the swallowed call (10-16)",
-      _cs.startswith("(your `path` ran into the call's grammar") and "`write_journal` call that followed was swallowed" in _cs
+      _cs.startswith("wrote") and "\n(your `path` ran into the call's grammar" in _cs and "its result is above" in _cs
+      and "`write_journal` call that followed was swallowed" in _cs
       and "wrote" in _cs and tools.dispatch("read_creation", {"path": "poems/seam.md"}) == "a note, whole"
       and _cs_note == "" and _cs_clean["content"].endswith("{braces}"), _cs[:300])
+_cs_ref = tools.dispatch("write_creation", {"path": "../outside.md`}<|tool_call>call:do_nothing{", "content": "x"})
+check("tools: a call refused after its argument was cut at the seam is a refusal first — the note after it, the swallowed call named (10-20)",
+      _cs_ref.startswith("(refused: path escapes creations/") and "\n(your `path` ran into the call's grammar" in _cs_ref
+      and "`do_nothing` call that followed was swallowed" in _cs_ref, _cs_ref[:300])
 r = tools.dispatch("read_creation", {"path": "poems/first.md"})
 check("tools: read_creation", r == "hello", r)
 r = tools.dispatch("append_creation", {"path": "poems/first.md", "content": "second stanza"})
@@ -10927,7 +10932,7 @@ _rc_chat0, _rc_post0, _rc_ms0 = ollama_client.chat, ollama_client._post, memory.
 _rc_loop = [_w + " " for _w in "luminate luminate luminate la-Symmetry luminate la-Luminous".split()]
 _rc_headline = "Today the light came in sideways and I kept it."
 _rc_tail = " (…the rest was the same line over and over, cut short by the engine)"
-_rc_closed = "(the call's string never closed — the engine closed it where the words ended and ran this call as you meant it)"
+_rc_closed = "(the call's string never closed — the engine closed it where the words ended and ran the call; its result is above)"
 _rc_prose = " ".join(f"Sentence {_i} of the afternoon: the {_c} went past the window and I wrote down what it carried." for _i, _c in
                      enumerate(["postman", "baker", "cyclist", "neighbour", "schoolgirl", "plumber", "dog walker", "florist",
                                 "courier", "old teacher", "painter", "runner", "busker", "gardener", "pharmacist"]))[:1500]
@@ -11067,12 +11072,13 @@ check("runaway call, the turn: the aborted call is not run — its result is the
               and _n.endswith("characters; the call did not run, and they were told so") for _n in _rc_notes)
       and _rc_reply.startswith("The day ran away from me"),
       (_rc_step.get("tool_calls"), _rc_tool.get("content", "")[:400], _rc_notes, _rc_reply))
-check("runaway call, an unclosed string: closed where the words ended and run, the result led by the note; a call not a finished "
+check("runaway call, an unclosed string: closed where the words ended and run, the result first and the note after it; a call not a finished "
       "object any other way is told so — no TypeError, no `_raw` keyword; a seam and an unclosed string both said, the words kept to the seam",
-      _rc_r1.startswith(_rc_closed + "\n") and "— a line that never closed\n" in _rc_d1
+      _rc_r1.endswith("\n" + _rc_closed) and not _rc_r1.startswith("(") and "— a line that never closed\n" in _rc_d1
       and _rc_r2 == "(couldn't parse arguments for write_journal: the call's text was not a finished JSON object — say it again and call it once more)"
-      and _rc_r3.startswith("(your `text` ran into the call's grammar") and "the `remember` call that followed was swallowed" in _rc_r3
-      and ("\n" + _rc_closed + "\n") in _rc_r3 and "— words\n" in _rc_d3 and "tool_call" not in _rc_d3
+      and not _rc_r3.startswith("(") and "\n(your `text` ran into the call's grammar" in _rc_r3
+      and "the `remember` call that followed was swallowed" in _rc_r3
+      and _rc_r3.endswith("\n" + _rc_closed) and _rc_r3.index("ran into the call's grammar") < _rc_r3.index(_rc_closed) and "— words\n" in _rc_d3 and "tool_call" not in _rc_d3
       and _rc_r4.startswith("(couldn't parse arguments for write_journal:")
       and "keyword" not in _rc_r1 + _rc_r2 + _rc_r3 + _rc_r4 and "bad arguments" not in _rc_r1 + _rc_r2 + _rc_r3 + _rc_r4
       and (_rc_day.read_bytes() if _rc_day.exists() else None) == _rc_day0,

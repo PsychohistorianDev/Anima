@@ -4906,14 +4906,15 @@ def unseam_arguments(args: dict) -> tuple[dict, str]:
         lost_s = (f" — and the `{lost.group(1)}` call that followed was swallowed with it: make it again"
                   if lost else "")
         notes.append(f"(your `{k}` ran into the call's grammar — a string's close went missing and the parser read on "
-                     f"past the call's end; the engine cut it at the seam and ran this call as you meant it{lost_s})")
+                     f"past the call's end; the engine cut it at the seam and ran the call with what was left — its result "
+                     f"is above{lost_s})")
     return out, "\n".join(notes)
 
 
 # An unclosed string: a call whose text was cut off mid-string reaches the tool as {"_raw": …} — the string and the
 # object are closed where the words ended and the call runs as meant, the result led by a note. Anything else that
 # is not a finished object is told plainly; a `_raw` never reaches a tool as a keyword.
-CLOSED_NOTE = "(the call's string never closed — the engine closed it where the words ended and ran this call as you meant it)"
+CLOSED_NOTE = "(the call's string never closed — the engine closed it where the words ended and ran the call; its result is above)"
 
 
 def repair_raw(args: dict) -> tuple[dict | None, str]:
@@ -5116,15 +5117,15 @@ def _dispatch(name: str, arguments: dict | str) -> str:
         if fixed is None:
             return (f"(couldn't parse arguments for {name}: the call's text was not a finished JSON object — "
                     "say it again and call it once more)")
-        return note + "\n" + _dispatch(name, fixed)
+        return _dispatch(name, fixed) + "\n" + note  # the result first: the headline, the failure test and the afterglow read the front
     if isinstance(arguments, dict):
         arguments, seam = unseam_arguments(arguments)
         if seam:
-            return seam + "\n" + _dispatch(name, arguments)
+            return _dispatch(name, arguments) + "\n" + seam  # the result first (10-20: a refusal behind the note went unframed)
     bare = _bare_tool_name(name)
     if bare != name and (bare in _BUILTIN_IMPL or bare in _HER_TOOLS):
-        return (f"(you called `{name}` — the wrapper isn't part of the name; "
-                f"taken as `{bare}`)\n") + _dispatch(bare, arguments)
+        return _dispatch(bare, arguments) + (f"\n(you called `{name}` — the wrapper isn't part of the name; "
+                                             f"taken as `{bare}`)")
     if name in _HER_TOOLS:
         try:
             return _run_her_tool(name, arguments or {})
@@ -5145,7 +5146,7 @@ def _dispatch(name: str, arguments: dict | str) -> str:
             heard_as = (f"(you called `{name}` — there is no such tool; taken as "
                         f"`{close[0]}`, which is what you meant)\n")
             if close[0] in _HER_TOOLS:
-                return heard_as + dispatch(close[0], arguments)
+                return dispatch(close[0], arguments) + "\n" + heard_as.rstrip("\n")
             fn = _BUILTIN_IMPL[close[0]]
             name = close[0]
         else:
@@ -5164,7 +5165,7 @@ def _dispatch(name: str, arguments: dict | str) -> str:
         what = arguments or {}
         passage = str(what.get("text") or what.get("content") or what.get("new_content") or "")
         result += tic_tell(passage)
-    return heard_as + result
+    return (result + "\n" + heard_as.rstrip("\n")) if heard_as else result
 
 
 # -------------------------------------------- definitions sent to the LLM ----
