@@ -808,7 +808,7 @@ def retrieved_ids(context_hint: str, exclude: set | None = None, spent: int = 0,
         except Exception:  # noqa: BLE001 — no embedding, no gate: the search degrades on its own
             qvec = None
         last = _LAST_HINT.get("vec")
-        moved = (1.0 - _cos(qvec, last)) if (qvec is not None and last is not None) else None
+        moved = max(0.0, 1.0 - _cos(qvec, last)) if (qvec is not None and last is not None) else None  # clamped: equal vectors can give a cosine a hair over 1 and a distance of -0.00
         if moved is not None and exclude and moved < drift:
             skip = True
             why.append(f"no search — the hint hasn't moved: {moved:.2f}")
