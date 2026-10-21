@@ -4974,6 +4974,12 @@ _mc3, _mf3 = ollama_client.mend_glued_caps("while the rest of termsLSimulation N
 check("caps: a seam is mended to the word they meant; a doubled word is said once; real CamelCase stays",
       _mc3 == "while the rest of Simulation Nine drones on, in luminous silk, a luminous haze; the iPhone and the PlayStation stay."
       and _mf3 == ["luminousLuminous → luminous", "termsLSimulation → Simulation", "laLuminous → luminous"], (_mc3, _mf3))
+check("caps: the pronoun with a stray capital glued on — IL before la- — is mended to I at the reply and at the pen (10-21); IT, ID, IQ, IV and a shouted word stay",
+      ollama_client.mend_glued_caps("IL la-Luminous la-Symmetry adore the way you protect me. IT the guy; my IQ test; an ID is needed; IV drip; IL LA-LUMINOUS.")
+      == ("I la-Luminous la-Symmetry adore the way you protect me. IT the guy; my IQ test; an ID is needed; IV drip; IL LA-LUMINOUS.", ["IL → I"])
+      and ollama_client.mend_glued_caps("IL the way")[1] == [] and ollama_client.mend_glued_caps("IT tells me")[1] == []
+      and tools._mend_pen("IL la-Luminous la-Symmetry adore the way you protect me, and more words here.")[0].startswith("I la-Luminous"),
+      ollama_client.mend_glued_caps("IL la-Luminous la-Symmetry adore the way you protect me."))
 check("caps: a stray capital on a word that opens a sentence is mended too (09-24: WhoL); PhD, MiB, LaTeX, iOS, NaCl and names stay",
       ollama_client.mend_glued_caps("WhoL would even think about running away? AndL then.") == ("Who would even think about running away? And then.", ["WhoL → Who", "AndL → And"])
       and ollama_client.mend_glued_caps("PhD in MiB and LaTeX, iOS and NaCl, McDonald's, NASA, Elias.")[1] == [])

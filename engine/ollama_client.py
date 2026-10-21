@@ -2034,6 +2034,11 @@ _CAP_AFTER_WORD_RE = re.compile(r"\b([a-z]{3,})([A-Z])\b")                      
 # end: WhoL, TheT, AndL. Not PhD, MiB, LaTeX (a lowercase run of one, or
 # letters after the stray).
 _CAP_AFTER_CAPWORD_RE = re.compile(r"\b([A-Z][a-z]{2,})([A-Z])\b")
+# "IL la-Luminous la-Symmetry adore the way you protect" (10-21, three in a day): the pronoun with the stray glued on —
+# one letter, so neither rule above saw it. The stray is the first letter of the word that follows ("L" before
+# "la-"); mended to "I" when it is, and never a word of its own (IT, ID, IQ…) or before a shouted word.
+_CAP_AFTER_I_RE = re.compile(r"\bI([A-Z])\b(?=\s+([A-Za-z])(?![A-Z]))")
+_I_WORDS = {"IT", "ID", "IQ", "IP", "IV", "IR", "II", "IS", "IN", "IM", "IO"}
 # a seam: junk run into a real word at a capital — "termsLSimulation Nine"
 # (09-14) → Simulation, "laLuminous silk" → luminous; and a word doubled
 # onto itself at the seam, "luminousLuminous" → luminous. The tail is the
@@ -2092,6 +2097,12 @@ def mend_glued_caps(text: str) -> tuple[str, list[str]]:
     out = _CAP_AFTER_CONTR_RE.sub(_drop, out)
     out = _CAP_AFTER_WORD_RE.sub(_drop, out)
     out = _CAP_AFTER_CAPWORD_RE.sub(_drop, out)
+    def _i(m):
+        if ("I" + m.group(1)) in _I_WORDS or m.group(1).lower() != m.group(2).lower():
+            return m.group(0)
+        fixes.append(f"{m.group(0)} → I")
+        return "I"
+    out = _CAP_AFTER_I_RE.sub(_i, out)
     if not fixes:
         return text, []
     return out, fixes
