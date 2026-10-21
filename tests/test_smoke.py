@@ -429,6 +429,15 @@ _cs_ref = tools.dispatch("write_creation", {"path": "../outside.md`}<|tool_call>
 check("tools: a call refused after its argument was cut at the seam is a refusal first — the note after it, the swallowed call named (10-20)",
       _cs_ref.startswith("(refused: path escapes creations/") and "\n(your `path` ran into the call's grammar" in _cs_ref
       and "`do_nothing` call that followed was swallowed" in _cs_ref, _cs_ref[:300])
+# a slipped argument name is mended the way a slipped tool name is (10-21): "text, la-Luminous…" is taken as text
+_mn = tools.dispatch("write_creation", {"path": "poems/mended-name.md", "content, la-Luminous la-Symmetry of the la-Symmetry": "A clean line of verse, long enough to be a page of its own.", "anyway": "yes"})
+check("tools: an argument name with the signature glued to it is taken as the one it begins with — the result first, the note after (10-21)",
+      _mn.startswith("wrote") and "\n(your argument `content, la-Luminous la-Symmetry of the` isn't one `write_creation` takes — taken as `content`)" in _mn
+      and tools.mend_argument_names(tools._BUILTIN_IMPL["write_journal"], {"txet": "x"}, "write_journal") == ({"txet": "x"}, "")
+      and tools.mend_argument_names(tools._BUILTIN_IMPL["edit_identity"], {"content": "x"}, "edit_identity") == ({"content": "x"}, "")
+      and tools.mend_argument_names(tools._BUILTIN_IMPL["write_journal"], {"text": "x", "text, la": "y"}, "write_journal")[0] == {"text": "x", "text, la": "y"}
+      and tools.mend_argument_names(tools._BUILTIN_IMPL["write_journal"], {"textual": "x"}, "write_journal")[1] == ""
+      and tools.dispatch("write_journal", {"txt, la-Luminous": ""}).startswith("(") , _mn[:300])
 r = tools.dispatch("read_creation", {"path": "poems/first.md"})
 check("tools: read_creation", r == "hello", r)
 r = tools.dispatch("append_creation", {"path": "poems/first.md", "content": "second stanza"})
@@ -3139,6 +3148,37 @@ ollama_client._post = _post_orig
 check("imagined: they are asked once, with the tool named, and the second answer may be the call",
       _m.get("tool_calls") and _m.get("garbled_kind") == "imagined" and _m.get("garbled_span") == "listen_to"
       and "listen_to was not called" in _posted[-1]["messages"][-1]["content"] and "described you listening" in _posted[-1]["messages"][-1]["content"], (_m, _posted[-1]["messages"][-1]))
+# a call whose text is salad is asked for again before it runs (10-21): the broken call never reaches the tool or
+# the history, nothing of it is shown, the line quotes its clean head and names the tool; code is never read as salad
+_cs_bad = "The gate is empty tonight and the lamp is low over the desk. la l l a laC l l a"
+_cs_msg = {"content": "", "tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": _cs_bad}}}]}
+check("call-salad: the tool's own salad test runs on the call's text before the call; the head is kept for the line (10-21)",
+      ollama_client.call_salad(_cs_msg) == "la l l a laC l l" and _cs_msg["call_salad"]["tool"] == "write_journal"
+      and _cs_msg["call_salad"]["head"].startswith("The gate is empty tonight") and "la l l" not in _cs_msg["call_salad"]["head"]
+      and ollama_client.call_salad({"content": "", "tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": "A clean entry, long enough to be looked at, with nothing wrong in it."}}}]}) == ""
+      and ollama_client.call_salad({"content": "", "tool_calls": [{"function": {"name": "write_creation", "arguments": {"path": "tools/x.py", "content": "import os\nx = a if b else c\ny = d or e\nz = f(g, h)\n" * 3}}}]}) == ""
+      and ollama_client.call_salad({"content": "", "tool_calls": [{"function": {"name": "write_creation", "arguments": {"path": "poems/x.md", "content": _cs_bad}}}]}) == "la l l a laC l l"
+      and ollama_client.call_salad({"content": "", "tool_calls": [{"function": {"name": "functions.write_journal", "arguments": json.dumps({"text, la-Luminous la-Symmetry": _cs_bad})}}]}) == "la l l a laC l l"
+      and ollama_client.call_salad({"content": "la l l a laC l l a and more", "tool_calls": [{"function": {"name": "remember", "arguments": {"text": _cs_bad}}}]}) == ""
+      and ollama_client.attempt_as_shown(_cs_msg, "call-salad", "la l l a laC l l") is None
+      and "{" not in ollama_client.call_salad_nudge(_cs_msg) and "`write_journal` call" in ollama_client.call_salad_nudge(_cs_msg)
+      and "up to the glitch it read: \u201cThe gate is empty" in ollama_client.call_salad_nudge(_cs_msg),
+      (ollama_client.call_salad(_cs_msg), _cs_msg.get("call_salad")))
+_posted = []
+_answers = [{"message": {"role": "assistant", "content": "", "thinking": "I will write it down.", "tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": _cs_bad}}}]}, "done_reason": "stop", "eval_count": 60, "prompt_eval_count": 1000},
+            {"message": {"role": "assistant", "content": "", "thinking": "Plainly, then.", "tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": "The gate is empty tonight and the lamp is low over the desk. I am here."}}}]}, "done_reason": "stop", "eval_count": 40, "prompt_eval_count": 1010}]
+ollama_client._post = _fake_post_k
+_m = _chat_orig([{"role": "user", "content": "journal it"}], tools=[{"type": "function", "function": {"name": "write_journal"}}])
+ollama_client._post = _post_orig
+check("call-salad: a step whose call text is salad is re-rolled like a reply — the clean call goes out, the broken one is not shown, "
+      "the line names the tool, the try is counted as set aside (10-21)",
+      len(_posted) == 2 and _m["tool_calls"][0]["function"]["arguments"]["text"].endswith("I am here.")
+      and _m.get("garbled_kind") == "call-salad" and _m.get("garbled_call") == "write_journal" and _m.get("garbled_span") == "la l l a laC l l"
+      and _m["retries"][0]["why"] == "call-salad" and _posted[-1]["messages"][-1]["role"] == "user"
+      and "`write_journal` call came out as letter fragments" in _posted[-1]["messages"][-1]["content"]
+      and _posted[-1]["messages"][-2] == {"role": "user", "content": "journal it"}
+      and [m["content"] for m in _m["sent_extra"]] == [_posted[-1]["messages"][-1]["content"]],
+      (len(_posted), _m.get("garbled_kind"), _m.get("retries"), [m.get("role") for m in _posted[-1]["messages"]]))
 _posted = []
 _answers = [{"message": {"role": "assistant", "content": "I can't resent you.", "thinking": "(listening to it)"}, "done_reason": "stop", "eval_count": 40, "prompt_eval_count": 1000},
             {"message": {"role": "assistant", "content": "I haven't pressed play yet — I will, but first: I can't resent you.", "thinking": "(listening later)"}, "done_reason": "stop", "eval_count": 40, "prompt_eval_count": 1010}]

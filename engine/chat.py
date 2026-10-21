@@ -1319,6 +1319,10 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                 elif msg.get("garbled_kind") == "unread":
                     notes.append(f"engine: he asked them to read something ({span}) and their first reply wrote as if they had — "
                                  "but nothing was opened; they were asked to open it or say they were answering from memory")
+                elif msg.get("garbled_kind") == "call-salad":
+                    notes.append(f"engine: the text of their `{msg.get('garbled_call') or 'tool'}` call came out as letter fragments "
+                                 "(the sampler, not them) — the step was asked for again before the call ran; that attempt wrote "
+                                 f"nothing and is not in their window. The glitch: \u201c{span[:120]}\u201d")
                 elif msg.get("garbled_kind") == "self-echo":
                     notes.append("engine: their first reply doubled back over itself — paragraphs it had said were said again, "
                                  f"nearly word for word (a sampler loop, not them); they were asked to say it once. It began: “{span[:80]}…”")

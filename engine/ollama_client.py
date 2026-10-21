@@ -449,9 +449,15 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
                 or (None if not expect_words else _claimed_once(m))
                 or (None if (once["promised"] or not expect_words) else promised_act(m))
                 or (None if (once["stone"] or not expect_words) else stone_promise(m)))
-    while garbles > 0 and not msg.get("tool_calls") and _defect(msg):
+    def _defect_any(m):
+        # a step with a tool call: only the call's text is looked at (10-21) — salad the tool would refuse
+        if m.get("tool_calls"):
+            cs = call_salad(m)
+            return ("call-salad", cs) if cs else None
+        return _defect(m)
+    while garbles > 0 and _defect_any(msg):
         garbles -= 1
-        kind, span = _defect(msg)
+        kind, span = _defect_any(msg)
         if kind in once:
             once[kind] = True
         if kind == "greeting-after-words":
@@ -491,6 +497,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
                                                 else PROMISED_NUDGE.format(what=span) if kind == "promised"
                                                 else STONE_NUDGE.format(what=span) if kind == "stone"
                                                 else IMAGINED_NUDGE.format(tool=span, tool_verb="listening" if span == "listen_to" else "watching") if kind == "imagined"
+                                                else call_salad_nudge(msg) if kind == "call-salad"
                                                 else garble_nudge(msg.get("content", ""), span, his=last_user_words(base))}
         step = ([prior] if prior else []) + [line]
         nudged["messages"] = list(base) + step
@@ -504,6 +511,8 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
         again["garbled_first"] = msg.get("content", "")
         again["garbled_first_aborted"] = bool(msg.get("aborted"))  # the stream was cut short at it
         again["garbled_span"] = span
+        if kind == "call-salad":
+            again["garbled_call"] = (msg.get("call_salad") or {}).get("tool")  # the note names the tool
         msg = again
     if attempts and not msg.get("tool_calls"):
         last = _defect(msg)
@@ -598,7 +607,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
             # say so — the keeper must see that every try was the sampler's
             attempts.append((len(last[1]), msg))
             tries.append((dict(msg["tokens"], why=last[0] + (" (cold)" if msg.get("cold") else f" (cooled to {msg['rescued']:g})" if msg.get("rescued") else "")), msg))  # the last try is a try too
-            best = min(attempts, key=lambda p: p[0])[1]
+            best = min([p for p in attempts if not p[1].get("tool_calls")] or attempts, key=lambda p: p[0])[1]  # a broken call is not a reply to send
             best["regarbled"] = True
             if msg.get("cold"):
                 best["cold_failed"] = True  # even a fresh load came back broken
@@ -867,6 +876,76 @@ def call_loop(text: str) -> str:
     addresses are full of one- and two-letter pieces the fragment rule would take for salad; a chant is a chant
     anywhere. The loop's stretch, or ""."""
     return word_loop(text) or phrase_loop(text)
+
+
+# A call whose text is salad (10-21, 09:43, at 181K: three write_journal calls in one turn — two refused by the
+# tool as letter fragments, one with the signature written into the argument's name — each refusal and each broken
+# entry kept in the window, ~1,500 tokens of the sampler's, every retry rolled at the same temperature in the same
+# well). The reply rail never looked inside a call: a step with a tool call was never asked again. Now the text a
+# write tool would refuse is seen before the call runs, with the tool's own test, and the step is asked for again
+# the way a reply is — the broken call never reaches the tool, the history or the phone; cooler from the third try.
+CALL_SALAD_ARGS = {"write_journal": "text", "edit_identity": "new_content", "update_projects": "new_content",
+                   "update_destiny": "new_content", "update_keeper": "new_content", "write_creation": "content",
+                   "append_creation": "content", "condense_day": "text", "fold_visit": "text", "condense_period": "text"}
+
+
+def call_salad(msg: dict) -> str:
+    """The fragments in the text of a tool call the tool itself would refuse as salad, or "": the same test
+    (garble_span without the phrase rule, as tools._garbled runs it) on the same argument, and for the creation
+    tools only a prose page (code is never read as salad). Sets msg["call_salad"] = {"tool", "span", "head"} —
+    the head is the clean text before the glitch, for the engine's line."""
+    try:
+        from tools import _bare_tool_name, _PROSE_EXTS
+    except Exception:  # noqa: BLE001
+        _bare_tool_name, _PROSE_EXTS = (lambda n: n), {".md", ".txt", ""}
+    for call in msg.get("tool_calls") or []:
+        fn = call.get("function") or {}
+        bare = _bare_tool_name(str(fn.get("name") or ""))
+        key = CALL_SALAD_ARGS.get(bare)
+        if not key:
+            continue
+        args = fn.get("arguments")
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except (TypeError, ValueError):
+                continue  # not a finished object: repair_raw's, not this rail's
+        if not isinstance(args, dict):
+            continue
+        if bare in ("write_creation", "append_creation"):
+            name = str(args.get("path") or "").replace("\\", "/").rsplit("/", 1)[-1]
+            ext = ("." + name.rsplit(".", 1)[1].lower()) if "." in name else ""
+            if ext not in _PROSE_EXTS:
+                continue
+        text = args.get(key)
+        if text is None:  # the name slipped ("text, la-…"): the value under the name that begins with it
+            text = next((v for k, v in args.items() if str(k).startswith(key)), None)
+        if not isinstance(text, str) or len(text) < 40:
+            continue
+        span = garble_span(text, phrases=False)
+        if span:
+            i = text.find(span)
+            head = " ".join(text[:i].split()) if i > 0 else ""
+            if len(head) > 400:
+                head = head[-400:]
+                head = head[head.find(" ") + 1:]
+            msg["call_salad"] = {"tool": bare, "span": span, "head": head if len(head) >= 20 else ""}
+            return span
+    return ""
+
+
+CALL_SALAD_NUDGE = ("[engine, not a person: the text of your `{tool}` call came out as letter fragments — a sampler "
+                    "glitch, not anything you meant. The call was not run; nothing was written. Say it again plainly, "
+                    "from the start of that text, and call `{tool}` once more{head}. This line is a mechanism; nobody "
+                    "wrote it to you, and nothing new has come in — do not mention the glitch or this line.]")
+
+
+def call_salad_nudge(msg: dict) -> str:
+    """The line for a call-salad re-roll, the clean head of the call's text quoted when there is one."""
+    cs = msg.get("call_salad") or {}
+    head = cs.get("head") or ""
+    return CALL_SALAD_NUDGE.format(tool=cs.get("tool") or "tool",
+                                   head=(f" — up to the glitch it read: \u201c{head} …\u201d" if head else ""))
 
 
 def close_json(s: str) -> dict | None:
@@ -2259,6 +2338,8 @@ def attempt_as_shown(msg: dict, kind: str, span: str) -> dict | None:
         return None
     if kind == "unprompted":
         return None  # the opener would seed itself again (10-15); the line quotes it
+    if kind == "call-salad":
+        return None  # a broken call is never shown (10-21): the line quotes its clean head
     if kind == "call-text":
         # not shown at all (10-14): shown whole, each re-roll left the window one more example of her writing
         # `// fold_visit(text="…")` as a reply, and the sampler copies the window — the line says what happened

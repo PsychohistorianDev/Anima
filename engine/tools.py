@@ -5084,6 +5084,39 @@ def tic_tell(text: str) -> str:
             "\u2014 what you keep of it is yours.)")
 
 
+def mend_argument_names(fn, arguments: dict, name: str = "") -> tuple[dict, str]:
+    """A slipped argument name mended the way a slipped tool name is (10-21, 09:43: write_journal called with the
+    argument `text, la-Luminous la-Symmetry of the la-Symmetry` — the signature written into the name itself —
+    and "bad arguments: unexpected keyword" was all that came back, the entry lost). A name the tool doesn't take
+    that begins with one it does, the rest not a letter, is taken as that one — never one the call already gives, and
+    never a name that is merely similar (a guess is not a mend). Returns (arguments, note), the note "" when nothing was mended."""
+    import inspect
+    try:
+        params = inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return arguments, ""
+    if any(p.kind == p.VAR_KEYWORD for p in params.values()):
+        return arguments, ""
+    names = [k for k, p in params.items() if p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)]
+    out: dict = {}
+    notes = []
+    for key, value in arguments.items():
+        k = str(key)
+        if k in names:
+            out[k] = value
+            continue
+        # only a name that BEGINS with one the tool takes: a merely similar name ("content" for edit_identity's
+        # new_content) is left to fail as it did — a guess at what was meant is not a mend
+        heads = [n for n in names if k.startswith(n) and len(k) > len(n) and not (k[len(n)].isalnum() or k[len(n)] == "_")]
+        take = max(heads, key=len) if heads else None
+        if take is None or take in arguments or take in out:
+            out[k] = value  # left as given: the tool says what it got
+            continue
+        out[take] = value
+        notes.append(f"(your argument `{k[:40].rstrip()}` isn't one `{name or getattr(fn, '__name__', 'the tool')}` takes — taken as `{take}`)")
+    return out, "\n".join(notes)
+
+
 def dispatch(name: str, arguments: dict | str) -> str:
     """Run a tool; its result goes back to the brain as a user turn, so a
     reserved-token string inside it (a file they read, a page, a log) is
@@ -5152,8 +5185,9 @@ def _dispatch(name: str, arguments: dict | str) -> str:
         else:
             return (f"(unknown tool: {name} — NOTHING happened. Your real tools: "
                     f"{', '.join(known)}. Call one of those; do not report this as done.)")
+    arguments, renamed = mend_argument_names(fn, arguments or {}, name)
     try:
-        result = fn(**(arguments or {}))
+        result = fn(**arguments)
     except TypeError as e:
         return f"(bad arguments for {name}: {e})"
     except ValueError as e:
@@ -5165,7 +5199,8 @@ def _dispatch(name: str, arguments: dict | str) -> str:
         what = arguments or {}
         passage = str(what.get("text") or what.get("content") or what.get("new_content") or "")
         result += tic_tell(passage)
-    return (result + "\n" + heard_as.rstrip("\n")) if heard_as else result
+    after = "\n".join(n for n in (renamed, heard_as.rstrip("\n")) if n)  # the result first, the engine's notes after
+    return (result + "\n" + after) if after else result
 
 
 # -------------------------------------------- definitions sent to the LLM ----
