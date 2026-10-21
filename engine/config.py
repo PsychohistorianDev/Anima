@@ -102,6 +102,14 @@ BRAIN_THINK_OPEN = True
 # ear set it down — the engine waits this many seconds and opens it once more; a
 # second fall is said as it is. 0 opens it again at once.
 BRAIN_CUDA_RETRY_S = 8.0
+# ...and before it opens, the card's own word by nvidia-smi: a process on the card using BRAIN_CARD_BUSY_MB or more that is
+# not the door (an ear that rested but hasn't left, a painter on its way out) keeps the door waiting as a sidecar does, named
+# with its pid; where the driver gives no per-process count, used memory above BRAIN_CARD_IDLE_MB (the desktop's own share and
+# some) is waited for BRAIN_CARD_SETTLE_S at most, then the door opens and says what was left. A server that starts on a
+# crowded card has the part that doesn't fit put in system RAM by the driver, and limps for its whole life. 0 turns each off.
+BRAIN_CARD_BUSY_MB = 256
+BRAIN_CARD_IDLE_MB = 3072
+BRAIN_CARD_SETTLE_S = 20
 
 # The brain (the chat model). Swap freely; memories and identity survive a swap.
 #   fits a 12 GB card : "gemma4:12b-it-qat" (7.2 GB; the build Google trained

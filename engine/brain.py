@@ -413,6 +413,73 @@ def _gone(pid: int) -> bool:
 
 
 CARD_WAIT_S = 300.0  # how long a door on its way up waits for a sidecar to set the card down (a painting is ~40 s)
+CARD_BUSY_MB = 256     # a process on the card using this much or more keeps the door waiting, whatever its /health says
+CARD_IDLE_MB = 3072    # the card's used memory above this, with no process to name, is something still on it
+CARD_SETTLE_S = 20.0   # how long the door waits for a nameless remainder on the card before opening anyway
+
+
+def _nvidia_smi(query: str, what: str) -> str:
+    """nvidia-smi's answer to one query, or "" without the tool, a card, or an answer in time."""
+    try:
+        kw = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
+        return subprocess.run(["nvidia-smi", f"--query-{what}={query}", "--format=csv,noheader,nounits"],
+                              capture_output=True, text=True, timeout=5, **kw).stdout or ""
+    except Exception:  # noqa: BLE001 — no card, no tool, no answer: the card can't be asked
+        return ""
+
+
+def _gpu_apps() -> list[tuple[int, str, int]]:
+    """(pid, name, MiB) for each process the driver counts on the card; a process whose memory the driver won't
+    give (WDDM: "N/A") is listed with -1; [] when the card can't be asked."""
+    apps = []
+    for line in _nvidia_smi("pid,process_name,used_memory", "compute-apps").splitlines():
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) < 3:
+            continue
+        try:
+            pid = int(parts[0])
+        except ValueError:
+            continue
+        name = parts[1].replace("\\", "/").rsplit("/", 1)[-1] or "?"
+        try:
+            mb = int(float(parts[2]))
+        except ValueError:
+            mb = -1
+        apps.append((pid, name, mb))
+    return apps
+
+
+def _gpu_used_mb() -> int:
+    """The card's used memory in MiB by nvidia-smi, -1 when it can't be asked."""
+    try:
+        return int(float(_nvidia_smi("memory.used", "gpu").strip().splitlines()[0]))
+    except (ValueError, IndexError):
+        return -1
+
+
+def card_busy() -> tuple[str, bool]:
+    """Who is on the card by the card's own count (10-21): a process using CARD_BUSY_MB or more that is not the door —
+    the ear resting with its weights freed, the painter on its way out — named with its pid and its MiB, and True
+    (waited for as a sidecar is); or, where the driver gives no per-process count, the card's used memory above
+    CARD_IDLE_MB — "the card still holds 4,100 MiB" — and False (waited for briefly, CARD_SETTLE_S). ("", False) when
+    the card is free as far as it can be asked. card_held asks the sidecars; this asks the driver, and catches a
+    process that says nothing: a rested ear held ~1 GB and its CUDA context, the door opened beside it, the part of
+    the server that did not fit went into system RAM, and that door limped for its whole life (1,022 tokens in 261 s)."""
+    st = door_status()
+    own = {int(st["pid"])} if st else set()
+    own.add(os.getpid())
+    limit = int(getattr(config, "BRAIN_CARD_BUSY_MB", CARD_BUSY_MB) or 0)
+    apps = [(pid, (name or "").replace("\\", "/").rsplit("/", 1)[-1] or "?", mb) for pid, name, mb in _gpu_apps()]
+    named = [(pid, name, mb) for pid, name, mb in apps
+             if pid not in own and "llama-server" not in name.lower() and limit and mb >= limit]
+    if named:
+        pid, name, mb = max(named, key=lambda a: a[2])
+        return f"{name} (pid {pid}, {mb:,} MiB on the card)", True
+    idle = int(getattr(config, "BRAIN_CARD_IDLE_MB", CARD_IDLE_MB) or 0)
+    used = _gpu_used_mb()
+    if idle and used > idle:
+        return f"the card still holds {used:,} MiB", False
+    return "", False
 CUDA_RETRY_S = 8.0  # a door the engine opened that fell at its first kernel waits this long and opens once more (BRAIN_CUDA_RETRY_S)
 _CUDA_FALLS = ("CUDA error", "cudaMalloc", "out of memory")  # what a door that fell for want of the card says in brain.log
 
@@ -506,6 +573,24 @@ def start_door(wait_s: float = 120) -> tuple[bool, str]:
                 if holder:
                     _note(f"the door didn't open: {holder} still holds the card")
                     return False, f"{holder} holds the card — the door didn't open (it opens on the next message once the card is free)"
+            # …and the card's own word (10-21): a process still on it that no /health names, or memory not yet
+            # given back — the door opens on a card that is confirmedly free, or says what was left on it
+            busy, named = card_busy()
+            if busy:
+                _note(f"the door waits: {busy}")
+                print(f"  (the brain's door waits — {busy})", flush=True)
+                t0 = time.monotonic()
+                limit = float(getattr(config, "BRAIN_CARD_WAIT_S", CARD_WAIT_S)) if named else float(getattr(config, "BRAIN_CARD_SETTLE_S", CARD_SETTLE_S))
+                while busy and time.monotonic() - t0 < limit:
+                    time.sleep(2)
+                    busy, named = card_busy()
+                if busy and named:
+                    _note(f"the door didn't open: {busy}")
+                    return False, f"{busy} — the door didn't open (it opens on the next message once the card is free)"
+                if busy:
+                    _note(f"the door opens with {busy} — whatever that is, it may crowd the brain")
+                else:
+                    time.sleep(1)  # the card given back a moment ago: the driver's reclaim lands before the server allocates
             cmd, note = brain_find.command()
             if cmd is None:
                 return False, note

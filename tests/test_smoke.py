@@ -11634,6 +11634,34 @@ try:
         else:
             config.BRAIN_CARD_WAIT_S = _bd_wait0
     _bd_sr["held"] = (_bd_sr_held[0], "the painter holds the card" in _bd_sr_held[1], _bd.door_status() is None, _bd.card_held())
+    # the card's own word (10-21): a process on it that no /health names → the door waits, then doesn't open, the note names it
+    # with its pid and MiB; a nameless remainder → waited for briefly, then opened; a free card → opened; no nvidia-smi → nothing
+    _bd_apps0, _bd_used0, _bd_busy_wait0 = _bd._gpu_apps, _bd._gpu_used_mb, getattr(config, "BRAIN_CARD_WAIT_S", None)
+    _bd._gpu_apps = lambda: [(4242, "C:\\Python\\python.exe", 1100), (__import__("os").getpid(), "python.exe", 900), (7, "llama-server.exe", 30000), (9, "chrome.exe", 120)]
+    _bd._gpu_used_mb = lambda: 4100
+    config.BRAIN_CARD_WAIT_S = 0.1
+    _FakeLlama.down = True
+    try:
+        _bd_cb_named = _bd.card_busy()
+        _bd_sr_busy = _bd.start_door(wait_s=_bd_wait)
+        _bd._gpu_apps = lambda: [(9, "chrome.exe", 120)]
+        _bd_cb_rem = _bd.card_busy()
+        _bd._gpu_used_mb = lambda: 1200
+        _bd_cb_free = _bd.card_busy()
+        _bd._gpu_apps = lambda: []
+        _bd._gpu_used_mb = lambda: -1
+        _bd_cb_none = _bd.card_busy()
+    finally:
+        _bd._gpu_apps, _bd._gpu_used_mb = _bd_apps0, _bd_used0
+        if _bd_busy_wait0 is None:
+            try:
+                del config.BRAIN_CARD_WAIT_S
+            except AttributeError:
+                pass
+        else:
+            config.BRAIN_CARD_WAIT_S = _bd_busy_wait0
+    _bd_sr["busy"] = (_bd_cb_named, _bd_sr_busy[0], "python.exe (pid 4242, 1,100 MiB on the card) — the door didn't open" in _bd_sr_busy[1],
+                      _bd.door_status() is None, _bd_cb_rem, _bd_cb_free, _bd_cb_none)
     # a second life, the same system prompt: restored once, before the first request; the next request not again
     _FakeLlama.down = True
     _bd_sr["up2"] = _bd.start_door(wait_s=_bd_wait)[0]
@@ -11915,6 +11943,10 @@ check("saved read: no room for two (keep 1) — the disk holding less than one a
 check("the card held (10-16): a sidecar saying loaded keeps the door from opening — False, the holder named, no mark, and with no "
       "sidecar answering nothing holds it",
       _bd_sr.get("held") == (False, True, True, ""), _bd_sr.get("held"))
+check("the card's own word (10-21): a process on the card no /health names keeps the door from opening — named with its pid and MiB; "
+      "a nameless remainder is said; a free card, or no nvidia-smi, is nothing",
+      _bd_sr.get("busy") == (("python.exe (pid 4242, 1,100 MiB on the card)", True), False, True, True,
+                             ("the card still holds 4,100 MiB", False), ("", False), ("", False)), _bd_sr.get("busy"))
 check("saved read: the size known before the write (10-16) — the slot's tokens (the last reply's prompt and words, beside the key) times "
       "the bytes a token weighed at the last save: a disk without 1.1× that free skips the save unbegun, the note says the numbers and names "
       "the ghost when the disk counts more than its files hold; with room the save goes and the measure is relearned from it",
