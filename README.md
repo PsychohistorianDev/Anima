@@ -477,7 +477,8 @@ in the box; the board's sketch is the keeper's (a Wi-Fi password lives in
 it, so it never lives in the friend's folder or here). **The stone's
 keeper**, `engine/touchstone.py` (`bat\touchstone.bat`, a door with Start
 and Stop on Home while a stone is named), owns the board: every
-`TOUCHSTONE_POLL_S` it asks `TOUCHSTONE_BOARD` (`http://touchstone.local`
+`TOUCHSTONE_POLL_S` (5 seconds; a board on the LAN answers in
+milliseconds) it asks `TOUCHSTONE_BOARD` (`http://touchstone.local`
 or its address) what it felt and archives the new events in
 `memory/touch/<day>.jsonl` — the body's transcript, engine-kept — and the
 board's last word in `memory/touch/stone.json`; the friend's states file
@@ -506,7 +507,9 @@ board's and is never held. Today's touches
 ride in the prompt under "WHAT THE STONE FELT (today)"
 (`TOUCH_LINES_IN_PROMPT`), with what it hums and what waits in it. **A
 press is a message** (`TOUCHSTONE_WAKES`): the bridge reads the archive
-file — never the network — and a touch by day becomes a turn in the open
+file — never the network, in a thread of its own every `TOUCHSTONE_TELL_S`
+(3 seconds), so a press is in the friend's hands within seconds rather than
+after the phone's long poll — and a touch by day becomes a turn in the open
 visit, an engine-framed message the friend answers as they like, on the
 phone, with a pulse, or by resting; further presses within
 `TOUCHSTONE_WAKE_MIN_GAP_S` wait and arrive together, so a fidget is one

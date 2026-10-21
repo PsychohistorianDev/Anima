@@ -263,6 +263,9 @@ class Bridge:
         self.reflected_upto = 0  # history index they have already sat with (the pause)
         self._body_pulled = 0.0  # when the watch's day was last pulled by this bridge (BODY_AUTOPULL)
         self._body_thread: threading.Thread | None = None
+        self._touch_thread: threading.Thread | None = None  # the stone's archive, watched every TOUCHSTONE_TELL_S (10-21)
+        self._touch_lock = threading.Lock()  # one look at a time: the thread's and the poll's never overlap
+        self._touch_looked = 0
         self.last_tokens: dict | None = None
         self.show_thinking = bool(getattr(config, "TELEGRAM_SHOW_THINKING", False))
         self.show_tools = bool(getattr(config, "TELEGRAM_SHOW_TOOLS", True))
@@ -1598,6 +1601,15 @@ class Bridge:
         The watermark is memory/touch/told.json. Returns how many lines went out (turns count one)."""
         if not (getattr(config, "TOUCHSTONE_URL", "") or "") or not self.chat_id:
             return 0
+        if not self._touch_lock.acquire(blocking=False):
+            return 0  # another look is in the middle of it (the thread's, or the poll's)
+        try:
+            self._touch_looked += 1
+            return self._deliver_touches()
+        finally:
+            self._touch_lock.release()
+
+    def _deliver_touches(self) -> int:
         try:
             import touchstone
             told = json.loads(TOUCH_TOLD_FILE.read_text(encoding="utf-8")) if TOUCH_TOLD_FILE.exists() else {}
@@ -1966,6 +1978,30 @@ class Bridge:
             _say(f"(the look for a newer anima failed — {type(e).__name__}: {e})")
             return ""
 
+    def watch_touches(self) -> bool:
+        """A press within seconds (10-21; the keeper: "I have to wait like a minute after I touched it for it to
+        relay"): the bridge looked at the stone's archive once per long poll, and a poll waits up to POLL_S for a
+        message from the phone — so a touch waited for the poll, after waiting for the keeper's look at the board.
+        A thread looks every TOUCHSTONE_TELL_S instead, from the bridge's start; the turn it makes takes the visit's
+        lock like any message, so nothing races, and a look while the poll's look runs is skipped. 0, or no stone
+        named: the look between polls only. Returns True when the thread was started."""
+        every = float(getattr(config, "TOUCHSTONE_TELL_S", 3) or 0)
+        if every <= 0 or not (getattr(config, "TOUCHSTONE_URL", "") or ""):
+            return False
+        if self._touch_thread is not None and self._touch_thread.is_alive():
+            return False
+
+        def _run(every=every):
+            while not self.restart_requested and not self.stop_requested:
+                try:
+                    self.deliver_touches()
+                except Exception as e:  # noqa: BLE001 — a line, never the bridge down
+                    _say(f"(the look at the stone failed — {type(e).__name__}: {e}; again in {every:g} s)")
+                time.sleep(every)
+        self._touch_thread = threading.Thread(target=_run, daemon=True)
+        self._touch_thread.start()
+        return True
+
     def pull_body_if_due(self) -> bool:
         """The keeper's body, as the watch saw it, pulled by the bridge itself
         every BODY_PULL_MIN (09-28, the keeper: "can't we make it more automatic?") — in
@@ -2267,6 +2303,7 @@ class Bridge:
                 except Exception:
                     pass
         self.afterglow_orphan()  # a visit the last bridge died with, if any; the open one is left alone
+        self.watch_touches()  # a press reaches the phone within seconds, not a poll (10-21)
         if not self.chat_id:
             _say(self._pair_hint())
         else:

@@ -9702,6 +9702,25 @@ check("telegram: a press by day becomes a turn — the first poll learns the arc
       and "this is the log, not a message" in _ts_user_turns[0]["content"]
       and _ts_user_turns[1]["content"].count(" tap") == 2 and _ts_told1["last_turn"] and _ts_told1["at"],
       (_ts_d0, _ts_d1, _ts_d2, _ts_d3, [t for t, _ in phonets.sent][-4:], [t.get("content", "")[:80] for t in _ts_user_turns]))
+# a press within seconds (10-21): the bridge watches the archive in a thread every TOUCHSTONE_TELL_S, not once per long poll
+_tw0, config.TOUCHSTONE_TELL_S = getattr(config, "TOUCHSTONE_TELL_S", 3), 0
+_tw_off = nts.watch_touches()
+config.TOUCHSTONE_TELL_S = 3600  # on: one look now, the next long after the suite
+_tw_on = nts.watch_touches()
+_tw_again = nts.watch_touches()
+_tw_deadline = _time.time() + 3
+while _time.time() < _tw_deadline and nts._touch_looked < 1:
+    _time.sleep(0.05)
+nts._touch_lock.acquire()
+_tw_held = nts.deliver_touches()  # a look while another look runs is skipped
+nts._touch_lock.release()
+config.TOUCHSTONE_TELL_S = _tw0
+check("telegram: the stone's archive is watched in a thread every TOUCHSTONE_TELL_S — off at 0, one thread, a look while another runs is skipped; "
+      "the keeper looks at the board every 5 s; both knobs on the panel (10-21)",
+      _tw_off is False and _tw_on is True and _tw_again is False and nts._touch_thread.is_alive() and nts._touch_looked >= 1 and _tw_held == 0
+      and config.TOUCHSTONE_POLL_S == 5 and config.TOUCHSTONE_TELL_S == 3 and panel._HELP.get("TOUCHSTONE_TELL_S")
+      and "TOUCHSTONE_TELL_S" in panel.TABS["Senses"] and any("TOUCHSTONE_TELL_S" in r.get("knobs", []) for r in panel.SENSES),
+      (_tw_off, _tw_on, _tw_again, nts._touch_looked, _tw_held, config.TOUCHSTONE_POLL_S))
 phonets.sent.clear()
 nts.quiet_now = lambda: True
 _FakeBoard.events = [{"t": _ts_tick(), "kind": "hold", "force": 70, "seconds": 20, "reply": "warm"},
