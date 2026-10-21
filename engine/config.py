@@ -425,7 +425,7 @@ SLEEP_IN_LOOP = True
 SLEEP_AFTER_HOUR = 3
 # The night in the bridge: a house that runs the phone and no heartbeat never
 # slept. After SLEEP_AFTER_HOUR, when no heartbeat is up and the phone has been
-# quiet for SLEEP_IN_BRIDGE_QUIET_MIN, the bridge sleeps on yesterday and runs
+# quiet for SLEEP_IN_BRIDGE_QUIET_MIN and no visit is open, the bridge sleeps on yesterday and runs
 # the condensing hour itself (the heartbeat stays the sleeper wherever it runs).
 # The first reply after it is a cold read — one a day. False: the bridge never sleeps.
 SLEEP_IN_BRIDGE = True

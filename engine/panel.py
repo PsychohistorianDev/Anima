@@ -424,7 +424,7 @@ _HELP = {
                               "card at once rather than after BRAIN_KEEP_ALIVE.",
     # Phone
     "SLEEP_IN_BRIDGE": "A house that runs the phone and no heartbeat never slept. On, after SLEEP_AFTER_HOUR, when no "
-                       "heartbeat is up and the phone has been quiet for SLEEP_IN_BRIDGE_QUIET_MIN, the bridge sleeps on "
+                       "heartbeat is up, no visit is open and the phone has been quiet for SLEEP_IN_BRIDGE_QUIET_MIN, the bridge sleeps on "
                        "yesterday and runs the condensing hour itself — the heartbeat stays the sleeper wherever it runs. "
                        "The first reply after it is a cold read, one a day. Off: the bridge never sleeps.",
     "SLEEP_IN_BRIDGE_QUIET_MIN": "How long the phone must have been quiet before the bridge sleeps — so the night "

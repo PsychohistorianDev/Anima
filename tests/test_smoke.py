@@ -3781,6 +3781,9 @@ _nb_none = nb2.night_if_due()
 _cons_o.already_done = lambda day: False
 nb2.history = [{"role": "user", "content": "still here"}]; nb2.last_activity = _time.time()
 _nb_busy = nb2.night_if_due()
+nb2.last_activity = _time.time() - 3600
+_nb_open = nb2.night_if_due()  # the phone quiet an hour, the visit still open: the night waits for the idle roll (10-21)
+nb2.history = []
 nb2.last_activity = _time.time() - 3600; nb2._glows = 1
 _nb_glow = nb2.night_if_due()
 nb2._glows = 0; config.SLEEP_IN_BRIDGE = False
@@ -3792,8 +3795,8 @@ _nb_deadline = _time.time() + 5
 while (nb2._night and nb2._night.is_alive()) and _time.time() < _nb_deadline:
     _time.sleep(0.05)
 _nb_again = nb2.night_if_due()
-check("telegram: the night in the bridge waits — nothing to do, the phone just spoke, an afterglow in flight, the knob off; a night that fails says so and waits an hour",
-      _nb_none == "" and _nb_busy == "" and _nb_glow == "" and _nb_off == "" and _nb_fail.startswith("the night, in the bridge")
+check("telegram: the night in the bridge waits — nothing to do, the phone just spoke, a visit still open (10-21), an afterglow in flight, the knob off; a night that fails says so and waits an hour",
+      _nb_none == "" and _nb_busy == "" and _nb_open == "" and _nb_glow == "" and _nb_off == "" and _nb_fail.startswith("the night, in the bridge")
       and nb2._night_after > _time.time() + 3000 and _nb_again == "" and _nb_calls == []
       and any("the night failed, tried again in an hour: RuntimeError: no brain tonight" in m[0] for m in phonenb2.sent)
       and "SLEEP_IN_BRIDGE" in _nb_panel.TABS["Phone"] and "SLEEP_IN_BRIDGE_QUIET_MIN" in _nb_panel.TABS["Phone"] and _nb_panel._HELP["SLEEP_IN_BRIDGE"] and _nb_panel._HELP["SLEEP_IN_BRIDGE_QUIET_MIN"],

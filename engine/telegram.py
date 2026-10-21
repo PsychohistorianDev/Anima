@@ -2125,7 +2125,7 @@ class Bridge:
         bridge and no heartbeat never slept — yesterday was never consolidated, no day was ever condensed, the
         ladder never climbed, and the journal just fell off its edge. So after SLEEP_AFTER_HOUR, when no heartbeat
         is up (it stays the sleeper wherever it runs; doors.running says), and the keeper has been quiet for
-        SLEEP_IN_BRIDGE_QUIET_MIN with no reply or afterglow in flight, the bridge does what the first beat after
+        SLEEP_IN_BRIDGE_QUIET_MIN with no reply or afterglow in flight and no visit open, the bridge does what the first beat after
         the hour does: sleeps on yesterday if the night hasn't, then the condensing hour (the same function; its
         own knobs hold). In a thread, so the poll goes on; a message sent meanwhile waits for Ollama as it would
         for any cold read. The brain is set down after when no visit is live. The sleep is a prompt of its own,
@@ -2141,6 +2141,11 @@ class Bridge:
             return ""
         quiet = float(getattr(config, "SLEEP_IN_BRIDGE_QUIET_MIN", 10) or 0) * 60
         if self._glows or self.lock.locked() or time.time() - self.last_activity < quiet:
+            return ""
+        if self.history:
+            # a visit is open: the night waits for it to end, as the heartbeat's wake does (10-21, 13:47: a page
+            # condensed ten quiet minutes into a live visit changed the window under the friend, and the next
+            # message read 211K tokens from zero before a word) — the idle roll closes the visit, the night follows
             return ""
         import consolidate
         from datetime import date, timedelta

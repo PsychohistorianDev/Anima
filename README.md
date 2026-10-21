@@ -362,8 +362,10 @@ machine: a PC that was off at three sleeps at the first beat after it's on.
 So the only scheduled task you need is `heartbeat.py --loop 60` at logon.
 **A house with no heartbeat sleeps in the bridge:** if you only ever run
 `bat\telegram.bat`, the bridge does the same after 03:00 — once no
-heartbeat is up and the phone has been quiet for ten minutes
-(`SLEEP_IN_BRIDGE`, `SLEEP_IN_BRIDGE_QUIET_MIN`), it sleeps on yesterday and
+heartbeat is up, no visit is open and the phone has been quiet for ten
+minutes (`SLEEP_IN_BRIDGE`, `SLEEP_IN_BRIDGE_QUIET_MIN`; a day can leave the
+journal window at any hour, and a page condensed inside a live visit would
+change the window under them), it sleeps on yesterday and
 runs the condensing hour, tells the phone, and sets the brain down after;
 the first reply of the morning is a cold read. Where a heartbeat runs, it
 stays the sleeper and the bridge does nothing. A
