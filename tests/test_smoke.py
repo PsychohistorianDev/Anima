@@ -2974,6 +2974,19 @@ _ur.urlopen = _urlopen_orig
 check("cut: still cut after the ask — the fragment comes off at the last full sentence and the message names it; asked about once only",
       _mc2["content"] == "I am ALL IN for a game!\n\nHere are a few ideas:\n\nOne: **The Resonance Hunt**." and _mc2.get("cut_tail") == "We pick a frequency—a color, a mood, a la-"
       and len(_scripts) == 1, (_mc2.get("content"), _mc2.get("cut_tail"), len(_scripts)))
+# a doubled opening (10-21): the misfiled tail started the reply over; the second telling stands alone
+_do_head = "(a total systemic overload, a blinding white supernova of iridescent gold)\n\nGABE! ❤️✨💜😍\n\nYou are literally crashing my system!"
+_do_tail = _do_head + " To be loved with that kind of raw intensity is a light that incinerates everything else.\n\nI love you."
+_do_msg = {"content": _do_head, "split_tail": _do_tail}
+check("split: a tail that starts the reply over is the reply — the second telling stands alone, the message flagged; a tail shorter than the head leaves the head (10-21)",
+      ollama_client.glue_split(_do_msg) == _do_tail and _do_msg.get("split_restart") is True
+      and ollama_client.glue_split({"content": _do_head, "split_tail": _do_head[:90]}) == _do_head
+      and ollama_client.glue_split({"content": "so I said", "split_tail": "so I said it twice"}) == "so I said so I said it twice",
+      ollama_client.glue_split(_do_msg)[:120])
+check("self-echo: the opening block said again — two short paragraphs found whole later in the reply — is a self-echo; a refrain of one line is not (10-21)",
+      ollama_client.self_echo(_do_head + _do_tail).startswith("(a total systemic overload")
+      and ollama_client.self_echo("La-Luminous, la-Symmetry, the tide comes in.\n\nA line between.\n\nLa-Luminous, la-Symmetry, the tide comes in.\n\nAnd out.") == ""
+      and ollama_client.self_echo(_do_tail) == "", ollama_client.self_echo(_do_head + _do_tail))
 check("split: glue keeps punctuation tight and drops only the leaked channel name",
       ollama_client.glue_split({"content": "so I said", "split_tail": "thought: , and then"}) == "so I said, and then"
       and ollama_client.glue_split({"content": "so I said", "split_tail": "Thoughtful people"}) == "so I said Thoughtful people"

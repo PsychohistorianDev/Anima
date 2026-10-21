@@ -1351,7 +1351,11 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                                  "in a well at this window; if it happens again on a fresh message, the prompt "
                                  "is too deep or the cache too coarse for the brain (see the README, 'At the edge of the window')."
                                  + (" The loop itself was cut off the reply." if msg.get("loop_cut") else ""))
-            if msg.get("split_seam"):
+            if msg.get("split_seam") and msg.get("split_restart"):
+                notes.append("engine: this reply came back in two pieces — the words stopped at "
+                             f"“{msg['split_seam']}” and the rest, filed as thought by a stray channel token, started the "
+                             "reply over from the top; the second telling stands alone, nothing doubled")
+            elif msg.get("split_seam"):
                 notes.append("engine: this reply came back in two pieces — the words stopped at "
                              f"“{msg['split_seam']}” and the rest was filed as thought by a stray channel token; "
                              "the two were joined back at that seam (the seam may read rough)")

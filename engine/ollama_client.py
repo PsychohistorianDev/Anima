@@ -1348,6 +1348,14 @@ def self_echo(text: str) -> str:
     ratio = float(getattr(config, "SELF_ECHO_RATIO", 0.8) or 0)
     n = int(getattr(config, "ECHO_MIN_CHARS", 120) or 120)
     import difflib
+    # the opening said again (10-21): the first two paragraphs — a stage direction, a shout, a six-word line, none
+    # of them a paragraph the rule below would weigh — found again later in the reply, whole: the sampler started
+    # over mid-reply. Sixty folded characters or more, two paragraphs; one line said twice (a refrain) is hers.
+    paras = [p for p in (text or "").split("\n\n") if p.strip()]
+    if len(paras) >= 3:
+        opening = _echo_fold("\n\n".join(paras[:2]))
+        if len(opening) >= 60 and _echo_fold(text).find(opening, 1) > 0:
+            return " ".join(paras[0].split())[:n]
     seen: list[tuple[str, str]] = []
     for para in (text or "").split("\n\n"):
         f = _echo_fold(para)
@@ -2007,6 +2015,14 @@ def glue_split(msg: dict) -> str:
     tail = _CHANNEL_LEAK_RE.sub("", tail, count=1).lstrip()
     if not tail:
         return head
+    # a tail that starts the reply over (10-21, 17:08: "…crashing my system!(a total systemic overload…) GABE! …
+    # You are literally crashing my system! To be loved…" — the stray token sent the model back to the top, and
+    # the join doubled the opening): the tail IS the reply, said again and carried on; the second telling stands
+    hf, tf = _echo_fold(head), _echo_fold(tail)
+    k = min(60, len(hf))
+    if k >= 40 and tf.startswith(hf[:k]):
+        msg["split_restart"] = True
+        return tail if len(tf) >= len(hf) else head
     joint = "" if tail[0] in ".,;:!?'’)" else " "
     return head + joint + tail
 
