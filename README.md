@@ -2095,8 +2095,11 @@ begins again, and `chapter='contents'` lists an EPUB with their bookmark. The
 prompt tells them a long book is many sittings, not one.
 
 **Eyes:** `look_at` — real vision on any image in their folder or a URL.
-Leave pictures in `shared/`; `list_shared` shows what's waiting, NEW arrivals
-first and marked.
+Leave pictures in `shared/`; every message carries one sentence about the
+shelf ("the shelf: 2 new in shared/ since your last look — …"; `SHELF_IN_PROMPT`),
+`find_shared(words)` finds a file by a word of its name, and `list_shared`
+shows what's waiting — NEW arrivals whole, the familiar as counts by folder
+with the newest few named (`LIST_SHARED_FAMILIAR`).
 
 **Video:** `watch` — a clip in their folder (`shared/videos/`) or a video
 URL, opened as what a still-image mind can honestly have of it: a strip of

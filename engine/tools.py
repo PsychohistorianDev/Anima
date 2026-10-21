@@ -2169,17 +2169,9 @@ def list_shared() -> str:
     A flat list of seventeen names hides four new ones even from a careful
     reader ("the same old ghosts and friends"). So the tool remembers what
     they have already been shown and puts the newcomers at the top."""
-    import time as _time
-    root = config.SHARED_DIR.resolve()
-    try:
-        seen = {str(x).replace("\\", "/") for x in json.loads(_SEEN_FILE.read_text(encoding="utf-8"))}
-        first_look = False
-    except (OSError, ValueError):
-        seen, first_look = set(), True
-    files = [p for p in sorted(root.rglob("*")) if p.is_file()]
+    root, files, new, old = shared_split()
     if not files:
         return "(shared/ is empty — nothing waiting for you right now)"
-
     voice_dir = Path(getattr(config, "VOICE_DIR", config.SHARED_DIR / "letters")).resolve()
 
     def line(p):
@@ -2187,40 +2179,72 @@ def list_shared() -> str:
         size = f"{kb / 1024:.1f} MB" if kb >= 1024 else f"{kb:.0f} KB"
         mine = p.parent.resolve() == voice_dir and p.name.startswith("voice-") and p.suffix in (".ogg", ".wav")
         return f"- shared/{p.relative_to(root).as_posix()} ({size})" + (" — your own voice, a note you spoke" if mine else "")
-
-    def is_hers(p):
-        return p.parent.resolve() == voice_dir and p.name.startswith("voice-") and p.suffix in (".ogg", ".wav")
-
-    def is_new(p):
-        rel = p.relative_to(root).as_posix()
-        if first_look:  # no memory yet: only the last two days count as new
-            return _time.time() - p.stat().st_mtime < 2 * 86400
-        return rel not in seen
-    new = [p for p in files if is_new(p) and not is_hers(p)]  # their own voice never arrives as news
-    old = [p for p in files if p not in new]
     try:
         _SEEN_FILE.write_text(json.dumps(sorted(p.relative_to(root).as_posix() for p in files)),
                               encoding="utf-8")
     except OSError:
         pass
+    # the familiar part of the shelf as a paragraph (10-21): 235 lines at every habitual look rode in the window
+    # for the visit, and the look derailed a wake's thread as often as it helped — counts by folder, the newest
+    # LIST_SHARED_FAMILIAR named, find_shared for any one of them; the NEW arrivals still come whole
     out = []
-    # the familiar part of the shelf, capped: 235 lines at every habitual look rode in the window for the visit, and
-    # the look derailed a wake's thread as often as it helped (10-21); the newest LIST_SHARED_FAMILIAR are listed,
-    # the rest counted, find_shared named for any one of them — 0 lists the whole shelf
-    cap = int(getattr(config, "LIST_SHARED_FAMILIAR", 20) or 0)
-    capped = bool(cap) and len(old) > cap
-    shown = sorted(old, key=lambda p: p.stat().st_mtime, reverse=True)[:cap] if capped else old
     if new:
         out.append(f"{len(new)} NEW since you last looked — {config.USER_NAME} left these for you:")
         out.extend(line(p) for p in new)
-        if old:
-            out.append(f"everything else, already familiar — the newest {cap} of {len(old)}:" if capped else "everything else, already familiar:")
-    else:
-        out.append(f"nothing new — {len(old)} familiar things, the newest {cap}:" if capped else f"nothing new — {len(old)} familiar things:")
-    out.extend(line(p) for p in shown)
-    if capped:
-        out.append(f"(…and {len(old) - cap} more, older — find_shared(a word of the name) finds any one of them)")
+    if old:
+        out.append(("everything else, already familiar: " if new else "nothing new — ") + familiar_summary(old, root)
+                   + ". find_shared(words) finds any one of them by name; listen_to, look_at, read_file, read_epub open it.")
     return "\n".join(out)
+
+
+def shared_split() -> tuple[Path, list[Path], list[Path], list[Path]]:
+    """One scan of shared/ for list_shared and the moment's shelf line: (root, every file, the NEW ones — not shown
+    since the last look; with no memory of a look yet, the last two days — and the familiar). Her own spoken
+    notes never arrive as news. Nothing is marked seen here: list_shared and an opening do that."""
+    import time as _time
+    root = config.SHARED_DIR.resolve()
+    try:
+        seen = {str(x).replace("\\", "/") for x in json.loads(_SEEN_FILE.read_text(encoding="utf-8"))}
+        first_look = False
+    except (OSError, ValueError):
+        seen, first_look = set(), True
+    try:
+        files = [p for p in sorted(root.rglob("*")) if p.is_file() and not p.name.startswith(".")]
+    except OSError:
+        files = []
+    voice_dir = Path(getattr(config, "VOICE_DIR", config.SHARED_DIR / "letters")).resolve()
+
+    def is_hers(p):
+        return p.parent.resolve() == voice_dir and p.name.startswith("voice-") and p.suffix in (".ogg", ".wav")
+
+    def is_new(p):
+        if first_look:  # no memory yet: only the last two days count as new
+            return _time.time() - p.stat().st_mtime < 2 * 86400
+        return p.relative_to(root).as_posix() not in seen
+    new = [p for p in files if is_new(p) and not is_hers(p)]
+    old = [p for p in files if p not in new]
+    return root, files, new, old
+
+
+def familiar_summary(old: list, root) -> str:
+    """The familiar shelf in a clause: "235 familiar: music 180, pictures 40, books 12, 3 at the top; newest:
+    shared/music/a.mp3, shared/pictures/b.png" — the newest LIST_SHARED_FAMILIAR (5) named, 0 names none."""
+    by: dict[str, int] = {}
+    for p in old:
+        parts = p.relative_to(root).parts
+        key = parts[0] if len(parts) > 1 else ""
+        by[key] = by.get(key, 0) + 1
+    folders = sorted(by.items(), key=lambda kv: (-kv[1], kv[0]))
+    counts = ", ".join(f"{k} {n}" if k else f"{n} at the top" for k, n in folders)
+    n = int(getattr(config, "LIST_SHARED_FAMILIAR", 5) or 0)
+    newest = sorted(old, key=lambda p: p.stat().st_mtime, reverse=True)[:n] if n else []
+    voice_dir = Path(getattr(config, "VOICE_DIR", config.SHARED_DIR / "letters")).resolve()
+
+    def own(p):  # a note she spoke herself, named as such wherever it is listed
+        return p.parent.resolve() == voice_dir and p.name.startswith("voice-") and p.suffix in (".ogg", ".wav")
+    names = ", ".join(f"shared/{p.relative_to(root).as_posix()}" + (" (your own voice, a note you spoke)" if own(p) else "")
+                      for p in newest)
+    return f"{len(old)} familiar" + (f": {counts}" if len(folders) > 1 or (folders and folders[0][0]) else "") + (f"; newest: {names}" if names else "")
 
 
 # ------------------------------------------------------------------ vision ----

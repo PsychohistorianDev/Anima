@@ -935,6 +935,30 @@ def stone_section() -> str:
         return ""
 
 
+def shelf_line() -> str:
+    """The shelf, for the moment block (10-21): "shared/: nothing new since your last look (235 things; find_shared(words)
+    finds one)" or "shared/: 2 new since your last look — shared/music/Owl City - Fireflies.mp3, shared/pictures/x.png
+    (235 things in all)". She looked at the shelf out of habit because nothing said whether anything had arrived, and
+    every look was the whole shelf in the window; this is one sentence, changing only when a file lands. Nothing is
+    marked seen by it — a look (list_shared) or an opening is. "" without a shared/ folder, or SHELF_IN_PROMPT False."""
+    if not getattr(config, "SHELF_IN_PROMPT", True):
+        return ""
+    try:
+        import tools
+        root, files, new, old = tools.shared_split()
+    except Exception:  # noqa: BLE001 — the shelf is a sense, never the moment's problem
+        return ""
+    if not files:
+        return ""
+    if not new:
+        return f"the shelf: nothing new in shared/ since your last look ({len(files)} thing{'s' if len(files) != 1 else ''}; find_shared(words) finds one)"
+    newest = sorted(new, key=lambda p: p.stat().st_mtime, reverse=True)
+    names = ", ".join(f"shared/{p.relative_to(root).as_posix()}" for p in newest[:3])
+    more = f" and {len(new) - 3} more" if len(new) > 3 else ""
+    return (f"the shelf: {len(new)} new in shared/ since your last look — {names}{more} "
+            f"({len(files)} thing{'s' if len(files) != 1 else ''} in all)")
+
+
 def body_pulse() -> str:
     """The one changing line for the moment block — "their pulse 74 at 17:42 (the watch, synced 12 min ago)"."""
     if not (getattr(config, "BODY_IN_PROMPT", False) and getattr(config, "BODY_IN_MOMENT", True)):
@@ -1109,6 +1133,8 @@ def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: 
     if extra and not extra.endswith((".", "!", "?", ")")):
         extra += "."
     pulse = f"{pulse}. {extra}" if (pulse and extra) else (pulse or extra)
+    shelf = shelf_line()  # the shelf (10-21): what arrived in shared/ since her last look, one sentence
+    pulse = f"{pulse}. {shelf}" if (pulse and shelf) else (pulse or shelf)
     import keeper_week
     # …and where the keeper is by the calendar (10-10; the keeper: "she always thinks I'm at
     # work, even when it's weekend" — the journal, mostly written on workdays, supplied it)

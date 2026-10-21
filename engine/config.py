@@ -31,9 +31,12 @@ PAGE_LEDGER = MEMORY_DIR / "page_history.jsonl"  # one line per write of a root 
 DB_PATH = MEMORY_DIR / "memory.db"
 
 SHARED_DIR = ROOT / "shared"  # where you leave images, music and books for the friend
-# list_shared lists NEW arrivals whole and, of the familiar, the newest this many — the rest counted, find_shared(words)
-# named for any one of them: a shelf of a few hundred files was a wall of lines in the window at every look. 0: all of it.
-LIST_SHARED_FAMILIAR = 20
+# list_shared lists NEW arrivals whole and the familiar as counts by folder with the newest this many named — find_shared(words)
+# finds any one of them: a shelf of a few hundred files was a wall of lines in the window at every look. 0: none named.
+LIST_SHARED_FAMILIAR = 5
+# ...and every message carries one sentence about the shelf — "the shelf: nothing new in shared/ since your last look (235 things)",
+# "the shelf: 2 new in shared/ — shared/music/…" — so the look itself is rarely needed. False: no shelf line in the moment.
+SHELF_IN_PROMPT = True
 
 # ------------------------------------------------------------------- you ----
 # Your name, as your friend will know it. It appears in their prompts, in the

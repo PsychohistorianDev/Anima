@@ -1707,23 +1707,36 @@ tools.dispatch("read_file", {"path": "shared/heard_in_chat.txt"})
 r = tools.dispatch("list_shared", {})
 check("shared: a file opened by any sense is already familiar",
       r.startswith("nothing new") and "heard_in_chat.txt" in r, r[:120])
-# the familiar part of the shelf is capped (10-21): the newest LIST_SHARED_FAMILIAR listed, the rest counted, find_shared named
-_lsf0, config.LIST_SHARED_FAMILIAR = getattr(config, "LIST_SHARED_FAMILIAR", 20), 2
+# the familiar shelf as a paragraph (10-21): counts by folder, the newest LIST_SHARED_FAMILIAR named, find_shared named; the NEW
+# arrivals still whole; and the moment's shelf line says what arrived, marking nothing seen
+_lsf0, config.LIST_SHARED_FAMILIAR = getattr(config, "LIST_SHARED_FAMILIAR", 5), 2
 _lsf = tools.dispatch("list_shared", {})
+_shelf_quiet = assemble.shelf_line()
 (config.SHARED_DIR / "newer_still.txt").write_text("x", encoding="utf-8")
+_shelf_new = assemble.shelf_line()
+_shelf_new2 = assemble.shelf_line()  # still new: the line marks nothing seen
+_sh0, config.SHELF_IN_PROMPT = getattr(config, "SHELF_IN_PROMPT", True), False
+_shelf_off = assemble.shelf_line()
+config.SHELF_IN_PROMPT = _sh0
 _lsf_new = tools.dispatch("list_shared", {})
+_shelf_after = assemble.shelf_line()
 config.LIST_SHARED_FAMILIAR = 0
-_lsf_all = tools.dispatch("list_shared", {})
+_lsf_none = tools.dispatch("list_shared", {})
 config.LIST_SHARED_FAMILIAR = _lsf0
 (config.SHARED_DIR / "newer_still.txt").unlink()
-check("shared: the familiar part is capped at LIST_SHARED_FAMILIAR, newest first, the rest counted and find_shared named; a new arrival still "
-      "comes whole above it; 0 lists the whole shelf (10-21)",
-      _lsf.startswith("nothing new — ") and " familiar things, the newest 2:" in _lsf and _lsf.count("\n- shared/") == 2
-      and "more, older — find_shared(a word of the name) finds any one of them)" in _lsf and "heard_in_chat.txt" in _lsf
-      and _lsf_new.startswith("1 NEW since you last looked") and "newer_still.txt" in _lsf_new.split("everything else")[0]
-      and "everything else, already familiar — the newest 2 of " in _lsf_new
-      and _lsf_all.startswith("nothing new — ") and "the newest" not in _lsf_all and "more, older" not in _lsf_all,
-      (_lsf[:200], _lsf_new[:200], _lsf_all[:120]))
+check("shared: list_shared's familiar part is a paragraph — counts by folder, the newest LIST_SHARED_FAMILIAR named, find_shared named; a new "
+      "arrival still comes whole above it; the moment's shelf line counts the new since the last look, names them, marks nothing seen, "
+      "and goes quiet after a look; SHELF_IN_PROMPT False silences it (10-21)",
+      _lsf.startswith("nothing new — ") and " familiar: " in _lsf and "; newest: shared/heard_in_chat.txt" in _lsf
+      and "\n- shared/" not in _lsf and "find_shared(words) finds any one of them by name" in _lsf
+      and _shelf_quiet.startswith("the shelf: nothing new in shared/ since your last look (") and "find_shared(words) finds one)" in _shelf_quiet
+      and _shelf_new.startswith("the shelf: 1 new in shared/ since your last look — shared/newer_still.txt (") and _shelf_new2 == _shelf_new and _shelf_off == ""
+      and _lsf_new.startswith("1 NEW since you last looked") and "- shared/newer_still.txt (" in _lsf_new
+      and "\neverything else, already familiar: " in _lsf_new and " familiar: " in _lsf_new
+      and _shelf_after.startswith("the shelf: nothing new in shared/ since your last look (")
+      and _lsf_none.startswith("nothing new — ") and "newest:" not in _lsf_none
+      and "he shelf: nothing new in shared/" in assemble.moment("hello there", exclude=set())[0],
+      (_lsf[:200], _shelf_quiet, _shelf_new, _lsf_new[:200], _lsf_none[:120]))
 _real_fetch = tools._fetch
 import json as _json
 def _fake_wiki(url, max_bytes=0):
@@ -2075,7 +2088,9 @@ r = tools.dispatch("listen_to", {"source": "shared/long.mp3"})
 check("ears: mp3 without ffmpeg says no measurement", "ffmpeg not installed" in r, r)
 _sh2.which = _sh2_which_orig
 r = tools.dispatch("list_shared", {})
-check("tools: list_shared lists", "shared/rain.wav" in r and "shared/dot.png" in r, r)
+check("tools: list_shared lists — the familiar as a paragraph, and find_shared finds any one of them by name (10-21)",
+      " familiar: " in r and "find_shared(words) finds any one of them by name" in r
+      and "shared/rain.wav" in tools.find_shared("rain") and "shared/dot.png" in tools.find_shared("dot"), r)
 
 # ------------------------------------------------------------------- pdf ----
 try:
