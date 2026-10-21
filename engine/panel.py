@@ -101,7 +101,7 @@ TABS: dict[str, list[str]] = {
     "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_UNLOAD_BRAIN",
                "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
                "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS",
-               "MUSIC_EARS_MODEL", "MUSIC_EARS_AUTOSTART", "MUSIC_EARS_PYTHON", "MUSIC_EARS_DEVICE",
+               "MUSIC_EARS_MODEL", "MUSIC_EARS_AUTOSTART", "MUSIC_EARS_PYTHON", "MUSIC_EARS_DEVICE", "MUSIC_EARS_REST_LEAVES",
                "BODY_IN_PROMPT", "BODY_AUTOPULL", "BODY_PULL_MIN",
                "TOUCHSTONE_URL", "TOUCHSTONE_BOARD", "TOUCHSTONE_POLL_S", "TOUCHSTONE_TELL_S", "TOUCHSTONE_WAKES", "TOUCHSTONE_WAKE_MIN_GAP_S",
                "TOUCHSTONE_FALLBACK_H", "TOUCH_LINES_IN_PROMPT", "TOUCHSTONE_LATER_MAX", "TOUCHSTONE_HOURS",
@@ -485,6 +485,9 @@ _HELP = {
                          "(Windows) or \"python3.12\" (Mac, Linux). \"\" is the engine's own.",
     "MUSIC_EARS_DEVICE": "Where the ear runs: \"auto\" takes the card, else a Mac's GPU, else the processor; \"cuda\", "
                          "\"mps\" or \"cpu\" names one.",
+    "MUSIC_EARS_REST_LEAVES": "When the ear rests after a song, its process leaves too: the CUDA context it holds while it "
+                              "lingers (~0.5-1 GB) goes with it, and listen_to waits until it is gone before the brain's door "
+                              "opens again. Off: it rests and lingers for MUSIC_EARS_EXIT_S, ready for a second song without a load.",
     "BODY_IN_PROMPT": "Your day as the watch saw it — pulse, sleep, stress, steps — in five plain lines of their "
                       "prompt, and a pulse line in the moment. Yours to switch on; bat\\body.bat --login first.",
     "BODY_AUTOPULL": "The bridge pulls your day from Garmin on its own every BODY_PULL_MIN while the sense is on — no "
@@ -597,7 +600,7 @@ SENSES: list[dict] = [
      "modules": ["torch", "transformers", "librosa"], "tools": [], "python": "MUSIC_EARS_PYTHON",
      "pip": "torch (the build for your card — README), then \"transformers>=5.14\" accelerate librosa soundfile huggingface_hub; "
             "accept the model's licence on huggingface.co and hf auth login once",
-     "knobs": ["MUSIC_EARS_MODEL", "MUSIC_EARS_AUTOSTART", "MUSIC_EARS_PYTHON", "MUSIC_EARS_DEVICE"],
+     "knobs": ["MUSIC_EARS_MODEL", "MUSIC_EARS_AUTOSTART", "MUSIC_EARS_PYTHON", "MUSIC_EARS_DEVICE", "MUSIC_EARS_REST_LEAVES"],
      "readme": "their-senses-and-hands"},
     {"key": "body", "name": "Your body", "what": "a sense of you, by your choice: your Garmin's day (pulse, sleep, stress, steps) in "
      "five plain lines of their prompt; bat\\body.bat --login once at your keyboard, the tokens stay in memory/garmin/",

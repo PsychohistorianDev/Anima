@@ -125,6 +125,19 @@ def _unload():
     print("  music ear resting — GPU freed", flush=True)
 
 
+LEAVE_AFTER_S = 0.5  # /rest's reply goes out first; then the process leaves (MUSIC_EARS_REST_LEAVES)
+_leaving = False  # /rest said it goes: /health says so for the moment left, and no song is taken
+
+
+def _leave():
+    """The process goes after a rest (MUSIC_EARS_REST_LEAVES): its CUDA context goes with it, which the rest alone
+    keeps (~0.5-1 GB) for as long as the process lingers — beside the brain's door on a card with little to spare,
+    that is a fall at the door's first kernel, as the painter's was. The engine wakes it again for the next song."""
+    sys.stdout.flush()
+    print("  music ear leaving — the card is whole again", flush=True)
+    os._exit(0)
+
+
 def hear(wav_bytes: bytes, prompt: str) -> str:
     global _last_used
     import tempfile
@@ -198,16 +211,30 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/health":
-            return self._json({"ok": True, "loaded": _model is not None, "model": MODEL_ID})
+            return self._json({"ok": True, "loaded": _model is not None, "model": MODEL_ID,
+                               **({"leaving": True} if _leaving else {})})
         self._json({"error": "unknown path"}, 404)
 
     def do_POST(self):
+        global _leaving
         if self.path == "/rest":
             with _lock:
                 _unload()
-            return self._json({"ok": True})
+                leave = bool(getattr(config, "MUSIC_EARS_REST_LEAVES", True))
+                if leave:
+                    _leaving = True
+            if not leave:
+                return self._json({"ok": True})  # rested: the process lingers for MUSIC_EARS_EXIT_S
+            self._json({"ok": True, "leaving": True})
+            # the reply first, then the process — /health still answers (and says leaving) for the moment left
+            t = threading.Timer(LEAVE_AFTER_S, _leave)
+            t.daemon = True
+            t.start()
+            return
         if self.path != "/hear":
             return self._json({"error": "unknown path"}, 404)
+        if _leaving:
+            return self._json({"error": "the music ear is leaving — listen again in a moment and it is woken afresh"})
         n = int(self.headers.get("Content-Length") or 0)
         try:
             data = json.loads(self.rfile.read(n) or b"{}")

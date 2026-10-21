@@ -6462,6 +6462,55 @@ check("painter: a rest after a painting leaves (PAINTER_REST_LEAVES) — the rep
 _srv.shutdown()
 config.PAINTER_URL = "http://127.0.0.1:1"
 tools._painter_open = lambda: False
+# the music ear leaves when it rests, as the painter does (10-21: a song, the ear rested and lingered, the brain's door fell
+# twice at its first kernel) — the exit recorded (music_ears._leave), the reply first, /health says leaving, a song refused,
+# card_held counts it, the rest waits at most MUSIC_EAR_LEAVE_WAIT_S; off: the rest as before
+import music_ears as _el_me
+_el0 = (getattr(config, "MUSIC_EARS_REST_LEAVES", True), _el_me._leave, tools.MUSIC_EAR_LEAVE_WAIT_S, getattr(config, "MUSIC_EARS_URL", ""), getattr(config, "PAINTER_URL", ""))
+_el_left: list = []
+_el_me._leave = lambda: _el_left.append(1)
+_el_s = _sock.socket(); _el_s.bind(("127.0.0.1", 0)); _el_port = _el_s.getsockname()[1]; _el_s.close()
+_el_srv = _HS(("127.0.0.1", _el_port), _el_me.Handler)
+_thr.Thread(target=_el_srv.serve_forever, daemon=True).start()
+def _el_post(path, body=None):
+    req = _ur.Request(f"http://127.0.0.1:{_el_port}" + path, data=_js.dumps(body or {}).encode(), headers={"Content-Type": "application/json"}, method="POST")
+    return _js.loads(_ur.urlopen(req, timeout=10).read())
+def _el_health():
+    return _js.loads(_ur.urlopen(f"http://127.0.0.1:{_el_port}/health", timeout=5).read())
+_el: dict = {}
+try:
+    config.MUSIC_EARS_URL = f"http://127.0.0.1:{_el_port}"
+    config.PAINTER_URL = "http://127.0.0.1:1"  # the ear alone answers card_held here
+    config.MUSIC_EARS_REST_LEAVES = False
+    _el["off"] = (_el_post("/rest"), _el_health(), _pl_brain.card_held())
+    _pl_time.sleep(0.8)
+    _el["off_left"] = list(_el_left)
+    config.MUSIC_EARS_REST_LEAVES = True
+    _el["on"] = _el_post("/rest")
+    _el["health"] = _el_health()
+    _el["held"] = _pl_brain.card_held()
+    _el["hear"] = _el_post("/hear", {"audio_b64": "", "prompt": "x"})
+    _pl_time.sleep(0.8)
+    _el["on_left"] = list(_el_left)
+    tools.MUSIC_EAR_LEAVE_WAIT_S = 1.0  # the stand-in never goes: the rest gives up at the constant
+    _el_t0 = _pl_time.monotonic()
+    _el["rest"] = tools._music_ear_rest()
+    _el["rest_s"] = _pl_time.monotonic() - _el_t0
+    _el["rest_left"] = list(_el_left)
+finally:
+    _el_me._leaving = False
+    _el_me._leave = _el0[1]
+    config.MUSIC_EARS_REST_LEAVES, tools.MUSIC_EAR_LEAVE_WAIT_S, config.MUSIC_EARS_URL, config.PAINTER_URL = _el0[0], _el0[2], _el0[3], _el0[4]
+    _el_srv.shutdown()
+_el_off = _el.get("off") or ({}, {}, None)
+check("music ear: a rest after a song leaves (MUSIC_EARS_REST_LEAVES) — the reply says so before the process goes, /health says leaving, "
+      "a song is refused, the brain's door counts it ('the music ear (leaving)'), the rest waits at most MUSIC_EAR_LEAVE_WAIT_S; off: nothing leaves (10-21)",
+      _el_off[0] == {"ok": True} and "leaving" not in _el_off[1] and _el_off[2] == "" and _el.get("off_left") == []
+      and _el.get("on") == {"ok": True, "leaving": True} and (_el.get("health") or {}).get("leaving") is True
+      and (_el.get("health") or {}).get("loaded") is False and _el.get("held") == "the music ear (leaving)"
+      and "leaving" in str((_el.get("hear") or {}).get("error")) and _el.get("on_left") == [1]
+      and _el.get("rest") is None and 0.9 <= _el.get("rest_s", 0) < 2.5 and _el.get("rest_left") == [1, 1]
+      and config.MUSIC_EARS_REST_LEAVES is True and _nb_panel._HELP.get("MUSIC_EARS_REST_LEAVES") and "MUSIC_EARS_REST_LEAVES" in _nb_panel.TABS["Senses"], _el)
 # the rows follow the piece: publish, move, delete revise them in place (09-17, 16:37: a stale poems/ path)
 _mv = tools.dispatch("move_creation", {"old_path": "poems/remembered_piece.md", "new_path": "poems/remembered_piece_v2.md"})
 _rows_mv = memory.find_text("creations/poems/remembered_piece_v2.md", kind="creation")

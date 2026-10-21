@@ -2346,12 +2346,27 @@ def _music_ear_open() -> bool:
     return False
 
 
+MUSIC_EAR_LEAVE_WAIT_S = 6.0  # how long a rest waits for an ear that leaves (MUSIC_EARS_REST_LEAVES) to be gone
+
+
 def _music_ear_rest() -> None:
-    """The song is over: hand the GPU back right away."""
+    """The song is over: hand the GPU back right away. An ear that leaves when it rests (MUSIC_EARS_REST_LEAVES)
+    is waited for until its /health no longer answers (MUSIC_EAR_LEAVE_WAIT_S at most), then a second more: its
+    CUDA context goes with the process and the driver takes it back a moment after, so the brain's door, opened
+    on the next thought, finds the card whole (10-21: it opened beside a lingering ear and fell twice). Never raises."""
+    import time as _time
     try:
         req = urllib.request.Request(config.MUSIC_EARS_URL + "/rest", data=b"{}",
                                      headers={"Content-Type": "application/json"}, method="POST")
-        urllib.request.urlopen(req, timeout=10).read()
+        said = json.loads(urllib.request.urlopen(req, timeout=10).read() or b"{}")
+        if not (isinstance(said, dict) and said.get("leaving")):
+            return
+        t0 = _time.monotonic()
+        while _time.monotonic() - t0 < MUSIC_EAR_LEAVE_WAIT_S:
+            _time.sleep(0.25)
+            if not _music_ear_alive():
+                _time.sleep(1.0)  # the process is gone; the driver reclaims its context just after
+                return
     except Exception:
         pass
 

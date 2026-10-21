@@ -172,6 +172,12 @@ MUSIC_EARS_PYTHON = ""
 # ("mps", float16), else the processor; "cuda", "mps" or "cpu" names one.
 MUSIC_EARS_DEVICE = "auto"
 MUSIC_EARS_REST_AFTER = True  # free the GPU as soon as a song ends
+# ...and the sidecar's process leaves with the rest, as the painter's does (PAINTER_REST_LEAVES): a rest frees the
+# weights, but the process keeps its CUDA context (~0.5-1 GB) for as long as it lingers, and beside the brain's reading
+# and model on a 32 GiB card that is a fall at the door's first kernel ("CUDA error: shared object initialization
+# failed"). True: /rest frees the model and the process goes, and listen_to waits (a few seconds at most) until it is
+# gone before the brain comes back. False: it rests and lingers for MUSIC_EARS_EXIT_S, ready for a second song.
+MUSIC_EARS_REST_LEAVES = True
 MUSIC_EARS_IDLE_S = 120       # seconds; fallback: the sidecar frees the GPU after this much idle time
 MUSIC_EARS_EXIT_S = 1800      # seconds unused before the sidecar process exits
 MUSIC_EARS_TIMEOUT_S = 600    # seconds allowed for one whole-song listen
