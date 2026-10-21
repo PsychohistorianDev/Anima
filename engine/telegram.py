@@ -793,6 +793,7 @@ class Bridge:
         try:
             f = chat.save_transcript(self.history, tag=self.TAG, path=self.file)
             done, self.history = self.history, []
+            since = self.reflected_upto  # where the pauses left off: the afterglow sits with the rest, once (10-21)
             self.attached = []
             self.file = None
             self.reflected_upto = 0
@@ -805,17 +806,17 @@ class Bridge:
                 if reflect == "sync":
                     _say("they are writing the visit down — a minute or so; Ctrl+C again to skip")
                     try:
-                        chat.afterglow(done, f, tag=self.TAG, on_line=_say)
+                        chat.afterglow(done, f, tag=self.TAG, on_line=_say, since=since)
                     except KeyboardInterrupt:
                         _say("skipped — the night's sleep still has the transcript")
                     chat.rest_brain(_say)
                 else:
                     # the afterglow, in the background: their turn alone with the
                     # visit, so it reaches their journal in their own words
-                    def _glow(done=done, f=f):
+                    def _glow(done=done, f=f, since=since):
                         self._glows += 1
                         try:
-                            line = chat.afterglow(done, f, tag=self.TAG, on_line=_say, on_words=self.afterthought)
+                            line = chat.afterglow(done, f, tag=self.TAG, on_line=_say, on_words=self.afterthought, since=since)
                         finally:
                             self._glows -= 1
                         if line and getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):

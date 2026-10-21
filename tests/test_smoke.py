@@ -5917,6 +5917,33 @@ check("afterglow: only repeats means nothing new, said so",
 ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "already in the journal"}}}]}])
 _line = chat.afterglow(_hist, _tf)
 check("afterglow: resting is a complete answer", "they rested" in _line, _line)
+# once (10-21): the afterglow sits with what the pauses didn't — nothing new since the last pause → nothing written, the
+# transcript signed; new words since → only those; the doors hand it their mark; False → the whole visit as before
+_ao_calls = []
+ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "x"}}}]}] * 3)
+_ao_tf = config.EPISODIC_DIR / "chat-telegram-afterglow-once.md"
+_ao_hist = _hist + [{"role": "user", "content": "one more thing"}, {"role": "assistant", "content": "I heard it."}]
+chat.save_transcript(_ao_hist, tag="telegram", path=_ao_tf)
+_ao_none = chat.afterglow(_ao_hist, _ao_tf, tag="telegram", since=len(_ao_hist))
+_ao_signed = _ao_tf.read_text(encoding="utf-8")
+_ao_qt0 = chat._quiet_turn
+chat._quiet_turn = lambda history, path, tag, on_line, mode, since, on_words=None, opening="", what="": _ao_calls.append((mode, since)) or "afterglow: x"
+_ao_tail = chat.afterglow(_ao_hist, _ao_tf, tag="telegram", since=2)
+_ao_sp0, config.AFTERGLOW_SINCE_PAUSE = getattr(config, "AFTERGLOW_SINCE_PAUSE", True), False
+_ao_whole = chat.afterglow(_ao_hist, _ao_tf, tag="telegram", since=len(_ao_hist))
+config.AFTERGLOW_SINCE_PAUSE = _ao_sp0
+_ao_glow0, chat.afterglow = chat.afterglow, (lambda history, path=None, tag="", on_line=None, on_words=None, since=0: _ao_calls.append(("door", since)) or "")
+_ao_b, _ao_phone = _bridge()
+_ao_b.history = list(_ao_hist); _ao_b.reflected_upto = 3
+_ao_b.new_visit(quiet=True, reflect="sync")
+chat.afterglow, chat._quiet_turn = _ao_glow0, _ao_qt0
+_ao_tf.unlink(missing_ok=True)
+check("afterglow: once (10-21) — nothing new since the last pause writes nothing and signs the transcript; new words since are the only "
+      "ones it sits with; the bridge hands it where the pauses left off; AFTERGLOW_SINCE_PAUSE False reads the whole visit",
+      _ao_none.startswith("afterglow: nothing new since they last sat with the visit") and "\n---\n*afterglow: nothing new since" in _ao_signed
+      and chat.orphaned_visit("telegram") != _ao_tf
+      and _ao_tail == "afterglow: x" and _ao_calls[:1] == [("afterglow", 2)] and _ao_whole == "afterglow: x" and _ao_calls[1] == ("afterglow", 0)
+      and ("door", 3) in _ao_calls, (_ao_none, _ao_calls))
 ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "read_web", "arguments": {"url": "http://x"}}}]},
                                     {"role": "assistant", "content": "fine."}])
 _line = chat.afterglow(_hist, None)

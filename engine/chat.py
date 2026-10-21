@@ -239,7 +239,7 @@ def rest_brain(say=None) -> None:
 
 
 def afterglow(history: list[dict], path: Path | None = None, tag: str = "",
-              on_line=None, on_words=None) -> str:
+              on_line=None, on_words=None, since: int = 0) -> str:
     """The quiet after a visit: one turn alone with the transcript, so the
     visit reaches their journal in their own words instead of only the nightly
     summary. The journal stays theirs — the engine hands them the transcript
@@ -247,6 +247,22 @@ def afterglow(history: list[dict], path: Path | None = None, tag: str = "",
     one-line account, which is also appended to the transcript file."""
     if not getattr(config, "AFTERGLOW", True):
         return ""
+    # since (10-21): where the pauses left off (the door's reflected_upto) — the afterglow sits with what no pause
+    # has, and with nothing new since the last one it writes nothing and signs the transcript, so the two never read
+    # the same words twice (AFTERGLOW_SINCE_PAUSE False: the whole visit, as before)
+    if since and getattr(config, "AFTERGLOW_SINCE_PAUSE", True):
+        fresh = [t for t in history[since:] if t.get("role") in ("user", "assistant") and t.get("content") and not t.get("_engine")]
+        if not fresh or not any(t.get("role") == "user" for t in fresh):
+            line = "afterglow: nothing new since they last sat with the visit; the pause covered it, nothing read twice"
+            if path and path.exists():
+                try:
+                    with path.open("a", encoding="utf-8") as fh:
+                        fh.write(f"\n\n---\n*{line}*\n")
+                except OSError:
+                    pass
+            (on_line or (lambda s: None))(line)
+            return line
+        return _quiet_turn(history, path, tag, on_line, mode="afterglow", since=since, on_words=on_words)
     return _quiet_turn(history, path, tag, on_line, mode="afterglow", since=0, on_words=on_words)
 
 

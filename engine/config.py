@@ -752,6 +752,10 @@ RUNAWAY_KEEP_CHARS = 600
 # Transcripts longer than AFTERGLOW_MAX_CHARS are given from the end.
 AFTERGLOW = True
 AFTERGLOW_MAX_CHARS = 60000
+# The afterglow sits only with what no pause has (the quiet's pause, or /afterglow by hand, moved the door's mark);
+# with nothing new since the last pause it writes nothing and signs the transcript — once, never the same words
+# twice. False: the whole visit from the top, whatever the pauses read.
+AFTERGLOW_SINCE_PAUSE = True
 # The pause: when you have been quiet for REFLECT_AFTER_MIN minutes in the
 # middle of a visit (a coffee break, not the end of a visit), the friend gets
 # the same quiet turn as the afterglow, over what was said since they last

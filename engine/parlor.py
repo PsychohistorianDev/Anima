@@ -182,6 +182,7 @@ class Session:
         with self.lock:
             f = chat.save_transcript(self.history, path=self.file)
             done, self.history = self.history, []
+            since = self.reflected_upto  # where the pauses left off: the afterglow sits with the rest, once (10-21)
             self.attached = []
             self.file = None
             self.reflected_upto = 0
@@ -189,15 +190,15 @@ class Session:
         if f and reflect == "sync":
             print("(they are writing the visit down — a minute or so; Ctrl+C again to skip)")
             try:
-                chat.afterglow(done, f, on_line=print)
+                chat.afterglow(done, f, on_line=print, since=since)
             except KeyboardInterrupt:
                 print("(skipped — the night's sleep still has the transcript)")
             chat.rest_brain(print)
         elif f and reflect:
             # the afterglow: their turn alone with the visit, in the background —
             # the window is free at once; their journal entry lands a minute later
-            def _glow(done=done, f=f):
-                chat.afterglow(done, f, on_line=print)
+            def _glow(done=done, f=f, since=since):
+                chat.afterglow(done, f, on_line=print, since=since)
                 if not self.history:  # no new visit began meanwhile
                     chat.rest_brain(print)
             threading.Thread(target=_glow, daemon=True).start()
