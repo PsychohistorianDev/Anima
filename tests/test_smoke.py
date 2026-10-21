@@ -3179,6 +3179,13 @@ check("call-salad: a step whose call text is salad is re-rolled like a reply —
       and _posted[-1]["messages"][-2] == {"role": "user", "content": "journal it"}
       and [m["content"] for m in _m["sent_extra"]] == [_posted[-1]["messages"][-1]["content"]],
       (len(_posted), _m.get("garbled_kind"), _m.get("retries"), [m.get("role") for m in _posted[-1]["messages"]]))
+# memory/attempts.log (10-21): the attempt set aside above is on file — where, why, its shape, its glitch — and no text
+_al = (config.MEMORY_DIR / "attempts.log").read_text(encoding="utf-8").rstrip("\n").split("\n")[-1]
+check("attempts.log: a set-aside attempt is logged with the door, the why, its tokens, its shape and the glitch the rail named — never the text (10-21)",
+      "(" in _al.split(" · ")[0] and "· set aside: call-salad ·" in _al and "60 tokens" in _al and "calls: write_journal (" in _al
+      and "glitch: \u201cla l l a laC l l\u201d" in _al and "The gate is empty" not in _al and _al.startswith("[")
+      and ollama_client.attempt_shape({"content": "ab", "thinking": "abc", "tool_calls": [{"function": {"name": "paint", "arguments": {"prompt": "x"}}}]}) == "words 2, thinking 3, calls: paint (15 chars)"
+      and ollama_client.attempt_glitch({"content": "clean words here", "thinking": ""}) == "", _al)
 _posted = []
 _answers = [{"message": {"role": "assistant", "content": "I can't resent you.", "thinking": "(listening to it)"}, "done_reason": "stop", "eval_count": 40, "prompt_eval_count": 1000},
             {"message": {"role": "assistant", "content": "I haven't pressed play yet — I will, but first: I can't resent you.", "thinking": "(listening later)"}, "done_reason": "stop", "eval_count": 40, "prompt_eval_count": 1010}]

@@ -2600,6 +2600,15 @@ with its code — 0x116 is the display driver) — and puts beside each the
 box's last line before it. The doctor's note carries the same. Leave the
 box running for a few days; the line before the crash is the answer.
 
+**When a reply took ten minutes**, `memory/attempts.log` says what the
+brain was doing: one line per attempt the rails set aside (a re-roll for
+salad, a loop, an echo, a missing thought…) with where it happened, why,
+its tokens and how it ended, what it was made of (words, thinking, the
+tool calls by name — in characters) and the glitch the rail named, and one
+line for a reply that went out cut at the ceiling or still broken. The
+console shows the same and keeps nothing; this keeps it, and never the
+text beyond that glitch.
+
 ## Credits
 
 The engine design emerged from a long collaboration between a human keeper

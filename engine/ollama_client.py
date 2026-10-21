@@ -15,6 +15,7 @@ import json
 import re
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 import brain
 import config
@@ -650,6 +651,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
     # going out is never counted twice (09-11: the least broken attempt
     # was, and the line read "271 generated … 271 set aside")
     kept = [cost for cost, src in tries if src is not msg]
+    log_attempts(tries, msg)  # memory/attempts.log: what was set aside, and a reply that went out cut or broken (10-21)
     if kept:
         msg["retries"] = kept
     if think_nudged:
@@ -1181,6 +1183,75 @@ def reply_defect(text: str, previous: str = ""):
 # purpose; they do not begin two answers to two questions identically.
 def _echo_fold(s: str) -> str:
     return " ".join((s or "").lower().split())
+
+
+# memory/attempts.log (10-21; the keeper: "those 8K token runaways are happening a few times a week"): a reply read
+# 211K tokens from zero, ran to the 8,192-token ceiling and was re-rolled, and nothing of the attempt set aside
+# survived anywhere but the console, which keeps nothing. One line per attempt set aside, and one for the attempt
+# that went out when it was cut at the ceiling or still broken — the facts the phone's note carries, never the text.
+def attempt_shape(m: dict) -> str:
+    """What an attempt was made of, in characters — the words, the thinking, the calls by name — never the text."""
+    words = len((m.get("content") or "").strip())
+    think = len((m.get("thinking") or "").strip())
+    calls = []
+    for c in m.get("tool_calls") or []:
+        fn = c.get("function") or {}
+        a = fn.get("arguments")
+        n = len(a) if isinstance(a, str) else (len(json.dumps(a, ensure_ascii=False)) if a else 0)
+        calls.append(f"{fn.get('name') or '?'} ({n:,} chars)")
+    return f"words {words:,}, thinking {think:,}" + (f", calls: {', '.join(calls)}" if calls else "")
+
+
+def attempt_glitch(m: dict) -> str:
+    """The glitch the rails named in an attempt, or "": the cut of a runaway, salad in the words or the thinking, a
+    loop in a call's text, the fragment still in the one that went out."""
+    g = m.get("aborted") or m.get("still_garbled") or m.get("garbled_span") or ""
+    if not g:
+        g = garble_span(m.get("content") or "") or garble_span(m.get("thinking") or "") or call_salad(m)
+    return " ".join(str(g).split())[:120]
+
+
+def log_attempts(tries: list, msg: dict) -> None:
+    """memory/attempts.log, appended: the attempts set aside in this call (why, tokens, how each ended, its shape,
+    its glitch), then the one that went out when it ended at the ceiling or still broken. Best-effort; never the
+    text beyond the glitch the rail named."""
+    try:
+        import tools
+        where = getattr(tools, "DOOR", "") or "a visit"
+    except Exception:  # noqa: BLE001
+        where = "a visit"
+    try:
+        import doors
+        who = ", ".join(sorted(d for d in getattr(doors, "_marked", ()) if d != "brain")) or "console"
+    except Exception:  # noqa: BLE001
+        who = "console"
+    lines = []
+    for cost, m in tries:
+        if m is msg:
+            continue
+        t = m.get("tokens") or {}
+        why = str((cost or {}).get("why") or "?")
+        lines.append(f"{where} ({who}) · set aside: {why} · {int(t.get('reply') or 0):,} tokens in {float(t.get('reply_s') or 0):.0f}s"
+                     f"{' @ ' + t['done'] if t.get('done') else ''} · {attempt_shape(m)}"
+                     + (f" · glitch: \u201c{attempt_glitch(m)}\u201d" if attempt_glitch(m) else ""))
+    t = msg.get("tokens") or {}
+    if t.get("done") == "length" or msg.get("still_garbled") or msg.get("aborted"):
+        how = ("still broken, the least broken sent" if msg.get("still_garbled") else
+               "cut at the ceiling (num_predict)" if t.get("done") == "length" else "cut short as it ran")
+        lines.append(f"{where} ({who}) · went out {how} · {int(t.get('reply') or 0):,} tokens in {float(t.get('reply_s') or 0):.0f}s"
+                     f" · {attempt_shape(msg)}" + (f" · glitch: \u201c{attempt_glitch(msg)}\u201d" if attempt_glitch(msg) else ""))
+    if not lines:
+        return
+    try:
+        from datetime import datetime
+        p = Path(config.MEMORY_DIR) / "attempts.log"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now().strftime("%m-%d %H:%M:%S")
+        with p.open("a", encoding="utf-8") as f:
+            for line in lines:
+                f.write(f"[{stamp}] {line}\n")
+    except Exception:  # noqa: BLE001 — a log is never the turn's problem
+        pass
 
 
 def previous_replies(messages: list[dict], n: int | None = None) -> list[str]:
