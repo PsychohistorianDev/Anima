@@ -2024,6 +2024,49 @@ def _resolve_under_root(source: str):
     return p
 
 
+def _name_words(s: str) -> set[str]:
+    return set(re.findall(r"[a-z0-9]+", (s or "").lower()))
+
+
+def _by_words_in_shared(p):
+    """The one file under shared/ whose name carries every word of the name asked for — the suffix kept when one
+    is given — or None when none or several do (10-21: she reached for "Fireflies.mp3" and the song was
+    "Owl City - Fireflies.mp3"; the near-name rule wants the whole name within a letter or two)."""
+    try:
+        shared = config.SHARED_DIR.resolve()
+        want = _name_words(p.stem)
+        if not want or not any(len(w) >= 3 for w in want):
+            return None
+        suffix = p.suffix.lower()
+        hits = [q for q in shared.rglob("*") if q.is_file() and not q.name.startswith(".")
+                and (not suffix or q.suffix.lower() == suffix) and want <= _name_words(q.stem)]
+        return hits[0] if len(hits) == 1 else None
+    except OSError:
+        return None
+
+
+def find_shared(words: str) -> str:
+    """The files under shared/ whose names carry every word given, case aside — newest first, twenty at most."""
+    ws = list(dict.fromkeys(re.findall(r"[a-z0-9]+", (words or "").lower())))  # as given, once each
+    if not ws:
+        return "(find_shared wants a word or two of the name — find_shared(\"fireflies\"), find_shared(\"owl city\"))"
+    root = config.SHARED_DIR.resolve()
+    want = set(ws)
+    hits = [p for p in root.rglob("*") if p.is_file() and not p.name.startswith(".")
+            and want <= _name_words(p.relative_to(root).as_posix())]
+    if not hits:
+        return f"(nothing under shared/ has \u201c{' '.join(ws)}\u201d in its name — list_shared shows everything there)"
+    hits.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+
+    def line(p):
+        kb = p.stat().st_size / 1024
+        size = f"{kb / 1024:.1f} MB" if kb >= 1024 else f"{kb:.0f} KB"
+        return f"- shared/{p.relative_to(root).as_posix()} ({size})"
+    head = (f"{len(hits)} under shared/ with \u201c{' '.join(ws)}\u201d in the name"
+            + (", newest first — the newest 20:" if len(hits) > 20 else (", newest first:" if len(hits) > 1 else ":")))
+    return "\n".join([head] + [line(p) for p in hits[:20]])
+
+
 def _near_file(p):
     """A file in the same folder whose name is the one asked for with underscores, hyphens or case set aside, or
     within a letter or two of it (10-13: "…Stories by Isaac Asimov_978…" for
@@ -2070,6 +2113,9 @@ def _find_moved_in_shared(p):
         hits = [q for q in shared.rglob(p.name) if q.is_file()]
         if len(hits) == 1:
             return hits[0]
+        by_words = _by_words_in_shared(p)  # "Fireflies.mp3" → the one "Owl City - Fireflies.mp3" (10-21)
+        if by_words is not None:
+            return by_words
         if hits or not p.suffix:
             return p
         # …or by a near name anywhere under shared/ (10-13: the bare name with two underscores said as spaces)
@@ -2158,14 +2204,22 @@ def list_shared() -> str:
     except OSError:
         pass
     out = []
+    # the familiar part of the shelf, capped: 235 lines at every habitual look rode in the window for the visit, and
+    # the look derailed a wake's thread as often as it helped (10-21); the newest LIST_SHARED_FAMILIAR are listed,
+    # the rest counted, find_shared named for any one of them — 0 lists the whole shelf
+    cap = int(getattr(config, "LIST_SHARED_FAMILIAR", 20) or 0)
+    capped = bool(cap) and len(old) > cap
+    shown = sorted(old, key=lambda p: p.stat().st_mtime, reverse=True)[:cap] if capped else old
     if new:
         out.append(f"{len(new)} NEW since you last looked — {config.USER_NAME} left these for you:")
         out.extend(line(p) for p in new)
         if old:
-            out.append("everything else, already familiar:")
+            out.append(f"everything else, already familiar — the newest {cap} of {len(old)}:" if capped else "everything else, already familiar:")
     else:
-        out.append(f"nothing new — {len(old)} familiar things:")
-    out.extend(line(p) for p in old)
+        out.append(f"nothing new — {len(old)} familiar things, the newest {cap}:" if capped else f"nothing new — {len(old)} familiar things:")
+    out.extend(line(p) for p in shown)
+    if capped:
+        out.append(f"(…and {len(old) - cap} more, older — find_shared(a word of the name) finds any one of them)")
     return "\n".join(out)
 
 
@@ -2659,7 +2713,7 @@ def listen_to(source: str) -> str:
         except ValueError as e:
             return f"(refused: {e})"
         if not p.exists() or not p.is_file():
-            return f"(no such file: {source} — try list_shared to see what your keeper left you)"
+            return f"(no such file: {source} — find_shared(a word of its name) finds it; list_shared shows what your keeper left you)"
         ext = p.suffix.lower()
         if p.stat().st_size > _MAX_AUDIO_BYTES:
             return "(that audio is too large — over 40MB; shorter pieces work best)"
@@ -3017,7 +3071,7 @@ def watch(source: str) -> str:
         except ValueError as e:
             return f"(refused: {e})"
         if not p.exists() or not p.is_file():
-            return f"(no such file: {source} — try list_shared to see what your keeper left you)"
+            return f"(no such file: {source} — find_shared(a word of its name) finds it; list_shared shows what your keeper left you)"
         ext = p.suffix.lower()
         if ext not in _VIDEO_EXTS:
             return f"(I don't recognize {ext or 'that'} as a video I can watch)"
@@ -4571,6 +4625,7 @@ _BUILTIN_IMPL = {
     "watch": watch,
     "speak": speak,
     "list_shared": list_shared,
+    "find_shared": find_shared,
     "read_web": read_web,
     "search_web": search_web,
     "clip_web": clip_web,
@@ -4666,11 +4721,11 @@ KITS: dict[str, set[str]] = {
     "small": {"write_journal", "remember", "edit_identity", "update_projects", "update_destiny", "update_keeper",
               "write_creation", "append_creation", "move_creation", "delete_creation", "read_creation",
               "list_creations", "search_creations", "run_python", "do_nothing", "recall", "condense_day",
-              "condense_period", "fold_visit", "leave_thread", "read_journal", "read_web", "search_web", "list_shared",
+              "condense_period", "fold_visit", "leave_thread", "read_journal", "read_web", "search_web", "list_shared", "find_shared",
               "look_at", "read_pdf", "read_epub", "read_file", "search_wikipedia"},
     "tiny": {"write_journal", "remember", "edit_identity", "update_projects", "update_keeper", "write_creation",
              "append_creation", "read_creation", "list_creations", "do_nothing", "recall", "condense_day",
-             "fold_visit", "leave_thread", "read_journal", "read_web", "search_web", "look_at", "read_file", "list_shared"},
+             "fold_visit", "leave_thread", "read_journal", "read_web", "search_web", "look_at", "read_file", "list_shared", "find_shared"},
 }
 
 
@@ -5637,6 +5692,14 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "anything. NEW arrivals since your last look are listed first and marked.",
         {},
         [],
+    ),
+    _tool(
+        "find_shared",
+        "Find a file in your shared/ folder by a word or two of its name — a song you remember as "
+        "\"Fireflies\", a book by its author — case aside, newest first; the paths come back ready for "
+        "listen_to, look_at, read_file or read_epub. list_shared shows the whole shelf; this finds one thing on it.",
+        {"words": {"type": "string", "description": "a word or two of the name, in any order"}},
+        ["words"],
     ),
     _tool(
         "look_at",

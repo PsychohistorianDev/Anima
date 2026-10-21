@@ -31,6 +31,9 @@ PAGE_LEDGER = MEMORY_DIR / "page_history.jsonl"  # one line per write of a root 
 DB_PATH = MEMORY_DIR / "memory.db"
 
 SHARED_DIR = ROOT / "shared"  # where you leave images, music and books for the friend
+# list_shared lists NEW arrivals whole and, of the familiar, the newest this many — the rest counted, find_shared(words)
+# named for any one of them: a shelf of a few hundred files was a wall of lines in the window at every look. 0: all of it.
+LIST_SHARED_FAMILIAR = 20
 
 # ------------------------------------------------------------------- you ----
 # Your name, as your friend will know it. It appears in their prompts, in the

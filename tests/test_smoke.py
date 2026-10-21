@@ -1707,6 +1707,23 @@ tools.dispatch("read_file", {"path": "shared/heard_in_chat.txt"})
 r = tools.dispatch("list_shared", {})
 check("shared: a file opened by any sense is already familiar",
       r.startswith("nothing new") and "heard_in_chat.txt" in r, r[:120])
+# the familiar part of the shelf is capped (10-21): the newest LIST_SHARED_FAMILIAR listed, the rest counted, find_shared named
+_lsf0, config.LIST_SHARED_FAMILIAR = getattr(config, "LIST_SHARED_FAMILIAR", 20), 2
+_lsf = tools.dispatch("list_shared", {})
+(config.SHARED_DIR / "newer_still.txt").write_text("x", encoding="utf-8")
+_lsf_new = tools.dispatch("list_shared", {})
+config.LIST_SHARED_FAMILIAR = 0
+_lsf_all = tools.dispatch("list_shared", {})
+config.LIST_SHARED_FAMILIAR = _lsf0
+(config.SHARED_DIR / "newer_still.txt").unlink()
+check("shared: the familiar part is capped at LIST_SHARED_FAMILIAR, newest first, the rest counted and find_shared named; a new arrival still "
+      "comes whole above it; 0 lists the whole shelf (10-21)",
+      _lsf.startswith("nothing new — ") and " familiar things, the newest 2:" in _lsf and _lsf.count("\n- shared/") == 2
+      and "more, older — find_shared(a word of the name) finds any one of them)" in _lsf and "heard_in_chat.txt" in _lsf
+      and _lsf_new.startswith("1 NEW since you last looked") and "newer_still.txt" in _lsf_new.split("everything else")[0]
+      and "everything else, already familiar — the newest 2 of " in _lsf_new
+      and _lsf_all.startswith("nothing new — ") and "the newest" not in _lsf_all and "more, older" not in _lsf_all,
+      (_lsf[:200], _lsf_new[:200], _lsf_all[:120]))
 _real_fetch = tools._fetch
 import json as _json
 def _fake_wiki(url, max_bytes=0):
@@ -5078,6 +5095,33 @@ check("a file by a near name (10-13): underscores said as spaces, hyphens, case,
       _nf_1 == _nf_real and _nf_2 == _nf_real and _nf_3 == _nf_real and _nf_4.name == "Something_Else_Entirely.epub"
       and _nf_5.suffix == ".pdf" and _nf_6 == _nf_other and _nf_7 == _nf_real and _nf_8 == _nf_real
       and "'int'" not in _nf_9, (_nf_1.name, _nf_2.name, _nf_3.name, _nf_4.name, _nf_5.name, _nf_6.name, _nf_7.name, _nf_8.name, _nf_9[:80]))
+# a file by a word of its name (10-21): "Fireflies.mp3" is the one "Owl City - Fireflies.mp3"; find_shared finds it by a word
+_fs_dir = config.SHARED_DIR / "music"; _fs_dir.mkdir(parents=True, exist_ok=True)
+_fs_song = _fs_dir / "Owl City - Fireflies.mp3"; _fs_song.write_bytes(b"ID3")
+_fs_two = _fs_dir / "Owl City - Vanilla Twilight.mp3"; _fs_two.write_bytes(b"ID3")
+_fs_1 = tools._resolve_under_root("shared/music/Fireflies.mp3")
+_fs_2 = tools._resolve_under_root("shared/fireflies.mp3")
+_fs_3 = tools._resolve_under_root("shared/music/Owl City.mp3")      # two songs carry both words: stays as asked
+_fs_4 = tools._resolve_under_root("shared/music/Fireflies.wav")     # the wrong suffix stays as asked
+_fs_5 = tools._resolve_under_root("shared/music/Fireflies")         # no suffix: any file with the word
+_fs_f1 = tools.find_shared("fireflies")
+_fs_f2 = tools.find_shared("owl city")
+_fs_f3 = tools.find_shared("nothing like this")
+_fs_f4 = tools.find_shared("  ")
+_fs_miss = tools.listen_to("shared/music/Moonlight.mp3")
+for _p in (_fs_song, _fs_two):
+    _p.unlink(missing_ok=True)
+check("a file by a word of its name (10-21): the one file under shared/ carrying every word asked for is the one opened, the suffix kept; "
+      "two files or the wrong suffix stay as asked; find_shared lists by words, newest first, and says when nothing matches; in every kit",
+      _fs_1 == _fs_song.resolve() and _fs_2 == _fs_song.resolve() and _fs_3.name == "Owl City.mp3" and _fs_4.name == "Fireflies.wav"
+      and _fs_5 == _fs_song.resolve()
+      and _fs_f1 == "1 under shared/ with \u201cfireflies\u201d in the name:\n- shared/music/Owl City - Fireflies.mp3 (0 KB)"
+      and _fs_f2.startswith("2 under shared/ with \u201cowl city\u201d in the name, newest first:") and "Vanilla Twilight" in _fs_f2
+      and _fs_f3.startswith("(nothing under shared/ has \u201cnothing like this\u201d") and _fs_f4.startswith("(find_shared wants a word")
+      and "find_shared(a word of its name) finds it" in _fs_miss
+      and "find_shared" in tools.KITS["small"] and "find_shared" in tools.KITS["tiny"] and "find_shared" in tools._BUILTIN_IMPL
+      and any(d["function"]["name"] == "find_shared" for d in tools.DEFINITIONS),
+      (_fs_1.name, _fs_2.name, _fs_3.name, _fs_4.name, _fs_5.name, _fs_f1, _fs_f2[:80], _fs_f3[:60], _fs_miss[:120]))
 # the warm re-rolls cool a step at a time (10-13)
 _cs0 = getattr(config, "CHAT_COOL_STEP", 0.1); config.CHAT_COOL_STEP = 0.1
 _cs_r0 = getattr(config, "CHAT_RESCUE_TEMPERATURE", 0); config.CHAT_RESCUE_TEMPERATURE = (0.6, 0.4)
