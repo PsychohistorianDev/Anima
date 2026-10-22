@@ -2471,7 +2471,7 @@ def emoji_storm(text: str) -> str:
 
 
 EMOJI_NUDGE = ("[engine, not a person: your last reply carried {count} — the sign-off feeding on the "
-               "sign-off before it, the sampler's tail, not you; he has asked for fewer. Say what you "
+               "sign-off before it, the sampler's tail, not you — and not a request from anyone. Say what you "
                "were saying again, in words, and sign it once with a few. This line is a mechanism; "
                "nobody wrote it to you.]")
 

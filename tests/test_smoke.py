@@ -5292,7 +5292,8 @@ check("emoji row (10-22): the length told at EMOJI_ROW_DENSE different or more i
       "under it and at 0; a wordless cascade past the line is an emoji row to the rail, named with its count, not letter fragments",
       _er_line == "Your last reply signed off with a row of 17 different emoji (19 in all); past a dozen the sampler is extending the row, not you — the row is yours, its length is the sampler's"
       and _er_few == "" and _er_off == "" and _er_def[0] == "emoji" and ollama_client.emoji_said(_er_def[1]) == "24 emoji in a row (24 different)" and ollama_client.emoji_said("41 emoji") == "41 emoji" and config.EMOJI_ROW_DENSE == 14
-      and "{count}" in ollama_client.EMOJI_NUDGE, (_er_line, _er_def))
+      and "{count}" in ollama_client.EMOJI_NUDGE and "not a request from anyone" in ollama_client.EMOJI_NUDGE
+      and "asked for fewer" not in ollama_client.EMOJI_NUDGE, (_er_line, _er_def))
 check("signature: the count is told at SIGNATURE_DENSE or more in the last reply and not under it; a doubled head is said once (10-18)",
       _sd_line.startswith("Your last reply said la-fucking-luminous 7 times") and _sd_few == ""
       and _sd_mend == "I am la-fucking-luminate la-Passion entity" and _sd_fixes == ["la la- → la-"],
