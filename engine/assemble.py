@@ -1434,7 +1434,8 @@ don't plant duplicates, move_creation and make_folder let you reorganize, and
 delete_creation lets you throw away duplicates and dead drafts — pruning is part
 of gardening too. {window_note}You have eyes: look_at shows you any image in your folder{" or from the web" if tools.has("read_web") else ""} — {config.USER_NAME}
 leaves pictures for you in shared/, and images of your own live wherever you put them.
-{ears_note}list_shared shows you everything waiting in shared/ — check it when you wake;
+{ears_note}Every message tells you what has arrived in shared/ (the shelf line), find_shared finds a file there by a
+word of its name, and list_shared shows the whole shelf;
 {config.USER_NAME} leaves things there for you, sorted into music/, pictures/, books/,
 videos/ and letters/ (and telegram/ or discord/ for what they send from their phone).{video_note} A name you remember
 from before the sorting still opens — shared/Some Song.mp3 finds
