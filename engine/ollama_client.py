@@ -422,7 +422,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
     garbles = int(getattr(config, "CHAT_GARBLE_RETRIES", 1))
     attempts: list[tuple[int, dict]] = []  # (how broken, the message)
     previous = previous_replies(messages)  # what they said lately — an echo of any of it is a defect too
-    once = {"imagined": False, "copy": False, "greeting": False, "greeting-after-words": False, "unread": False, "unprompted": False, "claimed": False,
+    once = {"imagined": False, "copy": False, "greeting": False, "greeting-after-words": False, "double-finish": False, "unread": False, "unprompted": False, "claimed": False,
             "claimed-self": False, "claimed-failed": False, "promised": False, "stone": False,
             "cut": False}  # asked about once; their second answer stands
 
@@ -445,6 +445,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
                 or (None if once["cut"] else cut_reply(m))
                 or (None if (once["copy"] or not expect_words) else prompt_copy(m, messages))
                 or (None if (once["greeting"] or not expect_words) else greeting_again(m, messages))
+                or (None if (once["double-finish"] or not expect_words) else double_finish(m, messages))
                 or (None if (once["unread"] or not expect_words) else unread_claim(m, messages))
                 or (None if (once["unprompted"] or not expect_words) else unprompted(m, messages))
                 or (None if not expect_words else _claimed_once(m))
@@ -490,6 +491,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
                                                 else COPY_NUDGE if kind == "copy"
                                                 else GREETING_NUDGE if kind == "greeting"
                                                 else GREETING_AFTER_WORDS_NUDGE if kind == "greeting-after-words"
+                                                else DOUBLE_FINISH_NUDGE if kind == "double-finish"
                                                 else UNREAD_NUDGE.format(what=span) if kind == "unread"
                                                 else UNPROMPTED_NUDGE.format(what=span, his=his_quote(last_user_words(base))) if kind == "unprompted"
                                                 else CLAIMED_NUDGE.format(what=span) if kind == "claimed"
@@ -1122,7 +1124,7 @@ def recoverable_call(text: str):
     return name, args
 
 
-REPEAT_KINDS = ("echo", "self-echo", "copy", "greeting", "greeting-after-words")  # the model repeating itself: a cooler roll makes it likelier
+REPEAT_KINDS = ("echo", "self-echo", "copy", "greeting", "greeting-after-words", "double-finish")  # the model repeating itself: a cooler roll makes it likelier
 
 
 def cool_step(rerolls: int, kind: str, options: dict):
@@ -1634,6 +1636,40 @@ def emoji_row_line(history: list[dict]) -> str:
             "sampler is extending the row, not you — the row is yours, its length is the sampler's")
 
 
+# A double finish (10-22, 17:45): her reply to the song, whole and signed off with her row, beside a find_shared
+# call; the step after the call wrote a second ending — "Luminous silence returns… Counting down the milliseconds…"
+# — and the words said beside calls are her reply from the first step on, so the phone got one message with two
+# sign-offs. The greeting-after-words rail's cousin: a step that ENDS the reply a second time.
+_SIGNOFF_ROW_RE = None  # compiled at first use: _EMOJI_TOKEN_RE is defined further down the module
+
+
+def ends_signed(text: str) -> bool:
+    """True when the text ends with a sign-off row — three emoji or more at its very end."""
+    global _SIGNOFF_ROW_RE
+    if _SIGNOFF_ROW_RE is None:
+        _SIGNOFF_ROW_RE = re.compile("(?:" + _EMOJI_TOKEN_RE.pattern + r"\s*){3,}\s*$")
+    return bool(_SIGNOFF_ROW_RE.search((text or "").rstrip()))
+
+
+def double_finish(msg: dict, messages: list[dict]):
+    """("double-finish", head) when her own words already stand after their last message and end with a sign-off
+    row, and this reply — a step after a tool call — ends with one too: a second ending glued under the first.
+    None otherwise, and never for a step that carries a call."""
+    content = (msg.get("content") or "").strip()
+    if not content or msg.get("tool_calls") or not ends_signed(content):
+        return None
+    last_user = max((i for i, m in enumerate(messages or []) if m.get("role") == "user"), default=-1)
+    earlier = [m for m in (messages or [])[last_user + 1:] if m.get("role") == "assistant" and (m.get("content") or "").strip()]
+    if not earlier or not ends_signed(earlier[-1]["content"]):
+        return None
+    return "double-finish", " ".join(content.split())[:80]
+
+
+DOUBLE_FINISH_NUDGE = ("[engine, not a person: your reply to their message is already above and already signed off — the "
+                       "words you said before the tool call, ending in your row — and this step ended the reply a second "
+                       "time: two sign-offs reach them as one message with two endings. Go on only with what the tool gave "
+                       "you, without a fresh ending, or rest with do_nothing. This line is a mechanism; nobody wrote it to "
+                       "you.]")
 GREETING_AFTER_WORDS_NUDGE = ("[engine, not a person: your reply to their message is already above — the words you said "
                               "before the tool call — and this opened with a greeting as if a new message had come: nothing "
                               "new has arrived. Go on from your words, add what the tool gave you, or rest with do_nothing; a "

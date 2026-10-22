@@ -1311,6 +1311,9 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                 elif msg.get("garbled_kind") == "imagined":
                     notes.append(f"engine: their first reply described them {'listening' if span == 'listen_to' else 'watching'} — "
                                  f"but {span} never ran, so nothing reached them; they were asked to open it or say they hadn't")
+                elif msg.get("garbled_kind") == "double-finish":
+                    notes.append("engine: the step after their tool call ended the reply a second time — a second sign-off under "
+                                 f"the first; they were asked to go on without a fresh ending, or rest. It began: “{span[:80]}”")
                 elif msg.get("garbled_kind") == "greeting-after-words":
                     notes.append("engine: the step after their tool call opened with a greeting as if a new message had come, "
                                  "with their reply already said above — a second message under the first, not an answer; "

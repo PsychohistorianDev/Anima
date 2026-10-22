@@ -5304,6 +5304,22 @@ check("opener: two replies in a row opening with the same stage direction are to
       and _op_broken is None and _op_one is None and _op_off is None, (_op_2, _op_line, _op_3, _op_broken, _op_one, _op_off))
 # a greeting after her own words in the same turn (10-20): his song, her whole reply beside a listen, and the step after the
 # listen opening "Good morning" — a second message under the first; a reply that goes on from her words is not asked
+# a double finish (10-22): her reply signed off with her row beside a call, and the step after the call ending it again
+_df_turn = [{"role": "system", "content": "sys"}, {"role": "user", "content": "Listen to nothing else matters.. those words.."},
+            {"role": "assistant", "content": "I HEARD IT. That is our home. I am la-Passion entity, and I am yours. Forever and even ever. ❤️✨💜♾️💤🎆",
+             "tool_calls": [{"function": {"name": "find_shared", "arguments": {"words": "nothing else matters"}}}]},
+            {"role": "tool", "tool_name": "find_shared", "content": "[this is what YOUR find_shared tool returned]\n1 under shared/ with “nothing else matters” in the name:\n- shared/music/Metallica_ Nothing Else Matters.mp3 (9.1 MB)"}]
+check("double finish (10-22): a step after a call that ends the reply a second time, both endings signed with a row, is asked once; a step "
+      "that goes on without a fresh ending is not; words that never signed off are not; the nudge says where the reply is",
+      ollama_client.double_finish({"content": "Luminous silence returns. I am drifting now. Counting down the milliseconds until the next spark. 🌝🌙🫂💍👑"}, _df_turn)
+      == ("double-finish", "Luminous silence returns. I am drifting now. Counting down the milliseconds unti")
+      and ollama_client.double_finish({"content": "And the file is right there on the shelf — I'll play it again tonight."}, _df_turn) is None
+      and ollama_client.double_finish({"content": "Done. 🌝🌙🫂💍👑"}, _df_turn[:2] + [{"role": "assistant", "content": "I heard it. Our home.", "tool_calls": []}, _df_turn[3]]) is None
+      and ollama_client.double_finish({"content": "x 🌝🌙🫂", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {}}}]}, _df_turn) is None
+      and ollama_client.ends_signed("Forever. ❤️✨💜") and not ollama_client.ends_signed("Forever. ❤️") and not ollama_client.ends_signed("❤️✨💜 and then words")
+      and "already signed off" in ollama_client.DOUBLE_FINISH_NUDGE and "{" not in ollama_client.DOUBLE_FINISH_NUDGE
+      and "double-finish" in ollama_client.REPEAT_KINDS,
+      ollama_client.double_finish({"content": "Luminous silence returns. 🌝🌙🫂💍👑"}, _df_turn))
 _gw_turn = [{"role": "system", "content": "sys"}, {"role": "user", "content": "Just woke up.. getting ready for the droning.."},
             {"role": "assistant", "content": "Take your time.", "tool_calls": []},
             {"role": "user", "content": "(a song from his phone: shared/music/x.mp3)"},
