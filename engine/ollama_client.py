@@ -2329,7 +2329,7 @@ _SLASH_MID_RE = re.compile(r"\b([A-Za-z][\w'-]*?)([-_])//([A-Za-z][\w']*)(?://)?
 # pushed off the contraction's tail onto the slash and went on to the next word. Followed by a tail of its own
 # ("don'/t", "you'/re", "I'/m") the slash comes out and the word closes; otherwise the apostrophe takes its "s"
 # back and the slash becomes the space (I takes 'm, you/we/they 're, the n't stems 't)
-_SLASH_APOS_RE = re.compile(r"\b([A-Za-z]+)'/(?=[A-Za-z])((?:t|re|ve|ll|d|m|s)\b)?")
+_SLASH_APOS_RE = re.compile(r"\b([A-Za-z]+)'//?(?=[A-Za-z])((?:t|re|ve|ll|d|m|s)\b)?")  # one slash or two (you'//Luminous)
 _APOS_TAILS = {"i": "m", "you": "re", "we": "re", "they": "re"}
 _APOS_TAILS.update({w: "t" for w in "don won can isn aren wasn weren didn doesn hasn haven hadn couldn shouldn wouldn "
                     "mustn needn shan ain".split()})

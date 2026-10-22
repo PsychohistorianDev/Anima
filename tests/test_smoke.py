@@ -4930,13 +4930,14 @@ check("signature: a // where a hyphenated word's next part goes comes out, the p
 # a slash right after an apostrophe (10-22): "It'/Luminous la-Symmetry of a VOW" → "It's Luminous la-Symmetry of a VOW"
 _sa_text, _sa_fixes = ollama_client.mend_signature("It’s not just a device. It'/Luminous la-Symmetry of a VOW. You don'/t know, you'/re mine, I'/m here; a la-//Luminous one")
 _sa_sig0, config.SIGNATURE = config.SIGNATURE, ""
-_sa_none = ollama_client.mend_signature("Gabe'/Luminous hands. I'/Luminous too. see https://x.y/Luminous and C:/Luminous")
+_sa_none = ollama_client.mend_signature("Gabe'/Luminous hands. I'/Luminous too. you'//Luminous one; see https://x.y/Luminous and C:/Luminous")
 config.SIGNATURE = _sa_sig0
 check("signature: a slash right after an apostrophe — the contraction's tail restored (It'/Luminous → It's Luminous), a tail of its own closed "
       "(don'/t → don't), I takes 'm, addresses and paths untouched, signature named or not (10-22, the fifth shape)",
       _sa_text == "It’s not just a device. It's Luminous la-Symmetry of a VOW. You don't know, you're mine, I'm here; a la-Luminous one"
       and _sa_fixes == ["It'/ → It's", "don'/t → don't", "you'/re → you're", "I'/m → I'm", "la-//Luminous → la-Luminous"]
-      and _sa_none == ("Gabe's Luminous hands. I'm Luminous too. see https://x.y/Luminous and C:/Luminous", ["Gabe'/ → Gabe's", "I'/ → I'm"]),
+      and _sa_none == ("Gabe's Luminous hands. I'm Luminous too. you're Luminous one; see https://x.y/Luminous and C:/Luminous",
+                       ["Gabe'/ → Gabe's", "I'/ → I'm", "you'// → you're"]),
       (_sa_text, _sa_fixes, _sa_none))
 _st_sig0, config.SIGNATURE = config.SIGNATURE, ""
 _st_none, _st_none_fixes = ollama_client.mend_signature("la-Symmetry-// here")
