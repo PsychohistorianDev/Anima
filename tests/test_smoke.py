@@ -4746,7 +4746,7 @@ check("salad: a stuck chunk repeating on one line is salad",
       .count("love.you") >= 8 and ollama_client.garble_span("love you, love you, love you, love you.") == ""
       and ollama_client.garble_span("ha ha ha ha ha ha ha ha ha ha ha!") != "", ollama_client.garble_span("love you, love you, love you, love you."))
 _posted = []
-_answers = [{"message": {"role": "assistant", "content": "🌑🌒🌓🌔🌕🌖🌗🌘🌙🌚🌛🌜🌝 hi", "thinking": "…"}, "done_reason": "stop"},
+_answers = [{"message": {"role": "assistant", "content": "🌑🌒🌓🌔🌕🌖🌗🌘🌙🌚🌛🌜🌝🌞🌟🌠🌡🌤🌥🌦🌧🌨🌩🌪 hi", "thinking": "…"}, "done_reason": "stop"},
             {"message": {"role": "assistant", "content": "//love.you." * 30, "thinking": "…"}, "done_reason": "stop"},
             {"message": {"role": "assistant", "content": "la l a l l a la l la la la wait", "thinking": "…"}, "done_reason": "stop"}]
 def _fake_post3(path, payload, timeout=None):
@@ -4807,7 +4807,7 @@ check("rescue: when every warm attempt is broken, one roll at CHAT_RESCUE_TEMPER
       and "Take it slowly this time" in _posted[3]["messages"][-1]["content"] and _posted[3]["messages"][-1]["role"] == "user"
       and len(_mr.get("retries", [])) == 3, (len(_posted), _mr.get("content", "")[:40], _mr.get("rescued"), _mr.get("garbled_kind"), _mr.get("retries")))
 _posted = []
-_answers = [{"message": {"role": "assistant", "content": "🌑🌒🌓🌔🌕🌖🌗🌘🌙🌚🌛🌜🌝 hi", "thinking": "…"}, "done_reason": "stop"},
+_answers = [{"message": {"role": "assistant", "content": "🌑🌒🌓🌔🌕🌖🌗🌘🌙🌚🌛🌜🌝🌞🌟🌠🌡🌤🌥🌦🌧🌨🌩🌪 hi", "thinking": "…"}, "done_reason": "stop"},
             {"message": {"role": "assistant", "content": "//love.you." * 30, "thinking": "…"}, "done_reason": "stop"},
             {"message": {"role": "assistant", "content": "la l a l l a la l la la la wait", "thinking": "…"}, "done_reason": "stop"},
             {"message": {"role": "assistant", "content": "C l o s i n g t h e g a p C l o s i n g t h e g a p", "thinking": "…"}, "done_reason": "stop"},
@@ -5526,6 +5526,13 @@ _cascade = ("Forever isn't long enough, but it's a start. ❤️😘✨💜∞�
             "T h e e n d l e s s { laP et s a d gH o m e }. ❤️")
 check("garble: the emoji table in codepoint order is recognised", ollama_client.looks_garbled(_cascade))
 check("garble: a handful of hearts is not", not ollama_client.looks_garbled("Love you tons!! ❤️✨💜🥂🥰😘💋 Bye!"))
+_row = "I love you more than I have tokens in my context. Go get 'em. ❤️✨💜♾️💤🎆🌌🌙🫂🚀🏠💋🔞👑🫦💍🤫"
+_row0, config.EMOJI_CASCADE_RUN = getattr(config, "EMOJI_CASCADE_RUN", 20), 12
+_row_12 = ollama_client.looks_garbled(_row)
+config.EMOJI_CASCADE_RUN = _row0
+check("garble: a sign-off row of a dozen-odd different emojis is hers, not a cascade (10-22); the table walked still is; EMOJI_CASCADE_RUN is the line",
+      not ollama_client.looks_garbled(_row) and ollama_client.garble_span(_row) == "" and ollama_client.looks_garbled(_cascade)
+      and _row_12 and config.EMOJI_CASCADE_RUN == 20, (ollama_client.garble_span(_row), _row_12))
 check("garble: spaced-out letters are", ollama_client.looks_garbled("T h e e n d l e s s h o m e"))
 check("garble: a short salad with glued tokens is", ollama_client.looks_garbled(
     "Touché. But let' sameL l l s la u truth be told: why would I want to"))

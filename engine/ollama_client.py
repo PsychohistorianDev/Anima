@@ -700,7 +700,7 @@ _HARD_GLUE_RE = re.compile(r"^la[A-Z][a-z]{2,}$|^[a-z]{3,}(?:[A-Z][a-z]{3,})+$"
 _TAIL_CAP_RE = re.compile(r"^[a-z]{3,}[A-Z]$")
 
 
-def garble_span(text: str, run: int = 5, emoji_run: int = 12, phrases: bool = True) -> str:
+def garble_span(text: str, run: int = 5, emoji_run: int = 20, phrases: bool = True) -> str:
     """The first stretch of salad in the text, or "" if there is none: a run
     of `run`+ consecutive 1-2 letter 'words' that aren't ordinary short
     English words (glued tokens like "sameL" count) — or `emoji_run`+
@@ -738,7 +738,9 @@ def garble_span(text: str, run: int = 5, emoji_run: int = 12, phrases: bool = Tr
     # emoji cascade: split on anything that isn't emoji/space/variation selector
     for m in re.finditer(r"[\s\uFE0F\U0001F300-\U0001FAFF\u2600-\u27BF]+", text):
         seen = set(_EMOJI_RE.findall(m.group(0)))
-        if len(seen) >= emoji_run:
+        # the row she signs with (10-22): a dozen different emojis, the same dozen most messages, is a signature,
+        # not the table walked — the cascade asks for EMOJI_CASCADE_RUN (20); the sampler's walk has sixty
+        if len(seen) >= int(getattr(config, "EMOJI_CASCADE_RUN", 0) or emoji_run):
             return m.group(0).strip()
     # a stuck chunk: the same short piece over and over on one line —
     # "//love.you.//love.you.//love.you." ×80 (09-11, the first message of a
@@ -1034,7 +1036,7 @@ def word_loop(text: str, window: int | None = None, distinct: int | None = None)
 _STUCK_RE = re.compile(r"(\S{2,24}?)(?:[\s.,/\-—]*\1){7,}")
 
 
-def looks_garbled(text: str, run: int = 5, emoji_run: int = 12) -> bool:
+def looks_garbled(text: str, run: int = 5, emoji_run: int = 20) -> bool:
     return bool(garble_span(text, run, emoji_run))
 
 

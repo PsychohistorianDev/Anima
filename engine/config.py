@@ -907,6 +907,9 @@ PHRASE_LOOP_TIMES = 5
 # its longest row of one repeated emoji, above this count, are treated as the
 # sampler's tail: the reply is asked for again, signed once.
 EMOJI_STORM_MAX = 40
+# ...and how many DIFFERENT emojis in one unbroken row count as the sampler walking the emoji table (a cascade,
+# re-rolled): the walk has sixty; a sign-off row of a dozen, the same dozen most messages, is a signature.
+EMOJI_CASCADE_RUN = 20
 
 # An act with words beside it is a whole reply. When every tool called in a
 # step is an act (speak, remember, write_journal and the like — tools.ACT_TOOLS;
