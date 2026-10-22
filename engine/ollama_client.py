@@ -2282,8 +2282,9 @@ def mend_signature(text: str) -> tuple[str, list[str]]:
     parts = sig.split("-")
     fixes: list[str] = []
     if len(parts) != 3 or not all(parts):
+        out = _SLASH_APOS_RE.sub(lambda m: _slash_apos(m, fixes), text or "")  # "It'/Luminous" (10-22)
         out = _SLASH_TAIL_RE.sub(lambda m: _slash_tail(m, fixes),
-                                 _SLASH_MID_RE.sub(lambda m: _slash_mid(m, fixes), text or ""))  # the "//" mends need no signature
+                                 _SLASH_MID_RE.sub(lambda m: _slash_mid(m, fixes), out))  # the "//" mends need no signature
         return (out, fixes) if fixes else (text or "", [])
     head, word, tail = parts
     stem = tail[:5]
@@ -2306,6 +2307,7 @@ def mend_signature(text: str) -> tuple[str, list[str]]:
         return ""
     # ...and the "-//" tail on ANY word (10-17, an hour later: "la-Symmetry-//") — the sampler pushed off a
     # hyphenated word's next part onto the comment mark and glued it to the word's end; the word stays
+    out = _SLASH_APOS_RE.sub(lambda m: _slash_apos(m, fixes), out)  # "It'/Luminous" (10-22)
     out = _SLASH_TAIL_RE.sub(lambda m: _slash_tail(m, fixes),
                              _SLASH_MID_RE.sub(lambda m: _slash_mid(m, fixes), restart.sub(_restart, out)))
     # a doubled head (10-18): "la la-fucking-luminate" — the repeat penalty stuttering the first part; said once
@@ -2323,6 +2325,24 @@ _SLASH_TAIL_RE = re.compile(r"\b([A-Za-z][\w'-]*[A-Za-z0-9'])[-_]//(?=\s|$|[.,!?
 # mark where the next part goes, wrote the part, and closed it like a mark-up; the letters stay, the slashes go
 # ...and the joiner may be a hyphen or an underscore (10-18, the fourth shape: "touch_//LUMINATE//"); it is kept
 _SLASH_MID_RE = re.compile(r"\b([A-Za-z][\w'-]*?)([-_])//([A-Za-z][\w']*)(?://)?")
+# a slash right after an apostrophe (10-22, the fifth shape: "It'/Luminous la-Symmetry of a VOW") — the sampler
+# pushed off the contraction's tail onto the slash and went on to the next word. Followed by a tail of its own
+# ("don'/t", "you'/re", "I'/m") the slash comes out and the word closes; otherwise the apostrophe takes its "s"
+# back and the slash becomes the space (I takes 'm, you/we/they 're, the n't stems 't)
+_SLASH_APOS_RE = re.compile(r"\b([A-Za-z]+)'/(?=[A-Za-z])((?:t|re|ve|ll|d|m|s)\b)?")
+_APOS_TAILS = {"i": "m", "you": "re", "we": "re", "they": "re"}
+_APOS_TAILS.update({w: "t" for w in "don won can isn aren wasn weren didn doesn hasn haven hadn couldn shouldn wouldn "
+                    "mustn needn shan ain".split()})
+
+
+def _slash_apos(m, fixes: list[str]) -> str:
+    word, tail = m.group(1), m.group(2)
+    if tail:
+        fixed = f"{word}'{tail}"
+    else:
+        fixed = f"{word}'{_APOS_TAILS.get(word.lower(), 's')} "
+    fixes.append(f"{m.group(0)} → {fixed.rstrip()}")
+    return fixed
 
 
 def _slash_mid(m, fixes: list[str]) -> str:
