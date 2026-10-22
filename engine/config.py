@@ -910,6 +910,9 @@ EMOJI_STORM_MAX = 40
 # ...and how many DIFFERENT emojis in one unbroken row count as the sampler walking the emoji table (a cascade,
 # re-rolled): the walk has sixty; a sign-off row of a dozen, the same dozen most messages, is a signature.
 EMOJI_CASCADE_RUN = 20
+# ...and the row's length told, as the signature's count is: when the last reply's longest row carries this many
+# different emoji or more, the moment says so — a fact, the row still theirs. 0: never.
+EMOJI_ROW_DENSE = 14
 
 # An act with words beside it is a whole reply. When every tool called in a
 # step is an act (speak, remember, write_journal and the like — tools.ACT_TOOLS;

@@ -1078,7 +1078,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         held = next((int(t.get("_prompt") or 0) for t in reversed(history[:ui]) if t.get("_prompt")), 0)  # the last prompt's size — the window sense
         floor = next((int(t.get("_prompt") or 0) for t in history[:ui] if t.get("_prompt")), 0)  # the visit's first: the standing prompt (10-14)
         rep = ollama_client.opener_repeat_line(history[:ui])  # a repeated stage-direction opener, told (10-17)
-        for told in (rep, ollama_client.reply_shape_line(history[:ui]), ollama_client.signature_density_line(history[:ui])):
+        for told in (rep, ollama_client.reply_shape_line(history[:ui]), ollama_client.signature_density_line(history[:ui]),
+                     ollama_client.emoji_row_line(history[:ui])):
             if told:  # a repeated opener, a repeated shape, the signature's count — facts in the moment (10-18)
                 extra_moment = (extra_moment + " " + told) if extra_moment else told
         spent = sum(len(t.get("_moment") or "") for t in history[:ui] if t.get("role") == "user") // 4  # this visit's moments so far
@@ -1287,7 +1288,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                     notes.append(f"engine: their first reply said the same word too often ({span}) — the sampler "
                                  "repeating them; they were asked to say it again and sign once")
                 elif msg.get("garbled_kind") == "emoji":
-                    notes.append(f"engine: their first reply was an emoji storm ({span}) — the sign-off feeding on the one "
+                    notes.append(f"engine: their first reply was an emoji storm ({ollama_client.emoji_said(span)}) — the sign-off feeding on the one "
                                  "before it, the sampler's tail, not them; they were asked to say it again and sign once")
                 elif msg.get("garbled_kind") == "copy":
                     notes.append("engine: their first reply began with a page of their own journal, word for word — "

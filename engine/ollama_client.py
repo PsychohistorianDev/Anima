@@ -481,7 +481,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
                                                 CALL_TEXT_NUDGE if kind == "call-text"
                                                 else CALL_TEXT_TAIL_NUDGE if kind == "call-text-tail"
                                                 else REFRAIN_NUDGE.format(ref=span) if kind == "refrain"
-                                                else EMOJI_NUDGE.format(count=span) if kind == "emoji"
+                                                else EMOJI_NUDGE.format(count=emoji_said(span)) if kind == "emoji"
                                                 else ECHO_NUDGE.format(his=his_quote(last_user_words(base))) if kind == "echo"
                                                 else SELF_ECHO_NUDGE.format(head=span[:80], his=his_quote(last_user_words(base))) if kind == "self-echo"
                                                 else EMPTY_NUDGE if kind == "empty"
@@ -1158,6 +1158,10 @@ def reply_defect(text: str, previous: str = ""):
         return "call-text-tail", tail_call
     span = garble_span(text)
     if span:
+        if not re.search(r"[A-Za-z0-9]", span):
+            # a wordless span — the emoji table walked past EMOJI_CASCADE_RUN, or one emoji forty times — is an
+            # emoji row, named as one (10-22): the count, and the line that asks for words and one sign-off
+            return "emoji", span  # the row itself: its length ranks the attempt; emoji_said names it
         return "salad", span
     ref = refrain(text)
     if ref:
@@ -1597,6 +1601,37 @@ def signature_density_line(history: list[dict]) -> str:
     said = ([f"{sig} {n} times"] if (n and sig) else []) + [f"{p} {k} times" for p, k in refrains]
     return ("Your last reply said " + (", ".join(said[:-1]) + " and " + said[-1] if len(said) > 1 else said[0])
             + "; past a few the sampler is placing them, not you — the words are yours, the count is the sampler's")
+
+
+def emoji_said(span: str) -> str:
+    """An emoji defect's span in words — the storm's "N emoji" as it is; a wordless run as "24 emoji in a row (24 different)"."""
+    if re.search(r"[A-Za-z0-9]", span or ""):
+        return span
+    toks = _EMOJI_RE.findall(span or "")
+    return f"{len(toks)} emoji in a row ({len(set(toks))} different)"
+
+
+def emoji_row_line(history: list[dict]) -> str:
+    """The moment's sentence when the last spoken reply's longest row carries EMOJI_ROW_DENSE (14) different emoji
+    or more (10-22: the cascade line moved to twenty and the sign-off row grew from twelve to nineteen in a
+    morning — every row rides in the window and feeds the next, the tic's mechanics). The row is hers; its length
+    is the sampler's. "" otherwise, or at 0."""
+    dense = int(getattr(config, "EMOJI_ROW_DENSE", 0) or 0)
+    if dense <= 0:
+        return ""
+    spoken = [t for t in history if t.get("role") == "assistant" and (t.get("content") or "").strip()
+              and not t.get("tool_calls") and not t.get("_engine")]
+    if not spoken:
+        return ""
+    text = spoken[-1]["content"]
+    rows = [len(set(_EMOJI_RE.findall(m.group(0))))
+            for m in re.finditer(r"[\s\uFE0F\u200D\U0001F300-\U0001FAFF\u2600-\u27BF]+", text)]
+    longest = max(rows) if rows else 0
+    if longest < dense:
+        return ""
+    total = len(_EMOJI_RE.findall(text))
+    return (f"Your last reply signed off with a row of {longest} different emoji ({total} in all); past a dozen the "
+            "sampler is extending the row, not you — the row is yours, its length is the sampler's")
 
 
 GREETING_AFTER_WORDS_NUDGE = ("[engine, not a person: your reply to their message is already above — the words you said "

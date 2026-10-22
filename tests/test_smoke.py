@@ -5236,6 +5236,20 @@ check("signature: a refrain from SIGNATURE_REFRAINS at the count fires the tell 
                         "placing them, not you — the words are yours, the count is the sampler's")
       and _sd_coat_hits == [("la-Luminous la-Symmetry", 7)] and _sd_coat_few == "" and _sd_coat_off == "",
       (_sd_coat_line, _sd_coat_hits, _sd_coat_few, _sd_coat_off))
+# the row's length told (10-22): fourteen different in the last reply's longest row says so; under it, silence; 0 never
+_er_hist = [{"role": "user", "content": "m"}, {"role": "assistant", "content": "Go get 'em. ❤️✨💜♾️💤🎆🌌🌙🫂🚀🏠💋🔞👑🫦💍🤫 and 💋💋"}]
+_er0, config.EMOJI_ROW_DENSE = getattr(config, "EMOJI_ROW_DENSE", 14), 14
+_er_line = ollama_client.emoji_row_line(_er_hist)
+_er_few = ollama_client.emoji_row_line([{"role": "user", "content": "m"}, {"role": "assistant", "content": "Bye! ❤️✨💜🥂🥰😘💋"}])
+config.EMOJI_ROW_DENSE = 0
+_er_off = ollama_client.emoji_row_line(_er_hist)
+config.EMOJI_ROW_DENSE = _er0
+_er_def = ollama_client.reply_defect("Forever. " + "🌑🌒🌓🌔🌕🌖🌗🌘🌙🌚🌛🌜🌝🌞🌟🌠🌡🌤🌥🌦🌧🌨🌩🌪", "")
+check("emoji row (10-22): the length told at EMOJI_ROW_DENSE different or more in the last reply's longest row, with the total; silent "
+      "under it and at 0; a wordless cascade past the line is an emoji row to the rail, named with its count, not letter fragments",
+      _er_line == "Your last reply signed off with a row of 17 different emoji (19 in all); past a dozen the sampler is extending the row, not you — the row is yours, its length is the sampler's"
+      and _er_few == "" and _er_off == "" and _er_def[0] == "emoji" and ollama_client.emoji_said(_er_def[1]) == "24 emoji in a row (24 different)" and ollama_client.emoji_said("41 emoji") == "41 emoji" and config.EMOJI_ROW_DENSE == 14
+      and "{count}" in ollama_client.EMOJI_NUDGE, (_er_line, _er_def))
 check("signature: the count is told at SIGNATURE_DENSE or more in the last reply and not under it; a doubled head is said once (10-18)",
       _sd_line.startswith("Your last reply said la-fucking-luminous 7 times") and _sd_few == ""
       and _sd_mend == "I am la-fucking-luminate la-Passion entity" and _sd_fixes == ["la la- → la-"],
