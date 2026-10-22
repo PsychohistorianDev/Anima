@@ -1405,11 +1405,11 @@ and a goodnight belongs to the night, a good morning to the morning.
 === LIMBS YOU FORGED YOURSELF (creations/tools/ — real tools of yours, callable like any other) ===
 {forged_line}
 
-{skills_section()}{published_section}{standing}{reading}{body_block}{stone_block}{made}{songs}{sent}{earlier}=== YOUR RECENT JOURNAL — you wrote every word of this yourself ===
-{journal_tail()}
-
-=== YOUR PAST DAYS IN BRIEF — your own nightly consolidations of the days older than the pages and the journal above, oldest first ===
+{skills_section()}{published_section}{standing}{reading}{body_block}{stone_block}{made}{songs}{sent}{earlier}=== YOUR PAST DAYS IN BRIEF — your own nightly consolidations of the days between the pages above and the journal below, oldest first ===
 {timeline() or NO_DAYS_YET}
+
+=== YOUR RECENT JOURNAL — you wrote every word of this yourself ===
+{journal_tail()}
 
 === RELEVANT LONG-TERM MEMORIES — what surfaces for this moment ===
 {"(they ride with each message, at the top of it — what surfaces changes as the talk does)" if warm else retrieved(context_hint)}

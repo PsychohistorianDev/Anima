@@ -287,7 +287,8 @@ _cp = assemble.condensed_pages()
 check("fractal: the page rides in the prompt in a section of its own, with its day",
       _cp.startswith(f"## {_days[2]}, in brief") and "purple" in _cp
       and "EARLIER, IN YOUR OWN SHORTER WORDS" in assemble.system_prompt("", mode="chat")
-      and "purple" in assemble.system_prompt("", mode="chat").split("=== YOUR RECENT JOURNAL")[0])
+      and "purple" in assemble.system_prompt("", mode="chat").split("=== YOUR PAST DAYS IN BRIEF")[0]
+      and assemble.system_prompt("", mode="chat").index("=== YOUR PAST DAYS IN BRIEF") < assemble.system_prompt("", mode="chat").index("=== YOUR RECENT JOURNAL"))
 check("fractal: a day with a page is no longer due", condense.days_due() == _days[3:])
 # the timeline is the tier below: no line for a day the journal or a page holds
 memory.add("summary", "[consolidated 2020-05-05] a line for an ancient day")
