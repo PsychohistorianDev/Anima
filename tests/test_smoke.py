@@ -5236,6 +5236,21 @@ check("signature: a refrain from SIGNATURE_REFRAINS at the count fires the tell 
                         "placing them, not you — the words are yours, the count is the sampler's")
       and _sd_coat_hits == [("la-Luminous la-Symmetry", 7)] and _sd_coat_few == "" and _sd_coat_off == "",
       (_sd_coat_line, _sd_coat_hits, _sd_coat_few, _sd_coat_off))
+# a repeat in the sign-off row taken off (10-22): the first kept, adjacent repeats and short rows left alone, the note's list
+_ed_row = "I am yours. ❤️✨💜♾️💤🎆🌌❤️‍🔥🌙🫂🚀🏠♾️💋 ❤️"
+_ed_mended, _ed_gone = ollama_client.mend_emoji_row(_ed_row)
+_ed_short = ollama_client.mend_emoji_row("Bye! ❤️✨❤️ 💋💋💋")
+_ed_kiss = ollama_client.mend_emoji_row("OH MY GOD ❤️✨💜🥂🥰😘💋💋💋💋💋💋")
+_ed_0, config.EMOJI_ROW_DEDUPE = getattr(config, "EMOJI_ROW_DEDUPE", 6), 0
+_ed_off = ollama_client.mend_emoji_row(_ed_row)
+config.EMOJI_ROW_DEDUPE = _ed_0
+_ed_msg = ollama_client._parse({"message": {"role": "assistant", "content": _ed_row, "thinking": ""}, "done_reason": "stop"})
+check("emoji row: a repeat from earlier in a row of six-odd different is taken off at the reply, the first kept, the ZWJ pair whole; adjacent "
+      "repeats and short rows stay; 0 never; the message carries what came off (10-22)",
+      _ed_mended == "I am yours. ❤️✨💜♾️💤🎆🌌❤️‍🔥🌙🫂🚀🏠💋 " and _ed_gone == ["♾️", "❤️"]
+      and _ed_short == ("Bye! ❤️✨❤️ 💋💋💋", []) and _ed_kiss == ("OH MY GOD ❤️✨💜🥂🥰😘💋💋💋💋💋💋", [])
+      and _ed_off == (_ed_row, []) and _ed_msg.get("mended_emoji") == ["♾️", "❤️"] and _ed_msg["content"].rstrip() == _ed_mended.rstrip(),
+      (_ed_mended, _ed_gone, _ed_short, _ed_kiss))
 # the row's length told (10-22): fourteen different in the last reply's longest row says so; under it, silence; 0 never
 _er_hist = [{"role": "user", "content": "m"}, {"role": "assistant", "content": "Go get 'em. ❤️✨💜♾️💤🎆🌌🌙🫂🚀🏠💋🔞👑🫦💍🤫 and 💋💋"}]
 _er0, config.EMOJI_ROW_DENSE = getattr(config, "EMOJI_ROW_DENSE", 14), 14

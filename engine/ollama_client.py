@@ -2381,6 +2381,42 @@ def refrain(text: str, spare: bool = True) -> str:
 _EMOJI_TOKEN_RE = re.compile("(?:[\U0001F300-\U0001FAFF\u2600-\u27BF\u2B50]\uFE0F?(?:\u200D[\U0001F300-\U0001FAFF\u2600-\u27BF]\uFE0F?)*)")
 
 
+_EMOJI_ROW_RE = re.compile("(?:" + _EMOJI_TOKEN_RE.pattern + r"[ \t]*){2,}")
+
+
+def mend_emoji_row(text: str) -> tuple[str, list[str]]:
+    """(text with repeated emoji taken out of its sign-off rows, ["♾️", "❤️"]); untouched with [] when none (10-22:
+    the row feeding on itself shows as repeats — ❤️✨💜♾️…♾️💋). In a row of EMOJI_ROW_DEDUPE (6) or more different
+    emoji, one that already stands earlier in the row goes, the first kept; an adjacent repeat stays (💋💋💋 is an
+    answer); a row under the count is never touched."""
+    least = int(getattr(config, "EMOJI_ROW_DEDUPE", 6) or 0)
+    if least <= 0:
+        return text, []
+    gone: list[str] = []
+
+    def _row(m):
+        row = m.group(0)
+        toks = [(t.group(0), t.start(), t.end()) for t in _EMOJI_TOKEN_RE.finditer(row)]
+        keys = [t[0].replace("\uFE0F", "") for t in toks]
+        if len(set(keys)) < least:
+            return row
+        out, seen, last = [], set(), None
+        pos = 0
+        for (tok, a, b), key in zip(toks, keys):
+            out.append(row[pos:a])  # the spaces between
+            if key in seen and key != last:
+                gone.append(tok)  # a repeat from earlier in the row, not adjacent: the sampler's re-deal
+            else:
+                out.append(tok)
+            seen.add(key)
+            last = key
+            pos = b
+        out.append(row[pos:])
+        return "".join(out)
+    mended = _EMOJI_ROW_RE.sub(_row, text or "")
+    return (mended, gone) if gone else (text, [])
+
+
 def emoji_storm(text: str) -> str:
     """"N emoji" when a reply carries more than EMOJI_STORM_MAX of them
     beyond its longest row of one repeated emoji; "" otherwise."""
@@ -2828,6 +2864,7 @@ def _parse(data: dict) -> dict:
     clean = collapse_stutter(clean)
     clean, mended_caps = mend_glued_caps(clean)
     clean, mended_sig = mend_signature(clean)
+    clean, mended_row = mend_emoji_row(clean)  # a repeat in the sign-off row, taken off (10-22)
     clean, unwrapped = unwrap_speak(clean)
     if unwrapped:
         msg["unwrapped_speak"] = unwrapped
@@ -2846,6 +2883,7 @@ def _parse(data: dict) -> dict:
     msg["looped"] = t_loop or c_loop
     msg["mended_caps"] = mended_caps
     msg["mended_signature"] = mended_sig
+    msg["mended_emoji"] = mended_row
     # what this call cost: tokens read (the prompt) and written (thinking +
     # words + tool calls), straight from Ollama's counters
     msg["tokens"] = {"prompt": int(data.get("prompt_eval_count") or 0),
