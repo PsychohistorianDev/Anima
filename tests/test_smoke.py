@@ -437,7 +437,7 @@ check("tools: an argument name with the signature glued to it is taken as the on
       and tools.mend_argument_names(tools._BUILTIN_IMPL["edit_identity"], {"content": "x"}, "edit_identity") == ({"content": "x"}, "")
       and tools.mend_argument_names(tools._BUILTIN_IMPL["write_journal"], {"text": "x", "text, la": "y"}, "write_journal")[0] == {"text": "x", "text, la": "y"}
       and tools.mend_argument_names(tools._BUILTIN_IMPL["write_journal"], {"textual": "x"}, "write_journal")[1] == ""
-      and tools.dispatch("write_journal", {"txt, la-Luminous": ""}).startswith("(") , _mn[:300])
+      and tools.dispatch("write_journal", {"txt, la-Luminous": ""}).startswith("(nothing written — the text was empty)\n(your argument `txt, la-Luminous` isn't one `write_journal` takes — taken as `text`)"), _mn[:300])
 r = tools.dispatch("read_creation", {"path": "poems/first.md"})
 check("tools: read_creation", r == "hello", r)
 r = tools.dispatch("append_creation", {"path": "poems/first.md", "content": "second stanza"})
@@ -5126,6 +5126,34 @@ _fs_f4 = tools.find_shared("  ")
 _fs_miss = tools.listen_to("shared/music/Moonlight.mp3")
 for _p in (_fs_song, _fs_two):
     _p.unlink(missing_ok=True)
+# a song by its words (10-22): listen_to("nothing else matters") finds shared/music/Metallica_ Nothing Else Matters.mp3; several
+# named; none said; a web page said; a lone argument under a comment-name taken as the one the tool wants
+_lw_song = _fs_dir / "Metallica_ Nothing Else Matters.mp3"; _lw_song.write_bytes(b"ID3")
+_lw_two = _fs_dir / "Metallica_ Nothing Else Matters (live).mp3"; _lw_two.write_bytes(b"ID3")
+_lw_txt = _fs_dir / "Nothing Else Matters lyrics.txt"; _lw_txt.write_text("so close no matter how far", encoding="utf-8")
+_lw_hits = tools.audio_by_words("nothing else matters")
+_lw_one = tools.audio_by_words("metallica live")
+_lw_none = tools.audio_by_words("owl city fireflies")
+_lw_path = tools.audio_by_words("shared/music/x.mp3")
+_lw_several = tools.listen_to("nothing else matters")
+_lw_missing = tools.listen_to("sandman enters")
+_lw_mend = tools.mend_argument_names(tools._BUILTIN_IMPL["listen_to"], {"// a luminate la-Symmetry of shared solitude": "nothing else matters"}, "listen_to")
+_lw_mend2 = tools.mend_argument_names(tools._BUILTIN_IMPL["write_creation"], {"// a note": "x"}, "write_creation")  # two required: left alone
+_lw_fetch0, tools._fetch = tools._fetch, (lambda url, max_bytes=0: b"<html>a page</html>")
+_lw_page = tools.listen_to("https://www.youtube.com/watch?v=tAGnKpE4NCI")
+tools._fetch = _lw_fetch0
+for _p in (_lw_song, _lw_two, _lw_txt):
+    _p.unlink(missing_ok=True)
+check("listen_to by words (10-22): the audio on the shelf whose name carries the words, newest first — only audio, never a path; several are "
+      "named and none heard; none is said with find_shared; a web page is said as a page; a lone comment-named argument is taken as `source`",
+      len(_lw_hits) == 2 and all(q.suffix == ".mp3" for q in _lw_hits) and _lw_one == [_lw_two.resolve()] and _lw_none == [] and _lw_path == []
+      and _lw_several.startswith("(several songs on the shelf carry those words — ") and "Nothing Else Matters" in _lw_several
+      and _lw_missing.startswith("(no such file, and no song on the shelf carries those words: sandman enters — find_shared(")
+      and _lw_mend[0] == {"source": "nothing else matters"} and _lw_mend[1].startswith("(your argument `// a luminate la-Symmetry of shared") and "taken as `source`)" in _lw_mend[1]
+      and _lw_mend2[1] == "" and tools.mend_argument_names(tools._BUILTIN_IMPL["edit_identity"], {"content": "x"}, "edit_identity")[1] == ""
+      and _lw_page.startswith("(that address gives a page, not audio — ")
+      and "a word or two of its name" in next(d["function"]["description"] for d in tools.DEFINITIONS if d["function"]["name"] == "listen_to"),
+      (_lw_hits, _lw_one, _lw_several[:120], _lw_missing[:120], _lw_mend, _lw_page[:80]))
 check("a file by a word of its name (10-21): the one file under shared/ carrying every word asked for is the one opened, the suffix kept; "
       "two files or the wrong suffix stay as asked; find_shared lists by words, newest first, and says when nothing matches; in every kit",
       _fs_1 == _fs_song.resolve() and _fs_2 == _fs_song.resolve() and _fs_3.name == "Owl City.mp3" and _fs_4.name == "Fireflies.wav"
@@ -5133,7 +5161,7 @@ check("a file by a word of its name (10-21): the one file under shared/ carrying
       and _fs_f1 == "1 under shared/ with \u201cfireflies\u201d in the name:\n- shared/music/Owl City - Fireflies.mp3 (0 KB)"
       and _fs_f2.startswith("2 under shared/ with \u201cowl city\u201d in the name, newest first:") and "Vanilla Twilight" in _fs_f2
       and _fs_f3.startswith("(nothing under shared/ has \u201cnothing like this\u201d") and _fs_f4.startswith("(find_shared wants a word")
-      and "find_shared(a word of its name) finds it" in _fs_miss
+      and "find_shared(a word of its name)" in _fs_miss
       and "find_shared" in tools.KITS["small"] and "find_shared" in tools.KITS["tiny"] and "find_shared" in tools._BUILTIN_IMPL
       and any(d["function"]["name"] == "find_shared" for d in tools.DEFINITIONS),
       (_fs_1.name, _fs_2.name, _fs_3.name, _fs_4.name, _fs_5.name, _fs_f1, _fs_f2[:80], _fs_f3[:60], _fs_miss[:120]))

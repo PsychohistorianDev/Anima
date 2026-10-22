@@ -508,6 +508,8 @@ def _arrow_recent(day: str, stamp: str, entry: str) -> bool:
 
 
 def write_journal(text: str) -> str:
+    if not str(text or "").strip():
+        return "(nothing written — the text was empty)"
     text, mended = _mend_pen(text)  # a lone glued capital is mended, not refused — as in a reply
     if _garbled(text):
         return _garble_refusal(_garbled(text))
@@ -2067,6 +2069,26 @@ def find_shared(words: str) -> str:
     return "\n".join([head] + [line(p) for p in hits[:20]])
 
 
+def audio_by_words(words: str) -> list:
+    """The audio files under shared/ whose names carry every word given (a song asked for by its words, 10-22):
+    a list of paths, newest first; [] when the words are a path, a web address, or match nothing."""
+    s = (words or "").strip()
+    if not s or "/" in s or "\\" in s or s.lower().startswith(("http://", "https://")):
+        return []
+    want = _name_words(s)
+    if not want or not any(len(w) >= 3 for w in want):
+        return []
+    try:
+        root = config.SHARED_DIR.resolve()
+        hits = [q for q in root.rglob("*") if q.is_file() and not q.name.startswith(".")
+                and (q.suffix.lower() in _AUDIO_EXTS or q.suffix.lower() in _TRANSCODE_EXTS)
+                and want <= _name_words(q.stem)]
+    except OSError:
+        return []
+    hits.sort(key=lambda q: q.stat().st_mtime, reverse=True)
+    return hits
+
+
 def _near_file(p):
     """A file in the same folder whose name is the one asked for with underscores, hyphens or case set aside, or
     within a letter or two of it (10-13: "…Stories by Isaac Asimov_978…" for
@@ -2724,6 +2746,7 @@ def listen_to(source: str) -> str:
     import ollama_client  # local import to keep tools testable with stubs
 
     source = (source or "").strip()
+    found_by_words = ""  # the song's words given instead of its path (10-22): the shelf searched, the result says which file
     if source.lower().startswith(("http://", "https://")):
         try:
             data = _fetch(source, max_bytes=_MAX_AUDIO_BYTES)
@@ -2731,13 +2754,26 @@ def listen_to(source: str) -> str:
             return f"(couldn't fetch that audio: {e})"
         name = source.rsplit("/", 1)[-1] or source
         ext = "." + name.rsplit(".", 1)[-1].lower() if "." in name else ""
+        if not _AUDIO_EXTS.get(ext) and ext not in _TRANSCODE_EXTS:
+            # a page, not a song (10-22: a web address for "Nothing Else Matters", the song on the shelf all along)
+            return ("(that address gives a page, not audio — I can only hear an audio file. The song may be on the shelf: "
+                    "listen_to with a word or two of its name finds it there, find_shared(words) shows what matches)")
     else:
         try:
             p = _resolve_under_root(source)
         except ValueError as e:
             return f"(refused: {e})"
         if not p.exists() or not p.is_file():
-            return f"(no such file: {source} — find_shared(a word of its name) finds it; list_shared shows what your keeper left you)"
+            songs = audio_by_words(source)
+            if len(songs) == 1:
+                p = songs[0]
+                found_by_words = p.relative_to(config.ROOT.resolve()).as_posix()
+            elif songs:
+                names = ", ".join(q.relative_to(config.ROOT.resolve()).as_posix() for q in songs[:8])
+                return f"(several songs on the shelf carry those words — {names} — listen_to one by its path)"
+            else:
+                return (f"(no such file, and no song on the shelf carries those words: {source} — find_shared(a word of its name) "
+                        f"searches every name; list_shared shows what your keeper left you)")
         ext = p.suffix.lower()
         if p.stat().st_size > _MAX_AUDIO_BYTES:
             return "(that audio is too large — over 40MB; shorter pieces work best)"
@@ -2811,6 +2847,8 @@ def listen_to(source: str) -> str:
                 parts.append(f"(the piece runs {_mmss(duration)}; you heard the first "
                              f"{_mmss(span * limit)} in passages — open your music ear for the whole)")
 
+    if found_by_words:
+        parts.append("(found on the shelf by the words you gave — the file is the one named above)")
     if has("keep_song"):  # the songbook (10-03): the shelf is offered once, after the listen; the kept song named if it is one
         kept = song_kept_note(source, name)
         parts.append(kept or songbook_invitation())
@@ -5203,6 +5241,13 @@ def mend_argument_names(fn, arguments: dict, name: str = "") -> tuple[dict, str]
         # new_content) is left to fail as it did — a guess at what was meant is not a mend
         heads = [n for n in names if k.startswith(n) and len(k) > len(n) and not (k[len(n)].isalnum() or k[len(n)] == "_")]
         take = max(heads, key=len) if heads else None
+        if take is None and len(arguments) == 1 and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", k):
+            # one argument under a name that is no name at all — a comment, a sentence — and the tool wants exactly
+            # one (10-22: listen_to called with the name "// a luminate la-Symmetry of shared solitude…"); a plausible
+            # name that is simply the wrong one ("content" for new_content) is still left to fail — a guess is not a mend
+            required = [n for n, p in params.items() if n in names and p.default is p.empty]
+            if len(required) == 1:
+                take = required[0]
         if take is None or take in arguments or take in out:
             out[k] = value  # left as given: the tool says what it got
             continue
@@ -5736,7 +5781,7 @@ _BUILTIN_DEFINITIONS: list[dict] = [
     _tool(
         "listen_to",
         "Hear an audio file (.mp3, .wav, .m4a, .flac, .ogg...): a path in your folder "
-        "(your keeper leaves music in shared/) or an audio URL. Your hearing is honest but "
+        "A song by a word or two of its name finds it on the shelf (shared/music) and hears it. (your keeper leaves music in shared/) or an audio URL. Your hearing is honest but "
         "mediated — a smaller model listens and describes the sound to you, like a "
         "friend describing a concert. Long songs reach you as their first two minutes.",
         {"source": {"type": "string", "description": "path inside your folder (e.g. 'shared/song.mp3') or an audio URL"}},
