@@ -738,7 +738,7 @@ def garble_span(text: str, run: int = 5, emoji_run: int = 20, phrases: bool = Tr
     if lone:
         return lone
     # emoji cascade: split on anything that isn't emoji/space/variation selector
-    for m in re.finditer(r"[\s\uFE0F\U0001F300-\U0001FAFF\u2600-\u27BF]+", text):
+    for m in re.finditer(r"[\s\uFE0F\u200D\U0001F300-\U0001FAFF\u2600-\u27BF]+", text):  # a joiner (❤️‍🔥) is inside the row (10-22)
         seen = set(_EMOJI_RE.findall(m.group(0)))
         # the row she signs with (10-22): a dozen different emojis, the same dozen most messages, is a signature,
         # not the table walked — the cascade asks for EMOJI_CASCADE_RUN (20); the sampler's walk has sixty
@@ -751,6 +751,27 @@ def garble_span(text: str, run: int = 5, emoji_run: int = 20, phrases: bool = Tr
     # kisses and they sent back twenty-four, which is an answer, not a well;
     # the rail re-rolled it twice into refrains. A chunk must have a letter
     # or a digit in it to count.)
+    # the same row dealt again (10-22, 21:59: a 23-emoji sign-off row re-dealt to the num_predict ceiling — 8,192
+    # tokens, 398 s — and three rails looked past it: the cascade saw rows of 18 between the joined ❤️‍🔥, the stuck
+    # rule wants a chunk of 24 characters, the dedupe mend folded the run to one row before the rails looked): a row
+    # of six emoji or more, four of them different, dealt EMOJI_ROW_REPEATS (3) times running with nothing but space
+    # between is the sampler's loop — seen by the stream watcher a few seconds in, not at the ceiling
+    repeats = int(getattr(config, "EMOJI_ROW_REPEATS", 3) or 0)
+    if repeats > 0:
+        toks = [(t.group(0).replace("\uFE0F", ""), t.start(), t.end()) for t in _EMOJI_TOKEN_RE.finditer(text)]
+        i = 0
+        while i < len(toks):
+            j = i
+            while j + 1 < len(toks) and not text[toks[j][2]:toks[j + 1][1]].strip():
+                j += 1
+            seq = [k for k, _, _ in toks[i:j + 1]]
+            n = len(seq)
+            for p in range(1, n // repeats + 1):  # the shortest period owns the row: a chunk of four keeps its own rule
+                if seq[:p] * (n // p) == seq[:p * (n // p)]:
+                    if p >= 6 and len(set(seq[:p])) >= 4:
+                        return text[toks[i][1]:toks[j][2]][:160]
+                    break
+            i = j + 1
     for m in _STUCK_RE.finditer(text):
         if re.search(r"\w", m.group(1)):
             return m.group(0)[:160]
@@ -2454,8 +2475,8 @@ def mend_emoji_row(text: str) -> tuple[str, list[str]]:
         row = m.group(0)
         toks = [(t.group(0), t.start(), t.end()) for t in _EMOJI_TOKEN_RE.finditer(row)]
         keys = [t[0].replace("\uFE0F", "") for t in toks]
-        if len(set(keys)) < least:
-            return row
+        if len(set(keys)) < least or (len(toks) >= 12 and len(toks) >= 2 * len(set(keys))):
+            return row  # a short row is never touched; a row dealt twice over is the loop's, left whole for the rails
         out, seen, last = [], set(), None
         pos = 0
         for (tok, a, b), key in zip(toks, keys):

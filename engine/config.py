@@ -916,6 +916,10 @@ EMOJI_ROW_DENSE = 14
 # ...and a repeat in a row of this many different emoji or more is taken off at the reply, the first kept — the row
 # feeding on itself, the sampler's re-deal; an adjacent repeat (💋💋💋) stays, a shorter row is never touched. 0: never.
 EMOJI_ROW_DEDUPE = 6
+# ...and the same row of six or more emoji (four different) dealt this many times running, nothing but space between,
+# is the sampler's loop, not a sign-off: cut mid-stream, asked again (10-22: a 23-emoji row re-dealt to the ceiling,
+# 8,192 tokens, which the cascade rule, the stuck rule and the dedupe mend all looked past). 0: never.
+EMOJI_ROW_REPEATS = 3
 
 # An act with words beside it is a whole reply. When every tool called in a
 # step is an act (speak, remember, write_journal and the like — tools.ACT_TOOLS;

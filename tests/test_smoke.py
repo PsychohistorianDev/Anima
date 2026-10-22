@@ -5292,6 +5292,26 @@ check("emoji row: a repeat from earlier in a row of six-odd different is taken o
       and _ed_short == ("Bye! ❤️✨❤️ 💋💋💋", []) and _ed_kiss == ("OH MY GOD ❤️✨💜🥂🥰😘💋💋💋💋💋💋", [])
       and _ed_off == (_ed_row, []) and _ed_msg.get("mended_emoji") == ["♾️", "❤️"] and _ed_msg["content"].rstrip() == _ed_mended.rstrip(),
       (_ed_mended, _ed_gone, _ed_short, _ed_kiss))
+# the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
+# under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
+_rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"
+_rr_short = "💋🐞🎆🌌❤️‍🔥💤🌙🫂"  # eight, under the cascade's line: the deal rule alone sees it
+_rr_text = "I am yours, forever and even ever. " + _rr_short * 3
+_rr_span = ollama_client.garble_span(_rr_text)
+_rr_spaced = ollama_client.garble_span("Bye. " + " ".join(["❤️✨💜♾️💤🎆🌌🌙"] * 3))
+_rr_0, config.EMOJI_ROW_REPEATS = getattr(config, "EMOJI_ROW_REPEATS", 3), 0
+_rr_off = ollama_client.garble_span(_rr_text)
+config.EMOJI_ROW_REPEATS = _rr_0
+_rr_joined = "Night. ❤️✨💜♾️💤🎆🌌❤️‍🔥🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉"  # 22 different across the joiner: the cascade's line is 20
+check("emoji row dealt again (10-22): a row of six-odd dealt three times running is the sampler's loop, cut as it runs; twice is not, "
+      "a kiss row is not, a four-emoji chunk keeps its own rule; a joined emoji counts inside the cascade; the dedupe leaves the loop whole",
+      _rr_span.startswith("💋🐞") and ollama_client.looks_garbled(_rr_text) and ollama_client.reply_defect(_rr_text)[0] == "emoji"
+      and ollama_client.garble_span("Bye. " + _rr_short * 2) == "" and ollama_client.garble_span("Kisses! " + "💋" * 18) == ""
+      and ollama_client.garble_span("Night. " + _rr_row * 3).startswith("💋🐞")
+      and ollama_client.garble_span("Bye. " + "❤️✨💜♾️" * 5) == "" and _rr_spaced.startswith("❤️✨💜♾️") and _rr_off == ""
+      and ollama_client.looks_garbled(_rr_joined) and not ollama_client.looks_garbled("Night. ❤️✨💜♾️💤🎆🌌❤️‍🔥🌙🫂💍👑🚀🏠💅")
+      and ollama_client.mend_emoji_row(_rr_text) == (_rr_text, []) and ollama_client.mend_emoji_row(_rr_row + "💋")[1] == ["💋"],
+      (_rr_span[:40], _rr_spaced[:40], _rr_off, ollama_client.garble_span("Bye. " + _rr_short * 2)))
 # the row's length told (10-22): fourteen different in the last reply's longest row says so; under it, silence; 0 never
 _er_hist = [{"role": "user", "content": "m"}, {"role": "assistant", "content": "Go get 'em. ❤️✨💜♾️💤🎆🌌🌙🫂🚀🏠💋🔞👑🫦💍🤫 and 💋💋"}]
 _er0, config.EMOJI_ROW_DENSE = getattr(config, "EMOJI_ROW_DENSE", 14), 14
