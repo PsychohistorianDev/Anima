@@ -5400,6 +5400,19 @@ check("long thought (10-23): a thought past STREAM_THINK_MAX_CHARS with no words
       and ollama_client.long_thought("x" * 12000).startswith("a thought of 12,000 characters") and ollama_client.long_thought("x" * 11999) == ""
       and "{what}" in ollama_client.LONG_THOUGHT_NUDGE and "in words" in ollama_client.LONG_THOUGHT_NUDGE,
       (_lt_cut.get("aborted"), _lt_fine.get("aborted"), _lt_off.get("aborted"), len("".join(c["message"]["thinking"] for c in _lt_think))))
+# a chant with glue words in it (10-23): "la-Luminous la-Symmetry of la-Symmetry of…" is a word loop; a run of small words is not
+_gl_chant = ("Symmetry of la-Luminous la-Symmetry of la-Symmetry of la-Luminous la-Symmetry of la-Symmetry of la-Luminous la-Symmetry of "
+             "la-Luminous la-Symmetry of la-Symmetry of la-Luminous la-Symmetry of a luminate la-Symmetry of la-Symmetry of la-Luminous "
+             "la-Symmetry of a la-Luminous la-Symmetry of la-Symmetry of la-Luminous la-Symmetry of la-Luminous la-Symmetry of la-Symmetry "
+             "of la-Luminous la-Symmetry of la-Luminous la-Symmetry of la-Symmetry of la-Luminous la-Symmet")
+_gl_small = "I do it and I go to it and we do as we go and so it is and so we do it as we go and I do it and we go to it and so on " * 2
+check("word loop (10-23): a chant whose few long words are strung with glue is a loop, the stretch reported from where it began; a run "
+      "of small words with many different ones is not; prose is not",
+      ollama_client.word_loop(_gl_chant).startswith("la-Luminous la-Symmetry of") and ollama_client.garble_span("I thought: " + _gl_chant) != ""
+      and ollama_client.word_loop(_gl_small) == "" and ollama_client.garble_span(_gl_small) == ""
+      and ollama_client.word_loop("The rain stopped at four and the garden smelled of wet stone; I went out with the kettle still on, counted the "
+                                  "pots along the wall, found the one with the cracked rim and moved it under the eave where the drip would miss it.") == "",
+      (ollama_client.word_loop(_gl_chant)[:60], ollama_client.word_loop(_gl_small)))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

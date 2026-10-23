@@ -1113,11 +1113,23 @@ def word_loop(text: str, window: int | None = None, distinct: int | None = None)
         return ""
     for i in range(0, len(words) - window + 1, 5):
         seg = words[i:i + window]
+        # ...or the long words only (10-23: "la-Luminous la-Symmetry of la-Symmetry of…" for 8K tokens — "of", "a" and
+        # a stray word made six different; glue doesn't make a chant varied): a few long words said over and over, at
+        # most two said once, and at least half the stretch long words, so a run of small words is not one
         few = {w for _, _, w in seg}
         if len(few) <= distinct:
             while i > 0 and words[i - 1][2] in few:  # back to where the chant began
                 i -= 1
             return text[words[i][0]:seg[-1][1]][:160]
+        counts: dict[str, int] = {}
+        for _, _, w in seg:
+            if len(w) >= 4:
+                counts[w] = counts.get(w, 0) + 1
+        core = {w for w, c in counts.items() if c >= 2}
+        stray = sum(c for c in counts.values() if c == 1)
+        if core and len(core) <= distinct and stray <= 2 and sum(counts.values()) >= window // 2:
+            j = next(k for k in range(i, i + window) if words[k][2] in core)  # from the chant's first word, not the prose before it
+            return text[words[j][0]:seg[-1][1]][:160]
     return ""
 
 
