@@ -416,6 +416,7 @@ CARD_WAIT_S = 300.0  # how long a door on its way up waits for a sidecar to set 
 CARD_BUSY_MB = 256     # a process on the card using this much or more keeps the door waiting, whatever its /health says
 CARD_IDLE_MB = 3072    # the card's used memory above this, with no process to name, is something still on it
 CARD_SETTLE_S = 20.0   # how long the door waits for a nameless remainder on the card before opening anyway
+CARD_CROWDED_MB = 8192  # a nameless remainder this large is a sidecar's weight, not the desktop's: waited for as one, never opened on
 
 
 def _nvidia_smi(query: str, what: str) -> str:
@@ -478,7 +479,10 @@ def card_busy() -> tuple[str, bool]:
     idle = int(getattr(config, "BRAIN_CARD_IDLE_MB", CARD_IDLE_MB) or 0)
     used = _gpu_used_mb()
     if idle and used > idle:
-        return f"the card still holds {used:,} MiB", False
+        # a remainder the size of a sidecar's weights (10-23: 10,900 MiB after a song, the door opened on it and
+        # limped at 3.4 tokens a second for its whole life) is waited for as a named process is, and not opened on
+        crowded = int(getattr(config, "BRAIN_CARD_CROWDED_MB", CARD_CROWDED_MB) or 0)
+        return f"the card still holds {used:,} MiB", bool(crowded and used >= crowded)
     return "", False
 CUDA_RETRY_S = 8.0  # a door the engine opened that fell at its first kernel waits this long and opens once more (BRAIN_CUDA_RETRY_S)
 _CUDA_FALLS = ("CUDA error", "cudaMalloc", "out of memory")  # what a door that fell for want of the card says in brain.log

@@ -110,6 +110,9 @@ BRAIN_CUDA_RETRY_S = 8.0
 BRAIN_CARD_BUSY_MB = 256
 BRAIN_CARD_IDLE_MB = 3072
 BRAIN_CARD_SETTLE_S = 20
+# ...and a nameless remainder of this many MiB or more is a sidecar's weight (an ear or a painter still on its way out),
+# not the desktop's share: waited for as a named process is, the door not opened while it stays. 0: the brief settle only.
+BRAIN_CARD_CROWDED_MB = 8192
 
 # The brain (the chat model). Swap freely; memories and identity survive a swap.
 #   fits a 12 GB card : "gemma4:12b-it-qat" (7.2 GB; the build Google trained

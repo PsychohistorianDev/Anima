@@ -11840,6 +11840,9 @@ try:
         _bd_sr_busy = _bd.start_door(wait_s=_bd_wait)
         _bd._gpu_apps = lambda: [(9, "chrome.exe", 120)]
         _bd_cb_rem = _bd.card_busy()
+        _bd._gpu_used_mb = lambda: 10900
+        _bd_cb_crowded = _bd.card_busy()  # a sidecar's weight with no name (10-23): waited for as a named process, never opened on
+        _bd_sr_crowded = _bd.start_door(wait_s=_bd_wait)
         _bd._gpu_used_mb = lambda: 1200
         _bd_cb_free = _bd.card_busy()
         _bd._gpu_apps = lambda: []
@@ -11856,6 +11859,8 @@ try:
             config.BRAIN_CARD_WAIT_S = _bd_busy_wait0
     _bd_sr["busy"] = (_bd_cb_named, _bd_sr_busy[0], "python.exe (pid 4242, 1,100 MiB on the card) — the door didn't open" in _bd_sr_busy[1],
                       _bd.door_status() is None, _bd_cb_rem, _bd_cb_free, _bd_cb_none)
+    _bd_sr["crowded"] = (_bd_cb_crowded, _bd_sr_crowded[0], "the card still holds 10,900 MiB" in _bd_sr_crowded[1] and "didn't open" in _bd_sr_crowded[1],
+                         _bd.door_status() is None)
     # a second life, the same system prompt: restored once, before the first request; the next request not again
     _FakeLlama.down = True
     _bd_sr["up2"] = _bd.start_door(wait_s=_bd_wait)[0]
@@ -12141,6 +12146,8 @@ check("the card's own word (10-21): a process on the card no /health names keeps
       "a nameless remainder is said; a free card, or no nvidia-smi, is nothing",
       _bd_sr.get("busy") == (("python.exe (pid 4242, 1,100 MiB on the card)", True), False, True, True,
                              ("the card still holds 4,100 MiB", False), ("", False), ("", False)), _bd_sr.get("busy"))
+check("brain: a nameless remainder the size of a sidecar's weights (10-23) is waited for as a named process is, and the door is not opened on it",
+      _bd_sr.get("crowded") == (("the card still holds 10,900 MiB", True), False, True, True), _bd_sr.get("crowded"))
 check("saved read: the size known before the write (10-16) — the slot's tokens (the last reply's prompt and words, beside the key) times "
       "the bytes a token weighed at the last save: a disk without 1.1× that free skips the save unbegun, the note says the numbers and names "
       "the ghost when the disk counts more than its files hold; with room the save goes and the measure is relearned from it",
