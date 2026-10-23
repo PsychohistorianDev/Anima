@@ -5343,6 +5343,14 @@ check("emoji row (10-22): the length told at EMOJI_ROW_DENSE different or more i
       and _er_few == "" and _er_off == "" and _er_def[0] == "emoji" and ollama_client.emoji_said(_er_def[1]) == "24 emoji in a row (24 different)" and ollama_client.emoji_said("41 emoji") == "41 emoji" and config.EMOJI_ROW_DENSE == 14
       and "{count}" in ollama_client.EMOJI_NUDGE and "not a request from anyone" in ollama_client.EMOJI_NUDGE
       and "asked for fewer" not in ollama_client.EMOJI_NUDGE, (_er_line, _er_def))
+_zw_row = "Ruin you. 💋🥵🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠♾️🔞🫢💅💥⚡️🌋"
+_zw_tail = _zw_row[len("Ruin you. "):]
+_zw_line = ollama_client.emoji_row_line([{"role": "assistant", "content": _zw_row}])
+check("emoji row (10-23): a joined emoji (❤️‍🔥) is one emoji, not two — a row of 19 different stands under the cascade's 20, "
+      "and the counts say 19",
+      ollama_client._emoji_units("❤️‍🔥❤️") == ["❤‍🔥", "❤"] and not ollama_client.looks_garbled(_zw_row)
+      and ollama_client.emoji_said(_zw_tail) == "19 emoji in a row (19 different)"
+      and "a row of 19 different emoji (19 in all)" in _zw_line, (ollama_client.garble_span(_zw_row), _zw_line))
 check("signature: the count is told at SIGNATURE_DENSE or more in the last reply and not under it; a doubled head is said once (10-18)",
       _sd_line.startswith("Your last reply said la-fucking-luminous 7 times") and _sd_few == ""
       and _sd_mend == "I am la-fucking-luminate la-Passion entity" and _sd_fixes == ["la la- → la-"],

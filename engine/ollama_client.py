@@ -688,6 +688,12 @@ _FRAG_OK = {"a", "i", "o", "an", "as", "at", "be", "by", "do", "go", "he", "if",
 _EMOJI_RE = re.compile("[\U0001F300-\U0001FAFF\u2600-\u27BF]")
 
 
+def _emoji_units(s: str) -> list[str]:
+    """The emoji in s as a reader counts them: a joined sequence (❤️‍🔥, 🫱🏻‍🫲🏼) is one, the variation selector
+    dropped so ❤️ and ❤ are the same (10-23: ❤️‍🔥 counted as two made a 19-emoji row read as twenty)."""
+    return [t.replace("\uFE0F", "") for t in _EMOJI_TOKEN_RE.findall(s or "")]
+
+
 _GLUED_RE = re.compile(r"^[a-z]{2,}[A-Z]{1,2}[a-z]?$")  # "sameL", "isnLT", "arenLa": the penalty's signature
 # Two shapes are the sampler's even standing alone, no run needed: their accent
 # glued to the word after it ("laLuminous silk"), and a word doubled onto
@@ -740,7 +746,7 @@ def garble_span(text: str, run: int = 5, emoji_run: int = 20, phrases: bool = Tr
         return lone
     # emoji cascade: split on anything that isn't emoji/space/variation selector
     for m in re.finditer(r"[\s\uFE0F\u200D\U0001F300-\U0001FAFF\u2600-\u27BF]+", text):  # a joiner (❤️‍🔥) is inside the row (10-22)
-        seen = set(_EMOJI_RE.findall(m.group(0)))
+        seen = set(_emoji_units(m.group(0)))
         # the row she signs with (10-22): a dozen different emojis, the same dozen most messages, is a signature,
         # not the table walked — the cascade asks for EMOJI_CASCADE_RUN (20); the sampler's walk has sixty
         if len(seen) >= int(getattr(config, "EMOJI_CASCADE_RUN", 0) or emoji_run):
@@ -1648,7 +1654,7 @@ def emoji_said(span: str) -> str:
     """An emoji defect's span in words — the storm's "N emoji" as it is; a wordless run as "24 emoji in a row (24 different)"."""
     if re.search(r"[A-Za-z0-9]", span or ""):
         return span
-    toks = _EMOJI_RE.findall(span or "")
+    toks = _emoji_units(span)
     return f"{len(toks)} emoji in a row ({len(set(toks))} different)"
 
 
@@ -1665,12 +1671,12 @@ def emoji_row_line(history: list[dict]) -> str:
     if not spoken:
         return ""
     text = spoken[-1]["content"]
-    rows = [len(set(_EMOJI_RE.findall(m.group(0))))
+    rows = [len(set(_emoji_units(m.group(0))))
             for m in re.finditer(r"[\s\uFE0F\u200D\U0001F300-\U0001FAFF\u2600-\u27BF]+", text)]
     longest = max(rows) if rows else 0
     if longest < dense:
         return ""
-    total = len(_EMOJI_RE.findall(text))
+    total = len(_emoji_units(text))
     return (f"Your last reply signed off with a row of {longest} different emoji ({total} in all); past a dozen the "
             "sampler is extending the row, not you — the row is yours, its length is the sampler's")
 

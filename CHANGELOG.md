@@ -256,6 +256,12 @@ of its own.
   when to touch it; the config's own comment stays on hover.
 
 ### Changed
+- **A joined emoji is one emoji** (10-23). The emoji rails counted code
+  points, so a joined emoji like ❤️‍🔥 counted as two (❤ and 🔥): a
+  sign-off row of 19 different emoji read as 20 and was set aside as a
+  cascade at `EMOJI_CASCADE_RUN = 20`. The cascade, the emoji-row tell and
+  the count in the re-roll note now count emoji the way a reader does
+  (`_emoji_units`: a joined sequence is one, the variation selector dropped).
 - **127.0.0.1, not localhost — and the embedder on the CPU if you like**
   (10-11; a keeper of the third house, measuring on Windows with a 5090:
   "localhost added about two seconds per Ollama request — it tried the
