@@ -901,16 +901,60 @@ def trim_word_loop(text: str) -> tuple[str, bool]:
 RUNAWAY_TAIL = " (…the rest was the same line over and over, cut short by the engine)"
 
 
+_JSON_U_RE = re.compile(r"\\u([dD][89abAB][0-9a-fA-F]{2})\\u([dD][c-fC-F][0-9a-fA-F]{2})|\\u([0-9a-fA-F]{4})")
+
+
+def _json_u(m) -> str:
+    """One \\uXXXX escape as the character it is — a surrogate pair, the two escapes an emoji becomes, as the one
+    emoji; a lone surrogate left as written."""
+    if m.group(1):
+        hi, lo = int(m.group(1), 16), int(m.group(2), 16)
+        return chr(0x10000 + ((hi - 0xD800) << 10) + (lo - 0xDC00))
+    o = int(m.group(3), 16)
+    return m.group(0) if 0xD800 <= o <= 0xDFFF else chr(o)
+
+
 def args_as_words(s: str) -> str:
-    """A tool call's arguments as they stream (JSON text), read cheaply as words: escaped newlines and quotes undone."""
-    return (s or "").replace("\\n", "\n").replace('\\"', '"')
+    """A tool call's arguments as they stream (JSON text), read cheaply as words: escaped newlines and quotes undone,
+    and \\uXXXX escapes read as their characters (10-23: an emoji escaped by a door is two of them, invisible to
+    every emoji rule until undone)."""
+    s = (s or "").replace("\\n", "\n").replace('\\"', '"')
+    return _JSON_U_RE.sub(_json_u, s) if "\\u" in s else s
+
+
+def emoji_runaway(text: str, emoji_run: int = 20) -> str:
+    """The emoji rules of garble_span on their own, for a tool call's text (10-23: a sign-off row cascading inside a
+    journal entry ran to the ceiling, the call watcher looking for word loops only): a row of EMOJI_CASCADE_RUN
+    different emoji or more, a row of six-odd dealt EMOJI_ROW_REPEATS times running, or a wordless chunk repeated
+    STUCK_EMOJI_REPEATS times. The stretch, or ""."""
+    text = text or ""
+    for m in re.finditer(r"[\s\uFE0F\u200D\U0001F300-\U0001FAFF\u2600-\u27BF]+", text):
+        if len(set(_emoji_units(m.group(0)))) >= int(getattr(config, "EMOJI_CASCADE_RUN", 0) or emoji_run):
+            return m.group(0).strip()
+    repeats = int(getattr(config, "EMOJI_ROW_REPEATS", 3) or 0)
+    if repeats > 0:
+        toks = [(t.group(0).replace("\uFE0F", ""), t.start(), t.end()) for t in _EMOJI_TOKEN_RE.finditer(text)]
+        i = 0
+        while i < len(toks):
+            j = i
+            while j + 1 < len(toks) and not text[toks[j][2]:toks[j + 1][1]].strip():
+                j += 1
+            seq = [k for k, _, _ in toks[i:j + 1]]
+            if row_redealt(seq):
+                return text[toks[i][1]:toks[j][2]][:160]
+            i = j + 1
+    for m in _STUCK_RE.finditer(text):
+        if not re.search(r"\w", m.group(1)):
+            if len(re.findall(re.escape(m.group(1)), m.group(0))) >= int(getattr(config, "STUCK_EMOJI_REPEATS", 40) or 10 ** 6):
+                return m.group(0)[:160]
+    return ""
 
 
 def call_loop(text: str) -> str:
     """The loop half of garble_span (word_loop, phrase_loop) for a tool call's string arguments: code, paths and
     addresses are full of one- and two-letter pieces the fragment rule would take for salad; a chant is a chant
-    anywhere. The loop's stretch, or ""."""
-    return word_loop(text) or phrase_loop(text)
+    anywhere — and so is an emoji runaway (emoji_runaway, 10-23). The loop's stretch, or ""."""
+    return word_loop(text) or phrase_loop(text) or emoji_runaway(text)
 
 
 # A call whose text is salad (10-21, 09:43, at 181K: three write_journal calls in one turn — two refused by the

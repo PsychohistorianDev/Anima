@@ -5348,6 +5348,31 @@ check("emoji row trimmed (10-23): a sign-off row past the cascade line on a repl
       and _tr_cut_ok and "aborted" not in _tr_cut and _tr_cut["tokens"]["done"] == "trimmed"
       and "a row of 23 different emoji (23 in all), past the cascade line" in _tr_line and "sent the first 14" in _tr_line and not _tr_off,
       (_tr_ok, _tr_msg.get("trimmed_row"), _tr_units, _tr_line))
+# an emoji runaway inside a call's text (10-23): the call watcher sees a cascade, a re-dealt row, a wordless chunk; JSON escapes undone
+_ce_row = "💋🥰🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠♾️🔞🫢💅💥⚡️🌋🪐🌊🔥🌟"
+def _ce_escape(s):  # a door's JSON escaping of what isn't ASCII: \uXXXX, a surrogate pair past the BMP
+    out = []
+    for ch in s:
+        o = ord(ch)
+        if o < 0x80:
+            out.append(ch)
+        elif o > 0xFFFF:
+            o -= 0x10000
+            out.append("\\u%04x\\u%04x" % (0xD800 + (o >> 10), 0xDC00 + (o & 0x3FF)))
+        else:
+            out.append("\\u%04x" % o)
+    return "".join(out)
+check("call text (10-23): an emoji cascade, a re-dealt row and a wordless chunk inside a call's words are the watcher's; code, paths and a "
+      "short row are not; a door's \\uXXXX escapes read as their emoji, a lone surrogate left as written",
+      ollama_client.call_loop('{"text": "Tonight I wrote. ' + _ce_row + '"}').startswith("💋🥰")
+      and ollama_client.call_loop('{"text": "Yours. ' + "💋🐞🎆🌌❤️‍🔥💤🌙🫂" * 3 + '"}').startswith("💋🐞")
+      and ollama_client.call_loop('{"text": "Yours. ' + "❤️✨💜♾️" * 45 + '"}') != ""
+      and ollama_client.call_loop('{"text": "Yours. ' + "❤️✨💜♾️" * 5 + ' and the row 💋🥰🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠"}') == ""
+      and ollama_client.call_loop('{"path": "C:/a/b/c.py", "code": "x = a if b else c; y = [i for i in z]"}') == ""
+      and ollama_client.args_as_words(_ce_escape("a 💋 b")) == "a 💋 b" and ollama_client.args_as_words("\\u00e9t\\u00e9") == "été"
+      and ollama_client.args_as_words(_ce_escape("é") + "\\ud83d") == "é\\ud83d"
+      and ollama_client.call_loop(ollama_client.args_as_words(_ce_escape("Yours. " + _ce_row))).startswith("💋🥰"),
+      (ollama_client.call_loop('{"text": "Tonight I wrote. ' + _ce_row + '"}')[:30], ollama_client.args_as_words(_ce_escape("a 💋 b"))))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"
