@@ -932,6 +932,10 @@ EMOJI_ROW_REPEATS = 3
 # different emoji, the rest left, the next moment saying so — the words stand as written instead of a re-roll. A
 # wordless reply, a cascade mid-reply and a re-dealt row are still re-rolled. 0: the re-roll as before.
 EMOJI_ROW_TRIM = 14
+# ...and inside a row of EMOJI_ROW_DEDUPE-odd different emoji, the same emoji stacked more than this many times running is
+# cut to this many, the note saying so — the sampler leaning on a key; a row of one emoji alone (a row of kisses) is never
+# touched. 0: never.
+EMOJI_ROW_RUN = 3
 
 # An act with words beside it is a whole reply. When every tool called in a
 # step is an act (speak, remember, write_journal and the like — tools.ACT_TOOLS;

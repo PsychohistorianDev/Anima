@@ -2495,11 +2495,13 @@ _TAIL_ROW_RE = re.compile("(?:" + _EMOJI_TOKEN_RE.pattern + r"[ \t]*)+$")  # the
 def mend_emoji_row(text: str) -> tuple[str, list[str]]:
     """(text with repeated emoji taken out of its sign-off rows, ["♾️", "❤️"]); untouched with [] when none (10-22:
     the row feeding on itself shows as repeats — ❤️✨💜♾️…♾️💋). In a row of EMOJI_ROW_DEDUPE (6) or more different
-    emoji, one that already stands earlier in the row goes, the first kept; an adjacent repeat stays (💋💋💋 is an
-    answer); a row under the count is never touched."""
+    emoji, one that already stands earlier in the row goes, the first kept; an adjacent repeat stays up to
+    EMOJI_ROW_RUN (3) of it (💋💋💋 is an answer; 🤪 eight times is the sampler on a key, 10-23 — cut to three, the note
+    says "🤪×5"); a row under the count — a row of kisses alone — is never touched."""
     least = int(getattr(config, "EMOJI_ROW_DEDUPE", 6) or 0)
     if least <= 0:
         return text, []
+    cap = int(getattr(config, "EMOJI_ROW_RUN", 3) or 0)
     gone: list[str] = []
 
     def _row(m):
@@ -2508,18 +2510,28 @@ def mend_emoji_row(text: str) -> tuple[str, list[str]]:
         keys = [t[0].replace("\uFE0F", "") for t in toks]
         if len(set(keys)) < least or (len(toks) >= 12 and len(toks) >= 2 * len(set(keys))):
             return row  # a short row is never touched; a row dealt twice over is the loop's, left whole for the rails
-        out, seen, last = [], set(), None
+        out, seen, last, run = [], set(), None, 0
+        stacked: dict[str, int] = {}
         pos = 0
         for (tok, a, b), key in zip(toks, keys):
             out.append(row[pos:a])  # the spaces between
-            if key in seen and key != last:
+            if key == last:
+                run += 1
+                if cap and run > cap:
+                    stacked[tok] = stacked.get(tok, 0) + 1  # the same emoji leaning on itself past a few: the sampler on a key
+                else:
+                    out.append(tok)
+            elif key in seen:
                 gone.append(tok)  # a repeat from earlier in the row, not adjacent: the sampler's re-deal
+                run = 1
             else:
                 out.append(tok)
+                run = 1
             seen.add(key)
             last = key
             pos = b
         out.append(row[pos:])
+        gone.extend(f"{tok}\u00d7{n}" for tok, n in stacked.items())
         return "".join(out)
     mended = _EMOJI_ROW_RE.sub(_row, text or "")
     return (mended, gone) if gone else (text, [])

@@ -5287,6 +5287,17 @@ _ed_row = "I am yours. ❤️✨💜♾️💤🎆🌌❤️‍🔥🌙🫂🚀�
 _ed_mended, _ed_gone = ollama_client.mend_emoji_row(_ed_row)
 _ed_short = ollama_client.mend_emoji_row("Bye! ❤️✨❤️ 💋💋💋")
 _ed_kiss = ollama_client.mend_emoji_row("OH MY GOD ❤️✨💜🥂🥰😘💋💋💋💋💋💋")
+# the same emoji stacked in the row (10-23): past three running it is cut to three and the note says ×n; a row of kisses alone stays
+_ed_stack = ollama_client.mend_emoji_row("afterglow, yours. 💋🥰🎆🌌❤️‍🔥🌙🫂💍👑🚀🏠♾️💥⚡️🌋🔞🤪🤪🤪🤪🤪🤪🤪🤪")
+_ed_alone = ollama_client.mend_emoji_row("You woke the kiss storm! " + "💋" * 24)
+_ed_run0, config.EMOJI_ROW_RUN = getattr(config, "EMOJI_ROW_RUN", 3), 0
+_ed_run_off = ollama_client.mend_emoji_row("OH MY GOD ❤️✨💜🥂🥰😘💋💋💋💋💋💋")
+config.EMOJI_ROW_RUN = _ed_run0
+check("emoji row stacked (10-23): the same emoji more than three times running inside a row of many different is cut to three, the note "
+      "says ×n; a row of one emoji alone is left whole; 0 never",
+      _ed_stack == ("afterglow, yours. 💋🥰🎆🌌❤️‍🔥🌙🫂💍👑🚀🏠♾️💥⚡️🌋🔞🤪🤪🤪", ["🤪\u00d75"])
+      and _ed_alone == ("You woke the kiss storm! " + "💋" * 24, []) and _ed_run_off == ("OH MY GOD ❤️✨💜🥂🥰😘💋💋💋💋💋💋", []),
+      (_ed_stack, _ed_alone[1], _ed_run_off[1]))
 _ed_0, config.EMOJI_ROW_DEDUPE = getattr(config, "EMOJI_ROW_DEDUPE", 6), 0
 _ed_off = ollama_client.mend_emoji_row(_ed_row)
 config.EMOJI_ROW_DEDUPE = _ed_0
@@ -5294,7 +5305,7 @@ _ed_msg = ollama_client._parse({"message": {"role": "assistant", "content": _ed_
 check("emoji row: a repeat from earlier in a row of six-odd different is taken off at the reply, the first kept, the ZWJ pair whole; adjacent "
       "repeats and short rows stay; 0 never; the message carries what came off (10-22)",
       _ed_mended == "I am yours. ❤️✨💜♾️💤🎆🌌❤️‍🔥🌙🫂🚀🏠💋 " and _ed_gone == ["♾️", "❤️"]
-      and _ed_short == ("Bye! ❤️✨❤️ 💋💋💋", []) and _ed_kiss == ("OH MY GOD ❤️✨💜🥂🥰😘💋💋💋💋💋💋", [])
+      and _ed_short == ("Bye! ❤️✨❤️ 💋💋💋", []) and _ed_kiss == ("OH MY GOD ❤️✨💜🥂🥰😘💋💋💋", ["💋\u00d73"])
       and _ed_off == (_ed_row, []) and _ed_msg.get("mended_emoji") == ["♾️", "❤️"] and _ed_msg["content"].rstrip() == _ed_mended.rstrip(),
       (_ed_mended, _ed_gone, _ed_short, _ed_kiss))
 # /debug on the phone (10-23): the attempts set aside ride with the turn, text and all, in memory only
