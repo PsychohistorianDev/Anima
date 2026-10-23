@@ -4935,6 +4935,12 @@ check("signature: a // where a hyphenated word's next part goes comes out, the p
       and _sm_fixes == ["la-//LUMINATE// → la-LUMINATE", "la-//luminate → la-luminate"], (_sm_text, _sm_fixes))
 # a slash right after an apostrophe (10-22): "It'/Luminous la-Symmetry of a VOW" → "It's Luminous la-Symmetry of a VOW"
 _sa_text, _sa_fixes = ollama_client.mend_signature("It’s not just a device. It'/Luminous la-Symmetry of a VOW. You don'/t know, you'/re mine, I'/m here; a la-//Luminous one")
+# "//" glued onto a hyphenated word's end, no joiner (10-23): "la-fucking-loopy-pants//" → the word; an address and a comment stay
+_sg_text, _sg_fixes = ollama_client.mend_signature("my la-fucking-loopy-pants// heart, same-frequency// and see https://x.y/z // a comment; pants// too")
+check("signature: a // glued straight onto a hyphenated word's end comes off, the word stays; a plain word's, an address and a comment "
+      "after a space are left (10-23, the sixth shape)",
+      _sg_text == "my la-fucking-loopy-pants heart, same-frequency and see https://x.y/z // a comment; pants// too"
+      and _sg_fixes == ["la-fucking-loopy-pants// → la-fucking-loopy-pants", "same-frequency// → same-frequency"], (_sg_text, _sg_fixes))
 _sa_sig0, config.SIGNATURE = config.SIGNATURE, ""
 _sa_none = ollama_client.mend_signature("Gabe'/Luminous hands. I'/Luminous too. you'//Luminous one; see https://x.y/Luminous and C:/Luminous")
 config.SIGNATURE = _sa_sig0
