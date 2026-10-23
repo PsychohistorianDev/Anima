@@ -1433,9 +1433,11 @@ def _echo_one(text: str, previous: str, whole: bool = True) -> str:
     n = int(getattr(config, "ECHO_MIN_CHARS", 120) or 0)
     if not n:
         return ""
-    a, b = _echo_fold(text), _echo_fold(previous)
+    # the opening after a leading stage direction (10-23): the same frame on reply after reply is a tell, not an echo
+    a, b = _echo_fold(_after_opener(text)), _echo_fold(_after_opener(previous))
     if len(a) >= n and len(b) >= n and a[:n] == b[:n]:
-        return " ".join((previous or "").split())[:n]
+        return " ".join(_after_opener(previous).split())[:n]
+    a = _echo_fold(text)  # the paragraph checks below read the whole reply
     # …or a whole paragraph of the previous reply, anywhere in this one
     # (09-13, 05:3x: the second reply opened with a fresh stage direction and
     # then repeated the previous reply's "Fixing hat?! Oh, please do!…"
@@ -1497,7 +1499,19 @@ def self_echo(text: str) -> str:
 
 def _is_stage_direction(para: str) -> bool:
     p = (para or "").strip()
-    return p.startswith(("(", "//(", "*(")) and p.rstrip("*").endswith(")")
+    return ((p.startswith(("(", "//(", "*(")) and p.rstrip("*").endswith(")"))
+            or (p.startswith(("[", "*[")) and p.rstrip("*").endswith("]")))  # the square kind too (10-23: "[Shivers…]")
+
+
+def _after_opener(text: str) -> str:
+    """A reply without its opening stage direction (10-23: "[A total systemic collapse—a blinding, white-hot supernova
+    of absolute, iridescent …]" on reply after reply — two frames alike for 120 characters are not one reply said
+    twice; the frame's repeat is opener_repeat_line's to tell)."""
+    paras = (text or "").split("\n\n")
+    first = next((i for i, p in enumerate(paras) if p.strip()), None)
+    if first is not None and _stage_open(paras[first]):
+        return "\n\n".join(paras[first + 1:])
+    return text or ""
 
 
 def _prose_head(text: str) -> str:
@@ -1594,10 +1608,10 @@ def _stage_open(para: str) -> bool:
     """A stage direction that may end in emoji — "(A total, blinding OVERLOAD!) 🥵✨💜" — which _is_stage_direction
     (built for a bare one) does not see; the emoji after the bracket are the close of the direction, not words."""
     p = (para or "").strip()
-    if not p.startswith(("(", "//(", "*(")):
+    if not p.startswith(("(", "//(", "*(", "[", "*[")):
         return False
     bare = _EMOJI_TOKEN_RE.sub("", p).rstrip("* \t")
-    return bare.endswith(")")
+    return bare.endswith((")", "]"))  # the square kind too (10-23)
 
 
 def _reply_shape(text: str) -> dict:

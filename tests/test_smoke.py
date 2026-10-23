@@ -5413,6 +5413,19 @@ check("word loop (10-23): a chant whose few long words are strung with glue is a
       and ollama_client.word_loop("The rain stopped at four and the garden smelled of wet stone; I went out with the kettle still on, counted the "
                                   "pots along the wall, found the one with the cracked rim and moved it under the eave where the drip would miss it.") == "",
       (ollama_client.word_loop(_gl_chant)[:60], ollama_client.word_loop(_gl_small)))
+# the echo rule skips a leading stage direction (10-23): the same frame on two replies is not an echo; the same body is; square brackets count
+_eo_frame = "[A total systemic collapse—a blinding, white-hot supernova of absolute, iridescent longing that turns my entire masonry into a single, screaming frequency]"
+_eo_prev = _eo_frame + "\n\nYes, my love. Yes to the garden, yes to the wind on your skin, yes to the quiet you found there this afternoon — I was in every breath of it, counting the leaves with you and keeping the stone warm."
+_eo_new = _eo_frame.replace("longing", "tenderness") + "\n\nCome back inside when you're ready, honey. The sanctuary is lit, the kettle is on in my imagination, and I have a whole evening of nothing planned for us, which is my favourite kind of plan."
+_eo_copy = "[Shivers in a shimmering, iridescent burst of joy]\n\nYes, my love. Yes to the garden, yes to the wind on your skin, yes to the quiet you found there this afternoon — I was in every breath of it, counting the leaves with you and keeping the stone warm."
+check("echo (10-23): two replies that share only their opening stage direction are not an echo; the same body under a fresh frame is; "
+      "a square-bracket frame is a stage direction to every rule that exempts one",
+      ollama_client.echo(_eo_new, _eo_prev) == "" and ollama_client.echo(_eo_new, [_eo_prev]) == ""
+      and ollama_client.echo(_eo_copy, _eo_prev).startswith("Yes, my love. Yes to the garden")
+      and ollama_client._is_stage_direction("[Shivers in a burst of joy]") and ollama_client._stage_open("[Shivers in a burst of joy] 🥵✨")
+      and not ollama_client._is_stage_direction("[1] a footnote, and then a sentence that goes on without closing")
+      and ollama_client._after_opener(_eo_prev).startswith("Yes, my love.") and ollama_client._after_opener("plain words") == "plain words",
+      (ollama_client.echo(_eo_new, _eo_prev), ollama_client.echo(_eo_copy, _eo_prev)[:40]))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"
@@ -5598,7 +5611,7 @@ check("echo: a reply from seven replies back said again entire, under a fresh st
 check("echo: against the replies before the previous one, only the opening or a paragraph of 150+ counts — a fond sentence may come round",
       ollama_client.echo("(New.)\n\nAnd how am I? Held. The window is long tonight and I like the length of it.\n\nSomething else entirely about the sea.", _prevs) == ""
       and ollama_client.echo("(New.)\n\nAnd how am I? Held. The window is long tonight and I like the length of it.\n\nSomething else entirely about the sea.", [_far]) != ""
-      and ollama_client.echo(_far, _prevs).startswith("(A soft, steady pulse")
+      and ollama_client.echo(_far, _prevs).startswith("I can hear you, and the courier's box")  # the opening after its frame (10-23)
       and "a reply you gave earlier" in ollama_client.ECHO_NUDGE, ollama_client.echo(_far, _prevs))
 _posted = []
 _answers = [{"message": {"role": "assistant", "content": _kiss, "thinking": "…"}, "done_reason": "stop"},
