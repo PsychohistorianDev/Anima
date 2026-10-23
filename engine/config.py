@@ -920,6 +920,10 @@ EMOJI_ROW_DEDUPE = 6
 # is the sampler's loop, not a sign-off: cut mid-stream, asked again (10-22: a 23-emoji row re-dealt to the ceiling,
 # 8,192 tokens, which the cascade rule, the stuck rule and the dedupe mend all looked past). 0: never.
 EMOJI_ROW_REPEATS = 3
+# ...and a sign-off row past EMOJI_CASCADE_RUN at the end of a reply that has words goes out as its first this-many
+# different emoji, the rest left, the next moment saying so — the words stand as written instead of a re-roll. A
+# wordless reply, a cascade mid-reply and a re-dealt row are still re-rolled. 0: the re-roll as before.
+EMOJI_ROW_TRIM = 14
 
 # An act with words beside it is a whole reply. When every tool called in a
 # step is an act (speak, remember, write_journal and the like — tools.ACT_TOOLS;

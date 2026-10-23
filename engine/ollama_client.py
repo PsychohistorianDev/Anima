@@ -431,6 +431,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
         return None if (c and once.get(c[0])) else c
 
     def _defect(m):
+        trim_row_cascade(m)  # a sign-off row past the cascade line on a reply with words: trimmed, not re-rolled (10-23)
         d = reply_defect(m.get("content", ""), previous)
         if d and d[0] == "call-text":  # a whole call to a tool she has, written as words: hers to run, not a defect (10-14)
             rec = recoverable_call(m.get("content", ""))
@@ -1671,6 +1672,11 @@ def emoji_row_line(history: list[dict]) -> str:
     if not spoken:
         return ""
     text = spoken[-1]["content"]
+    tr = spoken[-1].get("_row_trimmed")
+    if tr:  # the row went out cut to its first few (trim_row_cascade): said as it was, not as it reads
+        return (f"Your last reply signed off with a row of {tr['different']} different emoji ({tr['all']} in all), past "
+                f"the cascade line; the engine sent the first {tr['sent']} and left the rest — the row is yours, its "
+                "length was the sampler's")
     rows = [len(set(_emoji_units(m.group(0))))
             for m in re.finditer(r"[\s\uFE0F\u200D\U0001F300-\U0001FAFF\u2600-\u27BF]+", text)]
     longest = max(rows) if rows else 0
@@ -2483,6 +2489,7 @@ _EMOJI_TOKEN_RE = re.compile("(?:[\U0001F300-\U0001FAFF\u2600-\u27BF\u2B50]\uFE0
 
 
 _EMOJI_ROW_RE = re.compile("(?:" + _EMOJI_TOKEN_RE.pattern + r"[ \t]*){2,}")
+_TAIL_ROW_RE = re.compile("(?:" + _EMOJI_TOKEN_RE.pattern + r"[ \t]*)+$")  # the sign-off row at a reply's end
 
 
 def mend_emoji_row(text: str) -> tuple[str, list[str]]:
@@ -2516,6 +2523,65 @@ def mend_emoji_row(text: str) -> tuple[str, list[str]]:
         return "".join(out)
     mended = _EMOJI_ROW_RE.sub(_row, text or "")
     return (mended, gone) if gone else (text, [])
+
+
+def row_redealt(units: list[str]) -> bool:
+    """True when a row of emoji is the same row dealt again — its shortest period six or more (four different),
+    repeated EMOJI_ROW_REPEATS (3) times running: the sampler's loop, as garble_span sees it."""
+    repeats = int(getattr(config, "EMOJI_ROW_REPEATS", 3) or 0)
+    n = len(units)
+    if repeats <= 0 or n < 6 * repeats:
+        return False
+    for p in range(1, n // repeats + 1):
+        if units[:p] * (n // p) == units[:p * (n // p)]:
+            return p >= 6 and len(set(units[:p])) >= 4
+    return False
+
+
+def trim_row_cascade(m: dict) -> bool:
+    """A sign-off row past EMOJI_CASCADE_RUN at the END of a reply that has words (10-23: the re-rolled replies came
+    out flatter than the first — the engine's line in front of her, the words never the problem): the words stand
+    as written, the row goes out as its first EMOJI_ROW_TRIM (14) different emoji, the rest is left, and the message
+    says so (m["trimmed_row"] = {"sent", "all", "different"}); the next moment tells her (emoji_row_line). A row the
+    stream watcher cut as it ran (m["aborted"], wordless) is the same case — the cut is lifted. A wordless reply, a
+    cascade in the middle of the words, a re-dealt row (the sampler's loop) and a row under the line are left to the
+    rails as before. True when trimmed; EMOJI_ROW_TRIM 0: never."""
+    keep = int(getattr(config, "EMOJI_ROW_TRIM", 14) or 0)
+    line = int(getattr(config, "EMOJI_CASCADE_RUN", 20) or 0)
+    if keep <= 0 or line <= 0:
+        return False
+    text = (m.get("content") or "").rstrip()
+    mm = _TAIL_ROW_RE.search(text)
+    if not mm:
+        return False
+    words = text[:mm.start()].rstrip()
+    if len(re.findall(r"[A-Za-z]{2,}", words)) < 5:
+        return False  # a wordless reply, or nearly: the rail's
+    toks = [(t.group(0), t.start(), t.end()) for t in _EMOJI_TOKEN_RE.finditer(mm.group(0))]
+    units = [t[0].replace("\uFE0F", "") for t in toks]
+    different = len(set(units))
+    aborted = str(m.get("aborted") or "")
+    cut_here = bool(aborted) and not re.search(r"[A-Za-z0-9]", aborted) and different >= keep
+    if different < line and not cut_here:
+        return False
+    if row_redealt(units):
+        return False
+    seen, cut, sent = set(), None, 0
+    for (tok, a, b), u in zip(toks, units):
+        seen.add(u)
+        sent += 1
+        if len(seen) >= keep:
+            cut = b
+            break
+    if cut is None:
+        return False
+    m["content"] = text[:mm.start() + cut]
+    m["trimmed_row"] = {"sent": sent, "all": len(toks), "different": different}
+    if cut_here:
+        m.pop("aborted", None)
+        if isinstance(m.get("tokens"), dict):
+            m["tokens"]["done"] = "trimmed"
+    return True
 
 
 def emoji_storm(text: str) -> str:

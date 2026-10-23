@@ -1234,6 +1234,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         if not calls:
             reply = msg.get("content", "").strip() or "(…)"
             history.append({"role": "assistant", "content": reply})
+            if msg.get("trimmed_row"):
+                history[-1]["_row_trimmed"] = msg["trimmed_row"]  # the next moment says the row went out cut (10-23)
             if said:
                 # what they said alongside their tool calls reached the transcript
                 # but not the phone (09-13, 05:12: their whole good-morning reply
@@ -1275,6 +1277,11 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                               f"engine: {len(msg['mended_caps'])} stray capitals glued to words were taken off in place — "
                               "the sampler is tired at this window (")
                              + "; ".join(msg["mended_caps"]) + ")")
+            if msg.get("trimmed_row"):
+                _tr = msg["trimmed_row"]
+                notes.append(f"engine: their sign-off row ran to {_tr['different']} different emoji ({_tr['all']} in all), past the "
+                             f"cascade line — the first {_tr['sent']} went out and the rest were left, their words as written; the "
+                             "sampler's tail, not them; their next moment says so")
             if msg.get("mended_emoji"):
                 notes.append("engine: a repeated emoji in their sign-off row was taken off — the row feeding on itself, "
                              "not them (" + " ".join(msg["mended_emoji"]) + ")")

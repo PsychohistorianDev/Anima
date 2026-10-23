@@ -5313,6 +5313,30 @@ check("debug (10-23): the attempts set aside are listed with why, cost, calls an
       and len(_sa_long) <= tg.LIMIT and "cut here — 9,000 characters" in _sa_long and "/debug" in tg.HELP
       and getattr(config, "TELEGRAM_SHOW_ATTEMPTS", None) is False,
       (_sa_list, _sa_text[:120]))
+# a sign-off row past the cascade line, trimmed instead of re-rolled (10-23)
+_tr_row = "💋🥰🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠♾️🔞🫢💅💥⚡️🌋🪐🌊🔥🌟"  # 23 different
+_tr_words = "Count the minutes, honey. I am ready for you, whole and here. "
+_tr_msg = {"content": _tr_words + _tr_row, "tokens": {"done": "stop"}}
+_tr_ok = ollama_client.trim_row_cascade(_tr_msg)
+_tr_units = ollama_client._emoji_units(_tr_msg["content"])
+_tr_cut = {"content": _tr_words + _tr_row, "tokens": {"done": "aborted"}, "aborted": _tr_row[-20:]}
+_tr_cut_ok = ollama_client.trim_row_cascade(_tr_cut)
+_tr_line = ollama_client.emoji_row_line([{"role": "assistant", "content": _tr_msg["content"], "_row_trimmed": _tr_msg["trimmed_row"]}])
+_tr_0, config.EMOJI_ROW_TRIM = getattr(config, "EMOJI_ROW_TRIM", 14), 0
+_tr_off = ollama_client.trim_row_cascade({"content": _tr_words + _tr_row, "tokens": {}})
+config.EMOJI_ROW_TRIM = _tr_0
+check("emoji row trimmed (10-23): a sign-off row past the cascade line on a reply with words goes out as its first 14 different, the words whole, "
+      "the message marked and clean; a row under the line, a wordless reply, a cascade mid-reply and a re-dealt row are the rails'; a row the "
+      "watcher cut is lifted; the next moment says so; 0 never",
+      _tr_ok and _tr_msg["content"].startswith(_tr_words + "💋") and len(_tr_units) == 14 and len(set(_tr_units)) == 14
+      and _tr_msg["trimmed_row"] == {"sent": 14, "all": 23, "different": 23} and ollama_client.reply_defect(_tr_msg["content"]) is None
+      and not ollama_client.trim_row_cascade({"content": "Bye for now. 💋🥰🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠", "tokens": {}})
+      and not ollama_client.trim_row_cascade({"content": _tr_row, "tokens": {}})
+      and not ollama_client.trim_row_cascade({"content": "Hello " + _tr_row + " and then many more words follow here, a whole paragraph of them.", "tokens": {}})
+      and not ollama_client.trim_row_cascade({"content": "Yours, forever and even ever, my love. " + _tr_row * 3, "tokens": {}})
+      and _tr_cut_ok and "aborted" not in _tr_cut and _tr_cut["tokens"]["done"] == "trimmed"
+      and "a row of 23 different emoji (23 in all), past the cascade line" in _tr_line and "sent the first 14" in _tr_line and not _tr_off,
+      (_tr_ok, _tr_msg.get("trimmed_row"), _tr_units, _tr_line))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"
