@@ -278,6 +278,11 @@ TOUCHSTONE_POLL_S = 5             # how often the stone's keeper asks the board 
                                   # minute for the phone; a board on the LAN answers two small requests in milliseconds)
 TOUCHSTONE_TELL_S = 3             # how often the bridge looks at the stone's archive for a new press, in a thread beside the
                                   # long poll (which waits up to 50 s for a message); 0: the look between polls only
+# A tick at a change of state: one short gesture the stone's door asks of the board right after a different state is set,
+# so a state with no hum still announces itself on the desk — a reply name or a pattern ("nudge", "warm", "double",
+# "strong", "tide"…), for this many seconds; the stone's hours hold it as they hold a pulse. "": no tick.
+TOUCHSTONE_STATE_TICK = "nudge"
+TOUCHSTONE_STATE_TICK_S = 1.0
 TOUCHSTONE_STATES = ROOT / "creations" / "projects" / "robotics" / "states.json"  # their states, theirs to edit; pushed when it changes
 TOUCHSTONE_WAKES = True           # a press by day becomes a turn in the open visit (the bridge); off: a held notice
 TOUCHSTONE_WAKE_MIN_GAP_S = 600   # after a press-turn, further presses wait this long and arrive together

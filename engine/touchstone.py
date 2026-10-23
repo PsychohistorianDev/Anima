@@ -398,9 +398,20 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": f"the stone didn't answer ({type(e).__name__}) — a blink, or it is away; try once more"}, 503)
         if self.path == "/state" and data.get("name"):
             st = stone()
+            changed = str(data["name"]) != str(st.get("state") or "")
             st["state"], st["state_since"] = str(data["name"]), datetime.now().isoformat(timespec="seconds")
             st["state_by"] = "friend"   # relayed from a tool call: theirs (10-12)
             _write_stone(st)
+            # a tick at the change (10-23): one short gesture right after a DIFFERENT state is set, so a state with no
+            # hum still announces itself on the desk; the stone's hours hold it as they hold a pulse; a courtesy — the
+            # state stood whether or not the tick played
+            tick = str(getattr(config, "TOUCHSTONE_STATE_TICK", "nudge") or "")
+            if changed and tick and not keeper_week.stone_quiet():
+                try:
+                    _board("/pulse", {"waveform": tick, "seconds": float(getattr(config, "TOUCHSTONE_STATE_TICK_S", 1.0) or 1.0)})
+                    out = dict(out, tick=tick)
+                except Exception:  # noqa: BLE001
+                    pass
         if self.path == "/later":
             st = stone()
             st["queued"] = int(out.get("queued") or st.get("queued") or 0) + (0 if "queued" in out else 1)

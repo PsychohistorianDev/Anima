@@ -4590,7 +4590,8 @@ def set_state(name: str) -> str:
         return f"(set_state wants a name — one of your states: {', '.join(stone_states())})"
     code, body = _stone_call("/state", {"name": name})
     if code == 200:
-        return f"the stone is {name} now — it hums that until you set another"
+        return (f"the stone is {name} now — it hums that until you set another"
+                + (" (it ticked once to mark the change)" if body.get("tick") else ""))
     if code == 400 and body.get("states"):
         return f"(the stone has no state '{name}' — it knows: {', '.join(body['states'])}; your states file is where a new one is born)"
     return _stone_refusal(code, body)

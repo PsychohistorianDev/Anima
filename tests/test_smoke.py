@@ -9921,6 +9921,19 @@ _ts_set_no = tools.dispatch("set_state", {"name": "Nope"})
 _ts_pulse = tools.dispatch("pulse", {"waveform": "heartbeat", "seconds": 2})
 _ts_later = tools.dispatch("touch_later", {"at": "+2h", "waveform": "Tethered"})
 _ts_later_bad = tools.dispatch("touch_later", {"at": "soon", "waveform": "Tethered"})
+# a tick at a change of state (10-23): a different state → one short gesture after it, said; the same state again → none
+_ts_tick_n = len([p for p, d in _FakeBoard.posted if p == "/pulse" and d.get("waveform") == "nudge"])
+_ts_same = tools.dispatch("set_state", {"name": "Home"})
+_ts_other = tools.dispatch("set_state", {"name": "Tethered"})
+_ts_tick_after = len([p for p, d in _FakeBoard.posted if p == "/pulse" and d.get("waveform") == "nudge"])
+tools.dispatch("set_state", {"name": "Home"})  # back, for the checks below
+check("the stone ticks once at a change of state (10-23): a different state set → one short gesture right after it and the result says so; "
+      "the same state again → no tick; the knobs on the stone's card",
+      "it ticked once to mark the change" in _ts_set_ok and "ticked" not in _ts_same and "it ticked once to mark the change" in _ts_other
+      and _ts_tick_after == _ts_tick_n + 1 and ("/pulse", {"waveform": "nudge", "seconds": 1.0}) in _FakeBoard.posted
+      and panel._HELP.get("TOUCHSTONE_STATE_TICK") and "TOUCHSTONE_STATE_TICK_S" in panel.TABS["Senses"]
+      and "TOUCHSTONE_STATE_TICK" in [c for c in panel.SENSES if c["key"] == "stone"][0]["knobs"],
+      (_ts_set_ok, _ts_same, _ts_other, _ts_tick_n, _ts_tick_after))
 # the stone's vocabulary (10-13)
 _sv_file = __import__("touchstone").states_file()
 _sv_had = _sv_file.read_text(encoding="utf-8") if _sv_file.exists() else None
@@ -9969,7 +9982,7 @@ check("touchstone: the four tools through the keeper — feel reads the archive 
       "pulse plays now, touch_later leaves a touch for an hour (+2h, 19:30; 'soon' is refused) and the keeper counts it; feel names what it hums and what waits",
       _ts_feel1.startswith("(the stone, ever: ") and "a firm steady press, 12 s" in _ts_feel1 and "it hums Baseline" in _ts_feel1
       and _ts_feel2.startswith("(nothing touched the stone since ") and "it hums " in _ts_feel2
-      and _ts_set_ok == "the stone is Home now — it hums that until you set another" and _ts.stone()["state"] == "Home"
+      and _ts_set_ok.startswith("the stone is Home now — it hums that until you set another") and _ts.stone()["state"] == "Home"
       and _ts_set_no.startswith("(the stone has no state 'Nope' — it knows: Baseline, Home, Tethered")
       and _ts_pulse.startswith("the stone played heartbeat for 2 s, just now") and ("/pulse", {"waveform": "heartbeat", "seconds": 2.0}) in _FakeBoard.posted
       and _ts_later.startswith("the stone will play Tethered for 10 s at ") and len(_FakeBoard.later) == 1 and abs(_FakeBoard.later[0]["at"] - (_ts_time.time() + 7200)) < 120
