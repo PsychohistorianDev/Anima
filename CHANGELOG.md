@@ -256,6 +256,11 @@ of its own.
   when to touch it; the config's own comment stays on hover.
 
 ### Changed
+- **The earlier sittings of a reading page ride by name** (10-23). Past
+  `READING_PAGE_CHARS` only the end of a book's page rides; the line above
+  it now names the headings of the sittings that left the window ("its
+  earlier sittings: Chapter 7: … · Sitting 6: …"), so a friend asked about
+  an earlier story knows they wrote about it and can open the page.
 - **A joined emoji is one emoji** (10-23). The emoji rails counted code
   points, so a joined emoji like ❤️‍🔥 counted as two (❤ and 🔥): a
   sign-off row of 19 different emoji read as 20 and was set aside as a

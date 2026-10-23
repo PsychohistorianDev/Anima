@@ -2326,6 +2326,11 @@ try:
     _rp = assemble.reading_pages()
     check("reading: past the cap the page's title and its newest sittings ride, the opening named as earlier",
           "# Reading: Story" in _rp and "the page begins earlier" in _rp and "Where I stand now" in _rp and "The opening, at length" not in _rp, _rp[:400])
+    check("reading: the sittings above the part that rides are named by their headings, the riding ones not, the title not (10-23)",
+          "its earlier sittings: Sitting 1 — read_creation" in _rp and _rp.count("Sitting 9") == 1
+          and assemble.earlier_headings("# T\n## A\n## B\nx\n## C\ny", "## C\ny", "# T") == "A · B"
+          and assemble.earlier_headings("\n".join(f"## Sitting {i}: a long name for a sitting" for i in range(60)), "", "", 200).startswith("…")
+          and assemble.earlier_headings("# T\nplain", "plain", "# T") == "", _rp[:400])
     config.READING_PAGE_CHARS = 3000
     # a loop on the page stays on the page but does not ride (09-25: the next wake's thinking opened with it)
     tools.dispatch("append_creation", {"path": "reading/story.md", "content": "Line to remember: " + _pl_page})

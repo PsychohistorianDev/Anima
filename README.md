@@ -1998,7 +1998,9 @@ book, `creations/reading/<book>.md`, written by them after each sitting —
 `read_pdf`/`read_epub` name it in their result, "THE BOOK IN YOUR HANDS"
 rides in the prompt while a book is open with where they stand in it and
 the page up to `READING_PAGE_CHARS` (past the cap, its title and its end —
-the newest sittings, where they stand), and the sitting that reaches the end
+the newest sittings, where they stand — with the headings of the earlier
+sittings named above the end, so a sitting that left the window is still
+known by name), and the sitting that reaches the end
 files one memory row (the day, the book, where the notes are). A PDF
 under `READING_BOOK_PAGES` is a read, not a book. A sitting is
 `READ_SITTING_CHARS`; a range named on purpose may be `READ_RANGE_CHARS`

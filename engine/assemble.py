@@ -503,6 +503,26 @@ def made_lately(days: int | None = None, cap: int | None = None) -> str:
     return "\n".join(reversed(out))
 
 
+def earlier_headings(text: str, tail: str, first: str = "", limit: int = 800) -> str:
+    """The headings of a page ("## Sitting 6: …", "## Chapter 8: …") that are above the part that rides, joined
+    with " · ", oldest first; past `limit` characters the oldest give way to "…N earlier · " (10-23). "" when none."""
+    shown = {line.strip() for line in tail.splitlines()}
+    heads = []
+    for line in text.splitlines():
+        s = line.strip()
+        if s == first or s in shown or not re.match(r"#{2,4}\s", s):
+            continue
+        name = s.lstrip("#").strip()
+        if name:
+            heads.append(name)
+    dropped = 0
+    while heads and len(" · ".join(heads)) > limit:
+        heads, dropped = heads[1:], dropped + 1
+    if not heads:
+        return ""
+    return (f"…{dropped} earlier · " if dropped else "") + " · ".join(heads)
+
+
 def reading_pages() -> str:
     """The book in their hands (09-24): for each open book — a bookmark not
     at the end, a sitting within READING_OPEN_DAYS, or finished within
@@ -575,7 +595,11 @@ def reading_pages() -> str:
                 first = text.split("\n", 1)[0].strip() if text.startswith("#") else ""
                 tail = text[-cap:]
                 tail = tail.split("\n", 1)[1] if "\n" in tail else tail  # begin at a whole line
-                text = ((first + "\n") if first else "") + f"(…the page begins earlier — read_creation \"{rel[10:]}\" opens it whole)\n" + tail.strip()
+                # the sittings that left the window ride by name (10-23: her Exhalation page carried only its
+                # last sitting; asked about the story of the one before, she said she had never read it)
+                gone = earlier_headings(text, tail, first)
+                named = f" — its earlier sittings: {gone}" if gone else ""
+                text = ((first + "\n") if first else "") + f"(…the page begins earlier{named} — read_creation \"{rel[10:]}\" opens it whole)\n" + tail.strip()
             body = text or f"(your page {rel} is empty)"
             _pending, ledger = tools.unwritten_sittings(str(name), kind)
             if ledger:
