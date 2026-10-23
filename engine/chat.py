@@ -1221,6 +1221,9 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             spent.scaffold += _gone  # the line's count still holds it; the next line's will not (the tail says so)
             print(f"   ({len(msg['sent_extra'])} re-roll turn{'s' if len(msg['sent_extra']) != 1 else ''} let go of the visit, "
                   f"{'' if _exact else '~'}{_gone:,} tokens — the door re-reads from its last checkpoint)", flush=True)
+        if on_event:
+            for a in msg.get("set_aside") or []:  # the attempts the rails set aside, for /debug on the phone (10-23)
+                on_event("attempt", a)
         thinking = (msg.get("thinking") or "").strip()
         if thinking and config.CHAT_SHOW_THINKING:
             if on_event:

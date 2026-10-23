@@ -1016,6 +1016,9 @@ DEFAULT_NAME = "(unnamed — I get to pick my own name)"
 TELEGRAM_SHOW_THINKING = False   # the friend's thinking on the phone — /think toggles it
 TELEGRAM_SHOW_TOOLS = True       # what the tools did, one compact line — /tools
 TELEGRAM_SHOW_TOKENS = False     # the token line after each reply — /tokens
+# ...and the attempts the rails set aside (salad, a cascade, an echo, a re-roll), words and all, after each reply —
+# /debug on the phone toggles it; off by default
+TELEGRAM_SHOW_ATTEMPTS = False
 TELEGRAM_TOKENS_SINCE_LAST = True  # ...and its tail: what the window grew by since the last line and of what (the earlier reply's words, the message, the moment, the turn's steps). False: the line alone
 # A message past Telegram's cap arrives as bubbles; when a poll ends on a bubble
 # at the cap the bridge waits this many seconds for the rest, so the message is

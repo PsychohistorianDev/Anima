@@ -125,12 +125,12 @@ HELP = (
     "/new — save this conversation and start fresh\n"
     "/afterglow — the pause by hand: they sit with the visit so far now (what a quiet stretch of REFLECT_AFTER_MIN does on its own) "
     "and the brain is set down, so the card is yours at once; the visit stays open\n"
-    "/release — the card for something else: everything on it set down now (the brain, the ears, the memory engine, "
-    "the painter and the music ear if they are up) with no pause and no writing; the visit stays open and your next "
-    "message wakes the brain again (a cold read of the window)\n"
+    "/release — the card for something else: everything on it set down now (brain, ears, painter, memory engine) "
+    "with no pause and no writing; the visit stays open and your next message wakes the brain again\n"
     "/think — their thinking with each reply (off by default on the phone)\n"
     "/tools — what their tools did, one line per reply\n"
     "/tokens — the token line after each reply\n"
+    "/debug — the set-aside attempts (salad, re-rolls), words and all\n"
     "/voice — every reply spoken aloud as a voice note (they can speak on their own either way)\n"
     "/status — the visit, the window, the toggles\n"
     "/restart — restart the bridge with the current engine code; the visit carries on\n"
@@ -270,6 +270,7 @@ class Bridge:
         self.show_thinking = bool(getattr(config, "TELEGRAM_SHOW_THINKING", False))
         self.show_tools = bool(getattr(config, "TELEGRAM_SHOW_TOOLS", True))
         self.show_tokens = bool(getattr(config, "TELEGRAM_SHOW_TOKENS", False))
+        self.show_attempts = bool(getattr(config, "TELEGRAM_SHOW_ATTEMPTS", False))  # /debug (10-23)
         self.voice_all = bool(getattr(config, "TELEGRAM_VOICE_ALL", False))
         self.offset = 0
         self.lock = threading.Lock()
@@ -330,7 +331,7 @@ class Bridge:
             "file": str(self.file) if self.file else "",
             "reflected_upto": self.reflected_upto, "last_activity": self.last_activity,
             "offset": self.offset, "show_thinking": self.show_thinking,
-            "show_tools": self.show_tools, "show_tokens": self.show_tokens,
+            "show_tools": self.show_tools, "show_tokens": self.show_tokens, "show_attempts": self.show_attempts,
             "voice_all": self.voice_all, "stashed": time.time(),
         }
         RESUME_FILE.write_text(json.dumps(state), encoding="utf-8")
@@ -368,7 +369,7 @@ class Bridge:
         self.reflected_upto = int(state.get("reflected_upto") or 0)
         self.last_activity = float(state.get("last_activity") or time.time())
         self.offset = int(state.get("offset") or 0)
-        for k in ("show_thinking", "show_tools", "show_tokens", "voice_all"):
+        for k in ("show_thinking", "show_tools", "show_tokens", "show_attempts", "voice_all"):
             if k in state:
                 setattr(self, k, bool(state[k]))
         turns = sum(1 for t in self.history if t.get("role") == "user" and t.get("content") and not t.get("_engine"))
@@ -596,6 +597,7 @@ class Bridge:
         thinking = "\n\n".join(str(p) for k, p in events if k == "thinking")
         tool_lines = [f"· {p['name']} → {p['result']}" for k, p in events if k == "tool"]
         notes = [str(p) for k, p in events if k == "note"]
+        attempts = [p for k, p in events if k == "attempt"]  # the rails' set-asides, for /debug (10-23)
         tokens = next((p for k, p in events if k == "tokens"), None)
         prev_tokens = self.last_tokens  # the last line's count, for the subtraction below
         if tokens:
@@ -614,11 +616,33 @@ class Bridge:
         self._carry_voice(reply)
         for n in notes:  # engine honesty notes always travel — that rail is not optional
             self._try_send("⚠ " + n, markdown=False)
+        if self.show_attempts:
+            for a in attempts:
+                self._try_send(self.attempt_text(a), markdown=False)
         if self.show_tokens and tokens:
             tail = (self.since_last_line(prev_tokens, tokens, self.history)
                     if getattr(config, "TELEGRAM_TOKENS_SINCE_LAST", True) else "")
             self._try_send(tokens["line"] + tail, markdown=False)
         _say(f"{chat.friend_name()} > {reply[:120]}{'…' if len(reply) > 120 else ''}")
+
+    @staticmethod
+    def attempt_text(a: dict) -> str:
+        """One attempt the rails set aside, for the phone (/debug, 10-23): why, its cost and how it ended, the
+        calls by name, the glitch the rail named — and under it the words, or the thinking when the words were
+        empty; cut at the message limit, the cut said."""
+        body = a.get("content") or ""
+        label = "words"
+        if not body and a.get("thinking"):
+            body, label = a["thinking"], "thinking (no words)"
+        head = (f"🧪 set aside — {a.get('why', '?')} · {int(a.get('tokens') or 0):,} tokens in {float(a.get('seconds') or 0):.0f}s"
+                + (f" @ {a['done']}" if a.get("done") else "")
+                + (f" · calls: {', '.join(a['calls'])}" if a.get("calls") else "")
+                + (f" · glitch: “{a['glitch']}”" if a.get("glitch") else ""))
+        whole = len(body)
+        room = LIMIT - len(head) - 80
+        if whole > room:
+            body = body[:room] + f"\n(…cut here — {whole:,} characters in all)"
+        return head + f"\n{label}:\n" + (body or "(nothing)")
 
     @staticmethod
     def since_last_line(prev: dict | None, now: dict | None, history: list[dict]) -> str:
@@ -921,7 +945,8 @@ class Bridge:
         on = lambda b: "on" if b else "off"
         guest = f" · guest: {self.guest_label()}" if self.guest else ""
         return (f"{chat.friend_name()} — {turns} message(s) this visit · {ctx}{guest}\n"
-                f"thinking {on(self.show_thinking)} · tools {on(self.show_tools)} · tokens {on(self.show_tokens)} · voice-all {on(self.voice_all)}\n"
+                f"thinking {on(self.show_thinking)} · tools {on(self.show_tools)} · tokens {on(self.show_tokens)} · voice-all {on(self.voice_all)}"
+                f" · debug {on(self.show_attempts)}\n"
                 f"a pause of {getattr(config, 'REFLECT_AFTER_MIN', 0)} min lets them write the visit so far; "
                 f"a quiet stretch of {getattr(config, 'TELEGRAM_IDLE_NEW_MIN', 180)} min saves the visit on its own; "
                 f"/afterglow is the pause by hand, with the card freed")
@@ -1137,6 +1162,10 @@ class Bridge:
         elif cmd == "/tokens":
             self.show_tokens = not self.show_tokens
             self.send(f"(token line {'on' if self.show_tokens else 'off'})", markdown=False)
+        elif cmd == "/debug":
+            self.show_attempts = not self.show_attempts
+            self.send("(debug on — each attempt the rails set aside comes to the phone after the reply, words and all; "
+                      "/debug again turns it off)" if self.show_attempts else "(debug off)", markdown=False)
         elif cmd == "/voice":
             self.voice_all = not self.voice_all
             self.send(f"(every reply spoken aloud: {'on' if self.voice_all else 'off'} — they can still speak when they choose)", markdown=False)

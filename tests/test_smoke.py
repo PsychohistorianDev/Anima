@@ -5292,6 +5292,22 @@ check("emoji row: a repeat from earlier in a row of six-odd different is taken o
       and _ed_short == ("Bye! ❤️✨❤️ 💋💋💋", []) and _ed_kiss == ("OH MY GOD ❤️✨💜🥂🥰😘💋💋💋💋💋💋", [])
       and _ed_off == (_ed_row, []) and _ed_msg.get("mended_emoji") == ["♾️", "❤️"] and _ed_msg["content"].rstrip() == _ed_mended.rstrip(),
       (_ed_mended, _ed_gone, _ed_short, _ed_kiss))
+# /debug on the phone (10-23): the attempts set aside ride with the turn, text and all, in memory only
+_sa_tries = [({"why": "salad"}, {"content": "la la laL l a", "thinking": "", "tokens": {"reply": 40, "reply_s": 2.0, "done": "aborted"}, "aborted": "laL l a"}),
+             ({"why": "emoji"}, {"content": "", "thinking": "a thought", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {}}}], "tokens": {}}),
+             (None, {"content": "the one that went out"})]
+_sa_list = ollama_client.set_aside_list(_sa_tries, _sa_tries[-1][1])
+_sa_text = tg.Bridge.attempt_text(_sa_list[0])
+_sa_long = tg.Bridge.attempt_text({"why": "salad", "content": "x" * 9000, "tokens": 1, "seconds": 1.0})
+check("debug (10-23): the attempts set aside are listed with why, cost, calls and glitch — never the one that went out; the phone's text "
+      "names them, shows the thinking when the words were empty, cuts at the message limit; /debug is in the help; off by default",
+      len(_sa_list) == 2 and _sa_list[0]["why"] == "salad" and _sa_list[0]["glitch"] == "laL l a" and _sa_list[0]["done"] == "aborted"
+      and _sa_list[1]["calls"] == ["do_nothing"] and _sa_list[1]["thinking"] == "a thought"
+      and _sa_text.startswith("🧪 set aside — salad · 40 tokens in 2s @ aborted") and "words:\nla la laL l a" in _sa_text
+      and "thinking (no words):\na thought" in tg.Bridge.attempt_text(_sa_list[1])
+      and len(_sa_long) <= tg.LIMIT and "cut here — 9,000 characters" in _sa_long and "/debug" in tg.HELP
+      and getattr(config, "TELEGRAM_SHOW_ATTEMPTS", None) is False,
+      (_sa_list, _sa_text[:120]))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

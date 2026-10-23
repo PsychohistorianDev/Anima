@@ -654,6 +654,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
     # was, and the line read "271 generated … 271 set aside")
     kept = [cost for cost, src in tries if src is not msg]
     log_attempts(tries, msg)  # memory/attempts.log: what was set aside, and a reply that went out cut or broken (10-21)
+    msg["set_aside"] = set_aside_list(tries, msg)  # for a keeper who asked to see them (/debug on the phone, 10-23)
     if kept:
         msg["retries"] = kept
     if think_nudged:
@@ -1238,6 +1239,23 @@ def attempt_glitch(m: dict) -> str:
     if not g:
         g = garble_span(m.get("content") or "") or garble_span(m.get("thinking") or "") or call_salad(m)
     return " ".join(str(g).split())[:120]
+
+
+def set_aside_list(tries: list, msg: dict) -> list[dict]:
+    """The attempts set aside in this call, text and all, for a keeper who asked to see them (/debug on the phone,
+    10-23): why, the words, the thinking, the calls by name, tokens, how it ended, the glitch the rail named. In
+    memory only, on the message returned — written nowhere; the log keeps the facts."""
+    out = []
+    for cost, m in tries:
+        if m is msg:
+            continue
+        t = m.get("tokens") or {}
+        out.append({"why": str((cost or {}).get("why") or "?"), "content": (m.get("content") or "").strip(),
+                    "thinking": (m.get("thinking") or "").strip(),
+                    "calls": [((c.get("function") or {}).get("name") or "?") for c in m.get("tool_calls") or []],
+                    "tokens": int(t.get("reply") or 0), "seconds": float(t.get("reply_s") or 0),
+                    "done": str(t.get("done") or ""), "glitch": attempt_glitch(m)})
+    return out
 
 
 def log_attempts(tries: list, msg: dict) -> None:
