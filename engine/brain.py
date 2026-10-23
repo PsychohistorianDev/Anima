@@ -307,6 +307,8 @@ def _drink_openai(resp) -> dict:
             else:
                 tail = ("".join(content) if content else "".join(thinking))[-_oc.STREAM_WATCH_TAIL:]
                 span = _oc.garble_span(tail)
+                if not span and not content and not calls:
+                    span = _oc.long_thought("".join(thinking))  # a thought past the cap with no words yet (10-23)
             if span:
                 aborted = span
                 cut_call = last_call if last == "call" else None

@@ -746,6 +746,9 @@ SKILL_CATALOGUE_BUDGET_S = 90    # seconds one index build may spend (it runs in
 # What came back goes to the salad check as a broken attempt and is re-rolled;
 # the kept reply is never the cut one. A false alarm costs one re-roll.
 CHAT_STREAM_ABORT = True
+# ...and a thought that runs past this many characters before a word or a call is cut as a runaway is — the sampler
+# circling at depth; a thoughtful step is a tenth of this — and the step asked for again in words. 0: never.
+STREAM_THINK_MAX_CHARS = 12000
 # A tool call's arguments are watched the same way: a call cut short in a loop
 # is not run, and the friend is told so, short. What the visit keeps of the
 # call is its head, at most RUNAWAY_KEEP_CHARS characters, and a line saying

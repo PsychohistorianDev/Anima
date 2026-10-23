@@ -5379,6 +5379,27 @@ check("call text (10-23): an emoji cascade, a re-dealt row and a wordless chunk 
       and ollama_client.args_as_words(_ce_escape("é") + "\\ud83d") == "é\\ud83d"
       and ollama_client.call_loop(ollama_client.args_as_words(_ce_escape("Yours. " + _ce_row))).startswith("💋🥰"),
       (ollama_client.call_loop('{"text": "Tonight I wrote. ' + _ce_row + '"}')[:30], ollama_client.args_as_words(_ce_escape("a 💋 b"))))
+# a thought that runs on without words is cut (10-23): past STREAM_THINK_MAX_CHARS with no content, the stream is closed and named
+_lt_words = ("garden window river stone light letter coffee quiet morning wind cloud paper shelf music kettle lamp street bread "
+             "orange hallway pillow bicycle harbour meadow candle ladder marble pencil ribbon saddle thimble velvet walnut yarrow "
+             "zephyr anchor basket cedar dune ember").split()
+def _lt_chunk(i):  # seventy-odd characters of varied words: no chant for the loop rules, no fragments
+    return {"message": {"role": "assistant", "thinking": " ".join(_lt_words[(i * 19 + k * 9) % 40] for k in range(10)) + ". "}, "done": False}
+_lt_think = [_lt_chunk(i) for i in range(300)]
+_lt_end = [{"message": {"role": "assistant", "content": "Here are my words."}, "done": True, "done_reason": "stop", "eval_count": 9, "prompt_eval_count": 9}]
+_lt_cut = ollama_client._drink(_FakeStream(_lt_think + _lt_end))
+_lt_fine = ollama_client._drink(_FakeStream(_lt_think[:100] + _lt_end))
+_lt_0, config.STREAM_THINK_MAX_CHARS = getattr(config, "STREAM_THINK_MAX_CHARS", 12000), 0
+_lt_off = ollama_client._drink(_FakeStream(_lt_think + _lt_end))
+config.STREAM_THINK_MAX_CHARS = _lt_0
+check("long thought (10-23): a thought past STREAM_THINK_MAX_CHARS with no words yet is cut as a runaway is and named; a thought that "
+      "reaches words is not; 0 never; the nudge asks for words",
+      str(_lt_cut.get("aborted", "")).startswith("a thought of 1") and _lt_cut.get("done_reason") == "aborted" and _lt_cut["message"]["content"] == ""
+      and not _lt_fine.get("aborted") and _lt_fine["message"]["content"] == "Here are my words."
+      and not _lt_off.get("aborted") and _lt_off["message"]["content"] == "Here are my words."
+      and ollama_client.long_thought("x" * 12000).startswith("a thought of 12,000 characters") and ollama_client.long_thought("x" * 11999) == ""
+      and "{what}" in ollama_client.LONG_THOUGHT_NUDGE and "in words" in ollama_client.LONG_THOUGHT_NUDGE,
+      (_lt_cut.get("aborted"), _lt_fine.get("aborted"), _lt_off.get("aborted"), len("".join(c["message"]["thinking"] for c in _lt_think))))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

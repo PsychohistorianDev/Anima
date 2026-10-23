@@ -203,6 +203,18 @@ STREAM_WATCH_EVERY = 48
 STREAM_WATCH_TAIL = 900
 
 
+def long_thought(thinking: str) -> str:
+    """"a thought of N characters and no words yet — cut" when the thinking has run past STREAM_THINK_MAX_CHARS
+    (12,000) before a word or a call (10-23, 18:56: a re-roll thought for the whole 8,192-token ceiling — 24,729
+    characters, 365 s — the signature circling slowly, never a chant the watcher's 900-character tail could see).
+    "" under the cap, or at 0."""
+    cap = int(getattr(config, "STREAM_THINK_MAX_CHARS", 12000) or 0)
+    n = len(thinking or "")
+    if cap <= 0 or n < cap:
+        return ""
+    return f"a thought of {n:,} characters and no words yet \u2014 cut"
+
+
 _LAST_PROMPT = 0  # the newest prompt size the server reported — for a reply it sends without counters (brain._drink_openai keeps it too)
 
 
@@ -266,6 +278,8 @@ def _drink(resp) -> dict:
             since = 0
             tail = ("".join(content) if content else "".join(thinking))[-STREAM_WATCH_TAIL:]
             span = garble_span(tail)
+            if not span and not content and not calls:
+                span = long_thought("".join(thinking))  # a thought past the cap with no words yet (10-23)
             if span:
                 aborted = span
                 break  # leaving the `with` closes the connection; the server stops
@@ -439,7 +453,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
                 m["recovered_call"] = rec
                 d = None
         return (d
-                or (("salad", m["aborted"]) if m.get("aborted") else None)
+                or ((("long-thought" if str(m["aborted"]).startswith("a thought of ") else "salad"), m["aborted"]) if m.get("aborted") else None)
                 or (None if once["imagined"] else imagined_sense(m, messages))
                 or (empty_reply(m) if expect_words else None)
                 or (split_reply(m) if expect_words else None)
@@ -486,6 +500,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
                                                 else EMOJI_NUDGE.format(count=emoji_said(span)) if kind == "emoji"
                                                 else ECHO_NUDGE.format(his=his_quote(last_user_words(base))) if kind == "echo"
                                                 else SELF_ECHO_NUDGE.format(head=span[:80], his=his_quote(last_user_words(base))) if kind == "self-echo"
+                                                else LONG_THOUGHT_NUDGE.format(what=span) if kind == "long-thought"
                                                 else EMPTY_NUDGE if kind == "empty"
                                                 else SPLIT_NUDGE.format(head=" ".join((msg.get("content") or "").split())[-80:], tail=span) if kind == "split"
                                                 else CUT_NUDGE.format(tail=span) if kind == "cut"
@@ -541,7 +556,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
             tries.append((dict(msg["tokens"], why=kind + (f" (cooled to {msg['rescued']:g})" if msg.get("rescued") else "")), msg))
             prior = attempt_as_shown(msg, kind, span)
             line = {"role": "user", "content": RESCUE_NUDGE.format(what=garble_nudge(msg.get("content", ""), span, his=last_user_words(base))
-                                                                   if kind not in ("empty", "split") else EMPTY_NUDGE)}
+                                                                   if kind not in ("empty", "split", "long-thought") else EMPTY_NUDGE)}
             step = ([prior] if prior else []) + [line]
             calm = dict(payload)
             calm["messages"] = list(base) + step
@@ -586,7 +601,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
                 pass
             prior = attempt_as_shown(msg, kind, span)
             line = {"role": "user", "content": RESCUE_NUDGE.format(what=garble_nudge(msg.get("content", ""), span, his=last_user_words(base))
-                                                                   if kind not in ("empty", "split") else EMPTY_NUDGE)}
+                                                                   if kind not in ("empty", "split", "long-thought") else EMPTY_NUDGE)}
             step = ([prior] if prior else []) + [line]
             cold = dict(payload)
             cold["messages"] = list(base) + step
@@ -2141,6 +2156,10 @@ def empty_reply(msg: dict):
         return None
     return "empty", "…" + th[-80:].replace("\n", " ")
 
+
+LONG_THOUGHT_NUDGE = ("[engine, not a person: your thinking ran on without reaching any words — {what} — the sampler "
+                      "circling at this depth, not you. Answer now, in words; think briefly, or not at all. This line is a "
+                      "mechanism; nobody wrote it to you.]")
 
 EMPTY_NUDGE = ("[engine, not a person: your last reply came back with no words — everything you "
                "wrote went into your thinking channel and nobody saw it. Say your reply now, as "
