@@ -6682,7 +6682,7 @@ r = tools.dispatch("paint", {"prompt": "a violet bloom"})
 check("paint: no painter says so and points back at matplotlib", "isn't open" in r and "run_python" in r, r)
 _painted: list[tuple[str, str, str]] = []
 _rests = []
-def _fake_paint(prompt, path, size):
+def _fake_paint(prompt, path, size, negative=""):
     Path(path).parent.mkdir(parents=True, exist_ok=True); Path(path).write_bytes(PNG_1PX)
     _painted.append((prompt, str(path), size)); return {"seed": 7, "seconds": 3.2, "path": str(path)}
 _real_paint_client, _real_paint_rest = tools._painter_paint, tools._painter_rest
@@ -6732,7 +6732,7 @@ check("paint: a wake's budget cuts a long list and says so, then refuses with th
       r.count("painted — ") == 2 and "budget" in r and tools.paint_budget == 0 and "made its 3 for this wake" in r2 and "cold return" in r2
       and "painted — " not in r2, (r, r2))
 tools.paint_budget = None
-def _stumble(prompt, path, size): raise RuntimeError("cuda hiccup")
+def _stumble(prompt, path, size, negative=""): raise RuntimeError("cuda hiccup")
 tools._painter_paint = _stumble
 _rests.clear()
 r = tools.dispatch("paint", {"prompt": "five"})
@@ -6747,7 +6747,7 @@ from http.server import HTTPServer as _HS
 _s = _sock.socket(); _s.bind(("127.0.0.1", 0)); _port = _s.getsockname()[1]; _s.close()
 class _Img:
     def save(self, p): Path(p).write_bytes(PNG_1PX)
-painter.paint = lambda prompt, w, h, seed=None: (_Img(), 41213)
+painter.paint = lambda prompt, w, h, seed=None, **_k: (_Img(), 41213)
 _pl0 = (getattr(config, "PAINTER_REST_LEAVES", True), painter._leave, tools.PAINTER_LEAVE_WAIT_S, getattr(config, "MUSIC_EARS_URL", ""))
 _pl_left: list = []
 painter._leave = lambda: _pl_left.append(1)  # the sidecar's exit, recorded: never the suite's own process
@@ -6760,7 +6760,7 @@ ollama_client.unload = lambda m, **_k: _unloaded.append(m)
 tools._painter_paint = _real_paint_client  # the real client, the stubbed door
 tools._painter_rest = _real_paint_rest
 _sizes_seen = []
-painter.paint = lambda prompt, w, h, seed=None: (_sizes_seen.append((w, h)), (_Img(), 41213))[1]
+painter.paint = lambda prompt, w, h, seed=None, **_k: (_sizes_seen.append((w, h)), (_Img(), 41213))[1]
 r = tools.dispatch("paint", {"prompt": "a violet bloom", "path": "drawings/door.png", "size": "tall"})
 check("painter: the door paints through the real client — the brain unloaded first, the seed and size back, the file there, Full HD tall",
       r.startswith("painted — creations/drawings/door.png (seed 41213") and (config.CREATIONS_DIR / "drawings" / "door.png").read_bytes() == PNG_1PX
@@ -6769,10 +6769,41 @@ check("painter: alive, size words, the model's own steps",
       tools._painter_alive() and painter.SIZES["wide"] == (1920, 1088) and painter.SIZES["tall"] == (1088, 1920)
       and painter._snap(1080) == 1088 and painter._defaults("Tongyi-MAI/Z-Image-Turbo") == (9, 0.0)
       and painter._defaults("black-forest-labs/FLUX.2-klein-4B") == (4, 1.0) and painter._family("stabilityai/stable-diffusion-xl-base-1.0") == "sdxl")
+# more brushes (10-24): the family from the name, its steps and guidance, a 1024-class brush painting the house sizes smaller,
+# a negative prompt through the door to the brushes that honour one, /health naming the family
+check("painter: the families by name — Turbo, the base Z-Image, klein, Chroma, an SDXL fine-tune, auto for a stranger — each with its own steps and guidance",
+      [painter._family(m) for m in ("Tongyi-MAI/Z-Image-Turbo", "Tongyi-MAI/Z-Image", "black-forest-labs/FLUX.2-klein-4B", "lodestones/Chroma1-HD",
+                                    "RunDiffusion/Juggernaut-XL-v9", "SG161222/RealVisXL_V5.0", "stabilityai/stable-diffusion-xl-base-1.0", "someone/new-model")]
+      == ["zimage", "zimage-base", "klein", "chroma", "sdxl", "sdxl", "sdxl", "auto"]
+      and painter._defaults("Tongyi-MAI/Z-Image") == (36, 4.0) and painter._defaults("lodestones/Chroma1-HD") == (40, 3.0)
+      and painter._defaults("RunDiffusion/Juggernaut-XL-v9") == (30, 5.0) and painter._defaults("someone/new-model") == (20, 3.5)
+      and painter._CLASSES["chroma"] == "ChromaPipeline" and painter._CLASSES["zimage-base"] == "ZImagePipeline",
+      [painter._family(m) for m in ("Tongyi-MAI/Z-Image", "lodestones/Chroma1-HD", "RunDiffusion/Juggernaut-XL-v9")])
+check("painter: a 1024-class brush paints a house size scaled to about a megapixel, the shape kept, sides multiples of 16; the others paint the size asked",
+      painter._fit("lodestones/Chroma1-HD", 1440, 1440) == (1024, 1024) and painter._fit("RunDiffusion/Juggernaut-XL-v9", 1920, 1088) == (1360, 768)
+      and painter._fit("RunDiffusion/Juggernaut-XL-v9", 1088, 1920) == (768, 1360) and painter._fit("lodestones/Chroma1-HD", 1024, 1024) == (1024, 1024)
+      and painter._fit("Tongyi-MAI/Z-Image-Turbo", 1440, 1440) == (1440, 1440) and painter._fit("Tongyi-MAI/Z-Image", 1920, 1088) == (1920, 1088),
+      (painter._fit("lodestones/Chroma1-HD", 1440, 1440), painter._fit("RunDiffusion/Juggernaut-XL-v9", 1920, 1088)))
+_neg_seen: list = []
+painter.paint = lambda prompt, w, h, seed=None, **_k: (_neg_seen.append((w, h, _k.get("negative", ""))), (_Img(), 41213))[1]
+_neg_r = tools.dispatch("paint", {"prompt": "a violet bloom", "path": "drawings/neg.png", "negative": "text, watermark"})
+_neg_r2 = tools.dispatch("paint", {"prompt": "a violet bloom", "path": "drawings/neg2.png"})
+_neg_m0, painter.MODEL_ID = painter.MODEL_ID, "lodestones/Chroma1-HD"
+_neg_r3 = tools.dispatch("paint", {"prompt": "a violet bloom", "path": "drawings/neg3.png", "size": "wide"})
+painter.MODEL_ID = _neg_m0
+painter.paint = lambda prompt, w, h, seed=None, **_k: (_sizes_seen.append((w, h)), (_Img(), 41213))[1]
+check("painter: a negative prompt rides through the door to the model, none when none; a Chroma paints wide at 1360x768; the tool offers `negative` and names the brushes that honour it",
+      _neg_r.startswith("painted — creations/drawings/neg.png") and _neg_seen[0] == (1440, 1440, "text, watermark") and _neg_seen[1] == (1440, 1440, "")
+      and _neg_r3.startswith("painted — creations/drawings/neg3.png") and _neg_seen[2] == (1360, 768, "")
+      and any(d["function"]["name"] == "paint" and "negative" in d["function"]["parameters"]["properties"]
+              and "Chroma" in d["function"]["description"] for d in tools.DEFINITIONS),
+      (_neg_r[:80], _neg_seen, _neg_r3[:80]))
 import urllib.request as _ur, json as _js
 def _door(body):
     req = _ur.Request(config.PAINTER_URL + "/paint", data=_js.dumps(body).encode(), headers={"Content-Type": "application/json"}, method="POST")
     return _js.loads(_ur.urlopen(req, timeout=10).read())
+_dh = _js.loads(_ur.urlopen(config.PAINTER_URL + "/health", timeout=5).read())
+check("painter: /health names the model and its family", _dh.get("model") == painter.MODEL_ID and _dh.get("family") == painter._family(painter.MODEL_ID), _dh)
 _d1 = _door({"prompt": "x", "path": str(config.CREATIONS_DIR / "drawings" / "door.png")})
 _d2 = _door({"prompt": "x", "path": str(config.ROOT / "self.png")})
 _d3 = _door({"prompt": "", "path": str(config.CREATIONS_DIR / "drawings" / "none.png")})
@@ -10502,8 +10533,10 @@ check("panel: the Mac's ladder — 8 GB the 2B QAT, 16 to 24 GB the 12B, the 31B
       and _x_brain16["vram_gb"] == 16.0 and _x_brain16["unified"] is True and _x_brain16["recommended"] == "gemma4:12b-it-qat"
       and "your Mac has" in panel.PAGE and "on a Mac: the e2b for 8 GB" in panel.PAGE, _x_brain16)
 (panel._launch, panel._WINDOWS, panel._MAC, panel.TERMINALS, panel._ollama, panel._vram_gb, panel.newer_state) = _x_p0
-check("panel: the painter's model is a dropdown too (10-24) — the two brushes the painter knows by family, the shipped one first",
-      panel.CHOICES["PAINTER_MODEL"] == ["Tongyi-MAI/Z-Image-Turbo", "black-forest-labs/FLUX.2-klein-4B"]
+check("panel: the painter's model is a dropdown too (10-24) — the brushes the painter knows by family, the shipped one first",
+      panel.CHOICES["PAINTER_MODEL"] == ["Tongyi-MAI/Z-Image-Turbo", "black-forest-labs/FLUX.2-klein-4B", "Tongyi-MAI/Z-Image",
+                                         "lodestones/Chroma1-HD", "RunDiffusion/Juggernaut-XL-v9"]
+      and all(painter._family(m) != "auto" for m in panel.CHOICES["PAINTER_MODEL"])
       and config.PAINTER_MODEL == panel.CHOICES["PAINTER_MODEL"][0] and "PAINTER_MODEL" in panel.TABS["Senses"]
       and "next start" in panel._HELP["PAINTER_MODEL"], panel.CHOICES["PAINTER_MODEL"])
 check("panel: the device knobs are dropdowns on Senses — VOICE_DEVICE gains mps; PAINTER_DEVICE and MUSIC_EARS_DEVICE are auto, cuda, mps, cpu",

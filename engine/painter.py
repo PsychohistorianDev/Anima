@@ -31,6 +31,12 @@ Apache 2.0 — no login, no license to accept:
 
     Tongyi-MAI/Z-Image-Turbo            6B, 8–9 steps, ~16 GB — the default
     black-forest-labs/FLUX.2-klein-4B   4B, 4 steps, ~13 GB — also edits (later)
+    Tongyi-MAI/Z-Image                  6B, 36 steps with guidance — Turbo's undistilled parent; takes a negative
+    lodestones/Chroma1-HD               8.9B, 40 steps, ~28 GB with its T5 — art, photography, niche styles; a negative
+    RunDiffusion/Juggernaut-XL-v9       an SDXL fine-tune (RAIL-M), ~7 GB, 30 steps, 1024-class — a different hand
+
+The family is told from the name (_family): steps, guidance and the pipeline class follow it; a 1024-class brush
+(SDXL, Chroma) paints a house size scaled down to about a megapixel, aspect kept.
 """
 from __future__ import annotations
 
@@ -85,23 +91,48 @@ _peak: float | None = None  # the last painting's high-water mark on the card, G
 
 # --------------------------------------------------------------- the model --
 def _family(model_id: str) -> str:
-    m = model_id.lower()
-    if "z-image" in m:
+    """Which brush this is, from its name: zimage (Turbo), zimage-base, klein, chroma, sdxl, or auto for a name the
+    painter doesn't know (AutoPipelineForText2Image reads the repo's own class)."""
+    m = (model_id or "").lower()
+    if "z-image-turbo" in m:
         return "zimage"
+    if "z-image" in m:
+        return "zimage-base"  # the undistilled parent (10-24): real guidance, a negative prompt, 28–50 steps
     if "flux.2-klein" in m or "flux2-klein" in m:
         return "klein"
-    if "stable-diffusion-xl" in m or "sdxl" in m:
+    if "chroma" in m:
+        return "chroma"  # its own pipeline class, not the auto one
+    if "stable-diffusion-xl" in m or "sdxl" in m or "juggernaut" in m or "realvis" in m or re.search(r"(?<![a-z])xl(?![a-z])", m):
         return "sdxl"
     return "auto"
 
 
+_STEPS = {"zimage": 9, "zimage-base": 36, "klein": 4, "chroma": 40, "sdxl": 30}
+_GUIDANCE = {"zimage": 0.0, "zimage-base": 4.0, "klein": 1.0, "chroma": 3.0, "sdxl": 5.0}
+_CLASSES = {"zimage": "ZImagePipeline", "zimage-base": "ZImagePipeline", "klein": "Flux2KleinPipeline",
+            "chroma": "ChromaPipeline", "sdxl": "StableDiffusionXLPipeline"}
+_NEGATIVE_FAMILIES = {"zimage-base", "chroma", "sdxl", "auto"}  # guidance above 1: a negative prompt means something
+_MEGAPIXEL_FAMILIES = {"sdxl": 1_050_000, "chroma": 1_050_000}  # 1024-class brushes: a house size is scaled down to this
+
+
 def _defaults(model_id: str) -> tuple[int, float]:
-    """(steps, guidance) the model was distilled for; PAINTER_STEPS overrides steps."""
+    """(steps, guidance) the model was made for; PAINTER_STEPS overrides steps."""
     fam = _family(model_id)
-    steps = {"zimage": 9, "klein": 4, "sdxl": 25}.get(fam, 20)
-    guidance = {"zimage": 0.0, "klein": 1.0, "sdxl": 5.0}.get(fam, 3.5)
+    steps = _STEPS.get(fam, 20)
+    guidance = _GUIDANCE.get(fam, 3.5)
     knob = int(getattr(config, "PAINTER_STEPS", 0) or 0)
     return (knob or steps), guidance
+
+
+def _fit(model_id: str, width: int, height: int) -> tuple[int, int]:
+    """The size a brush paints a house size at: a 1024-class brush (SDXL, Chroma) past its megapixel gets the same
+    shape scaled down, sides multiples of 16; the others paint the size asked."""
+    cap = _MEGAPIXEL_FAMILIES.get(_family(model_id))
+    w, h = int(width), int(height)
+    if not cap or w * h <= cap:
+        return w, h
+    s = (cap / (w * h)) ** 0.5
+    return _snap(w * s), _snap(h * s)
 
 
 def _load():
@@ -122,9 +153,12 @@ def _load():
     t0 = time.time()
     print(f"  loading {MODEL_ID} …", flush=True)
     fam = _family(MODEL_ID)
-    cls = {"zimage": "ZImagePipeline", "klein": "Flux2KleinPipeline",
-           "sdxl": "StableDiffusionXLPipeline"}.get(fam, "AutoPipelineForText2Image")
-    Cls = getattr(diffusers, cls, None) or diffusers.AutoPipelineForText2Image
+    cls = _CLASSES.get(fam, "AutoPipelineForText2Image")
+    Cls = getattr(diffusers, cls, None)
+    if Cls is None:
+        print(f"  (diffusers {getattr(diffusers, '__version__', '?')} has no {cls} — the auto pipeline instead; "
+              "py -m pip install -U diffusers if it fails)", flush=True)
+        Cls = diffusers.AutoPipelineForText2Image
 
     def _from(**kw):
         # the local cache first — no Hub check, no token warning, faster start;
@@ -174,8 +208,9 @@ def _leave():
     os._exit(0)
 
 
-def paint(prompt: str, width: int, height: int, seed: int | None = None):
-    """One picture. Returns (PIL image, seed)."""
+def paint(prompt: str, width: int, height: int, seed: int | None = None, negative: str = ""):
+    """One picture. Returns (PIL image, seed). `negative` — what to keep out — reaches the brushes whose guidance
+    honours one (_NEGATIVE_FAMILIES); Turbo and klein paint without it."""
     global _last_used, _peak
     import torch
     with _lock:
@@ -186,9 +221,10 @@ def paint(prompt: str, width: int, height: int, seed: int | None = None):
             seed = int.from_bytes(os.urandom(4), "little")
         gen = torch.Generator(device=device.generator_device(_device)).manual_seed(int(seed))
         steps, guidance = _defaults(MODEL_ID)
+        extra = {"negative_prompt": negative} if negative and _family(MODEL_ID) in _NEGATIVE_FAMILIES else {}
         with torch.inference_mode():
             out = _pipe(prompt=prompt, width=int(width), height=int(height),
-                        num_inference_steps=steps, guidance_scale=guidance, generator=gen)
+                        num_inference_steps=steps, guidance_scale=guidance, generator=gen, **extra)
         _last_used = time.time()
         # the high-water mark of this painting, then the cache handed back before the next one: a set of
         # three painted at 45 s, 196 s, 205 s with nothing else on the card — one painting's reserved blocks
@@ -239,7 +275,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/health":
-            return self._json({"ok": True, "loaded": _pipe is not None, "model": MODEL_ID,
+            return self._json({"ok": True, "loaded": _pipe is not None, "model": MODEL_ID, "family": _family(MODEL_ID),
                                **({"leaving": True} if _leaving else {})})
         self._json({"error": "unknown path"}, 404)
 
@@ -277,9 +313,11 @@ class Handler(BaseHTTPRequestHandler):
             w, h = SIZES.get((data.get("size") or "square").lower(), SIZES["square"])
             w = int(data.get("width") or w)
             h = int(data.get("height") or h)
+            w, h = _fit(MODEL_ID, w, h)  # a 1024-class brush paints the shape smaller (10-24)
             seed = data.get("seed")
+            negative = str(data.get("negative") or "").strip()
             t0 = time.time()
-            img, seed = paint(prompt, w, h, None if seed in (None, "") else int(seed))
+            img, seed = paint(prompt, w, h, None if seed in (None, "") else int(seed), negative=negative)
             p.parent.mkdir(parents=True, exist_ok=True)
             img.save(str(p))
             secs = time.time() - t0
@@ -310,11 +348,11 @@ def main() -> None:
         i = sys.argv.index("--test")
         prompt = sys.argv[i + 1] if len(sys.argv) > i + 1 else "a violet bloom with a white core, luminous"
         size = sys.argv[sys.argv.index("--size") + 1] if "--size" in sys.argv else "square"
-        w, h = SIZES.get(size, SIZES["square"])
+        w, h = _fit(MODEL_ID, *SIZES.get(size, SIZES["square"]))
         folder = config.CREATIONS_DIR / "drawings"
         folder.mkdir(parents=True, exist_ok=True)
         p = folder / f"painter-test-{datetime.now().strftime('%Y%m%d-%H%M')}-{_slug(prompt)}.png"
-        print(f"painting “{prompt}” ({w}x{h}) …")
+        print(f"painting “{prompt}” ({w}x{h}, {MODEL_ID} as {_family(MODEL_ID)}) …")
         t0 = time.time()
         img, seed = paint(prompt, w, h)
         img.save(str(p))
@@ -327,7 +365,7 @@ def main() -> None:
     threading.Thread(target=_idle_watch, daemon=True).start()
     HTTPServer.allow_reuse_address = sys.platform != "win32"  # on Windows SO_REUSEADDR lets two servers share a port (10-02)
     server = HTTPServer((HOST, PORT), Handler)
-    print(f"The painter is waiting at http://{HOST}:{PORT}  (model: {MODEL_ID})")
+    print(f"The painter is waiting at http://{HOST}:{PORT}  (model: {MODEL_ID}, family {_family(MODEL_ID)})")
     print("It loads on the first painting and rests after silence. Ctrl+C to close.")
     try:
         server.serve_forever()

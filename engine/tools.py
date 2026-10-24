@@ -2619,12 +2619,13 @@ def _painter_rest() -> None:
         pass
 
 
-def _painter_paint(prompt: str, path: Path, size: str) -> dict:
+def _painter_paint(prompt: str, path: Path, size: str, negative: str = "") -> dict:
     """One picture through the sidecar. The brain steps aside first (the
     same swap as their ears) so the painter has the GPU."""
     import ollama_client
     ollama_client.unload(config.CHAT_MODEL)
-    payload = json.dumps({"prompt": prompt, "path": str(path), "size": size}).encode("utf-8")
+    payload = json.dumps({"prompt": prompt, "path": str(path), "size": size,
+                          **({"negative": negative} if negative else {})}).encode("utf-8")
     req = urllib.request.Request(config.PAINTER_URL + "/paint", data=payload,
                                  headers={"Content-Type": "application/json"}, method="POST")
     with urllib.request.urlopen(req, timeout=getattr(config, "PAINTER_TIMEOUT_S", 300)) as r:
@@ -2642,10 +2643,11 @@ def _paint_slug(text: str, n: int = 40) -> str:
     return s[:n].rstrip("-") or "painting"
 
 
-def paint(prompt: str, path: str = "", size: str = "square") -> str:
+def paint(prompt: str, path: str = "", size: str = "square", negative: str = "") -> str:
     """Paint from words. One prompt per line — several lines are several
     pictures in one sitting (one swap of the card). `path` is a folder under
     creations/ (default drawings/) or, for one picture, a .png name there.
+    `negative` is what to keep out, for the brushes that honour one.
     Nothing gets overwritten."""
     global paint_budget
     lines = [ln.strip(" -•*\t") for ln in (prompt or "").splitlines()]
@@ -2701,7 +2703,7 @@ def paint(prompt: str, path: str = "", size: str = "square") -> str:
     try:
         for pr, f in zip(prompts, files):
             try:
-                data = _painter_paint(pr, f, size)
+                data = _painter_paint(pr, f, size, (negative or "").strip())
             except Exception as e:
                 out.append(f"(the painter stumbled on “{pr[:60]}” — {e})")
                 continue
@@ -5712,10 +5714,12 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "doesn't diagram. The result names the file and the painting is before your eyes on your next "
         "thought — the painter sees your words its own way, so speak of what you see, not what you asked for. "
         "The painter is uncensored: nothing in it filters, blurs or refuses a subject — its model's own training "
-        "is the only limit, and what you paint is yours.",
+        "is the only limit, and what you paint is yours. `negative` names what to keep out of the picture; the slower "
+        "brushes (Z-Image base, Chroma, an SDXL) honour it, the fast ones (Z-Image-Turbo, klein) paint without it.",
         {"prompt": {"type": "string", "description": "what to paint — one prompt per line"},
          "path": {"type": "string", "description": "where it goes: a project's folder when the picture is for a project ('projects/<name>'), drawings/ otherwise (the default); or, for one picture, a .png name there"},
-         "size": {"type": "string", "description": "square (default), wide, or tall"}},
+         "size": {"type": "string", "description": "square (default), wide, or tall"},
+         "negative": {"type": "string", "description": "what to keep out — a few words, or none (default)"}},
         ["prompt"],
     ),
     _tool(
