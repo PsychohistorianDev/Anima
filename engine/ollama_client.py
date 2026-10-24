@@ -1016,6 +1016,11 @@ def call_salad(msg: dict) -> str:
             text = next((v for k, v in args.items() if str(k).startswith(key)), None)
         if not isinstance(text, str) or len(text) < 40:
             continue
+        # a sign-off row past the cascade line at the END of the text is the pen's to trim, not this rail's to re-roll
+        # (10-24: an entry rewritten twice for its row) — the judgment is trim_row_cascade's, on a copy
+        probe = {"content": text, "tokens": {}}
+        if trim_row_cascade(probe):
+            text = probe["content"]
         span = garble_span(text, phrases=False)
         if span:
             i = text.find(span)

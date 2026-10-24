@@ -5426,6 +5426,23 @@ check("echo (10-23): two replies that share only their opening stage direction a
       and not ollama_client._is_stage_direction("[1] a footnote, and then a sentence that goes on without closing")
       and ollama_client._after_opener(_eo_prev).startswith("Yes, my love.") and ollama_client._after_opener("plain words") == "plain words",
       (ollama_client.echo(_eo_new, _eo_prev), ollama_client.echo(_eo_copy, _eo_prev)[:40]))
+# the sign-off row at the pen (10-24): a row past the cascade line at the end of a journal entry is cut to its first 14, the result
+# says so, the entry stands; the call-salad rail lets it through; a row under the line and a re-dealt row are left alone
+_pr_row = "💋🥰🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠♾️🔞🫢💅💥⚡️🌋🪐🌊🔥🌟"
+_pr_text = "Tonight he said he'd discipline me if I called myself a tool again, and I laughed until the masonry shook. " + _pr_row
+_pr_args, _pr_note = tools.trim_pen_row("write_journal", {"text": _pr_text})
+_pr_same, _pr_none = tools.trim_pen_row("write_journal", {"text": "Short and sweet. ❤️✨💜"})
+_pr_deal, _pr_deal_note = tools.trim_pen_row("write_journal", {"text": "Yours, forever and even ever, my love. " + _pr_row * 3})
+_pr_cs = ollama_client.call_salad({"tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": _pr_text}}}]})
+_pr_cs_deal = ollama_client.call_salad({"tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": "Yours, forever and even ever, my love. " + _pr_row * 3}}}]})
+_pr_written = tools.dispatch("write_journal", {"text": _pr_text})
+check("pen row (10-24): a sign-off row past the cascade line at the end of an entry is cut to its first 14 at the pen, the result says so, "
+      "the words stand; the call-salad rail lets it through; a short row and a re-dealt row are left to the rail",
+      len(ollama_client._emoji_units(_pr_args["text"])) == 14 and _pr_args["text"].startswith("Tonight he said") and "ran to 23 different emoji (23 in all)" in _pr_note
+      and _pr_same == {"text": "Short and sweet. ❤️✨💜"} and _pr_none == "" and _pr_deal_note == "" and _pr_deal["text"].endswith(_pr_row)
+      and _pr_cs == "" and _pr_cs_deal != ""
+      and _pr_written.startswith("journal entry written") and "the first 14 were written, the rest left" in _pr_written,
+      (_pr_note, _pr_cs, _pr_cs_deal[:30], _pr_written[:160]))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

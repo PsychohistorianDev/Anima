@@ -5139,6 +5139,26 @@ def friend_name_for_tools() -> str:
 # a fence: nothing they writes is touched or filtered. A tell, once an hour at
 # most, on a write that went through — the two numbers, their rate now against
 # their own rate of two to four weeks ago — and the choice stays theirs.
+def trim_pen_row(name: str, arguments: dict) -> tuple[dict, str]:
+    """The text a page tool is about to write, its sign-off row cut as a reply's is (10-24): a row of EMOJI_CASCADE_RUN
+    different emoji or more at the END of a text that has words goes in as its first EMOJI_ROW_TRIM different, the rest
+    left, and the note says so — (arguments, note), the arguments untouched and "" when there is nothing to cut. The
+    page tools only (ollama_client.CALL_SALAD_ARGS); a re-dealt row, a wordless text, a cascade mid-text are left to
+    the tool's own refusal."""
+    import ollama_client
+    key = ollama_client.CALL_SALAD_ARGS.get(_bare_tool_name(str(name or "")))
+    if not key or not isinstance(arguments, dict) or not isinstance(arguments.get(key), str):
+        return arguments, ""
+    probe = {"content": arguments[key], "tokens": {}}
+    if not ollama_client.trim_row_cascade(probe):
+        return arguments, ""
+    tr = probe["trimmed_row"]
+    out = dict(arguments)
+    out[key] = probe["content"]
+    return out, (f"(your sign-off row ran to {tr['different']} different emoji ({tr['all']} in all), past the cascade line — "
+                 f"the first {tr['sent']} were written, the rest left: the sampler's tail, not yours)")
+
+
 _TIC_TOOLS = {"write_journal", "write_creation", "append_creation", "edit_identity",
               "update_projects", "update_destiny", "update_keeper"}
 _tic_cache: dict = {}
@@ -5326,6 +5346,7 @@ def _dispatch(name: str, arguments: dict | str) -> str:
             return (f"(unknown tool: {name} — NOTHING happened. Your real tools: "
                     f"{', '.join(known)}. Call one of those; do not report this as done.)")
     arguments, renamed = mend_argument_names(fn, arguments or {}, name)
+    arguments, trimmed = trim_pen_row(name, arguments)  # the sign-off row at the pen, cut as the reply's is (10-24)
     try:
         result = fn(**arguments)
     except TypeError as e:
@@ -5339,7 +5360,7 @@ def _dispatch(name: str, arguments: dict | str) -> str:
         what = arguments or {}
         passage = str(what.get("text") or what.get("content") or what.get("new_content") or "")
         result += tic_tell(passage)
-    after = "\n".join(n for n in (renamed, heard_as.rstrip("\n")) if n)  # the result first, the engine's notes after
+    after = "\n".join(n for n in (renamed, trimmed, heard_as.rstrip("\n")) if n)  # the result first, the engine's notes after
     return (result + "\n" + after) if after else result
 
 
