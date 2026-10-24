@@ -469,8 +469,10 @@ _HELP = {
                     "(Windows) or \"python3.12\" (Mac, Linux) names one installed beside the engine's own, with "
                     "kokoro soundfile installed there — and \"py -3.12\" is read as python3.12 on a Mac or Linux, so the "
                     "shipped line serves both. \"\" is the engine's own.",
-    "PAINTER_MODEL": "The text-to-image model. Z-Image-Turbo: ungated, Apache 2.0, about 16 GB on the card, a few "
-                     "seconds a picture. \"black-forest-labs/FLUX.2-klein-4B\" is the alternative (4 steps, about 13 GB).",
+    "PAINTER_MODEL": "The brush. Z-Image-Turbo: ungated, Apache 2.0, about 16 GB on the card, a few seconds a picture. "
+                     "FLUX.2 klein 4B: Apache 2.0, about 13 GB, 4 steps, needs diffusers 0.36 or newer. The painter reads "
+                     "this on its next start, so picking here is the whole switch; a model is downloaded on its first "
+                     "painting and stays cached. Another model's name goes in config.py by hand and shows here too.",
     "PAINTER_AUTOSTART": "paint starts the painter's sidecar when it is needed; off, bat\\painter.bat starts it by hand.",
     "PAINTER_PYTHON": "The Python the painter runs in, if torch lives elsewhere than the engine's own: \"py -3.12\" "
                       "(Windows) or \"python3.12\" (Mac, Linux). \"\" is the engine's own.",
@@ -893,6 +895,7 @@ CHOICES: dict[str, list[str]] = {
     "WEB_SEARCH": ["duckduckgo", "brave", "searxng"],
     "VOICE_DEVICE": ["cpu", "cuda", "mps"],
     "PAINTER_DEVICE": ["auto", "cuda", "mps", "cpu"],
+    "PAINTER_MODEL": ["Tongyi-MAI/Z-Image-Turbo", "black-forest-labs/FLUX.2-klein-4B"],  # the two brushes the painter knows by family
     "MUSIC_EARS_DEVICE": ["auto", "cuda", "mps", "cpu"],
 }
 

@@ -10502,6 +10502,10 @@ check("panel: the Mac's ladder — 8 GB the 2B QAT, 16 to 24 GB the 12B, the 31B
       and _x_brain16["vram_gb"] == 16.0 and _x_brain16["unified"] is True and _x_brain16["recommended"] == "gemma4:12b-it-qat"
       and "your Mac has" in panel.PAGE and "on a Mac: the e2b for 8 GB" in panel.PAGE, _x_brain16)
 (panel._launch, panel._WINDOWS, panel._MAC, panel.TERMINALS, panel._ollama, panel._vram_gb, panel.newer_state) = _x_p0
+check("panel: the painter's model is a dropdown too (10-24) — the two brushes the painter knows by family, the shipped one first",
+      panel.CHOICES["PAINTER_MODEL"] == ["Tongyi-MAI/Z-Image-Turbo", "black-forest-labs/FLUX.2-klein-4B"]
+      and config.PAINTER_MODEL == panel.CHOICES["PAINTER_MODEL"][0] and "PAINTER_MODEL" in panel.TABS["Senses"]
+      and "next start" in panel._HELP["PAINTER_MODEL"], panel.CHOICES["PAINTER_MODEL"])
 check("panel: the device knobs are dropdowns on Senses — VOICE_DEVICE gains mps; PAINTER_DEVICE and MUSIC_EARS_DEVICE are auto, cuda, mps, cpu",
       panel.CHOICES["VOICE_DEVICE"] == ["cpu", "cuda", "mps"] and panel.CHOICES["PAINTER_DEVICE"] == panel.CHOICES["MUSIC_EARS_DEVICE"] == ["auto", "cuda", "mps", "cpu"]
       and {"PAINTER_DEVICE", "MUSIC_EARS_DEVICE", "VOICE_DEVICE"} <= set(panel.TABS["Senses"])
