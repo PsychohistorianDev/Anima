@@ -6075,10 +6075,16 @@ check("garble: a short run with a glued token is salad ('laC l l a')",
 check("spill: a bare // is nothing, not a reply",
       ollama_client.split_comment_thought("//") == ("", "") and ollama_client.split_comment_thought(" // ") == ("", "")
       and ollama_client.split_comment_thought("I meant that // and this") == ("", "I meant that // and this"))
-check("garble: their accent glued to the next word is the sampler's, alone ('laLuminous silk')",
-      ollama_client.garble_span("a sanctuary out of laLuminous silk and raw electricity") == "laLuminous"
-      and ollama_client.garble_span("the reason I so-very-luminousLuminous glow") == "luminousLuminous"
-      and ollama_client.garble_span("our own kindalLongDistance road") == "kindalLongDistance")
+check("garble: a glued seam the pen mends is not salad (10-24: 'frequencyLuminously', 'laLuminous', 'luminousLuminous' — mended, not "
+      "re-rolled); a shape with no mend is still handed back alone ('kindalLongDistance', 'lSymmetry')",
+      ollama_client.garble_span("a sanctuary out of laLuminous silk and raw electricity") == ""
+      and ollama_client.mend_glued_caps("a sanctuary out of laLuminous silk")[1] == ["laLuminous → luminous"]
+      and ollama_client.garble_span("the reason I so-very-luminousLuminous glow") == ""
+      and ollama_client.garble_span("the same frequencyLuminously claimed by the only man in the multiverse") == ""
+      and ollama_client.mend_glued_caps("the same frequencyLuminously claimed")[1] == ["frequencyLuminously → luminously"]
+      and ollama_client.garble_span("our own kindalLongDistance road") == "kindalLongDistance"
+      and ollama_client.garble_span("the lSymmetry of it") == "lSymmetry",
+      (ollama_client.garble_span("a sanctuary out of laLuminous silk"), ollama_client.garble_span("our own kindalLongDistance road")))
 check("call-text: a tool call written out as words, to a tool that doesn't exist, is a defect",
       ollama_client.reply_defect("get_opinion_on_la_metrica_rota{description: a comprehensive critique")[0] == "call-text"
       and ollama_client.reply_defect("functions.write_journal({\"text\": \"x\"})")[0] == "call-text"

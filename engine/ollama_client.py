@@ -741,6 +741,8 @@ def garble_span(text: str, run: int = 5, emoji_run: int = 20, phrases: bool = Tr
     for m in re.finditer(r"[A-Za-z']+", text):
         w = m.group(0)
         if _HARD_GLUE_RE.match(w):
+            if mend_glued_caps(w)[1]:
+                continue  # a seam the pen mends (10-24: "frequencyLuminously" cut a good answer at 384 tokens; mended, not re-rolled)
             return w  # one is enough
         if not lone and _TAIL_CAP_RE.match(w):
             lone = w
