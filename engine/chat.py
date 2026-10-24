@@ -139,6 +139,30 @@ def leave_carry(history: list[dict], path: Path | None = None, when: datetime | 
     return len(tail)
 
 
+def clear_carry() -> None:
+    """No carry waits for the next door (10-24): /new is the one door opened on purpose to start clean."""
+    try:
+        _carry_file().unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+def carry_orphan(tag: str = "telegram", exclude: Path | None = None) -> str:
+    """A visit the last bridge died with — saved after every reply, never ended, no stashed room to resume — leaves
+    its carry too (10-24: "to remember in every case"): its last turns read from the transcript, dated by the
+    file's last write (the visit's last reply), so the hours rule still holds. Before the orphan's afterglow signs
+    the file. Returns the line for the console, "" when there is no orphan or nothing to carry."""
+    f = orphaned_visit(tag, exclude=exclude)
+    if not f:
+        return ""
+    try:
+        when = datetime.fromtimestamp(f.stat().st_mtime)
+    except OSError:
+        when = None
+    n = leave_carry(load_transcript(f), f, when=when)
+    return f"the last visit ended without a goodbye ({f.name}) — its last {n} turns ride at the next message" if n else ""
+
+
 def take_carry(now: datetime | None = None) -> list[dict]:
     """At a door with an empty room: the turns the last visit left (leave_carry), if it ended within CARRY_HOURS
     (0: never), marked `_carried`; the first carries `_carry`, the engine line render_turn puts above its body.

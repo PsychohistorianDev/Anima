@@ -3778,6 +3778,17 @@ _cut.write_text(f"# Conversation\n\n**{_KP}:** before the lights went out\n\n**T
 check("orphan: with the newest visit open (excluded), the earlier unsigned one of the day is the orphan",
       chat.orphaned_visit("telegram", exclude=_live_before) == _cut and chat.orphaned_visit("telegram") == _live_before)
 _cut.unlink()
+_co_file = config.MEMORY_DIR / "carry.json"
+_co_file.unlink(missing_ok=True)
+_co_line = chat.carry_orphan("telegram")
+_co_data = json.loads(_co_file.read_text(encoding="utf-8")) if _co_file.exists() else {}
+check("orphan: a visit the last bridge died with leaves its carry too — its last turns from the transcript, dated by the file's last "
+      "write, before the afterglow signs it (10-24)",
+      _co_line.startswith("the last visit ended without a goodbye (") and _newest.name in _co_line
+      and _co_data.get("file") == _newest.name and _co_data.get("turns") and _co_data["turns"][0]["role"] == "user"
+      and _co_data.get("when", "")[:16] == _dtnow.fromtimestamp(_newest.stat().st_mtime).isoformat(timespec="seconds")[:16],
+      (_co_line, _co_data))
+_co_file.unlink(missing_ok=True)
 _ol = b.afterglow_orphan()
 import time as _tm2; _tm2.sleep(0.3)
 check("orphan: on a start with no stashed visit the newest unsigned transcript gets its afterglow, in the background, and the phone is told",
@@ -5612,6 +5623,22 @@ try:
           and any("good morning to you." in str(_s) for _s, _mk in _cr_phone.sent),
           ([_t.get("content") for _t in _cr_bh], _cr_b.reflected_upto, _cr_phone.sent[-3:]))
     _cr_bfile = _cr_b.file
+    _cr_b.history = [dict(_t) for _t in _cr_h]
+    _cr_b.file = _cr_tmp[2].with_name("chat-telegram-carry-new.md")
+    _cr_b.handle(_msg("/new"))
+    _cr_new_gone = not _cr_file.exists()
+    _cr_p2 = _cr_parlor.Session()
+    _cr_p2.history = [dict(_t) for _t in _cr_h]
+    _cr_p2.new(reflect=False, carry=False)
+    _cr_new_gone2 = not _cr_file.exists()
+    chat.leave_carry(_cr_h, _cr_tmp[2])
+    _cr_p3 = _cr_parlor.Session()
+    _cr_p3.history = [dict(_t) for _t in _cr_h]
+    _cr_p3.new(reflect=False)
+    check("carry: /new on the phone and the parlor's new button start clean — no carry left, a waiting one cleared; the parlor's "
+          "ordinary end still carries (10-24)",
+          _cr_new_gone and _cr_new_gone2 and _cr_file.exists() and _cr_b.history == [] and _cr_p2.history == [],
+          (_cr_new_gone, _cr_new_gone2, _cr_file.exists()))
     _cr_p = _cr_parlor.Session()
     ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "hello in the parlor.", "thinking": "the parlor"}])
     _cr_pr = _cr_p.send("hello parlor")

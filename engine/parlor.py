@@ -179,7 +179,7 @@ class Session:
             r["note"] = f"{dest.name} saved to shared/pictures/ and attached — it goes with your next message"
         return r
 
-    def new(self, reflect=True) -> dict:
+    def new(self, reflect=True, carry: bool = True) -> dict:
         """reflect: True — afterglow in the background; "sync" — in the
         foreground (Ctrl+C); False — skip (the window's X)."""
         self.playback.cancel()
@@ -187,8 +187,10 @@ class Session:
         with self.lock:
             f = chat.save_transcript(self.history, path=self.file)
             done, self.history = self.history, []
-            if f:
+            if f and carry:
                 chat.leave_carry(done, f)  # the last turns, for the next door (10-24)
+            elif not carry:
+                chat.clear_carry()  # the new button: on purpose, clean (10-24)
             since = self.reflected_upto  # where the pauses left off: the afterglow sits with the rest, once (10-21)
             self.attached = []
             self.file = None
@@ -494,7 +496,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/upload":
             return self._json(SESSION.upload(data.get("name") or "", data.get("data") or ""))
         if self.path == "/new":
-            return self._json(SESSION.new())
+            return self._json(SESSION.new(carry=False))  # the button: a clean room (10-24); /leave below keeps carrying
         if self.path == "/leave":
             return self._json(SESSION.new())  # saves, then clears — no double save
         self._json({"error": "unknown path"}, 404)

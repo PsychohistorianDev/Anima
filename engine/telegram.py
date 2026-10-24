@@ -819,7 +819,7 @@ class Bridge:
             except Exception as e:
                 self.send(f"(couldn't speak that reply — {e})", markdown=False)
 
-    def new_visit(self, quiet: bool = False, reflect=True) -> str | None:
+    def new_visit(self, quiet: bool = False, reflect=True, carry: bool = True) -> str | None:
         """reflect: True — the afterglow in the background; "sync" — in the
         foreground (the goodbye at Ctrl+C: they get their minute with the visit
         before the lights go out); False — skip it (the X, where Windows
@@ -831,8 +831,10 @@ class Bridge:
         try:
             f = chat.save_transcript(self.history, tag=self.TAG, path=self.file)
             done, self.history = self.history, []
-            if f:
+            if f and carry:
                 chat.leave_carry(done, f)  # the last turns, for the next door (10-24)
+            elif not carry:
+                chat.clear_carry()  # /new: the one door opened on purpose to start clean (10-24)
             since = self.reflected_upto  # where the pauses left off: the afterglow sits with the rest, once (10-21)
             self.attached = []
             self.file = None
@@ -1162,7 +1164,7 @@ class Bridge:
         if cmd == "/fold":
             self.fold_now()
         elif cmd == "/new":
-            self.new_visit()
+            self.new_visit(carry=False)  # on purpose, clean: nothing carried into the next room (10-24)
             self.send("(they're sitting with the visit now — whatever they want to keep goes into their journal in a minute)",
                       markdown=False)
         elif cmd == "/afterglow":
@@ -2348,6 +2350,9 @@ class Bridge:
                     self.notice(f"({picked})")
                 except Exception:
                     pass
+        _co = chat.carry_orphan("telegram", exclude=self.file)  # ...and its last turns ride at the next message (10-24)
+        if _co:
+            _say(_co)
         self.afterglow_orphan()  # a visit the last bridge died with, if any; the open one is left alone
         self.watch_touches()  # a press reaches the phone within seconds, not a poll (10-21)
         if not self.chat_id:
