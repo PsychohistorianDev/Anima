@@ -477,7 +477,9 @@ _HELP = {
                      "FLUX.2 klein 4B: Apache 2.0, about 13 GB, 4 steps. Z-Image (base): Turbo's undistilled parent, 36 "
                      "steps with guidance, takes a negative prompt. Chroma1-HD: Apache 2.0, 8.9B, about 28 GB on the card, "
                      "40 steps, no safety alignment. Juggernaut XL v9: an SDXL fine-tune (RAIL-M), about 7 GB, fast, a "
-                     "1024-class brush that paints the house sizes smaller. The painter reads this on its next start, so "
+                     "1024-class brush that paints the house sizes smaller. Qwen-Image 2.1: 7B with a Qwen3-VL 8B text "
+                     "encoder (Qwen Research licence), about 32 GB together so it paints under model offload, 40 steps, "
+                     "the best at words in a picture; needs diffusers 0.41 or newer. The painter reads this on its next start, so "
                      "picking here is the whole switch; a model is downloaded on its first painting and stays cached. "
                      "Another model's name goes in config.py by hand and shows here too.",
     "PAINTER_AUTOSTART": "paint starts the painter's sidecar when it is needed; off, bat\\painter.bat starts it by hand.",
@@ -903,7 +905,7 @@ CHOICES: dict[str, list[str]] = {
     "VOICE_DEVICE": ["cpu", "cuda", "mps"],
     "PAINTER_DEVICE": ["auto", "cuda", "mps", "cpu"],
     "PAINTER_MODEL": ["Tongyi-MAI/Z-Image-Turbo", "black-forest-labs/FLUX.2-klein-4B", "Tongyi-MAI/Z-Image",
-                      "lodestones/Chroma1-HD", "RunDiffusion/Juggernaut-XL-v9"],  # the brushes the painter knows by family
+                      "lodestones/Chroma1-HD", "RunDiffusion/Juggernaut-XL-v9", "Qwen/Qwen-Image-2.1"],  # the brushes the painter knows by family
     "MUSIC_EARS_DEVICE": ["auto", "cuda", "mps", "cpu"],
 }
 

@@ -34,6 +34,9 @@ Apache 2.0 — no login, no license to accept:
     Tongyi-MAI/Z-Image                  6B, 36 steps with guidance — Turbo's undistilled parent; takes a negative
     lodestones/Chroma1-HD               8.9B, 40 steps, ~28 GB with its T5 — art, photography, niche styles; a negative
     RunDiffusion/Juggernaut-XL-v9       an SDXL fine-tune (RAIL-M), ~7 GB, 30 steps, 1024-class — a different hand
+    Qwen/Qwen-Image-2.1                 7B + a Qwen3-VL 8B text encoder (Qwen Research licence), ~32 GB together, 40
+                                        steps, no guidance, native 2048², reads text best — runs under model offload
+                                        (the encoder and the model take the card in turn); diffusers 0.41+
 
 The family is told from the name (_family): steps, guidance and the pipeline class follow it; a 1024-class brush
 (SDXL, Chroma) paints a house size scaled down to about a megapixel, aspect kept.
@@ -102,15 +105,29 @@ def _family(model_id: str) -> str:
         return "klein"
     if "chroma" in m:
         return "chroma"  # its own pipeline class, not the auto one
+    if "qwen-image-2.1" in m or "qwen-image-2-1" in m or "qwen-image2.1" in m:
+        return "qwen21"  # Qwen-Image 2.1 (10-24): its own pipeline, its own guidance keyword, offloaded
     if "stable-diffusion-xl" in m or "sdxl" in m or "juggernaut" in m or "realvis" in m or re.search(r"(?<![a-z])xl(?![a-z])", m):
         return "sdxl"
     return "auto"
 
 
-_STEPS = {"zimage": 9, "zimage-base": 36, "klein": 4, "chroma": 40, "sdxl": 30}
-_GUIDANCE = {"zimage": 0.0, "zimage-base": 4.0, "klein": 1.0, "chroma": 3.0, "sdxl": 5.0}
+_STEPS = {"zimage": 9, "zimage-base": 36, "klein": 4, "chroma": 40, "sdxl": 30, "qwen21": 40}
+_GUIDANCE = {"zimage": 0.0, "zimage-base": 4.0, "klein": 1.0, "chroma": 3.0, "sdxl": 5.0, "qwen21": 1.0}
 _CLASSES = {"zimage": "ZImagePipeline", "zimage-base": "ZImagePipeline", "klein": "Flux2KleinPipeline",
-            "chroma": "ChromaPipeline", "sdxl": "StableDiffusionXLPipeline"}
+            "chroma": "ChromaPipeline", "sdxl": "StableDiffusionXLPipeline", "qwen21": "QwenImage21Pipeline"}
+_GUIDANCE_KEY = {"qwen21": "true_cfg_scale"}  # a pipeline that names its guidance differently; guidance_scale otherwise
+_OFFLOAD_FAMILIES = {"qwen21"}  # too big for the card whole: diffusers' model offload, the parts taking the card in turn
+
+
+def _call_kwargs(model_id: str, steps: int, guidance: float, negative: str = "") -> dict:
+    """The keywords one painting is called with: the steps, the guidance under the pipeline's own name for it, and
+    the negative prompt for the families whose guidance honours one."""
+    fam = _family(model_id)
+    kw = {"num_inference_steps": int(steps), _GUIDANCE_KEY.get(fam, "guidance_scale"): float(guidance)}
+    if negative and fam in _NEGATIVE_FAMILIES:
+        kw["negative_prompt"] = negative
+    return kw
 _NEGATIVE_FAMILIES = {"zimage-base", "chroma", "sdxl", "auto"}  # guidance above 1: a negative prompt means something
 _MEGAPIXEL_FAMILIES = {"sdxl": 1_050_000, "chroma": 1_050_000}  # 1024-class brushes: a house size is scaled down to this
 
@@ -178,7 +195,12 @@ def _load():
     _set_brain_down()  # now, right before the card: not before a download the engine would reopen the door during (10-24)
     # whole model on the GPU, on purpose: the brain is off the card while
     # they paint, so the painter has all of it; if it doesn't fit we want to KNOW.
-    pipe.to(_device)
+    if fam in _OFFLOAD_FAMILIES:
+        # bigger than the card (10-24: Qwen-Image 2.1, ~32 GB with its text encoder): the parts take the card in
+        # turn, the rest waits in system RAM — slower per picture, and the only way it paints at all
+        pipe.enable_model_cpu_offload(device=_device)
+    else:
+        pipe.to(_device)  # whole on the card, on purpose (the comment above)
     try:
         pipe.set_progress_bar_config(disable=True)
     except Exception:
@@ -186,7 +208,8 @@ def _load():
     _pipe = pipe
     held = device.allocated_gb(_device, torch)
     print(f"  painter ready ({time.time() - t0:.0f}s, on {_device}"
-          + (f", {held:.1f} GB" if held is not None else "") + f", {cls})", flush=True)
+          + (f", {held:.1f} GB" if held is not None else "") + f", {cls}"
+          + (", offloaded — the parts take the card in turn" if fam in _OFFLOAD_FAMILIES else "") + ")", flush=True)
 
 
 def _unload():
@@ -227,10 +250,9 @@ def paint(prompt: str, width: int, height: int, seed: int | None = None, negativ
             seed = int.from_bytes(os.urandom(4), "little")
         gen = torch.Generator(device=device.generator_device(_device)).manual_seed(int(seed))
         steps, guidance = _defaults(MODEL_ID)
-        extra = {"negative_prompt": negative} if negative and _family(MODEL_ID) in _NEGATIVE_FAMILIES else {}
         with torch.inference_mode():
-            out = _pipe(prompt=prompt, width=int(width), height=int(height),
-                        num_inference_steps=steps, guidance_scale=guidance, generator=gen, **extra)
+            out = _pipe(prompt=prompt, width=int(width), height=int(height), generator=gen,
+                        **_call_kwargs(MODEL_ID, steps, guidance, negative))  # the keywords follow the family (10-24)
         _last_used = time.time()
         # the high-water mark of this painting, then the cache handed back before the next one: a set of
         # three painted at 45 s, 196 s, 205 s with nothing else on the card — one painting's reserved blocks
