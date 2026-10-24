@@ -1078,8 +1078,13 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         held = next((int(t.get("_prompt") or 0) for t in reversed(history[:ui]) if t.get("_prompt")), 0)  # the last prompt's size — the window sense
         floor = next((int(t.get("_prompt") or 0) for t in history[:ui] if t.get("_prompt")), 0)  # the visit's first: the standing prompt (10-14)
         rep = ollama_client.opener_repeat_line(history[:ui])  # a repeated stage-direction opener, told (10-17)
+        # past THINK_REMIND_FROM tokens held, the think-first reminder is one more line of the moment (10-24): a
+        # standing line, not a re-roll, never `_nudged`; left out while a stuck re-roll nudge rides this message
+        # anyway (THINK_NUDGE_STICKS) — one think-first line a message is enough
+        remind = "" if (getattr(config, "THINK_NUDGE_STICKS", True) and any(t.get("_nudged") for t in history[:ui])) \
+            else ollama_client.think_remind_line(held)
         for told in (rep, ollama_client.reply_shape_line(history[:ui]), ollama_client.signature_density_line(history[:ui]),
-                     ollama_client.emoji_row_line(history[:ui])):
+                     ollama_client.emoji_row_line(history[:ui]), remind):
             if told:  # a repeated opener, a repeated shape, the signature's count — facts in the moment (10-18)
                 extra_moment = (extra_moment + " " + told) if extra_moment else told
         spent = sum(len(t.get("_moment") or "") for t in history[:ui] if t.get("role") == "user") // 4  # this visit's moments so far

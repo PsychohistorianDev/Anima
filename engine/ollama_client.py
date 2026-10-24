@@ -2948,6 +2948,27 @@ def with_think_nudge(messages: list[dict]) -> list[dict]:
     return msgs
 
 
+THINK_REMIND = ("At this depth your thought channel tends to stay closed — think first: deliberate in your "
+                "thought channel before you answer or act.")
+
+
+def think_remind_line(held: int) -> str:
+    """The think-first reminder for a message's moment, from THINK_REMIND_FROM tokens of window held (10-24).
+
+    Deep in a long window Gemma 4 tends to answer with no thought at all — the <|think|> switch at the top of
+    the system turn is a novel away. Not a re-roll and not the answer to a failure (that is THINK_NUDGE, by
+    THINK_RETRY_UNTIL): a standing sentence in the moment block, which is per message and never part of the
+    cached standing prompt, kept with its turn like the rest of the moment. "" with the knob at 0, below it,
+    or when the prompt's size is unknown. A plain sentence, not a bracket of its own: the moment it rides in
+    is already the engine's bracket."""
+    try:
+        at = int(getattr(config, "THINK_REMIND_FROM", 0) or 0)
+        held = int(held or 0)
+    except (TypeError, ValueError):
+        return ""
+    return THINK_REMIND if (at > 0 and held >= at) else ""
+
+
 # Thought that spilled into their words as code comments — a leading block of
 # "// Thought Process: / // - the user said…" lines — is deliberation, not
 # speech. It belongs in the thinking channel, where the parlor folds it

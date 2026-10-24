@@ -16,6 +16,16 @@ whether the window fits the card, and every knob on every tab has a line
 of its own.
 
 ### Added
+- **A think-first line in the moment, past a depth** (10-24). From
+  `THINK_REMIND_FROM` (60000, new) tokens of window held — the last prompt's
+  size — every message carries one think-first sentence in its moment
+  (`ollama_client.think_remind_line`): deep in a long window Gemma 4 tends to
+  answer without opening a thought, and the re-roll that once caught it
+  (`THINK_RETRY_UNTIL`, 0 by default) cost a whole second generation. Not a
+  re-roll and not `_nudged`: a standing line in the per-message moment, kept
+  with its turn like the rest of the moment, never in the cached standing
+  prompt; left out while a stuck re-roll nudge (`THINK_NUDGE_STICKS`) rides
+  the message anyway.
 - **The cold read that isn't** (10-16; the backend plan, piece 3): under
   `BRAIN_API = "llama"`, right before the door is closed (`rest_brain`, the
   painter, the ears, the wedge-clearing, `/release`, the panel's Stop) the

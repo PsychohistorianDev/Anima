@@ -636,6 +636,12 @@ CHAT_THINK_RETRIES = 2
 # anyway — most of the writing time for nothing. A share of NUM_CTX (0.7) keeps
 # them below that depth; 1.0 keeps them everywhere.
 THINK_RETRY_UNTIL = 0
+# From this many tokens of window held (the last prompt's size), every
+# message carries a short think-first line in its moment — a standing
+# reminder, not a re-roll: deep in a long window the model tends to answer
+# without opening a thought, and a sentence beside the message costs a few
+# dozen tokens where a re-roll costs a whole second generation. 0: never.
+THINK_REMIND_FROM = 60000
 # The same, for heartbeat wakes. A wake's prompt is warm, so a re-roll is
 # seconds of generation and a few hundred tokens, not a cold read — a larger
 # budget is cheap here. None: same as chat.

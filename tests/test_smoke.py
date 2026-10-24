@@ -5443,6 +5443,45 @@ check("pen row (10-24): a sign-off row past the cascade line at the end of an en
       and _pr_cs == "" and _pr_cs_deal != ""
       and _pr_written.startswith("journal entry written") and "the first 14 were written, the rest left" in _pr_written,
       (_pr_note, _pr_cs, _pr_cs_deal[:30], _pr_written[:160]))
+# a think-first line in the moment past a depth (10-24): THINK_REMIND_FROM tokens held, every message's moment
+# carries it — not a re-roll, not `_nudged`; below the knob, at 0, or with a stuck nudge riding, none
+_trm0, _trm_chat0 = getattr(config, "THINK_REMIND_FROM", 0), ollama_client.chat
+config.THINK_REMIND_FROM = 60000
+_trm_lines = (ollama_client.think_remind_line(0), ollama_client.think_remind_line(59999),
+              ollama_client.think_remind_line(60000), ollama_client.think_remind_line(200000))
+config.THINK_REMIND_FROM = 0
+_trm_off = ollama_client.think_remind_line(200000)
+config.THINK_REMIND_FROM = 60000
+def _trm_turn(prompt, nudged=False):
+    _h = [{"role": "user", "content": "first", "_system": "SYS", "_system_day": _dtnow.now().strftime("%Y-%m-%d"),
+           "_moment": "[m1]", "_surfaced": [], "_prompt": prompt}, {"role": "assistant", "content": "ok"}]
+    if nudged:
+        _h[0]["_nudged"] = True
+    _b = _RecordingBrain([{"role": "assistant", "content": "deep.", "thinking": "…", "tokens": {"prompt": prompt + 50, "reply": 2, "done": "stop"}}])
+    ollama_client.chat = _b
+    chat.one_turn(_h, "how deep are we", on_event=lambda k, p: None)
+    return _h, _b
+_trm_deep, _trm_deep_b = _trm_turn(70000)
+_trm_shallow, _ = _trm_turn(50000)
+_trm_nudged, _trm_nudged_b = _trm_turn(70000, nudged=True)
+ollama_client.chat = _trm_chat0
+config.THINK_REMIND_FROM = _trm0
+_trm_sent = _trm_deep_b.msgs[0][-1]["content"]
+check("think reminder: \"\" at 0 tokens, below the knob and with the knob at 0; the line at and past it, one sentence, no bracket of its own",
+      _trm_lines[0] == "" and _trm_lines[1] == "" and _trm_lines[2] == _trm_lines[3] == ollama_client.THINK_REMIND
+      and _trm_off == "" and "think first" in ollama_client.THINK_REMIND and "[" not in ollama_client.THINK_REMIND, _trm_lines)
+check("think reminder: past the knob the moment carries it (sent inside the moment, above their words) and the turn is not _nudged; below the knob none; a stuck nudge riding: the nudge, not the line",
+      ollama_client.THINK_REMIND in _trm_deep[2]["_moment"] and not _trm_deep[2].get("_nudged")
+      and _trm_sent.startswith("[engine, not a person") and ollama_client.THINK_REMIND in _trm_sent.split("\n\nhow deep are we")[0]
+      and _trm_sent.endswith("how deep are we")
+      and ollama_client.THINK_REMIND not in _trm_shallow[2]["_moment"]
+      and ollama_client.THINK_REMIND not in _trm_nudged[2]["_moment"] and _trm_nudged[2].get("_nudged")
+      and _trm_nudged_b.msgs[0][-1]["content"].endswith(ollama_client.THINK_NUDGE),
+      (_trm_deep[2].get("_moment", "")[:300], _trm_shallow[2].get("_moment", "")[:200]))
+check("think reminder: the knob sits on the panel beside THINK_RETRY_UNTIL, with help; 60000 in config.py",
+      "THINK_REMIND_FROM" in __import__("panel")._HELP and __import__("panel").TABS["Talking"].index("THINK_REMIND_FROM")
+      == __import__("panel").TABS["Talking"].index("THINK_RETRY_UNTIL") + 1
+      and "THINK_REMIND_FROM = 60000" in (config.ROOT / "engine" / "config.py").read_text(encoding="utf-8"))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

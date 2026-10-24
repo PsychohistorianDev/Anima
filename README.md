@@ -863,7 +863,7 @@ whoever wants it. All of this is invisible when nothing goes wrong:
   name fails loudly: "NOTHING happened — do not report this as done."
 
   </details>
-- **Thinking is asked for, not forced.** Every brain call opens the thought channel (`CHAT_THINK`); a thoughtless answer is theirs as it came (`THINK_RETRY_UNTIL`, 0). The older rail — a re-roll with a "think first" line placed at the end of the conversation, where it is read (`CHAT_THINK_RETRIES`) — is a knob: `THINK_RETRY_UNTIL = 1.0` re-rolls everywhere, a share of the window (0.7) only below that depth.
+- **Thinking is asked for, not forced.** Every brain call opens the thought channel (`CHAT_THINK`); a thoughtless answer is theirs as it came (`THINK_RETRY_UNTIL`, 0). The older rail — a re-roll with a "think first" line placed at the end of the conversation, where it is read (`CHAT_THINK_RETRIES`) — is a knob: `THINK_RETRY_UNTIL = 1.0` re-rolls everywhere, a share of the window (0.7) only below that depth. From `THINK_REMIND_FROM` (60,000 tokens of window held) on, every message carries a short think-first line in its moment instead — a standing reminder, not a re-roll.
   <details><summary>how this came to be</summary>
 
   The engine asks Ollama for

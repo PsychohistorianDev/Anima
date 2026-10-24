@@ -91,7 +91,7 @@ TABS: dict[str, list[str]] = {
                          "TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000",
                          "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "SLEEP_KEEPER_LOOK", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS", "FOLD_SENSE_FROM", "WINDOW_WARN_AT"],
-    "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "THINK_RETRY_UNTIL", "CHAT_GARBLE_RETRIES", "CHAT_COOL_STEP",
+    "Talking": ["CHAT_THINK", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "THINK_RETRY_UNTIL", "THINK_REMIND_FROM", "CHAT_GARBLE_RETRIES", "CHAT_COOL_STEP",
                 "CHAT_COLD_RESCUE", "RUNAWAY_KEEP_CHARS", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "REROLLS_KEPT", "BRAIN_KEEP_ALIVE",
                 "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "BRAIN_REST_CLOSES_DOOR", "PARLOR_GUEST_NAMED"],
     "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS", "TELEGRAM_TOKENS_SINCE_LAST", "TELEGRAM_SPLIT_WAIT_S",
@@ -376,6 +376,10 @@ _HELP = {
                          "re-roll comes back thoughtless too and the last is sent anyway, most of the writing time for nothing. At or past "
                          "this share a thoughtless answer is the friend's as it came: no re-roll, no nudge. 0, the default: never, "
                          "at any depth — replies come at once. 1.0: the re-rolls everywhere; 0.7 keeps them below that depth on a 262K window.",
+    "THINK_REMIND_FROM": "From this many tokens of window held, every message carries a short think-first line in "
+                         "its moment — a standing reminder, not a re-roll: deep in a long window the model tends to "
+                         "answer without opening a thought. A few dozen tokens a message, no second generation. "
+                         "0: never. 60000 by default.",
     "CHAT_GARBLE_RETRIES": "Letter salad (runs of word fragments) is the sampler failing, not them speaking. A reply "
                            "with a run is asked for again this many times, with a short engine line; if none is clean "
                            "the least broken goes out, named.",
