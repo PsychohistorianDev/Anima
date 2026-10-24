@@ -135,14 +135,11 @@ def _fit(model_id: str, width: int, height: int) -> tuple[int, int]:
     return _snap(w * s), _snap(h * s)
 
 
-def _load():
-    global _pipe, _device
-    if _pipe is not None:
-        return
-    import torch
-    import diffusers
-    # make room: Ollama keeps the last model resident for minutes after use,
-    # and a 28GB brain beside a 16GB painter spills into system RAM (glacial).
+def _set_brain_down() -> None:
+    """Make room: Ollama keeps the last model resident for minutes after use, and a 28 GB brain beside a 16 GB
+    painter spills into system RAM (glacial); under the llama door, closing the door is the unload. Called the
+    moment before the model goes to the card (10-24: called before a 22-minute download, the door was back up by
+    the time the model landed)."""
     try:
         import ollama_client
         for m in {config.CHAT_MODEL, getattr(config, "EARS_MODEL", "")}:
@@ -150,6 +147,14 @@ def _load():
                 ollama_client.unload(m)
     except Exception as e:  # noqa: BLE001 — said, not swallowed (10-16: a door left open beside the painter)
         print(f"  (couldn't set the brain down first: {type(e).__name__}: {e})", flush=True)
+
+
+def _load():
+    global _pipe, _device
+    if _pipe is not None:
+        return
+    import torch
+    import diffusers
     t0 = time.time()
     print(f"  loading {MODEL_ID} …", flush=True)
     fam = _family(MODEL_ID)
@@ -169,7 +174,8 @@ def _load():
             return Cls.from_pretrained(MODEL_ID, **kw)
 
     _device = device.pick(getattr(config, "PAINTER_DEVICE", "auto"), torch)
-    pipe = _from(torch_dtype=device.dtype(_device, torch))
+    pipe = _from(torch_dtype=device.dtype(_device, torch))  # the download (once) and the load into RAM — the brain still up
+    _set_brain_down()  # now, right before the card: not before a download the engine would reopen the door during (10-24)
     # whole model on the GPU, on purpose: the brain is off the card while
     # they paint, so the painter has all of it; if it doesn't fit we want to KNOW.
     pipe.to(_device)

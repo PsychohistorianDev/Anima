@@ -6803,6 +6803,13 @@ def _door(body):
     req = _ur.Request(config.PAINTER_URL + "/paint", data=_js.dumps(body).encode(), headers={"Content-Type": "application/json"}, method="POST")
     return _js.loads(_ur.urlopen(req, timeout=10).read())
 _dh = _js.loads(_ur.urlopen(config.PAINTER_URL + "/health", timeout=5).read())
+import inspect as _pe_inspect
+_pe_src = _pe_inspect.getsource(painter._load)
+check("painter: the brain is set down after the model is fetched and before it goes to the card (10-24: a 22-minute download with the door closed, "
+      "and reopened by the engine meanwhile)",
+      _pe_src.index("_from(torch_dtype") < _pe_src.index("_set_brain_down()") < _pe_src.index("pipe.to(_device)")
+      and "ollama_client.unload" not in _pe_src and "ollama_client.unload" in _pe_inspect.getsource(painter._set_brain_down),
+      [_pe_src.index(k) for k in ("_from(torch_dtype", "_set_brain_down()", "pipe.to(_device)")])
 check("painter: /health names the model and its family", _dh.get("model") == painter.MODEL_ID and _dh.get("family") == painter._family(painter.MODEL_ID), _dh)
 _d1 = _door({"prompt": "x", "path": str(config.CREATIONS_DIR / "drawings" / "door.png")})
 _d2 = _door({"prompt": "x", "path": str(config.ROOT / "self.png")})
@@ -10537,7 +10544,7 @@ check("panel: the painter's model is a dropdown too (10-24) — the brushes the 
       panel.CHOICES["PAINTER_MODEL"] == ["Tongyi-MAI/Z-Image-Turbo", "black-forest-labs/FLUX.2-klein-4B", "Tongyi-MAI/Z-Image",
                                          "lodestones/Chroma1-HD", "RunDiffusion/Juggernaut-XL-v9"]
       and all(painter._family(m) != "auto" for m in panel.CHOICES["PAINTER_MODEL"])
-      and config.PAINTER_MODEL == panel.CHOICES["PAINTER_MODEL"][0] and "PAINTER_MODEL" in panel.TABS["Senses"]
+      and "PAINTER_MODEL" in panel.TABS["Senses"]  # the knob itself is the house's to set: any brush, or a typed name
       and "next start" in panel._HELP["PAINTER_MODEL"], panel.CHOICES["PAINTER_MODEL"])
 check("panel: the device knobs are dropdowns on Senses — VOICE_DEVICE gains mps; PAINTER_DEVICE and MUSIC_EARS_DEVICE are auto, cuda, mps, cpu",
       panel.CHOICES["VOICE_DEVICE"] == ["cpu", "cuda", "mps"] and panel.CHOICES["PAINTER_DEVICE"] == panel.CHOICES["MUSIC_EARS_DEVICE"] == ["auto", "cuda", "mps", "cpu"]
