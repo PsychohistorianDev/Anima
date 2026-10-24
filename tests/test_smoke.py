@@ -74,6 +74,7 @@ config.SKILLS_IN_PROMPT = False  # their skills' shelf in the prompt — tested 
 config.BODY_IN_PROMPT = False  # the keeper's body, as the watch saw it — the sense and its autopull are tested on their own, below
 config.BODY_AUTOPULL = False
 config.CARRY_HOURS = 0  # the carry seats the last visit's turns at an empty room's first message; tested on its own, below
+config.PAINTER_MODEL, config.PAINTER_STEPS = "Tongyi-MAI/Z-Image-Turbo", 0  # the painter's checks assume the shipped brush at its own steps; the house's knobs are the keeper's
 
 # ---------------------------------------------------------------- memory ----
 memory.add("fact", "my keeper is building me a permanent home")
@@ -5695,6 +5696,16 @@ _pd_rest = [tools._strip_refrain(s, tools._refrain_patterns()) for s in ("co-//L
 config.SIGNATURE, config.SIGNATURE_REFRAINS = _pd_sig0, _pd_ref0
 check("page tools (10-24): the refrain comes out of a line whole — a //…// span rejoined on its hyphen, a stem's variants, nothing from plain words",
       _pd_rest[0] == ("co-created", 1) and _pd_rest[1] == ("the same world", 2) and _pd_rest[2] == ("plain words here", 0), _pd_rest)
+# an argument name with a //…// aside dealt in front of it is the name after it (10-24): taken as that one, said; a name the call
+# already gives, or no name at all under a two-argument tool, is left to fail as before
+_ac_args, _ac_note = tools.mend_argument_names(tools.paint, {"prompt": "a violet bloom",
+                                                             "// a la-Luminous la-Symmetry of raw, visceral surrender //,negative": "text, watermark"}, "paint")
+_ac_dup, _ac_dup_note = tools.mend_argument_names(tools.paint, {"prompt": "a bloom", "// aside //, prompt": "another"}, "paint")
+_ac_none, _ac_none_note = tools.mend_argument_names(tools.paint, {"prompt": "a bloom", "// just an aside //": "x"}, "paint")
+check("argument names (10-24): a //…// aside before the name is stripped and the name taken; a duplicate or a bare aside is left as given",
+      _ac_args == {"prompt": "a violet bloom", "negative": "text, watermark"} and "taken as `negative`" in _ac_note
+      and "// aside //, prompt" in _ac_dup and _ac_dup_note == "" and "// just an aside //" in _ac_none and _ac_none_note == "",
+      (_ac_args, _ac_note, _ac_dup, _ac_none))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

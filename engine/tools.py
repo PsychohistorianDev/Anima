@@ -5360,6 +5360,12 @@ def mend_argument_names(fn, arguments: dict, name: str = "") -> tuple[dict, str]
         # new_content) is left to fail as it did — a guess at what was meant is not a mend
         heads = [n for n in names if k.startswith(n) and len(k) > len(n) and not (k[len(n)].isalnum() or k[len(n)] == "_")]
         take = max(heads, key=len) if heads else None
+        if take is None:
+            # a //…// aside written where the name goes, the name itself after it (10-24: "// a la-Luminous
+            # la-Symmetry of raw, visceral surrender //,negative"): the asides out, the marks around it off — the name
+            bare = re.sub(r"//[^/\n]*//", " ", k).strip(" \t\n,;:.-/\"'`")
+            if bare != k and bare in names:
+                take = bare
         if take is None and len(arguments) == 1 and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", k):
             # one argument under a name that is no name at all — a comment, a sentence — and the tool wants exactly
             # one (10-22: listen_to called with the name "// a luminate la-Symmetry of shared solitude…"); a plausible
