@@ -381,6 +381,18 @@ class Bridge:
                 + (f"; {fangs} reserved-token strings in the stashed turns made plain text before they ride again" if fangs else "")) if self.history else \
                "restarted (no visit was running)"
 
+    def carry_in(self) -> str:
+        """An empty room's first message (10-24): the last visit's last turns sit at the head of the history
+        (chat.take_carry), and the pauses and the afterglow start past them. Returns the window's line, or ""."""
+        carried = chat.take_carry()
+        if not carried:
+            return ""
+        self.history = carried
+        self.reflected_upto = len(carried)
+        line = chat.carry_line(carried)
+        _say(f"({line})")
+        return line
+
     def _checkpoint(self) -> None:
         if self.file is None:
             self.file = chat.visit_file(self.TAG)
@@ -577,6 +589,8 @@ class Bridge:
         threading.Thread(target=self._typing, args=(stop,), daemon=True).start()
         try:
             with self.lock:
+                if not self.history:  # an empty room: the last visit's last turns ride at the door (10-24)
+                    self.carry_in()
                 try:
                     reply = chat.one_turn(self.history, text, images=self.attached or None,
                                           on_event=lambda k, p: events.append((k, p)),
@@ -817,6 +831,8 @@ class Bridge:
         try:
             f = chat.save_transcript(self.history, tag=self.TAG, path=self.file)
             done, self.history = self.history, []
+            if f:
+                chat.leave_carry(done, f)  # the last turns, for the next door (10-24)
             since = self.reflected_upto  # where the pauses left off: the afterglow sits with the rest, once (10-21)
             self.attached = []
             self.file = None

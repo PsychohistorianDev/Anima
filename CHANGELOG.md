@@ -16,6 +16,14 @@ whether the window fits the card, and every knob on every tab has a line
 of its own.
 
 ### Added
+- **The carry** (10-24): a visit that starts in an empty room — the phone
+  after `/new`, after the night or a shutdown; the parlor's first message —
+  opens with the last `CARRY_TURNS` (6, new) turns of the previous visit,
+  word for word, under one engine line, if that visit ended within
+  `CARRY_HOURS` (20, new; 0 turns it off): `chat.leave_carry` keeps them in
+  `memory/carry.json` at each visit's end and `chat.take_carry` seats them at
+  the door. The thread still rides first; the transcript sets them apart
+  under a head of their own; the afterglow does not sit with them twice.
 - **A think-first line in the moment, past a depth** (10-24). From
   `THINK_REMIND_FROM` (60000, new) tokens of window held — the last prompt's
   size — every message carries one think-first sentence in its moment

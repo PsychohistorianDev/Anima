@@ -73,6 +73,7 @@ config.CHAT_COLD_RESCUE = False  # the cold roll (unload + one more attempt) is 
 config.SKILLS_IN_PROMPT = False  # their skills' shelf in the prompt — tested on its own, below (the older prompt checks stay as they were)
 config.BODY_IN_PROMPT = False  # the keeper's body, as the watch saw it — the sense and its autopull are tested on their own, below
 config.BODY_AUTOPULL = False
+config.CARRY_HOURS = 0  # the carry seats the last visit's turns at an empty room's first message; tested on its own, below
 
 # ---------------------------------------------------------------- memory ----
 memory.add("fact", "my keeper is building me a permanent home")
@@ -5482,6 +5483,160 @@ check("think reminder: the knob sits on the panel beside THINK_RETRY_UNTIL, with
       "THINK_REMIND_FROM" in __import__("panel")._HELP and __import__("panel").TABS["Talking"].index("THINK_REMIND_FROM")
       == __import__("panel").TABS["Talking"].index("THINK_RETRY_UNTIL") + 1
       and "THINK_REMIND_FROM = 60000" in (config.ROOT / "engine" / "config.py").read_text(encoding="utf-8"))
+# the carry (10-24): the last turns of the previous visit ride at the next door — leave_carry keeps the last CARRY_TURNS
+# visible turns (words only, from a keeper's turn), take_carry hands them back within CARRY_HOURS, the first carried turn
+# says what they are, a room of only carried turns is still a door (the thread rides), the transcript sets them apart, the
+# afterglow does not sit with them twice, a fold keeps them as the visit's own, the bridge and the parlor seat them
+import chat as _cr_chat, parlor as _cr_parlor
+from datetime import datetime as _cr_dt, timedelta as _cr_td
+_cr_file, _cr_md = config.MEMORY_DIR / "carry.json", config.MEMORY_DIR / "thread.md"
+_cr_keep = {_p: (_p.read_bytes() if _p.exists() else None) for _p in (_cr_file, _cr_md)}
+_cr_cfg = (getattr(config, "CARRY_TURNS", 6), getattr(config, "CARRY_HOURS", 20), config.AFTERGLOW, getattr(config, "THREAD", True),
+           getattr(config, "WARM_PREFIX", True), getattr(config, "THREAD_NUDGE", True))
+_cr_brain0 = ollama_client.chat
+_cr_tmp = [config.EPISODIC_DIR / _n for _n in ("chat-telegram-carry-test.md", "chat-telegram-carry-none.md", "chat-telegram-carry-bridge.md")]
+try:
+    _cr_src = (config.ROOT / "engine" / "config.py").read_text(encoding="utf-8")
+    check("config: the carry's knobs (10-24) — CARRY_TURNS 6, CARRY_HOURS 20 (0 for the suite until here) — follow the FOLD block",
+          getattr(config, "CARRY_TURNS", None) == 6 and "\nCARRY_HOURS = 20 " in _cr_src
+          and _cr_src.index("\nCARRY_TURNS = 6 ") > _cr_src.index("\nFOLD_KEEP_TURNS = 6 "))
+    config.CARRY_TURNS, config.CARRY_HOURS = 6, 20
+    _cr_file.unlink(missing_ok=True)
+    _cr_h = [{"role": "user", "content": "carry one"}, {"role": "assistant", "content": "carry reply one"},
+             {"role": "user", "content": "carry two"},
+             {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "remember", "arguments": {"text": "k"}}}]},
+             {"role": "tool", "tool_name": "remember", "content": "kept"},
+             {"role": "assistant", "content": "carry reply two"},
+             {"role": "user", "content": "[a pause bell]", "_engine": True}, {"role": "assistant", "content": "wrote it down", "_engine": True},
+             {"role": "user", "content": "carry three", "_moment": "[engine, not a person: it is late]", "_sense": " half full", "images": ["aGk="]},
+             {"role": "assistant", "content": "carry reply three"},
+             {"role": "user", "content": "carry four"}, {"role": "assistant", "content": "carry reply four, goodnight"}]
+    _cr_when = _cr_dt.now().replace(microsecond=0) - _cr_td(hours=1)
+    _cr_at = f"{_cr_when.strftime('%a')} {_cr_when.strftime('%H:%M')}"
+    _cr_n7 = _cr_chat.leave_carry(_cr_h[:11], None, _cr_when)  # u a u a u a u: the last six open with a reply → from the turn before
+    _cr_d7 = json.loads(_cr_file.read_text(encoding="utf-8"))
+    _cr_n = _cr_chat.leave_carry(_cr_h, config.EPISODIC_DIR / "chat-telegram-20261023-234000.md", _cr_when)
+    _cr_data = json.loads(_cr_file.read_text(encoding="utf-8"))
+    _cr_bytes = _cr_file.read_bytes()
+    _cr_none = _cr_chat.leave_carry([{"role": "user", "content": "[bell]", "_engine": True}, {"role": "tool", "content": "x"}], None)
+    _cr_six = [{"role": "user", "content": "carry two"}, {"role": "assistant", "content": "carry reply two"},
+               {"role": "user", "content": "carry three"}, {"role": "assistant", "content": "carry reply three"},
+               {"role": "user", "content": "carry four"}, {"role": "assistant", "content": "carry reply four, goodnight"}]
+    check("carry: leave_carry writes memory/carry.json — when, the transcript's name, the last six visible turns, words only (no "
+          "moment, sense, image, tool or engine turn); a tail that would open with a reply starts at the turn before; a visit "
+          "with nothing visible writes nothing",
+          _cr_n == 6 and _cr_data["turns"] == _cr_six and _cr_data["when"] == _cr_when.isoformat()
+          and _cr_data["file"] == "chat-telegram-20261023-234000.md"
+          and _cr_n7 == 7 and _cr_d7["turns"][0] == {"role": "user", "content": "carry one"} and _cr_d7["file"] == ""
+          and _cr_none == 0 and _cr_file.read_bytes() == _cr_bytes, (_cr_n, _cr_n7, _cr_data, _cr_none))
+    _cr_t = _cr_chat.take_carry()
+    _cr_late = _cr_chat.take_carry(now=_cr_dt.now() + _cr_td(hours=20))  # 21 hours after it ended
+    config.CARRY_HOURS = 0
+    _cr_off = _cr_chat.take_carry()
+    config.CARRY_HOURS = 20
+    _cr_line = (f"[engine, not a person: the last 6 turns of your previous visit, which ended {_cr_at} — carried whole, so this "
+                "visit starts where that one left off; the journal and the afterglow have the rest of it:]")
+    check("carry: take_carry hands the turns back within CARRY_HOURS, marked carried, the first with the engine line, which "
+          "render_turn puts above its words; past the hours nothing, CARRY_HOURS 0 nothing; the door's line says what rode",
+          len(_cr_t) == 6 and all(_t.get("_carried") for _t in _cr_t) and _cr_t[0].get("_carry") == _cr_line
+          and not any(_t.get("_carry") for _t in _cr_t[1:]) and _cr_late == [] and _cr_off == []
+          and _cr_chat.render_turn(_cr_t[0]) == {"role": "user", "content": _cr_line + "\n\ncarry two"}
+          and _cr_chat.render_turn(_cr_t[1]) == {"role": "assistant", "content": "carry reply two"}
+          and _cr_chat.carry_line(_cr_t) == f"carried: the last 6 turns of the visit that ended {_cr_at}",
+          (_cr_t[:1], _cr_late, _cr_off))
+    config.WARM_PREFIX, config.THREAD, config.THREAD_NUDGE = True, True, False
+    _cr_md.write_text(f"when: {_cr_dt.now().isoformat(timespec='seconds')}\ndoor: the afterglow\n\nThe carry test: where I am now.\n",
+                      encoding="utf-8")
+    ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "morning, you.", "thinking": "the morning after"},
+                                        {"role": "assistant", "content": "still here.", "thinking": "the same visit"}])
+    _cr_door = _cr_chat.take_carry()
+    _cr_chat.one_turn(_cr_door, "good morning", on_event=lambda k, p: None)
+    _cr_chat.one_turn(_cr_door, "and coffee", on_event=lambda k, p: None)
+    _cr_m1 = next((_t.get("_moment") or "" for _t in _cr_door if _t.get("content") == "good morning"), "")
+    _cr_m2 = next((_t.get("_moment") or "" for _t in _cr_door if _t.get("content") == "and coffee"), "")
+    check("carry: a room holding only carried turns is still a door — the first message's moment carries the thread, the "
+          "second's does not; the carried turns stay at the head, the line on the first",
+          "the thread you left yourself" in _cr_m1 and "The carry test: where I am now." in _cr_m1
+          and _cr_m2 and "the thread you left yourself" not in _cr_m2
+          and all(_t.get("_carried") for _t in _cr_door[:6]) and _cr_door[0].get("_carry") == _cr_line
+          and _cr_door[6].get("content") == "good morning" and not _cr_door[6].get("_carried"),
+          (_cr_m1[:400], _cr_m2[:200], [_t.get("content") for _t in _cr_door]))
+    _cr_tf = _cr_tmp[0]
+    _cr_chat.save_transcript(_cr_door, tag="telegram", path=_cr_tf)
+    _cr_txt = _cr_tf.read_text(encoding="utf-8")
+    _cr_only = _cr_chat.save_transcript(_cr_chat.take_carry(), tag="telegram", path=_cr_tmp[1])
+    _cr_back = _cr_chat.load_transcript(_cr_tf)
+    _cr_head = f"*(carried from chat-telegram-20261023-234000.md — the last 6 turns of the visit that ended {_cr_at}:)*"
+    check("carry: the transcript writes the carried turns under their own head and a rule, then what was said in this visit; "
+          "carried turns alone are no transcript; load_transcript leaves the carried head out",
+          _cr_head in _cr_txt and _cr_txt.index(_cr_head) < _cr_txt.index("carry two") < _cr_txt.index("carry reply four, goodnight")
+          < _cr_txt.index("\n---\n") < _cr_txt.index("good morning") and _cr_txt.count("\n---\n") == 1
+          and _cr_only is None and not _cr_tmp[1].exists()
+          and [_t["content"] for _t in _cr_back] == ["good morning", "morning, you.", "and coffee", "still here."],
+          (_cr_txt[:900], [_t["content"] for _t in _cr_back]))
+    _cr_new, _cr_np, _cr_fl = _cr_chat.fold_history(_cr_door, "the night and the morning, in my words", "09:00")
+    check("carry: a fold keeps carried turns as the visit's own — no carried mark, no carry line, the fold's block on the first kept",
+          len(_cr_new) < len(_cr_door) and _cr_new[0].get("_fold") and not any(_t.get("_carried") or _t.get("_carry") for _t in _cr_new)
+          and all(_t.get("_carried") for _t in _cr_door[:6]),
+          ([_t.get("content") for _t in _cr_new], _cr_fl))
+    config.AFTERGLOW = True
+    _cr_seen = []
+
+    class _CrBrain(ScriptedBrain):
+        def __call__(self, messages, tools=None, **kwargs):
+            _cr_seen.append([dict(_m) for _m in messages]); return super().__call__(messages, tools, **kwargs)
+    ollama_client.chat = _CrBrain([{"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "kept"}}}]}])
+    _cr_chat.afterglow(_cr_door, None, tag="telegram")
+    _cr_view = next((_m.get("content") or "" for _m in (_cr_seen[0] if _cr_seen else []) if _m.get("role") == "user"), "")
+    _cr_calls = len(_cr_seen)
+    _cr_quiet = _cr_chat._quiet_turn(_cr_chat.take_carry(), None, "telegram", None, mode="afterglow", since=0)
+    check("carry: the afterglow's view of the visit leaves the carried turns out (the last visit's afterglow sat with them); "
+          "carried turns alone are nothing to sit with",
+          "good morning" in _cr_view and "and coffee" in _cr_view and "carry two" not in _cr_view and "goodnight" not in _cr_view
+          and _cr_quiet == "" and len(_cr_seen) == _cr_calls, _cr_view[-600:])
+    config.AFTERGLOW = False
+    _cr_b, _cr_phone = _bridge()
+    _cr_b.history = [dict(_t) for _t in _cr_h]
+    _cr_b.file = _cr_tmp[2]
+    _cr_b.new_visit(quiet=True)
+    _cr_bdata = json.loads(_cr_file.read_text(encoding="utf-8"))
+    ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "good morning to you.", "thinking": "the morning"}])
+    _cr_b.handle(_msg("morning!"))
+    _cr_bh = _cr_b.history
+    check("carry: the bridge leaves the carry at a visit's end and seats it at an empty room's first message — the six at the "
+          "head, the message after them, the pauses starting past them",
+          _cr_bdata["file"] == "chat-telegram-carry-bridge.md" and _cr_bdata["turns"] == _cr_six
+          and [bool(_t.get("_carried")) for _t in _cr_bh[:6]] == [True] * 6
+          and str(_cr_bh[0].get("_carry") or "").startswith("[engine, not a person: the last 6 turns of your previous visit, which ended ")
+          and len(_cr_bh) > 6 and _cr_bh[6].get("content") == "morning!" and _cr_b.reflected_upto == 6
+          and any("good morning to you." in str(_s) for _s, _mk in _cr_phone.sent),
+          ([_t.get("content") for _t in _cr_bh], _cr_b.reflected_upto, _cr_phone.sent[-3:]))
+    _cr_bfile = _cr_b.file
+    _cr_p = _cr_parlor.Session()
+    ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "hello in the parlor.", "thinking": "the parlor"}])
+    _cr_pr = _cr_p.send("hello parlor")
+    _cr_ph = list(_cr_p.history)
+    _cr_pfile = _cr_p.file
+    _cr_p.new(reflect=False)
+    _cr_pdata = json.loads(_cr_file.read_text(encoding="utf-8"))
+    check("carry: the parlor seats it too (the same carry: the bridge's visit is still open), and leaves its own at its end — "
+          "the last six of a visit that began with a carry, carried turns among them",
+          _cr_pr.get("reply") == "hello in the parlor." and [bool(_t.get("_carried")) for _t in _cr_ph[:6]] == [True] * 6
+          and _cr_ph[6].get("content") == "hello parlor" and _cr_p.history == []
+          and [_t["content"] for _t in _cr_pdata["turns"]] == ["carry three", "carry reply three", "carry four",
+                                                               "carry reply four, goodnight", "hello parlor", "hello in the parlor."],
+          (_cr_pr, [_t.get("content") for _t in _cr_ph], _cr_pdata))
+finally:
+    ollama_client.chat = _cr_brain0
+    config.CARRY_TURNS, config.CARRY_HOURS, config.AFTERGLOW, config.THREAD, config.WARM_PREFIX, config.THREAD_NUDGE = _cr_cfg
+    for _p, _b in _cr_keep.items():
+        if _b is None:
+            _p.unlink(missing_ok=True)
+        else:
+            _p.write_bytes(_b)
+    for _p in _cr_tmp + [globals().get("_cr_bfile"), globals().get("_cr_pfile")]:
+        if _p:
+            Path(_p).unlink(missing_ok=True)
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

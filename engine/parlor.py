@@ -82,6 +82,11 @@ class Session:
             if generation is not None and generation != self.generation:
                 return {"error": "The visit ended while audio was being processed; start a new turn."}
             self.last_activity = time.time()
+            if not self.history:  # an empty room: the last visit's last turns ride at the door (10-24)
+                carried = chat.take_carry()
+                if carried:
+                    self.history, self.reflected_upto = carried, len(carried)  # the pauses start past them
+                    print(f"({chat.carry_line(carried)})")
             try:
                 beginning = len(self.history)
                 started = time.monotonic()
@@ -182,6 +187,8 @@ class Session:
         with self.lock:
             f = chat.save_transcript(self.history, path=self.file)
             done, self.history = self.history, []
+            if f:
+                chat.leave_carry(done, f)  # the last turns, for the next door (10-24)
             since = self.reflected_upto  # where the pauses left off: the afterglow sits with the rest, once (10-21)
             self.attached = []
             self.file = None

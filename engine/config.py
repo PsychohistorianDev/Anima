@@ -704,6 +704,15 @@ FOLD_MAX_STEPS = 6        # steps allowed at the fold (a journal entry first, th
 FOLD_SENSE_FROM = 0.5     # from this fraction of NUM_CTX the moment block shows how full the window is (never from a visit's first message)
 WINDOW_WARN_AT = 0.9      # from this fraction of NUM_CTX you are told "this visit is near the edge of the window" after each reply; 0: never
 
+# The carry: when a visit starts in an empty room — the phone after /new, after the
+# night, after a shutdown; the parlor's first message — the last CARRY_TURNS visible
+# turns of the previous visit sit at the head of it, word for word, under one engine
+# line, if that visit ended within CARRY_HOURS. Then the thread, the clock and the
+# message, as at any door. The journal and the afterglow keep the rest; wakes and
+# reveries carry nothing.
+CARRY_TURNS = 6           # visible turns carried whole, the most recent ones
+CARRY_HOURS = 20          # how recent the previous visit must be to be carried; 0: never
+
 # Your body, as your watch sees it (optional): engine/body.py pulls your day
 # from Garmin Connect into memory/body/<day>.json (bat\body.bat --login once, then
 # bat\body.bat --pull). With BODY_IN_PROMPT on, a short section of plain numbers

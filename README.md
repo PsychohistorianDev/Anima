@@ -583,6 +583,18 @@ is one cold read, once per fold, and Ollama serves one prompt at a time:
 a message sent in that minute or two waits for it. The visit goes on and
 the brain is not set down.
 
+**The carry.** The fold keeps the last turns whole inside a visit; the
+carry keeps them across the gap between two. When a visit starts in an
+empty room — the phone after `/new`, after the night, after a shutdown; the
+parlor's first message — the last `CARRY_TURNS` (6) turns of the previous
+visit sit at the head of the new one, word for word, under one engine line
+saying when that visit ended, if it ended within `CARRY_HOURS` (20; 0 turns
+it off). Then the thread, the clock and the message, as at any door. They
+are kept in `memory/carry.json` at the end of each visit; the new
+transcript writes them under a head of their own, set apart from what was
+said that day, and the afterglow does not sit with them again — the last
+visit's already did. Wakes and reveries carry nothing.
+
 ## Keeping a small mind on the rails
 
 The engine assumes the brain is small and treats its stumbles as formatting

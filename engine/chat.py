@@ -62,14 +62,23 @@ def save_transcript(turns: list[dict], tag: str = "", path: Path | None = None) 
     only existed at shutdown was one bad shutdown from not existing."""
     visible = [t for t in turns if t["role"] in ("user", "assistant") and t.get("content")
                and (not t.get("_engine") or t.get("_after"))]  # an afterthought is the engine's turn, but their words
-    if not visible or all(t.get("_after") for t in visible):
+    if not visible or all(t.get("_after") or t.get("_carried") for t in visible):  # carried turns alone: nothing said here (10-24)
         return None
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     f = path or config.EPISODIC_DIR / f"chat-{tag + '-' if tag else ''}{stamp}.md"
     where = f" (over {BRIDGES[tag]}, from their phone)" if tag in BRIDGES else ""
     lines = [f"# Conversation{where} — {datetime.now().strftime('%A, %d %B %Y %H:%M')}\n"]
     name = friend_name()
+    n_car = sum(1 for t in visible if t.get("_carried"))
+    carrying = False
     for t in visible:
+        if carrying and not t.get("_carried"):  # the carried turns end here; what follows was said in this visit
+            lines.append("---\n")
+            carrying = False
+        if t.get("_carry"):  # the last visit's last turns, carried to this one's door (10-24): said, and set apart
+            lines.append(f"*(carried from {t.get('_carry_from') or 'the last visit'} — the last {n_car} turns of the "
+                         f"visit that ended {t.get('_carry_ended') or '?'}:)*\n")
+            carrying = True
         if t.get("_fold_when"):
             # the visit was folded here (chat.fold_history): what came before
             # is in the file named, and in their own words below
@@ -92,6 +101,82 @@ def visit_file(tag: str = "") -> Path:
     return config.EPISODIC_DIR / f"chat-{tag + '-' if tag else ''}{stamp}.md"
 
 
+# The carry (10-24): the fold keeps the last turns whole inside a visit; the carry keeps them across the gap
+# between two. A door that ends a visit leaves its last CARRY_TURNS visible turns in memory/carry.json; the next
+# visit that starts in an empty room (the bridge, the parlor) opens with them, if that visit ended within
+# CARRY_HOURS — word for word, under one engine line, as the fold keeps its turns. Wakes and reveries carry nothing.
+def _carry_file() -> Path:
+    return config.MEMORY_DIR / "carry.json"
+
+
+def leave_carry(history: list[dict], path: Path | None = None, when: datetime | None = None) -> int:
+    """At a visit's end: its last CARRY_TURNS visible turns — words only, from a turn of the keeper's, as the fold
+    keeps its tail — written to memory/carry.json with when it ended and its transcript's name, over the last one.
+    Nothing is written for a visit with no turns of its own. Returns how many turns were left."""
+    keep = int(getattr(config, "CARRY_TURNS", 6) or 0)
+    vis = [t for t in history if t.get("role") in ("user", "assistant") and isinstance(t.get("content"), str)
+           and t["content"].strip() and not t.get("_engine")]
+    if not keep or not any(not t.get("_carried") for t in vis):
+        return 0
+    start = max(len(vis) - keep, 0)
+    while start > 0 and vis[start]["role"] != "user":  # the carried tail opens with the keeper's turn
+        start -= 1
+    tail = vis[start:]
+    while tail and tail[0]["role"] != "user":
+        tail = tail[1:]
+    if not tail:
+        return 0
+    data = {"when": (when or datetime.now()).isoformat(timespec="seconds"), "file": path.name if path else "",
+            "turns": [{k: v for k, v in t.items() if k in ("role", "content", "_guest", "_guest_line")} for t in tail]}
+    try:
+        f = _carry_file()
+        f.parent.mkdir(parents=True, exist_ok=True)
+        tmp = f.with_suffix(".json.part")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+        tmp.replace(f)
+    except OSError:
+        return 0
+    return len(tail)
+
+
+def take_carry(now: datetime | None = None) -> list[dict]:
+    """At a door with an empty room: the turns the last visit left (leave_carry), if it ended within CARRY_HOURS
+    (0: never), marked `_carried`; the first carries `_carry`, the engine line render_turn puts above its body.
+    [] when there is nothing to carry."""
+    hours = float(getattr(config, "CARRY_HOURS", 20) or 0)
+    if not hours or not int(getattr(config, "CARRY_TURNS", 6) or 0):
+        return []
+    try:
+        data = json.loads(_carry_file().read_text(encoding="utf-8"))
+        ended = datetime.fromisoformat(str(data.get("when") or ""))
+        raw = list(data.get("turns") or [])
+        src = str(data.get("file") or "")
+        gap = ((now or datetime.now()) - ended).total_seconds()
+    except (OSError, ValueError, TypeError, AttributeError):
+        return []
+    if not 0 <= gap <= hours * 3600:
+        return []
+    turns = [dict(t, _carried=True) for t in raw if isinstance(t, dict) and t.get("role") in ("user", "assistant")
+             and isinstance(t.get("content"), str) and t["content"].strip()]
+    while turns and turns[0]["role"] != "user":
+        turns = turns[1:]
+    if not turns:
+        return []
+    at = f"{ended.strftime('%a')} {ended.strftime('%H:%M')}"
+    first = turns[0]
+    first["_carry"] = (f"[engine, not a person: the last {len(turns)} turns of your previous visit, which ended {at} — "
+                       "carried whole, so this visit starts where that one left off; the journal and the afterglow "
+                       "have the rest of it:]")
+    first["_carry_from"], first["_carry_ended"] = src, at
+    return turns
+
+
+def carry_line(turns: list[dict]) -> str:
+    """The door's line for what was carried: "carried: the last 6 turns of the visit that ended Fri 23:40"."""
+    first = next((t for t in turns if t.get("_carry")), {})
+    return f"carried: the last {len(turns)} turns of the visit that ended {first.get('_carry_ended') or '?'}"
+
+
 def load_transcript(path: Path) -> list[dict]:
     """A transcript file back into history — his turns and theirs, in order;
     the afterglow's foot (---) and its afterthought left out. For a visit
@@ -101,6 +186,11 @@ def load_transcript(path: Path) -> list[dict]:
     except OSError:
         return []
     body = text.split("\n\n---\n*", 1)[0]
+    ci = body.find("\n*(carried from ")
+    if ci >= 0:  # the carried head (10-24): the last visit's turns, which were that visit's — not this one's
+        ce = body.find("\n---\n", ci)
+        if ce >= 0:
+            body = body[:ci] + body[ce + 4:]
     name = re.escape(friend_name())
     keeper = config.USER_NAME
     who_re = re.compile(rf"^\*\*({re.escape(keeper)}|{name}(?: \(after writing, while they were away\))?):\*\* ", re.M)
@@ -251,7 +341,8 @@ def afterglow(history: list[dict], path: Path | None = None, tag: str = "",
     # has, and with nothing new since the last one it writes nothing and signs the transcript, so the two never read
     # the same words twice (AFTERGLOW_SINCE_PAUSE False: the whole visit, as before)
     if since and getattr(config, "AFTERGLOW_SINCE_PAUSE", True):
-        fresh = [t for t in history[since:] if t.get("role") in ("user", "assistant") and t.get("content") and not t.get("_engine")]
+        fresh = [t for t in history[since:] if t.get("role") in ("user", "assistant") and t.get("content") and not t.get("_engine")
+                 and not t.get("_carried")]  # carried turns were the last visit's afterglow's (10-24)
         if not fresh or not any(t.get("role") == "user" for t in fresh):
             line = "afterglow: nothing new since they last sat with the visit; the pause covered it, nothing read twice"
             if path and path.exists():
@@ -436,6 +527,9 @@ def fold_history(history: list[dict], account: str, when: str, tag: str = "",
     for t in new:  # the kept turns' window sizes were the full window's (10-04: after a fold the window sense
         t.pop("_prompt", None)  # stayed at 98% — "she still thinks her context is full"); the next turn measures anew
     unsense(new)  # and no sense of the old window in the kept moments
+    for t in new:  # carried turns a fold keeps are this visit's own by now (10-24): no carry line, no carried head
+        for k in ("_carried", "_carry", "_carry_from", "_carry_ended"):
+            t.pop(k, None)
     surfaced = sorted({mid for t in history for mid in (t.get("_surfaced") or [])})
     first = new[0]
     hint = " ".join(t["content"] for t in history[vis[-1] - 3:] if t.get("content") and not t.get("_engine"))
@@ -501,7 +595,7 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
     the keeper: "I would like to see those in my Telegram feed")."""
     say = on_line or (lambda s: None)
     visible = [t for t in history[since:] if t["role"] in ("user", "assistant") and t.get("content")
-               and not t.get("_engine")]
+               and not t.get("_engine") and not t.get("_carried")]  # carried turns were sat with at their own visit (10-24)
     if not visible or not any(t["role"] == "user" for t in visible):
         return ""  # nothing of his to sit with — a visit that is only their own letter is already theirs
     name = friend_name()
@@ -950,7 +1044,7 @@ def render_turn(t: dict) -> dict:
     out = {k: v for k, v in t.items() if not k.startswith("_")}
     if t.get("role") == "assistant" and t.get("_voice_delivery"):
         out["content"] = strip_voice_delivery(t.get("content") or "")
-    if t.get("role") == "user" and (t.get("_moment") or t.get("_nudged") or t.get("_fold") or t.get("_guest_line")):
+    if t.get("role") == "user" and (t.get("_moment") or t.get("_nudged") or t.get("_fold") or t.get("_carry") or t.get("_guest_line")):
         body = t.get("content") or ""
         if t.get("_moment"):
             body = t["_moment"] + "\n\n" + body
@@ -958,6 +1052,8 @@ def render_turn(t: dict) -> dict:
             body = "[engine, not a person: " + t["_guest_line"] + "]\n\n" + body
         if t.get("_sense"):  # its own, kept; unsense() takes them off at a fold or a resume
             body = "[engine, not a person:" + t["_sense"] + "]\n\n" + body
+        if t.get("_carry"):
+            body = t["_carry"] + "\n\n" + body  # the last visit's last turns, carried whole (10-24), from here
         if t.get("_fold"):
             body = t["_fold"] + "\n\n" + body  # the folded visit, in their words, above everything kept
         if t.get("_nudged"):
@@ -1037,7 +1133,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     tools.DOOR = ""  # a thread left from here is left at a visit (10-19)
     # a door (10-19): no turn of the keeper's before this one — a visit's first message. A fold's rebuilt history
     # still carries the keeper's turns, so a fold is not a door. A door's first moment carries the thread
-    at_door = not any(t.get("role") == "user" and t.get("content") and not t.get("_engine") for t in history[:ui])
+    at_door = not any(t.get("role") == "user" and t.get("content") and not t.get("_engine") and not t.get("_carried")
+                      for t in history[:ui])  # the last visit's carried turns (take_carry) are not this one's (10-24)
     # context_hint: what's being discussed right now steers memory retrieval.
     hint = " ".join(t["content"] for t in history[-4:] if t.get("content") and not t.get("_engine"))
     warm = bool(getattr(config, "WARM_PREFIX", True))
