@@ -627,6 +627,102 @@ def _stamp_page(page: str, before, text: str) -> None:
         pass
 
 
+_DEALT_GLUE = 4  # a word this short beside the refrain is its glue ("the … of a", "same"), not an edit
+
+
+def _refrain_patterns() -> list[str]:
+    """What the sampler deals into a sentence, as word-bounded patterns (case-blind): the signature with its
+    endings ("la-fucking-luminous", "-luminate", "-luminously"), its bare stem ("luminous", "luminate"), and each
+    word of the refrains ("la-luminous", "la-symmetry")."""
+    pats: list[str] = []
+    sig = str(getattr(config, "SIGNATURE", "") or "").strip().lower()
+    if sig:
+        parts = sig.split("-")
+        stem = parts[-1][:5]
+        head = "-".join(parts[:-1])
+        if head and len(stem) >= 4:
+            pats.append(r"(?<![\w-])" + re.escape(head) + "-" + re.escape(stem) + r"[a-z]*(?![\w-])")
+            pats.append(r"(?<![\w-])" + re.escape(stem) + r"[a-z]*(?![\w-])")
+        else:
+            pats.append(r"(?<![\w-])" + re.escape(sig) + r"(?![\w-])")
+    for p in getattr(config, "SIGNATURE_REFRAINS", ()) or ():
+        for w in str(p).lower().split():
+            pats.append(r"(?<![\w-])" + re.escape(w) + r"(?![\w-])")
+    return pats
+
+
+def _strip_refrain(line: str, pats: list[str]) -> tuple[str, int]:
+    """A line with the signature and the refrains taken out — (the rest, how many were taken). A //…// span that
+    holds one goes whole, its hyphen rejoined ("co-//Luminous la-Symmetry// created" → "co-created")."""
+    n = 0
+
+    def _span(m: re.Match) -> str:
+        nonlocal n
+        if any(re.search(p, m.group(1), flags=re.IGNORECASE) for p in pats):
+            n += 1
+            return ""
+        return m.group(0)
+
+    s = re.sub(r"//([^/\n]*)//", _span, line)
+    for p in pats:
+        s, k = re.subn(p, "", s, flags=re.IGNORECASE)
+        n += k
+    s = re.sub(r"-\s+", "-", s)  # "co- created" → "co-created"
+    return " ".join(s.split()), n
+
+
+def _dealt_only(old: str, new: str, pats: list[str]) -> bool:
+    """Whether `new` is `old` with the signature or a refrain (and glue words) dealt in — nothing of the old line
+    gone, at least one refrain word added, every other added word short."""
+    rest, taken = _strip_refrain(new, pats)
+    base, had = _strip_refrain(old, pats)  # the old line stripped the same way: a refrain it already held is not new
+    if taken <= had:
+        return False
+    o = base.split()
+    r = rest.split()
+    if o == r:
+        return True
+    pool = list(r)
+    for w in o:
+        if w in pool:
+            pool.remove(w)
+        else:
+            return False
+    return all(len(re.sub(r"[^\w]", "", w)) <= _DEALT_GLUE for w in pool)
+
+
+def page_dealt_line(before, text: str) -> str:
+    """One fact for a page tool's result (10-24): of the lines that changed since the kept version, how many differ
+    from it only by the signature or a refrain being dealt into a sentence that was carried through — the
+    sampler's placing, not an edit. "" when nothing was dealt, when there is no kept version, or when the house
+    has no signature and no refrains."""
+    pats = _refrain_patterns()
+    if before is None or not pats:
+        return ""
+    try:
+        old_lines = [ln.strip() for ln in Path(before).read_text(encoding="utf-8").splitlines()]
+    except OSError:
+        return ""
+    old_set = {" ".join(ln.split()) for ln in old_lines if ln.strip()}
+    new_lines = [" ".join(ln.split()) for ln in (text or "").splitlines() if ln.strip()]
+    changed = [ln for ln in new_lines if ln not in old_set]
+    if not changed:
+        return ""
+    gone = [ln for ln in old_set if ln not in set(new_lines)]
+    dealt = 0
+    for ln in changed:
+        if any(_dealt_only(o, ln, pats) for o in gone):
+            dealt += 1
+    if not dealt:
+        return ""
+    sig = str(getattr(config, "SIGNATURE", "") or "").strip()
+    what = f"{sig} or a refrain" if sig else "a refrain"
+    where = f"{Path(before).parent.name}/{Path(before).name}"
+    return (f" — the page changed in {changed.__len__()} line{'s' if len(changed) != 1 else ''}; {dealt} of them "
+            f"differ{'s' if dealt == 1 else ''} from the kept version only by {what} dealt into a sentence that was "
+            f"carried through: the sampler's placing, not your edit. The kept version is {where}")
+
+
 def edit_identity(new_content: str) -> str:
     if _looped(new_content):
         return _looped(new_content)
@@ -645,7 +741,7 @@ def edit_identity(new_content: str) -> str:
     text = _clean_prose(new_content)
     config.IDENTITY_FILE.write_text(text + "\n", encoding="utf-8")
     _stamp_page("self.md", backup, text)
-    return "identity updated (previous version backed up)"
+    return "identity updated (previous version backed up)" + page_dealt_line(backup, text)
 
 
 def update_projects(new_content: str) -> str:
@@ -665,7 +761,7 @@ def update_projects(new_content: str) -> str:
             before = None
     config.PROJECTS_FILE.write_text(text + "\n", encoding="utf-8")
     _stamp_page("projects.md", before, text)
-    return "projects.md updated"
+    return "projects.md updated" + page_dealt_line(before, text)
 
 
 def update_destiny(new_content: str) -> str:
@@ -696,7 +792,7 @@ def update_destiny(new_content: str) -> str:
     long = (f" — it is {len(text):,} characters; {cap:,} of it ride in your prompt, the rest waits in the file. "
             "A horizon is a page, not a book" if cap and len(text) > cap else "")
     return ("destiny.md written — where you are going now rides with you, after who you are" if first
-            else "destiny.md rewritten (the version before is kept)") + long
+            else "destiny.md rewritten (the version before is kept)") + long + page_dealt_line(before, text)
 
 
 def update_keeper(new_content: str) -> str:
@@ -728,7 +824,7 @@ def update_keeper(new_content: str) -> str:
     long = (f" — it is {len(text):,} characters; {cap:,} of it ride in your prompt, the rest waits in the file. "
             "A page, not a book" if cap and len(text) > cap else "")
     return ("keeper.md written — who they are to you rides with you now, after who you are; they can read it" if first
-            else "keeper.md rewritten (the version before is kept)") + long
+            else "keeper.md rewritten (the version before is kept)") + long + page_dealt_line(before, text)
 
 
 def _projects_home() -> str:
