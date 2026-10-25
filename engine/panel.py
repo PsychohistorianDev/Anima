@@ -100,7 +100,7 @@ TABS: dict[str, list[str]] = {
               "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD", "SLEEP_IN_BRIDGE", "SLEEP_IN_BRIDGE_QUIET_MIN"],
     "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_UNLOAD_BRAIN",
                "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
-               "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS",
+               "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE",
                "MUSIC_EARS_MODEL", "MUSIC_EARS_AUTOSTART", "MUSIC_EARS_PYTHON", "MUSIC_EARS_DEVICE", "MUSIC_EARS_REST_LEAVES",
                "BODY_IN_PROMPT", "BODY_AUTOPULL", "BODY_PULL_MIN",
                "TOUCHSTONE_URL", "TOUCHSTONE_BOARD", "TOUCHSTONE_POLL_S", "TOUCHSTONE_TELL_S", "TOUCHSTONE_WAKES", "TOUCHSTONE_WAKE_MIN_GAP_S",
@@ -493,6 +493,8 @@ _HELP = {
     "PAINTER_ENCODER_BITS": "Qwen-Image's text encoder quantized as it loads: 8 (about 9 GB, near-lossless) or 4 (about 5 GB) "
                             "lets the whole pipeline sit on the card and paint without offload, about twice as quick; 0 is "
                             "full precision under offload. Needs bitsandbytes; without it the painter says so and offloads.",
+    "PAINTER_REFERENCE_NOTE": "A line of your own at the end of the paint tool's description — who is in which reference "
+                              "folder, say. Empty: none. Changing it costs one cold read of the window.",
     "PAINTER_REST_LEAVES": "When the painter rests after a painting, its process leaves too: the CUDA context it holds while it "
                            "lingers (~0.5-1 GB) goes with it, and paint waits until it is gone before the brain's door opens "
                            "again. Off: it rests and lingers for PAINTER_EXIT_S, ready for a second painting without a load.",
@@ -614,7 +616,7 @@ SENSES: list[dict] = [
      "they call it; the brain steps off the card and reads its window cold after — the real price of a painting",
      "modules": ["torch", "diffusers", "PIL"], "tools": [], "python": "PAINTER_PYTHON",
      "pip": "-U diffusers transformers accelerate safetensors pillow sentencepiece protobuf tiktoken (torch and torchvision first — README)",
-     "knobs": ["PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS"],
+     "knobs": ["PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE"],
      "readme": "their-senses-and-hands"},
     {"key": "music", "name": "The music ear", "what": "a song heard whole by Music Flamingo (8B, ~16 GB of VRAM to itself): genre, "
      "tempo, key, how the piece moves; without it a long piece is heard in passages by the brain",

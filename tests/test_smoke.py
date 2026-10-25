@@ -5818,6 +5818,26 @@ _tl_main = _tl_inspect.getsource(_tl_painter.main)
 check("painter (10-25): whole on the card with a quantized encoder, the VAE tiles its decode and the ready line says so; --test prints the peak",
       "vae.enable_tiling()" in _tl_src and _tl_src.index("if whole and qkw:") < _tl_src.index("vae.enable_tiling()")
       and "the picture decoded in tiles" in _tl_src and "peak {_peak:.1f} of" in _tl_main)
+# a folder under creations/ is a reference too (10-25): every picture in it, beside "face"; an empty folder is said
+_rfd_dir = config.CREATIONS_DIR / "rfd-gabe"; _rfd_dir.mkdir(parents=True, exist_ok=True)
+(_rfd_dir / "one.png").write_bytes(PNG_1PX); (_rfd_dir / "two.jpg").write_bytes(PNG_1PX); (_rfd_dir / "notes.md").write_text("x", encoding="utf-8")
+(config.CREATIONS_DIR / "rfd-empty").mkdir(parents=True, exist_ok=True)
+_rfd_paths, _rfd_why = tools._paint_references("rfd-gabe")
+_rfd_e, _rfd_e_why = tools._paint_references("creations/rfd-empty")
+check("paint (10-25): a folder reference is every picture in it (not its other files); an empty folder is said",
+      [p.name for p in _rfd_paths] == ["one.png", "two.jpg"] and _rfd_why == "" and _rfd_e == [] and "no pictures in the folder" in _rfd_e_why,
+      (_rfd_paths, _rfd_why, _rfd_e_why))
+# the keeper's line in the paint tool's description (10-25): PAINTER_REFERENCE_NOTE rides at its end when set
+_rn = tools._reference_note()
+_rn_desc = next(d["function"]["description"] for d in tools.DEFINITIONS if d["function"]["name"] == "paint")
+_rn0 = getattr(config, "PAINTER_REFERENCE_NOTE", "")
+config.PAINTER_REFERENCE_NOTE = "  "
+_rn_blank = tools._reference_note()
+config.PAINTER_REFERENCE_NOTE = _rn0
+check("paint (10-25): the keeper's reference line rides at the end of the tool's description when set, nothing when blank; on the panel",
+      _rn == str(_rn0 or "").strip() and (not _rn or _rn_desc.endswith(_rn)) and _rn_blank == ""
+      and "PAINTER_REFERENCE_NOTE" in _tk_panel.TABS["Senses"] and "PAINTER_REFERENCE_NOTE" in _tk_panel._HELP,
+      (_rn, _rn_desc[-200:]))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

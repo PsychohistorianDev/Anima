@@ -129,7 +129,7 @@ _OFFLOAD_FAMILIES = {"qwen21"}  # too big for the card whole: diffusers' model o
 
 
 _QUANT_FAMILIES = {"qwen21"}  # a text encoder big enough that quantizing it puts the whole pipeline on the card
-_REFERENCE_FAMILIES = {"qwen21"}  # brushes that read condition pictures with the prompt (10-25: her face, paint-over)
+_REFERENCE_FAMILIES = {"qwen21"}  # brushes that read condition pictures with the prompt (10-25: a face of their own, paint-over)
 REFERENCE_MAX = 10  # Qwen-Image 2.1 keeps identity across up to ten
 
 
@@ -365,7 +365,7 @@ def paint(prompt: str, width: int, height: int, seed: int | None = None, negativ
         gen = torch.Generator(device=device.generator_device(_device)).manual_seed(int(seed))
         steps, guidance = _defaults(MODEL_ID)
         with torch.inference_mode():
-            extra = {"image": images} if images else {}  # condition pictures: her face, or the one being repainted (10-25)
+            extra = {"image": images} if images else {}  # condition pictures: their face, or the one being repainted (10-25)
             out = _pipe(prompt=prompt, width=int(width), height=int(height), generator=gen,
                         **_call_kwargs(MODEL_ID, steps, guidance, negative), **extra)  # the keywords follow the family (10-24)
         _last_used = time.time()

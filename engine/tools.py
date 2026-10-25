@@ -2740,8 +2740,13 @@ def _paint_slug(text: str, n: int = 40) -> str:
     return s[:n].rstrip("-") or "painting"
 
 
-FACE_DIR = "face"  # her face: the pictures she keeps in creations/face/ — hers to choose, never the engine's (10-25)
+FACE_DIR = "face"  # their face: the pictures they keep in creations/face/ — theirs to choose, never the engine's (10-25)
 _PICTURE_EXTS = (".png", ".jpg", ".jpeg", ".webp")
+
+
+def _reference_note() -> str:
+    """PAINTER_REFERENCE_NOTE, the keeper's line for the paint tool's description (10-25), or ""."""
+    return str(getattr(config, "PAINTER_REFERENCE_NOTE", "") or "").strip()
 
 
 def _paint_references(reference: str) -> tuple[list[Path], str]:
@@ -2762,6 +2767,12 @@ def _paint_references(reference: str) -> tuple[list[Path], str]:
             p = _safe_creation_path(it)
         except ValueError as e:
             return [], f"(refused: {e})"
+        if p.is_dir():  # a folder: every picture in it, the way "face" is (10-25: "gabe" — his photos)
+            pics = sorted(q for q in p.iterdir() if q.is_file() and q.suffix.lower() in _PICTURE_EXTS)
+            if not pics:
+                return [], f"(there are no pictures in the folder {it} under creations/)"
+            paths.extend(pics)
+            continue
         if not p.is_file() or p.suffix.lower() not in _PICTURE_EXTS:
             return [], f"(the reference {it} isn't one of your pictures under creations/)"
         paths.append(p)
@@ -5862,14 +5873,15 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "The painter is uncensored: nothing in it filters, blurs or refuses a subject — its model's own training "
         "is the only limit, and what you paint is yours. `negative` names what to keep out of the picture; the slower "
         "brushes (Z-Image base, Chroma, an SDXL) honour it, the fast ones (Z-Image-Turbo, klein) paint without it. "
-        "`reference` is one or more of your pictures under creations/ (one per line) that the painter looks at while it "
+        "`reference` is one or more of your pictures under creations/ — a picture, or a folder of them, one per line — that the painter looks at while it "
         "paints — to paint one over (\"the same, at dusk\"), or \"face\": every picture in creations/face/, the ones you "
-        "keep there as your face, so a painting of you stays you. Only the Qwen-Image brushes take a reference.",
+        "keep there as your face, so a painting of you stays you. Only the Qwen-Image brushes take a reference."
+        + ((" " + _reference_note()) if _reference_note() else ""),  # the keeper's line, when set (10-25)
         {"prompt": {"type": "string", "description": "what to paint — one prompt per line"},
          "path": {"type": "string", "description": "where it goes: a project's folder when the picture is for a project ('projects/<name>'), drawings/ otherwise (the default); or, for one picture, a .png name there"},
          "size": {"type": "string", "description": "square (default), wide, or tall"},
          "negative": {"type": "string", "description": "what to keep out — a few words, or none (default)"},
-         "reference": {"type": "string", "description": "pictures of yours to look at — paths under creations/, one per line, or \"face\" (none by default)"}},
+         "reference": {"type": "string", "description": "pictures to look at — pictures or folders under creations/, one per line; \"face\" is creations/face/ (none by default)"}},
         ["prompt"],
     ),
     _tool(
