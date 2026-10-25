@@ -5916,6 +5916,43 @@ check("claimed (10-25): the kept reply is the words that go out, stays in the vi
           and any("words above said it was done before anything was saved" in n and "did it then (write_journal)" in n for n in notes)
           for r, h, notes in _ck_turns.values()),
       {w: (r[:60], [n[:120] for n in notes]) for w, (r, h, notes) in _ck_turns.items()})
+# room for references (10-25, 19:12): a reference painting takes the offload road; whole on the card each step is
+# watched and a painting past the card is painted again under offload; a /rest is heard mid-painting; a timeout ends it
+import painter as _pr_painter, inspect as _pr_inspect
+class _PrPipe:
+    def __call__(self, prompt=None, callback_on_step_end=None, **kw):
+        return None
+_pr_keep = (_pr_painter._whole, _pr_painter._pipe, _pr_painter._device, _pr_painter._family,
+            _pr_painter.device.total_gb, _pr_painter.device.peak_gb)
+try:
+    _pr_painter._whole, _pr_painter._pipe, _pr_painter._device = True, _PrPipe(), "cuda:0"
+    _pr_painter._family = lambda m: "qwen21"
+    _pr_painter.device.total_gb = lambda d, torch=None: 34.2
+    _pr_painter.device.peak_gb = lambda d, torch=None: 40.0
+    _pr_w = _pr_painter._spill_watch(None)
+    try:
+        _pr_w["callback_on_step_end"](None, 2, 0, {}); _pr_raised = ""
+    except _pr_painter._Spilled as e:
+        _pr_raised = str(e)
+    _pr_painter.device.peak_gb = lambda d, torch=None: 27.0
+    _pr_ok = _pr_w["callback_on_step_end"](None, 0, 0, {"a": 1}) if _pr_w else None
+    _pr_painter._whole = False
+    _pr_off = _pr_painter._spill_watch(None)
+finally:
+    (_pr_painter._whole, _pr_painter._pipe, _pr_painter._device, _pr_painter._family,
+     _pr_painter.device.total_gb, _pr_painter.device.peak_gb) = _pr_keep
+_pr_paint = _pr_inspect.getsource(_pr_painter.paint)
+_pr_load = _pr_inspect.getsource(_pr_painter._load)
+_pr_door = _pr_inspect.getsource(_pr_painter.Handler.do_POST)
+_pr_main = _pr_inspect.getsource(_pr_painter.main)
+_pr_tool = _pr_inspect.getsource(tools.paint)
+check("painter (10-25): a step past the card stops the painting (said with its peak), under it goes on; under offload nothing is watched",
+      "at step 3 (peak 40.0 of 34.2 GB)" in _pr_raised and _pr_ok == {"a": 1} and _pr_off == {}, (_pr_raised, _pr_ok, _pr_off))
+check("painter (10-25): references take the offload road, a spill is painted again under offload, /rest is heard mid-painting, a timeout ends the call",
+      "_load(offload=bool(images))" in _pr_paint and "except _Spilled" in _pr_paint and "_load(offload=True)" in _pr_paint
+      and "if offload and qkw and fam in _OFFLOAD_FAMILIES:" in _pr_load and "_whole = whole" in _pr_load
+      and "_lock.acquire(timeout=REST_WAIT_S)" in _pr_door and "ThreadingHTTPServer((HOST, PORT), Handler)" in _pr_main
+      and "nothing after it was painted" in _pr_tool and "break" in _pr_tool)
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

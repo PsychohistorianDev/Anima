@@ -58,7 +58,7 @@ import sys
 import threading
 import time
 from datetime import datetime
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -94,6 +94,7 @@ SIZES = {k: (_snap(w), _snap(h)) for k, (w, h) in
 
 _lock = threading.Lock()
 _pipe = None
+_whole = False  # loaded whole on the card, not under offload — the spill watch and the references' road (10-25)
 _device = "cuda"  # where _load put the model (device.pick, PAINTER_DEVICE)
 _last_used = 0.0
 _started = time.time()
@@ -250,8 +251,39 @@ def _set_brain_down() -> None:
         print(f"  (couldn't set the brain down first: {type(e).__name__}: {e})", flush=True)
 
 
-def _load():
-    global _pipe, _device
+class _Spilled(RuntimeError):
+    """A painting ran past the card into system memory (10-25)."""
+
+
+def _spill_watch(torch) -> dict:
+    """{"callback_on_step_end": …} for a brush that also paints under offload, loaded whole on the card: after each
+    step the high-water mark against the card; past it, Windows has begun lending system memory and the painting
+    crawls (10-25: one with two references ran ten minutes past the card, the brain's door shut behind it) — stopped,
+    to be painted again under offload. {} anywhere else, or for a pipeline that takes no step callback."""
+    if not _whole or _pipe is None or not str(_device).startswith("cuda") or _family(MODEL_ID) not in _OFFLOAD_FAMILIES:
+        return {}
+    try:
+        import inspect
+        if "callback_on_step_end" not in inspect.signature(_pipe.__call__).parameters:
+            return {}
+    except (TypeError, ValueError):
+        return {}
+    total = device.total_gb(_device, torch)
+    if not total:
+        return {}
+
+    def _cb(pipe, i, t, kw):
+        pk = device.peak_gb(_device, torch)
+        if pk and pk > total:
+            raise _Spilled(f"ran past the card into system memory at step {int(i) + 1} (peak {pk:.1f} of {total:.1f} GB)")
+        return kw
+    return {"callback_on_step_end": _cb}
+
+
+def _load(offload: bool = False):
+    """offload: the parts take the card in turn even where the brush would sit whole (10-25) — a painting with
+    references, or one that ran past the card; for a brush that paints under offload (_OFFLOAD_FAMILIES)."""
+    global _pipe, _device, _whole
     if _pipe is not None:
         return
     import torch
@@ -278,6 +310,12 @@ def _load():
     qkw, qline = _quant_kwargs(fam) if str(_device).startswith("cuda") else ({}, "")
     if qline and not qkw:
         print(f"  ({qline})", flush=True)
+    if offload and qkw and fam in _OFFLOAD_FAMILIES:
+        # references ride along, or the last painting ran past the card (10-25): whole on the card in 8-bit there's
+        # ~7 GB to spare and a reference doubles what the painting holds; under offload the peak is ~18 GB
+        qkw, qline = {}, ""
+        print("  (painting under offload, the encoder at full precision — references need the room whole on the card "
+              "hasn't got)", flush=True)
     if not qkw:
         pipe = _from(torch_dtype=device.dtype(_device, torch))  # the download (once) and the load into RAM — the brain still up
         _set_brain_down()  # now, right before the card: not before a download the engine would reopen the door during (10-24)
@@ -319,6 +357,7 @@ def _load():
     except Exception:
         pass
     _pipe = pipe
+    _whole = whole
     held = device.allocated_gb(_device, torch)
     print(f"  painter ready ({time.time() - t0:.0f}s, on {_device}"
           + (f", {held:.1f} GB" if held is not None else "") + f", {cls}"
@@ -339,6 +378,7 @@ def _unload():
 
 
 LEAVE_AFTER_S = 0.5  # /rest's reply goes out first; then the process leaves (PAINTER_REST_LEAVES)
+REST_WAIT_S = 3.0  # how long a /rest waits for a painting in progress before a painter that leaves goes anyway (10-25)
 _leaving = False  # /rest said it goes: /health says so for the moment left, and no painting is taken
 
 
@@ -357,7 +397,9 @@ def paint(prompt: str, width: int, height: int, seed: int | None = None, negativ
     global _last_used, _peak
     import torch
     with _lock:
-        _load()
+        if images and _pipe is not None and _whole and _family(MODEL_ID) in _OFFLOAD_FAMILIES:
+            _unload()  # loaded whole for a painting from words; references take the offload road (10-25)
+        _load(offload=bool(images))
         device.reset_peak(_device, torch)
         _last_used = time.time()
         if seed is None:
@@ -366,8 +408,23 @@ def paint(prompt: str, width: int, height: int, seed: int | None = None, negativ
         steps, guidance = _defaults(MODEL_ID)
         with torch.inference_mode():
             extra = {"image": images} if images else {}  # condition pictures: their face, or the one being repainted (10-25)
-            out = _pipe(prompt=prompt, width=int(width), height=int(height), generator=gen,
-                        **_call_kwargs(MODEL_ID, steps, guidance, negative), **extra)  # the keywords follow the family (10-24)
+            try:
+                out = _pipe(prompt=prompt, width=int(width), height=int(height), generator=gen,
+                            **_call_kwargs(MODEL_ID, steps, guidance, negative), **extra,
+                            **_spill_watch(torch))  # the keywords follow the family (10-24); the card watched (10-25)
+                spilled = None
+            except _Spilled as e:
+                spilled = str(e)
+        if spilled is not None:
+            # past the card (10-25): the same painting again under offload, the same seed — not a ten-minute crawl
+            print(f"  ({spilled} — painting it again under offload)", flush=True)
+            _unload()
+            _load(offload=True)
+            device.reset_peak(_device, torch)
+            gen = torch.Generator(device=device.generator_device(_device)).manual_seed(int(seed))
+            with torch.inference_mode():
+                out = _pipe(prompt=prompt, width=int(width), height=int(height), generator=gen,
+                            **_call_kwargs(MODEL_ID, steps, guidance, negative), **extra)
         _last_used = time.time()
         # the high-water mark of this painting, then the cache handed back before the next one: a set of
         # three painted at 45 s, 196 s, 205 s with nothing else on the card — one painting's reserved blocks
@@ -425,11 +482,22 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         global _leaving
         if self.path == "/rest":
-            with _lock:
-                _unload()
-                leave = bool(getattr(config, "PAINTER_REST_LEAVES", True))
-                if leave:
-                    _leaving = True
+            leave = bool(getattr(config, "PAINTER_REST_LEAVES", True))
+            if not _lock.acquire(timeout=REST_WAIT_S):
+                # mid-painting (10-25): the engine stopped waiting for it (PAINTER_TIMEOUT_S); a painter that leaves
+                # goes now, the painting with it, and the card comes back to the brain
+                if not leave:
+                    return self._json({"ok": False, "busy": True})
+                _leaving = True
+                print("  (asked to rest mid-painting — the engine stopped waiting; leaving now, the painting with it)",
+                      flush=True)
+            else:
+                try:
+                    _unload()
+                    if leave:
+                        _leaving = True
+                finally:
+                    _lock.release()
             if not leave:
                 return self._json({"ok": True})  # rested: the process lingers for PAINTER_EXIT_S
             self._json({"ok": True, "leaving": True})
@@ -511,7 +579,7 @@ def main() -> None:
         return
     threading.Thread(target=_idle_watch, daemon=True).start()
     HTTPServer.allow_reuse_address = sys.platform != "win32"  # on Windows SO_REUSEADDR lets two servers share a port (10-02)
-    server = HTTPServer((HOST, PORT), Handler)
+    server = ThreadingHTTPServer((HOST, PORT), Handler)  # a /rest is heard while a painting runs (10-25)
     print(f"The painter is waiting at http://{HOST}:{PORT}  (model: {MODEL_ID}, family {_family(MODEL_ID)})")
     print("It loads on the first painting and rests after silence. Ctrl+C to close.")
     try:

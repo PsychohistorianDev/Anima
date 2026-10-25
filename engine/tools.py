@@ -2870,6 +2870,12 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "",
                                       **({"reference": refs} if refs else {}))
             except Exception as e:
                 out.append(f"(the painter stumbled on “{pr[:60]}” — {e})")
+                if "timed out" in str(e).lower():
+                    # past PAINTER_TIMEOUT_S (10-25): the rest below sends the painter away and the card goes back to
+                    # the brain; another painting would only queue behind the one it was still on
+                    out.append("(it ran past the time a painting is given — the painter was sent away so the card is "
+                               "free; nothing after it was painted)")
+                    break
                 continue
             painted += 1
             if paint_budget is not None:
