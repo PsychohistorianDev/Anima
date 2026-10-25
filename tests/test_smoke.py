@@ -7050,6 +7050,8 @@ check("painter: the families by name — Turbo, the base Z-Image, klein, Chroma,
       and painter._call_kwargs("lodestones/Chroma1-HD", 40, 3.0, "text") == {"num_inference_steps": 40, "guidance_scale": 3.0, "negative_prompt": "text"}
       and painter._call_kwargs("Tongyi-MAI/Z-Image-Turbo", 9, 0.0, "text") == {"num_inference_steps": 9, "guidance_scale": 0.0}
       and painter._fit("Qwen/Qwen-Image-2.1", 1440, 1440) == (1440, 1440)
+      and painter._family("Qwen/Qwen-Image-2.1-Turbo") == "qwen21"  # the distilled checkpoint (10-25): same family, its schedule baked in
+      and "torchvision" in painter.__doc__ and "sentencepiece protobuf tiktoken" in painter.__doc__
       and painter._defaults("Tongyi-MAI/Z-Image") == (36, 4.0) and painter._defaults("lodestones/Chroma1-HD") == (40, 3.0)
       and painter._defaults("RunDiffusion/Juggernaut-XL-v9") == (30, 5.0) and painter._defaults("someone/new-model") == (20, 3.5)
       and painter._CLASSES["chroma"] == "ChromaPipeline" and painter._CLASSES["zimage-base"] == "ZImagePipeline",
@@ -10817,7 +10819,8 @@ check("panel: the Mac's ladder — 8 GB the 2B QAT, 16 to 24 GB the 12B, the 31B
 (panel._launch, panel._WINDOWS, panel._MAC, panel.TERMINALS, panel._ollama, panel._vram_gb, panel.newer_state) = _x_p0
 check("panel: the painter's model is a dropdown too (10-24) — the brushes the painter knows by family, the shipped one first",
       panel.CHOICES["PAINTER_MODEL"] == ["Tongyi-MAI/Z-Image-Turbo", "black-forest-labs/FLUX.2-klein-4B", "Tongyi-MAI/Z-Image",
-                                         "lodestones/Chroma1-HD", "RunDiffusion/Juggernaut-XL-v9", "Qwen/Qwen-Image-2.1"]
+                                         "lodestones/Chroma1-HD", "RunDiffusion/Juggernaut-XL-v9", "Qwen/Qwen-Image-2.1",
+                                         "Qwen/Qwen-Image-2.1-Turbo"]
       and all(painter._family(m) != "auto" for m in panel.CHOICES["PAINTER_MODEL"])
       and "PAINTER_MODEL" in panel.TABS["Senses"]  # the knob itself is the house's to set: any brush, or a typed name
       and "next start" in panel._HELP["PAINTER_MODEL"], panel.CHOICES["PAINTER_MODEL"])

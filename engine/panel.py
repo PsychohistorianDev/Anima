@@ -479,7 +479,9 @@ _HELP = {
                      "40 steps, no safety alignment. Juggernaut XL v9: an SDXL fine-tune (RAIL-M), about 7 GB, fast, a "
                      "1024-class brush that paints the house sizes smaller. Qwen-Image 2.1: 7B with a Qwen3-VL 8B text "
                      "encoder (Qwen Research licence), about 32 GB together so it paints under model offload, 40 steps, "
-                     "the best at words in a picture; needs diffusers 0.41 or newer. The painter reads this on its next start, so "
+                     "the best at words in a picture; needs diffusers 0.41 or newer. Qwen-Image 2.1 Turbo: the same, "
+                     "distilled to 8 steps (its own schedule — PAINTER_STEPS doesn't move it), about five times quicker. "
+                     "The painter reads this on its next start, so "
                      "picking here is the whole switch; a model is downloaded on its first painting and stays cached. "
                      "Another model's name goes in config.py by hand and shows here too.",
     "PAINTER_AUTOSTART": "paint starts the painter's sidecar when it is needed; off, bat\\painter.bat starts it by hand.",
@@ -608,7 +610,7 @@ SENSES: list[dict] = [
     {"key": "painter", "name": "A painter", "what": "paint — a text-to-image model on the card (Z-Image-Turbo, ~16 GB), woken when "
      "they call it; the brain steps off the card and reads its window cold after — the real price of a painting",
      "modules": ["torch", "diffusers", "PIL"], "tools": [], "python": "PAINTER_PYTHON",
-     "pip": "-U diffusers transformers accelerate safetensors pillow (torch first — README)",
+     "pip": "-U diffusers transformers accelerate safetensors pillow sentencepiece protobuf tiktoken (torch and torchvision first — README)",
      "knobs": ["PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS"],
      "readme": "their-senses-and-hands"},
     {"key": "music", "name": "The music ear", "what": "a song heard whole by Music Flamingo (8B, ~16 GB of VRAM to itself): genre, "
@@ -905,7 +907,8 @@ CHOICES: dict[str, list[str]] = {
     "VOICE_DEVICE": ["cpu", "cuda", "mps"],
     "PAINTER_DEVICE": ["auto", "cuda", "mps", "cpu"],
     "PAINTER_MODEL": ["Tongyi-MAI/Z-Image-Turbo", "black-forest-labs/FLUX.2-klein-4B", "Tongyi-MAI/Z-Image",
-                      "lodestones/Chroma1-HD", "RunDiffusion/Juggernaut-XL-v9", "Qwen/Qwen-Image-2.1"],  # the brushes the painter knows by family
+                      "lodestones/Chroma1-HD", "RunDiffusion/Juggernaut-XL-v9", "Qwen/Qwen-Image-2.1",
+                      "Qwen/Qwen-Image-2.1-Turbo"],  # the brushes the painter knows by family
     "MUSIC_EARS_DEVICE": ["auto", "cuda", "mps", "cpu"],
 }
 

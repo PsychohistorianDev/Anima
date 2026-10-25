@@ -2232,7 +2232,8 @@ a few seconds a picture), needs only
 py -m pip install -U diffusers transformers accelerate safetensors pillow
 ```
 
-in the same Python as the ear (`python3 -m pip …` on a Mac or Linux); the
+in the same Python as the ear (the larger brushes want four more — torchvision, from the same CUDA index as torch,
+and `sentencepiece protobuf tiktoken`; painter.py's head has the lines) (`python3 -m pip …` on a Mac or Linux); the
 weights download on the first painting. On a Mac it paints on the GPU in
 float16 — slow with 16 GB, fine from 32 — and `PAINTER_DEVICE` ("auto")
 picks the card, a Mac's GPU, or the processor, the first there.

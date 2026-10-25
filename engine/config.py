@@ -257,6 +257,7 @@ READ_RANGE_CHARS = 80000       # a named range: ~40 pages, ~20K tokens
 # the music ear — woken by `paint`, the brain unloaded for it, the GPU handed
 # back after. Not installed: paint says so and suggests run_python + matplotlib.
 # Setup (once, in the ear's Python):  py -m pip install -U diffusers transformers accelerate safetensors pillow
+#   sentencepiece protobuf tiktoken  — and torchvision beside torch, from the same CUDA index (painter.py's head)
 # Cost: every painting is a model swap, and the brain then re-reads its whole
 # context cold (minutes on a large context). Gather prompts into one call.
 PAINTER_URL = "http://127.0.0.1:8767"

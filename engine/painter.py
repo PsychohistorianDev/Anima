@@ -16,8 +16,12 @@ and reads their whole window cold, which is the real price of a painting.
 Not standard library — this one needs the real thing. One-time setup, in
 the same Python that runs the ear (it already has the CUDA torch):
 
-    py -m pip install torch --index-url https://download.pytorch.org/whl/cu128
-    py -m pip install -U diffusers transformers accelerate safetensors pillow
+    py -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+    py -m pip install -U diffusers transformers accelerate safetensors pillow sentencepiece protobuf tiktoken
+
+(torchvision from the same index as torch, so the two match: Qwen-Image's text encoder wants it. sentencepiece and
+protobuf read a T5 tokenizer (Chroma); tiktoken is transformers' fallback for some tokenizers. Z-Image-Turbo alone
+needs none of the four, and they cost nothing to have.)
 
 (On a Mac: `python3 -m pip install torch`, whose plain build has the Mac's GPU,
 "mps"; then the same diffusers line with python3. On Linux the cu128 line is
@@ -34,6 +38,8 @@ Apache 2.0 — no login, no license to accept:
     Tongyi-MAI/Z-Image                  6B, 36 steps with guidance — Turbo's undistilled parent; takes a negative
     lodestones/Chroma1-HD               8.9B, 40 steps, ~28 GB with its T5 — art, photography, niche styles; a negative
     RunDiffusion/Juggernaut-XL-v9       an SDXL fine-tune (RAIL-M), ~7 GB, 30 steps, 1024-class — a different hand
+    Qwen/Qwen-Image-2.1-Turbo           the same, distilled by Qwen to 8 steps (baked into its model_index.json, so
+                                        PAINTER_STEPS does not move it) — about five times quicker; same family
     Qwen/Qwen-Image-2.1                 7B + a Qwen3-VL 8B text encoder (Qwen Research licence), ~32 GB together, 40
                                         steps, no guidance, native 2048², reads text best — runs under model offload
                                         (the encoder and the model take the card in turn); diffusers 0.41+
