@@ -444,6 +444,8 @@ def _under_creations(path: str) -> Path | None:
         p = (p if p.is_absolute() else root / path).resolve()
         if root != p and root not in p.parents:
             return None
+        if ":" in str(p.relative_to(root)):
+            return None  # a colon is Windows' stream separator: the picture would vanish into a hidden stream (10-25)
         return p
     except OSError:
         return None

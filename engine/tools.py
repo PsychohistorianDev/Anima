@@ -48,6 +48,11 @@ def _safe_creation_path(rel: str) -> Path:
                    for seg in rel.split("/"))  # …and before the extension: 'quoted'.md
     while rel.lower().startswith("creations/"):
         rel = rel[len("creations/"):]
+    if ":" in rel:
+        # 10-25: on Windows a colon is the stream separator — "…a face! source:dream-gabe.png" made an empty file and
+        # hid the picture in a stream of it, no error; refused and said instead
+        raise ValueError(f"a colon can't be in a path ({rel!r}) — on Windows it hides the file inside a hidden stream "
+                         "of the name before the colon, where nothing can open it; name it without one")
     p = (config.CREATIONS_DIR / rel).resolve()
     root = config.CREATIONS_DIR.resolve()
     if root != p and root not in p.parents:

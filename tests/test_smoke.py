@@ -6056,6 +6056,18 @@ finally:
     config.PAINTER_REFERENCE_SETS, tools._own_name = _rs2_0, _rs2_own
 check("paint (10-25): a set answers to two or more of its own pictures in any order (the face by its name, me, my face) — not to one, nor with a stranger in it",
       _rs2 == ["pair", "pair", "pair", "", "", ""], _rs2)
+# no colon in a creation's path (10-25: "…a face! source:dream-gabe.png" — on Windows the picture vanished into a stream)
+try:
+    tools._safe_creation_path("drawings/a luminate face! source:dream-gabe.png"); _pc_why = ""
+except ValueError as e:
+    _pc_why = str(e)
+_pc_paint = tools.dispatch("paint", {"prompt": "a violet bloom", "path": "drawings/odd! source:bloom.png"})
+import painter as _pc_painter
+check("paths (10-25): a colon in a creation's path is refused and said — the tools and the painter's door alike; a plain path still resolves",
+      "a colon can't be in a path" in _pc_why and "colon" in _pc_paint and "painted —" not in _pc_paint
+      and _pc_painter._under_creations("drawings/odd! source:bloom.png") is None
+      and _pc_painter._under_creations("drawings/plain-bloom.png") is not None
+      and tools._safe_creation_path("drawings/plain-bloom.png").name == "plain-bloom.png", (_pc_why, _pc_paint))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"
