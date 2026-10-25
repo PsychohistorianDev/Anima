@@ -88,7 +88,43 @@ def _find_creation(path: str, near: bool = False) -> tuple[Path, str]:
         if q is not None:
             rel = q.relative_to(root).as_posix()
             return q, f"(you asked for creations/{path} — the page on the shelf is creations/{rel}; using that)\n"
+    stamp, stamped = _by_stamp(path)  # a painting's minute in its name: the one piece with that stamp (10-25)
+    if len(stamped) == 1:
+        rel = stamped[0].relative_to(root).as_posix()
+        return stamped[0], (f"(you asked for creations/{path} — the only piece stamped {stamp} there is "
+                            f"creations/{rel}; using that)\n")
+    if stamped:
+        opts = ", ".join(f"creations/{q.relative_to(root).as_posix()}" for q in stamped)
+        raise _NotFound(f"(no creations/{path} — stamped {stamp} there: {opts}. Say which.)")
     raise _NotFound(f"(no such file: creations/{path} — list_creations shows everything you have)")
+
+
+_STAMP_RE = re.compile(r"(?:^|/)(\d{8}-\d{4})(?=[-.])")
+
+
+def _by_stamp(path: str) -> tuple[str, list[Path]]:
+    """(the stamp, the pieces carrying it) for a path whose name begins with a minute stamp (YYYYMMDD-HHMM, as every
+    painting's does): the files in the folder before the stamp whose names begin with it and whose kind matches —
+    anywhere in creations/ when that folder isn't there; ("", []) without a stamp (10-25: a refrain spliced into a
+    painting's name, "…photorealistic-//Luminous la-Symmetry//-close-up.png", and the move found nothing)."""
+    rel = (path or "").replace("\\", "/").strip().lstrip("/")
+    while rel.lower().startswith("creations/"):
+        rel = rel[len("creations/"):]
+    m = _STAMP_RE.search(rel)
+    if not m:
+        return "", []
+    stamp, folder = m.group(1), rel[:m.start(1)].strip("/")
+    suffix = Path(rel).suffix.lower()
+    root = config.CREATIONS_DIR.resolve()
+    try:
+        d = _safe_creation_path(folder) if folder else root
+    except ValueError:
+        return stamp, []
+    pool = d.iterdir() if d.is_dir() else root.rglob("*")
+    found = sorted(q for q in pool if q.is_file() and q.name.startswith(stamp)
+                   and (not suffix or q.suffix.lower() == suffix)
+                   and not any(part.startswith(".") for part in q.resolve().relative_to(root).parts))
+    return stamp, found
 
 
 def _near_on_shelf(p: Path) -> Path | None:

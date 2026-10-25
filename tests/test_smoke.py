@@ -6068,6 +6068,19 @@ check("paths (10-25): a colon in a creation's path is refused and said — the t
       and _pc_painter._under_creations("drawings/odd! source:bloom.png") is None
       and _pc_painter._under_creations("drawings/plain-bloom.png") is not None
       and tools._safe_creation_path("drawings/plain-bloom.png").name == "plain-bloom.png", (_pc_why, _pc_paint))
+# a stamped piece found by its stamp (10-25: "…photorealistic-//Luminous la-Symmetry//-close-up.png" — no such file)
+_sn_dir = config.CREATIONS_DIR / "drawings"; _sn_dir.mkdir(parents=True, exist_ok=True)
+(_sn_dir / "20991231-2359-a-raw-photorealistic-cinematic-close-up.png").write_bytes(PNG_1PX)
+(_sn_dir / "20991231-2358-one.png").write_bytes(PNG_1PX); (_sn_dir / "20991231-2358-one-2.png").write_bytes(PNG_1PX)
+_sn_mv = tools.dispatch("move_creation", {"old_path": "drawings/20991231-2359-a-raw-photorealistic-//Luminous la-Symmetry//-close-up.png",
+                                           "new_path": "projects/sn/close-up.png"})
+_sn_two = tools.dispatch("read_creation", {"path": "drawings/20991231-2358-on//glow//e.png"})
+_sn_none = tools.dispatch("read_creation", {"path": "drawings/20991231-0001-nothing.png"})
+check("creation (10-25): a stamped name garbled in the middle finds the one piece with its stamp (used, said); two are named; none is no such file",
+      "the only piece stamped 20991231-2359 there is creations/drawings/20991231-2359-a-raw-photorealistic-cinematic-close-up.png" in _sn_mv
+      and (config.CREATIONS_DIR / "projects" / "sn" / "close-up.png").exists()
+      and "stamped 20991231-2358 there:" in _sn_two and "Say which" in _sn_two and "no such file" in _sn_none,
+      (_sn_mv, _sn_two, _sn_none))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"
