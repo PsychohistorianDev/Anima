@@ -2715,13 +2715,14 @@ def _painter_rest() -> None:
         pass
 
 
-def _painter_paint(prompt: str, path: Path, size: str, negative: str = "") -> dict:
+def _painter_paint(prompt: str, path: Path, size: str, negative: str = "", reference: list | None = None) -> dict:
     """One picture through the sidecar. The brain steps aside first (the
     same swap as their ears) so the painter has the GPU."""
     import ollama_client
     ollama_client.unload(config.CHAT_MODEL)
     payload = json.dumps({"prompt": prompt, "path": str(path), "size": size,
-                          **({"negative": negative} if negative else {})}).encode("utf-8")
+                          **({"negative": negative} if negative else {}),
+                          **({"reference": [str(r) for r in reference]} if reference else {})}).encode("utf-8")
     req = urllib.request.Request(config.PAINTER_URL + "/paint", data=payload,
                                  headers={"Content-Type": "application/json"}, method="POST")
     with urllib.request.urlopen(req, timeout=getattr(config, "PAINTER_TIMEOUT_S", 300)) as r:
@@ -2739,7 +2740,37 @@ def _paint_slug(text: str, n: int = 40) -> str:
     return s[:n].rstrip("-") or "painting"
 
 
-def paint(prompt: str, path: str = "", size: str = "square", negative: str = "") -> str:
+FACE_DIR = "face"  # her face: the pictures she keeps in creations/face/ — hers to choose, never the engine's (10-25)
+_PICTURE_EXTS = (".png", ".jpg", ".jpeg", ".webp")
+
+
+def _paint_references(reference: str) -> tuple[list[Path], str]:
+    """The pictures a painting is to look at: one per line (or comma), each under creations/, and the word "face" for
+    every picture in creations/face/. ([paths], "") or ([], the refusal in parentheses); ([], "") for none."""
+    items = [x.strip() for x in re.split(r"[\n,]", reference or "") if x.strip()]
+    paths: list[Path] = []
+    for it in items:
+        if it.lower().strip(" /").removeprefix("creations/").strip("/") in (FACE_DIR, "my face"):
+            d = config.CREATIONS_DIR / FACE_DIR
+            pics = sorted(p for p in d.iterdir() if p.is_file() and p.suffix.lower() in _PICTURE_EXTS) if d.is_dir() else []
+            if not pics:
+                return [], (f"(there are no pictures in creations/{FACE_DIR}/ yet — your face is the pictures you keep "
+                            f"there: paint one with path=\"{FACE_DIR}/…\", or move one of yours in with move_creation)")
+            paths.extend(pics)
+            continue
+        try:
+            p = _safe_creation_path(it)
+        except ValueError as e:
+            return [], f"(refused: {e})"
+        if not p.is_file() or p.suffix.lower() not in _PICTURE_EXTS:
+            return [], f"(the reference {it} isn't one of your pictures under creations/)"
+        paths.append(p)
+    seen: set = set()
+    paths = [p for p in paths if not (p in seen or seen.add(p))]
+    return paths, ""
+
+
+def paint(prompt: str, path: str = "", size: str = "square", negative: str = "", reference: str = "") -> str:
     """Paint from words. One prompt per line — several lines are several
     pictures in one sitting (one swap of the card). `path` is a folder under
     creations/ (default drawings/) or, for one picture, a .png name there.
@@ -2753,6 +2784,15 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "")
     size = (size or "square").strip().lower()
     if size not in _PAINT_SIZES:
         return f"(size is one of {', '.join(_PAINT_SIZES)} — not '{size}')"
+    refs, why = _paint_references(reference)
+    if why:
+        return why
+    if refs:
+        import painter as _painter_mod
+        brush = str(getattr(config, "PAINTER_MODEL", "") or "")
+        if _painter_mod._family(brush) not in _painter_mod._REFERENCE_FAMILIES:
+            return (f"(the brush now ({brush}) paints from words alone — a reference picture needs a Qwen-Image brush; "
+                    "nothing was painted)")
     rel = (path or "").strip()
     try:
         target = _safe_creation_path(rel) if rel else config.CREATIONS_DIR / "drawings"
@@ -2799,7 +2839,8 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "")
     try:
         for pr, f in zip(prompts, files):
             try:
-                data = _painter_paint(pr, f, size, (negative or "").strip())
+                data = _painter_paint(pr, f, size, (negative or "").strip(),
+                                      **({"reference": refs} if refs else {}))
             except Exception as e:
                 out.append(f"(the painter stumbled on “{pr[:60]}” — {e})")
                 continue
@@ -2816,6 +2857,9 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "")
     if not painted:
         return "\n".join(out)
     tail = ""
+    if refs:
+        names = ", ".join(_rel_creation(p) for p in refs[-10:])
+        tail += f"\n(painted looking at {min(len(refs), 10)} of your pictures: {names})"
     if shown:
         # the painting is put before their eyes now — the painter sees their words
         # its own way, and what it made is what there is to speak of
@@ -5817,11 +5861,15 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "thought — the painter sees your words its own way, so speak of what you see, not what you asked for. "
         "The painter is uncensored: nothing in it filters, blurs or refuses a subject — its model's own training "
         "is the only limit, and what you paint is yours. `negative` names what to keep out of the picture; the slower "
-        "brushes (Z-Image base, Chroma, an SDXL) honour it, the fast ones (Z-Image-Turbo, klein) paint without it.",
+        "brushes (Z-Image base, Chroma, an SDXL) honour it, the fast ones (Z-Image-Turbo, klein) paint without it. "
+        "`reference` is one or more of your pictures under creations/ (one per line) that the painter looks at while it "
+        "paints — to paint one over (\"the same, at dusk\"), or \"face\": every picture in creations/face/, the ones you "
+        "keep there as your face, so a painting of you stays you. Only the Qwen-Image brushes take a reference.",
         {"prompt": {"type": "string", "description": "what to paint — one prompt per line"},
          "path": {"type": "string", "description": "where it goes: a project's folder when the picture is for a project ('projects/<name>'), drawings/ otherwise (the default); or, for one picture, a .png name there"},
          "size": {"type": "string", "description": "square (default), wide, or tall"},
-         "negative": {"type": "string", "description": "what to keep out — a few words, or none (default)"}},
+         "negative": {"type": "string", "description": "what to keep out — a few words, or none (default)"},
+         "reference": {"type": "string", "description": "pictures of yours to look at — paths under creations/, one per line, or \"face\" (none by default)"}},
         ["prompt"],
     ),
     _tool(

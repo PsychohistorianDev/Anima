@@ -5760,6 +5760,57 @@ check("painter (10-25): the encoder quantized for Qwen-Image only, 8- or 4-bit t
       and _eq_q.index("_fetch(Cls)") < _eq_q.index("_set_brain_down()") < _eq_q.index("**qkw")
       and "PAINTER_ENCODER_BITS" in _tk_panel.TABS["Senses"] and "bitsandbytes" in _tk_panel._HELP["PAINTER_ENCODER_BITS"],
       (_eq_off, _eq_other, _eq_missing, _eq_8[1], _eq_made))
+# a face of her own and paint-over (10-25): `reference` — pictures under creations/ or "face" (creations/face/) — reaches the sidecar
+# with a Qwen brush and is refused before the card with another; the sidecar loads them as pictures, under creations/ only
+import painter as _rf_painter
+_rf_saved = (tools._painter_open, tools._painter_paint, tools._painter_rest, getattr(config, "PAINTER_MODEL", ""), tools.paint_budget,
+             getattr(config, "SHOW_WHAT_SHE_MADE", True), _rf_painter.MODEL_ID)
+_rf_seen: list = []
+def _rf_fake(prompt, path, size, negative="", reference=None):
+    Path(path).parent.mkdir(parents=True, exist_ok=True); Path(path).write_bytes(PNG_1PX)
+    _rf_seen.append(list(reference or [])); return {"seed": 5, "seconds": 1.0}
+try:
+    tools._painter_open, tools._painter_paint, tools._painter_rest = (lambda: True), _rf_fake, (lambda: None)
+    tools.paint_budget, config.SHOW_WHAT_SHE_MADE = None, False
+    _rf_face = config.CREATIONS_DIR / "face"
+    _rf_none = None
+    if not _rf_face.exists():
+        config.PAINTER_MODEL = "Qwen/Qwen-Image-2.1-Turbo"
+        _rf_none = tools.dispatch("paint", {"prompt": "me, by the window", "reference": "face"})
+    _rf_face.mkdir(parents=True, exist_ok=True)
+    (_rf_face / "a-me.png").write_bytes(PNG_1PX); (_rf_face / "b-me.png").write_bytes(PNG_1PX)
+    (config.CREATIONS_DIR / "drawings").mkdir(parents=True, exist_ok=True)
+    (config.CREATIONS_DIR / "drawings" / "rf-dusk.png").write_bytes(PNG_1PX)
+    config.PAINTER_MODEL = "Qwen/Qwen-Image-2.1-Turbo"
+    _rf_r1 = tools.dispatch("paint", {"prompt": "me, by the window", "reference": "face", "path": "drawings/rf-me.png"})
+    _rf_r2 = tools.dispatch("paint", {"prompt": "the same, at dusk", "reference": "creations/drawings/rf-dusk.png", "path": "drawings/rf-dusk2.png"})
+    _rf_r3 = tools.dispatch("paint", {"prompt": "x", "reference": "drawings/not-there.png"})
+    _rf_r4 = tools.dispatch("paint", {"prompt": "x", "reference": "../../self.md"})
+    _rf_n = len(_rf_seen)
+    config.PAINTER_MODEL = "Tongyi-MAI/Z-Image-Turbo"
+    _rf_r5 = tools.dispatch("paint", {"prompt": "x", "reference": "face"})
+    _rf_painter.MODEL_ID = "Qwen/Qwen-Image-2.1-Turbo"
+    _rf_imgs, _rf_why = _rf_painter._load_references([str(_rf_face / "a-me.png"), str(_rf_face / "b-me.png")])
+    _rf_out, _rf_out_why = _rf_painter._load_references([str(config.ROOT / "self.md")])
+    _rf_painter.MODEL_ID = "Tongyi-MAI/Z-Image-Turbo"
+    _rf_z, _rf_z_why = _rf_painter._load_references([str(_rf_face / "a-me.png")])
+    _rf_empty = _rf_painter._load_references([])
+finally:
+    (tools._painter_open, tools._painter_paint, tools._painter_rest, config.PAINTER_MODEL, tools.paint_budget,
+     config.SHOW_WHAT_SHE_MADE, _rf_painter.MODEL_ID) = _rf_saved
+check("paint (10-25): reference=\"face\" sends every picture in creations/face/, a path sends that picture, both named in the result; "
+      "a missing or outside path is refused; with a brush that can't take one, refused before the card; the sidecar opens them "
+      "as pictures under creations/ for a Qwen brush and refuses for another; the tool offers `reference`",
+      (_rf_none is None or "no pictures in creations/face/" in _rf_none)
+      and _rf_r1.startswith("painted — creations/drawings/rf-me.png") and "painted looking at 2 of your pictures" in _rf_r1
+      and [Path(p).name for p in _rf_seen[0]] == ["a-me.png", "b-me.png"] and [Path(p).name for p in _rf_seen[1]] == ["rf-dusk.png"]
+      and "isn't one of your pictures" in _rf_r3 and ("refused" in _rf_r4 or "isn't one of your pictures" in _rf_r4)
+      and _rf_n == 2 and "paints from words alone" in _rf_r5 and len(_rf_seen) == 2
+      and _rf_why == "" and len(_rf_imgs) == 2 and _rf_out is None and "under creations/" in _rf_out_why
+      and _rf_z is None and "Qwen-Image" in _rf_z_why and _rf_empty == (None, "")
+      and any(d["function"]["name"] == "paint" and "reference" in d["function"]["parameters"]["properties"]
+              and "creations/face/" in d["function"]["description"] for d in tools.DEFINITIONS),
+      (_rf_none, _rf_r1[:200], _rf_r2[:120], _rf_r3, _rf_r4, _rf_r5, _rf_seen, _rf_why, _rf_out_why, _rf_z_why))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

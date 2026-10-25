@@ -129,6 +129,32 @@ _OFFLOAD_FAMILIES = {"qwen21"}  # too big for the card whole: diffusers' model o
 
 
 _QUANT_FAMILIES = {"qwen21"}  # a text encoder big enough that quantizing it puts the whole pipeline on the card
+_REFERENCE_FAMILIES = {"qwen21"}  # brushes that read condition pictures with the prompt (10-25: her face, paint-over)
+REFERENCE_MAX = 10  # Qwen-Image 2.1 keeps identity across up to ten
+
+
+def _load_references(refs) -> tuple[list | None, str]:
+    """(PIL pictures, "") for reference paths under creations/; (None, the reason) when the brush can't take them or a
+    path isn't a picture there; (None, "") for no references. More than REFERENCE_MAX: the last ones."""
+    if isinstance(refs, str):
+        refs = [refs]
+    refs = [str(r) for r in (refs or []) if str(r).strip()]
+    if not refs:
+        return None, ""
+    if _family(MODEL_ID) not in _REFERENCE_FAMILIES:
+        return None, f"this brush ({MODEL_ID}) paints from words alone — a reference picture needs a Qwen-Image brush"
+    from PIL import Image
+    out = []
+    for r in refs[-REFERENCE_MAX:]:
+        rp = _under_creations(r)
+        if rp is None or not rp.is_file():
+            return None, f"the reference {r} isn't a picture under creations/"
+        try:
+            with Image.open(rp) as im:
+                out.append(im.convert("RGB"))
+        except Exception as e:  # noqa: BLE001 — a file that isn't a picture
+            return None, f"the reference {rp.name} couldn't be opened as a picture ({type(e).__name__})"
+    return out, ""
 
 
 def _encoder_bits(fam: str) -> int:
@@ -317,7 +343,7 @@ def _leave():
     os._exit(0)
 
 
-def paint(prompt: str, width: int, height: int, seed: int | None = None, negative: str = ""):
+def paint(prompt: str, width: int, height: int, seed: int | None = None, negative: str = "", images=None):
     """One picture. Returns (PIL image, seed). `negative` — what to keep out — reaches the brushes whose guidance
     honours one (_NEGATIVE_FAMILIES); Turbo and klein paint without it."""
     global _last_used, _peak
@@ -331,8 +357,9 @@ def paint(prompt: str, width: int, height: int, seed: int | None = None, negativ
         gen = torch.Generator(device=device.generator_device(_device)).manual_seed(int(seed))
         steps, guidance = _defaults(MODEL_ID)
         with torch.inference_mode():
+            extra = {"image": images} if images else {}  # condition pictures: her face, or the one being repainted (10-25)
             out = _pipe(prompt=prompt, width=int(width), height=int(height), generator=gen,
-                        **_call_kwargs(MODEL_ID, steps, guidance, negative))  # the keywords follow the family (10-24)
+                        **_call_kwargs(MODEL_ID, steps, guidance, negative), **extra)  # the keywords follow the family (10-24)
         _last_used = time.time()
         # the high-water mark of this painting, then the cache handed back before the next one: a set of
         # three painted at 45 s, 196 s, 205 s with nothing else on the card — one painting's reserved blocks
@@ -424,8 +451,11 @@ class Handler(BaseHTTPRequestHandler):
             w, h = _fit(MODEL_ID, w, h)  # a 1024-class brush paints the shape smaller (10-24)
             seed = data.get("seed")
             negative = str(data.get("negative") or "").strip()
+            images, why = _load_references(data.get("reference"))
+            if why:
+                return self._json({"error": why})
             t0 = time.time()
-            img, seed = paint(prompt, w, h, None if seed in (None, "") else int(seed), negative=negative)
+            img, seed = paint(prompt, w, h, None if seed in (None, "") else int(seed), negative=negative, images=images)
             p.parent.mkdir(parents=True, exist_ok=True)
             img.save(str(p))
             secs = time.time() - t0
