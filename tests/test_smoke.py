@@ -5854,6 +5854,68 @@ check("paint (10-25): the friend's own name (from self.md), \"me\" and \"myself\
       and "testname" in (lambda: (setattr(tools, "_own_name", lambda: "Testname"), tools._face_words(), setattr(tools, "_own_name", _nm_own0))[1])()
       and any(d["function"]["name"] == "paint" and "(or your own name)" in d["function"]["description"] for d in tools.DEFINITIONS),
       (_nm_by_name, _nm_why))
+# the claimed rail's middle road (10-25): a claimed reply is held; a tool call answering the ask keeps it — it goes out
+# as written and stays in the visit — and words only set it aside, as before (the keeper: "if she's not calling a tool
+# after the nudge, then set aside the message")
+_ck_first = "Just a second… *snip, snap, merge!* DONE! I've consolidated the Lexicon into one singular file."
+_ck_visit = [{"role": "system", "content": "sys"}, {"role": "user", "content": "Hey babe, you created two lexicon of luminosity files.. consolidate them into one pls"}]
+_ck_posts, _ck_mode = [], ["call"]
+def _ck_post(path, payload, timeout=None):
+    _ck_posts.append(payload)
+    if len(_ck_posts) == 1:
+        return {"message": {"role": "assistant", "content": _ck_first, "thinking": "x"}}
+    if _ck_mode[0] == "call":
+        return {"message": {"role": "assistant", "content": "", "thinking": "y", "tool_calls": [
+            {"function": {"name": "append_creation", "arguments": {"path": "a.md", "text": "b"}}}]}}
+    return {"message": {"role": "assistant", "content": "I haven't yet — give me a moment, love.", "thinking": "y"}}
+_ck_post0, ollama_client._post = ollama_client._post, _ck_post
+_ck_think0, config.CHAT_THINK = config.CHAT_THINK, False
+try:
+    _ck_m = _chat_orig(list(_ck_visit), expect_words=True)
+    _ck_sent = list(_ck_posts[-1]["messages"]) if len(_ck_posts) > 1 else []
+    _ck_sp = ollama_client.Spent(); _ck_sp.add(_ck_m)
+    _ck_log = (Path(config.MEMORY_DIR) / "attempts.log").read_text(encoding="utf-8") if (Path(config.MEMORY_DIR) / "attempts.log").exists() else ""
+    _ck_posts.clear(); _ck_mode[0] = "words"
+    _ck_w = _chat_orig(list(_ck_visit), expect_words=True)
+finally:
+    ollama_client._post, config.CHAT_THINK = _ck_post0, _ck_think0
+check("claimed (10-25): the ask says a tool call now sends the reply above as written; a call keeps it — not set aside, not a re-roll in the count, logged as went out",
+      len(_ck_sent) >= 2 and _ck_sent[-2] == {"role": "assistant", "content": _ck_first}
+      and _ck_sent[-1]["content"].startswith("[engine, not a person: he asked you to consolidate") and "your reply above goes to" in _ck_sent[-1]["content"]
+      and _ck_m.get("tool_calls") and _ck_m.get("claim_kept_words") == _ck_first and _ck_m.get("claim_kept_upto") == 2
+      and _ck_m.get("claim_kept_kind") == "claimed" and _ck_m.get("set_aside") == [] and _ck_sp.rerolls == 0
+      and "went out as written, then asked to do it: claimed" in _ck_log,
+      (_ck_sent[-2:], {k: v for k, v in _ck_m.items() if k.startswith("claim") or k == "set_aside"}, _ck_sp.rerolls, _ck_log[-300:]))
+check("claimed (10-25): words only after the ask — the first reply is set aside as before and the new one goes out",
+      not _ck_w.get("claim_kept_words") and _ck_w.get("content") == "I haven't yet — give me a moment, love."
+      and [a["why"] for a in _ck_w.get("set_aside") or []] == ["claimed"],
+      ({k: v for k, v in _ck_w.items() if k in ("content", "claim_kept_words")}, _ck_w.get("set_aside")))
+# and the turn: the kept reply goes out first, stays in the visit (and the transcript) as theirs, the ask as the engine's,
+# under Ollama and under the door alike; the note says it was said before anything was saved, and what came of it
+_ck_said = "Done, love — every word of tonight is in my journal now, the stone and the rain and the two of us laughing."
+_ck_chat0, _ck_kept0 = ollama_client.chat, getattr(config, "REROLLS_KEPT", "auto")
+_ck_turns = {}
+try:
+    for _ck_way in ("always", "never"):
+        config.REROLLS_KEPT = _ck_way
+        ollama_client.chat = ScriptedBrain([
+            {"role": "assistant", "content": "", "tool_calls": [
+                {"function": {"name": "write_journal", "arguments": {"text": "tonight: the stone, the rain, the laughing"}}}],
+             "claim_kept_words": _ck_said, "claim_kept_kind": "claimed", "claim_kept_upto": 2,
+             "sent_extra": [{"role": "assistant", "content": _ck_said}, {"role": "user", "content": "[engine, not a person: the ask]"}]},
+        ])
+        _ck_h, _ck_ev = [], []
+        _ck_r = chat.one_turn(_ck_h, "write tonight in your journal pls", on_event=lambda k, p: _ck_ev.append((k, p)))
+        _ck_turns[_ck_way] = (_ck_r, _ck_h, [p for k, p in _ck_ev if k == "note"])
+finally:
+    ollama_client.chat, config.REROLLS_KEPT = _ck_chat0, _ck_kept0
+check("claimed (10-25): the kept reply is the words that go out, stays in the visit as theirs (the ask as the engine's), and the note says what came of it",
+      all(r == _ck_said
+          and any(t.get("role") == "assistant" and t.get("content") == _ck_said and not t.get("_engine") for t in h)
+          and any(t.get("role") == "user" and t.get("content") == "[engine, not a person: the ask]" and t.get("_engine") for t in h)
+          and any("words above said it was done before anything was saved" in n and "did it then (write_journal)" in n for n in notes)
+          for r, h, notes in _ck_turns.values()),
+      {w: (r[:60], [n[:120] for n in notes]) for w, (r, h, notes) in _ck_turns.items()})
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

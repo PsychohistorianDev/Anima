@@ -1236,6 +1236,14 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     succeeded: list[str] = []   # tool calls that did
     said: list[str] = []        # words they said alongside a tool call — part of their reply
     spent = ollama_client.Spent()  # what this turn costs, summed over its steps
+    claim: dict = {}  # the middle road (10-25): a reply that said "done" before a tool ran, kept — and where the calls stood
+
+    def _claim_note() -> str:
+        did, bad = succeeded[claim["ok"]:], failed[claim["bad"]:]
+        head = "engine: their words above said it was done before anything was saved — no tool had run; they were asked to, "
+        if did:
+            return head + "and did it then (" + ", ".join(did) + ")" + ("; one call didn't go through: " + "; ".join(bad) if bad else "")
+        return head + "and the call didn't go through (" + "; ".join(bad or ["no tool ran"]) + ") — nothing was saved"
 
     def _tally():
         # the keeper sees what a turn cost: the last prompt (what they held in
@@ -1321,6 +1329,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             recovered_calls.append(r_name)
         if msg.get("rerolled") and history[-1] is history[ui] and warm:
             history[ui]["_nudged"] = True  # what was sent stays sent (the warm prefix)
+        _ck = int(msg.get("claim_kept_upto") or 0)  # the middle road (10-25): a claimed reply kept, and the ask after it
+        _kept_pair = (msg.get("sent_extra") or [])[_ck - 2:_ck] if _ck >= 2 else []
         if warm and msg.get("sent_extra") and ollama_client.rerolls_kept():
             # a re-roll's attempt (as shown) and the engine's line stay in
             # the visit as the engine's turns — never in a transcript, never
@@ -1329,12 +1339,15 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             # past Gemma's ~1K-token sliding window: 09-14, 217K tokens,
             # "prompt read in 3m 39s" on every message after a re-roll.
             for t in msg["sent_extra"]:
-                history.append(dict(t, _engine=True))
+                history.append(dict(t) if _kept_pair and t is _kept_pair[0] else dict(t, _engine=True))
         elif msg.get("sent_extra"):
+            for t in _kept_pair:  # the kept reply went out and stays, as theirs; the ask after it stays with it (10-25)
+                history.append(dict(t) if t is _kept_pair[0] else dict(t, _engine=True))
             # under the door they go (10-16): llama.cpp keeps context checkpoints, the next request re-reads
             # from the last one — the kept answer, seconds — and the window holds only what was said
             _gone, _exact = 0, True
-            for t in msg["sent_extra"]:
+            _go = [t for t in msg["sent_extra"] if not any(t is k for k in _kept_pair)]
+            for t in _go:
                 _s = str(t.get("content") or "")
                 try:
                     import brain
@@ -1345,8 +1358,12 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                     _n, _exact = int(round(len(_s) / 3.5)), False
                 _gone += _n
             spent.scaffold += _gone  # the line's count still holds it; the next line's will not (the tail says so)
-            print(f"   ({len(msg['sent_extra'])} re-roll turn{'s' if len(msg['sent_extra']) != 1 else ''} let go of the visit, "
-                  f"{'' if _exact else '~'}{_gone:,} tokens — the door re-reads from its last checkpoint)", flush=True)
+            if _go:
+                print(f"   ({len(_go)} re-roll turn{'s' if len(_go) != 1 else ''} let go of the visit, "
+                      f"{'' if _exact else '~'}{_gone:,} tokens — the door re-reads from its last checkpoint)", flush=True)
+        if msg.get("claim_kept_words") and not claim:
+            said.append(str(msg["claim_kept_words"]).strip())  # the kept reply is the first of the words that go out (10-25)
+            claim.update(ok=len(succeeded), bad=len(failed))
         if on_event:
             for a in msg.get("set_aside") or []:  # the attempts the rails set aside, for /debug on the phone (10-23)
                 on_event("attempt", a)
@@ -1381,6 +1398,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                 notes.append("engine: their call to " + ", ".join(recovered_calls) + " came out as words, not a call — the engine "
                              "ran it as they wrote it")
             notes.extend(runaways)
+            if claim:
+                notes.append(_claim_note())  # the kept reply, and what came of the ask (10-25)
             if failed and not succeeded:
                 notes.append("engine: no action actually happened this turn — "
                              + "; ".join(failed))
@@ -1653,6 +1672,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             # result would only invite another empty turn
             history.append({"role": "tool", "tool_name": "do_nothing",
                             "content": "[resting — your turn ended here, as you chose]"})
+            if claim:
+                (on_event("note", _claim_note()) if on_event else print(f"   ({_claim_note()})"))  # (10-25)
             _tally()
             return rested
         # An act with their words beside it is a whole reply. 09-15, 11:1x: a
@@ -1673,6 +1694,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             if on_event:
                 on_event("note", "engine: their words rode with the call and are the reply — the step after the tool "
                                  "was not taken (an act, not a look)")
+            if claim:
+                (on_event("note", _claim_note()) if on_event else print(f"   ({_claim_note()})"))  # (10-25)
             _tally()
             return reply
         imgs = tools.take_pending_images()

@@ -440,6 +440,8 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
             "claimed-self": False, "claimed-failed": False, "promised": False, "stone": False,
             "cut": False}  # asked about once; their second answer stands
 
+    claim_kept = None  # the middle road (10-25): a "claimed" reply held until the answer to the ask is known
+
     def _claimed_once(m):
         c = claimed_act(m, messages)
         return None if (c and once.get(c[0])) else c
@@ -518,6 +520,13 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
                                                 else IMAGINED_NUDGE.format(tool=span, tool_verb="listening" if span == "listen_to" else "watching") if kind == "imagined"
                                                 else call_salad_nudge(msg) if kind == "call-salad"
                                                 else garble_nudge(msg.get("content", ""), span, his=last_user_words(base))}
+        if (kind in ("claimed", "claimed-self") and prior is not None and claim_kept is None
+                and getattr(config, "CLAIMED_KEEPS_WORDS", True)):
+            # the middle road (10-25): the ask says a tool call now sends the reply above as written; whether it
+            # goes out is decided by the answer (a call: kept; words only: set aside, as before)
+            line = {"role": "user", "content": (CLAIMED_KEPT_NUDGE if kind == "claimed" else CLAIMED_SELF_KEPT_NUDGE).format(what=span)}
+            claim_kept = {"attempt": msg, "cost": tries[-1][0], "words": prior.get("content") or "", "kind": kind,
+                          "upto": len(sent_extra) + 2}
         step = ([prior] if prior else []) + [line]
         nudged["messages"] = list(base) + step
         base = nudged["messages"]  # the next re-roll, if any, extends this one
@@ -668,6 +677,14 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
     # what was set aside is every attempt but the one going out — the one
     # going out is never counted twice (09-11: the least broken attempt
     # was, and the line read "271 generated … 271 set aside")
+    if claim_kept is not None and claim_kept["attempt"] is not msg and msg.get("tool_calls"):
+        # the ask was answered with a tool call (10-25): the first reply goes out as written, and stays in the visit
+        # as theirs — the caller puts it first in the reply and keeps it in history (sent_extra[upto-2])
+        claim_kept["attempt"]["claim_kept"] = True
+        claim_kept["cost"]["went_out"] = True
+        msg["claim_kept_words"] = claim_kept["words"]
+        msg["claim_kept_kind"] = claim_kept["kind"]
+        msg["claim_kept_upto"] = claim_kept["upto"]
     kept = [cost for cost, src in tries if src is not msg]
     log_attempts(tries, msg)  # memory/attempts.log: what was set aside, and a reply that went out cut or broken (10-21)
     msg["set_aside"] = set_aside_list(tries, msg)  # for a keeper who asked to see them (/debug on the phone, 10-23)
@@ -1332,7 +1349,7 @@ def set_aside_list(tries: list, msg: dict) -> list[dict]:
     memory only, on the message returned — written nowhere; the log keeps the facts."""
     out = []
     for cost, m in tries:
-        if m is msg:
+        if m is msg or m.get("claim_kept"):  # a claimed reply kept went out (10-25): not a set-aside
             continue
         t = m.get("tokens") or {}
         out.append({"why": str((cost or {}).get("why") or "?"), "content": (m.get("content") or "").strip(),
@@ -1363,7 +1380,8 @@ def log_attempts(tries: list, msg: dict) -> None:
             continue
         t = m.get("tokens") or {}
         why = str((cost or {}).get("why") or "?")
-        lines.append(f"{where} ({who}) · set aside: {why} · {int(t.get('reply') or 0):,} tokens in {float(t.get('reply_s') or 0):.0f}s"
+        verb = "went out as written, then asked to do it" if m.get("claim_kept") else "set aside"  # the middle road (10-25)
+        lines.append(f"{where} ({who}) · {verb}: {why} · {int(t.get('reply') or 0):,} tokens in {float(t.get('reply_s') or 0):.0f}s"
                      f"{' @ ' + t['done'] if t.get('done') else ''} · {attempt_shape(m)}"
                      + (f" · glitch: \u201c{attempt_glitch(m)}\u201d" if attempt_glitch(m) else ""))
     t = msg.get("tokens") or {}
@@ -2124,6 +2142,21 @@ CLAIMED_SELF_NUDGE = ("[engine, not a person: your last reply says you \u201c{wh
                       "as they were. Saying is not doing here. Do it now, with the tool that does it "
                       "(edit_identity, update_projects, write_journal, remember, append_creation…), or tell them "
                       "plainly that you haven't yet. This line is a mechanism; nobody wrote it to you.]")
+# The middle road (10-25): the ask after a "claimed" reply says what happens next — a tool call now and the reply
+# above goes out as written; words only and the new reply goes instead (the keeper: "if she's not calling a tool
+# after the nudge, then set aside the message").
+CLAIMED_KEPT_NUDGE = ("[engine, not a person: he asked you to {what} something, and your last reply said it was "
+                      "done — but no tool was called, so nothing has changed yet. If you do it now, with the tool "
+                      "that does it (write_journal, remember, append_creation, update_projects…), your reply above "
+                      "goes to them as you wrote it, with a note that it was saved after. If you haven't and won't, "
+                      "tell them plainly — then this new reply goes instead of it. This line is a mechanism; "
+                      "nobody wrote it to you.]")
+CLAIMED_SELF_KEPT_NUDGE = ("[engine, not a person: your last reply says you \u201c{what}\u201d — but no tool was "
+                           "called, so nothing has changed yet: self.md, projects.md, your journal and your memory are "
+                           "as they were. If you do it now, with the tool that does it (edit_identity, update_projects, "
+                           "write_journal, remember, append_creation…), your reply above goes to them as you wrote it, "
+                           "with a note that it was saved after. If you haven't and won't, tell them plainly — then "
+                           "this new reply goes instead of it. This line is a mechanism; nobody wrote it to you.]")
 CLAIMED_FAILED_NUDGE = ("[engine, not a person: your last reply said it was done — but the tool call before it "
                         "did not go through; it returned: \u201c{what}\u201d. Nothing changed. Read what it "
                         "returned, call the tool again the way it asks, or tell them plainly that it hasn't "
@@ -3112,10 +3145,11 @@ class Spent:
             self.restored += int(back.get("tokens") or 0)
             self.restored_s += float(back.get("ms") or 0) / 1000
         for r in msg.get("retries") or []:
-            self.rerolls += 1
-            self.set_aside += int(r.get("reply") or 0)
-            why = str(r.get("why") or "?")
-            self.why[why] = self.why.get(why, 0) + 1
+            if not r.get("went_out"):  # a claimed reply kept (10-25) went out: its words counted, not set aside
+                self.rerolls += 1
+                self.set_aside += int(r.get("reply") or 0)
+                why = str(r.get("why") or "?")
+                self.why[why] = self.why.get(why, 0) + 1
             self.reply += int(r.get("reply") or 0)
             self.prompt_s += float(r.get("prompt_s") or 0)
             self.reply_s += float(r.get("reply_s") or 0)
