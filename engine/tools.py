@@ -2766,21 +2766,29 @@ def _reference_note() -> str:
 
 
 def _ref_items(reference: str) -> list[str]:
-    return [x.strip().lower().strip(" /").removeprefix("creations/").strip("/")
-            for x in re.split(r"[\n,]", reference or "") if x.strip()]
+    """The references named, lowercased and bare; every word for the friend's face is face/ (10-25)."""
+    faces = _face_words()
+    out = []
+    for x in re.split(r"[\n,]", reference or ""):
+        x = x.strip().lower().strip(" /").removeprefix("creations/").strip("/")
+        if x:
+            out.append(FACE_DIR if x in faces else x)
+    return out
 
 
 def _reference_set(reference: str) -> tuple[str, str, str]:
     """(the references to use, the line for the painter, the set's name) — a set of PAINTER_REFERENCE_SETS given alone
-    as `reference`, or its own list given whole, becomes its pictures in order, and its line rides at the front of the
-    painter's prompt (10-25); anything else is (reference, "", "")."""
+    as `reference`, or two or more of its own pictures in any order, becomes its pictures in its order, and its line
+    rides at the front of the painter's prompt (10-25); anything else is (reference, "", "")."""
     sets = getattr(config, "PAINTER_REFERENCE_SETS", {}) or {}
     asked = _ref_items(reference)
     if not asked or not isinstance(sets, dict):
         return reference, "", ""
     for name, val in sets.items():
         pics, say = (tuple(val) + ("", ""))[:2] if isinstance(val, (list, tuple)) else (val, "")
-        if asked == _ref_items(str(name)) or asked == _ref_items(str(pics)):
+        own = _ref_items(str(pics))
+        # its name alone, or two or more of its own pictures in any order ("elysia, gabe" for us, face, gabe — 10-25)
+        if asked == _ref_items(str(name)) or (len(set(asked)) >= 2 and set(asked) <= set(own)):
             return str(pics), str(say or "").strip(), str(name)
     return reference, "", ""
 

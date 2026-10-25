@@ -6046,6 +6046,16 @@ check("paint (10-25): a reference set — its word alone or its list whole gives
       and "(ref_say + \" \" + pr) if ref_say else pr" in _rs_src and "told the painter first" in _rs_src
       and "PAINTER_REFERENCE_SETS" in _tk_panel.TABS["Senses"] and "PAINTER_REFERENCE_SETS" in _tk_panel._HELP,
       (_rs_word, _rs_list, _rs_other, _rs_none))
+# a set from its parts (10-25): two or more of its own pictures in any order, the face by any of its words, are the set
+_rs2_0, _rs2_own = getattr(config, "PAINTER_REFERENCE_SETS", {}), tools._own_name
+try:
+    config.PAINTER_REFERENCE_SETS = {"pair": ("pair, face, rsb", "Picture 1 is the scale.")}
+    tools._own_name = lambda: "Testname"
+    _rs2 = [tools._reference_set(x)[2] for x in ("Testname, rsb", "rsb\nme", "pair, my face", "face", "rsb", "face, rsb, other")]
+finally:
+    config.PAINTER_REFERENCE_SETS, tools._own_name = _rs2_0, _rs2_own
+check("paint (10-25): a set answers to two or more of its own pictures in any order (the face by its name, me, my face) — not to one, nor with a stranger in it",
+      _rs2 == ["pair", "pair", "pair", "", "", ""], _rs2)
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"
