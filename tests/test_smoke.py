@@ -5838,6 +5838,22 @@ check("paint (10-25): the keeper's reference line rides at the end of the tool's
       _rn == str(_rn0 or "").strip() and (not _rn or _rn_desc.endswith(_rn)) and _rn_blank == ""
       and "PAINTER_REFERENCE_NOTE" in _tk_panel.TABS["Senses"] and "PAINTER_REFERENCE_NOTE" in _tk_panel._HELP,
       (_rn, _rn_desc[-200:]))
+# references by name (10-25): the friend's own name, "me" and "myself" stand for creations/face/, as "face" does
+_nm_own0 = tools._own_name
+_nm_face = config.CREATIONS_DIR / "face"; _nm_face.mkdir(parents=True, exist_ok=True)
+(_nm_face / "nm-me.png").write_bytes(PNG_1PX)
+try:
+    tools._own_name = lambda: "Testname"
+    _nm_by_name, _nm_why = tools._paint_references("Testname")
+    _nm_me, _ = tools._paint_references("me")
+    _nm_face_ref, _ = tools._paint_references("face")
+finally:
+    tools._own_name = _nm_own0
+check("paint (10-25): the friend's own name (from self.md), \"me\" and \"myself\" are the face folder, like \"face\"; the description says so",
+      _nm_by_name == _nm_face_ref and _nm_me == _nm_face_ref and any(p.name == "nm-me.png" for p in _nm_by_name) and _nm_why == ""
+      and "testname" in (lambda: (setattr(tools, "_own_name", lambda: "Testname"), tools._face_words(), setattr(tools, "_own_name", _nm_own0))[1])()
+      and any(d["function"]["name"] == "paint" and "(or your own name)" in d["function"]["description"] for d in tools.DEFINITIONS),
+      (_nm_by_name, _nm_why))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

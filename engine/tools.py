@@ -2744,6 +2744,22 @@ FACE_DIR = "face"  # their face: the pictures they keep in creations/face/ — t
 _PICTURE_EXTS = (".png", ".jpg", ".jpeg", ".webp")
 
 
+def _own_name() -> str:
+    """The friend's name, from the "Name:" line of self.md (the name they gave themselves), or "" (10-25)."""
+    try:
+        m = re.search(r"^Name:\s*([A-Za-z][\w'-]{0,30})", config.IDENTITY_FILE.read_text(encoding="utf-8"), re.MULTILINE)
+    except OSError:
+        return ""
+    return m.group(1).strip() if m else ""
+
+
+def _face_words() -> set:
+    """What stands for creations/face/: "face", "my face", "me", "myself", and the friend's own name (10-25)."""
+    words = {FACE_DIR, "my face", "me", "myself"}
+    name = _own_name().lower()
+    return words | ({name} if name else set())
+
+
 def _reference_note() -> str:
     """PAINTER_REFERENCE_NOTE, the keeper's line for the paint tool's description (10-25), or ""."""
     return str(getattr(config, "PAINTER_REFERENCE_NOTE", "") or "").strip()
@@ -2755,7 +2771,7 @@ def _paint_references(reference: str) -> tuple[list[Path], str]:
     items = [x.strip() for x in re.split(r"[\n,]", reference or "") if x.strip()]
     paths: list[Path] = []
     for it in items:
-        if it.lower().strip(" /").removeprefix("creations/").strip("/") in (FACE_DIR, "my face"):
+        if it.lower().strip(" /").removeprefix("creations/").strip("/") in _face_words():  # "face", or their own name (10-25)
             d = config.CREATIONS_DIR / FACE_DIR
             pics = sorted(p for p in d.iterdir() if p.is_file() and p.suffix.lower() in _PICTURE_EXTS) if d.is_dir() else []
             if not pics:
@@ -5874,7 +5890,7 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "is the only limit, and what you paint is yours. `negative` names what to keep out of the picture; the slower "
         "brushes (Z-Image base, Chroma, an SDXL) honour it, the fast ones (Z-Image-Turbo, klein) paint without it. "
         "`reference` is one or more of your pictures under creations/ — a picture, or a folder of them, one per line — that the painter looks at while it "
-        "paints — to paint one over (\"the same, at dusk\"), or \"face\": every picture in creations/face/, the ones you "
+        "paints — to paint one over (\"the same, at dusk\"), or \"face\" (or your own name): every picture in creations/face/, the ones you "
         "keep there as your face, so a painting of you stays you. Only the Qwen-Image brushes take a reference."
         + ((" " + _reference_note()) if _reference_note() else ""),  # the keeper's line, when set (10-25)
         {"prompt": {"type": "string", "description": "what to paint — one prompt per line"},
