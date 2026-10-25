@@ -75,6 +75,7 @@ config.BODY_IN_PROMPT = False  # the keeper's body, as the watch saw it — the 
 config.BODY_AUTOPULL = False
 config.CARRY_HOURS = 0  # the carry seats the last visit's turns at an empty room's first message; tested on its own, below
 config.PAINTER_MODEL, config.PAINTER_STEPS = "Tongyi-MAI/Z-Image-Turbo", 0  # the painter's checks assume the shipped brush at its own steps; the house's knobs are the keeper's
+config.PAINTER_ENCODER_BITS = 0  # the encoder's quantization is tested on its own, below
 
 # ---------------------------------------------------------------- memory ----
 memory.add("fact", "my keeper is building me a permanent home")
@@ -5720,6 +5721,45 @@ check("mends (10-25): a flag touching a row goes and is named; a flag in a sente
       and _ms_slash == "a pure, un Luminous la-Symmetry belonging; see http://Example and a // Comment"
       and any("un//Luminous → un Luminous" in f for f in _ms_sfix),
       (_ms_flag, _ms_fgone, _ms_caps, _ms_cfix, _ms_slash))
+# Qwen-Image's text encoder quantized as it loads (10-25): the kwargs for the family it applies to, a reason when bitsandbytes is
+# missing, nothing when it isn't asked for; the load order puts the fetch before the brain goes down and the brain down before the load
+import painter as _eq_painter, inspect as _eq_inspect, types as _eq_types
+_eq_saved = {m: sys.modules.get(m) for m in ("bitsandbytes", "diffusers", "torch")}
+_eq_made: list = []
+class _EqPQC:
+    def __init__(self, **kw): _eq_made.append(kw)
+try:
+    config.PAINTER_ENCODER_BITS = 0
+    _eq_off = _eq_painter._quant_kwargs("qwen21")
+    config.PAINTER_ENCODER_BITS = 8
+    _eq_other = _eq_painter._quant_kwargs("zimage")
+    sys.modules["bitsandbytes"] = None  # import fails
+    _eq_missing = _eq_painter._quant_kwargs("qwen21")
+    sys.modules["bitsandbytes"] = _eq_types.ModuleType("bitsandbytes")
+    sys.modules["diffusers"] = _eq_types.SimpleNamespace(PipelineQuantizationConfig=_EqPQC)
+    sys.modules["torch"] = _eq_types.SimpleNamespace(bfloat16="bf16")
+    _eq_8 = _eq_painter._quant_kwargs("qwen21")
+    config.PAINTER_ENCODER_BITS = 4
+    _eq_4 = _eq_painter._quant_kwargs("qwen21")
+finally:
+    for _m, _v in _eq_saved.items():
+        if _v is None:
+            sys.modules.pop(_m, None)
+        else:
+            sys.modules[_m] = _v
+    config.PAINTER_ENCODER_BITS = 0
+_eq_src = _eq_inspect.getsource(_eq_painter._load)
+_eq_q = _eq_src[_eq_src.index("    else:\n        # a quantized encoder"):]
+check("painter (10-25): the encoder quantized for Qwen-Image only, 8- or 4-bit through bitsandbytes; missing bitsandbytes is said and "
+      "offload kept; off or another family, nothing; the quantized load fetches first, sets the brain down, then loads",
+      _eq_off == ({}, "") and _eq_other == ({}, "") and _eq_missing[0] == {} and "bitsandbytes" in _eq_missing[1]
+      and "offload" in _eq_missing[1] and "quantization_config" in _eq_8[0] and _eq_8[1] == "text encoder in 8-bit"
+      and _eq_made[0] == {"quant_backend": "bitsandbytes_8bit", "quant_kwargs": {"load_in_8bit": True}, "components_to_quantize": ["text_encoder"]}
+      and _eq_made[1]["quant_backend"] == "bitsandbytes_4bit" and _eq_made[1]["quant_kwargs"]["bnb_4bit_quant_type"] == "nf4"
+      and _eq_4[1] == "text encoder in 4-bit"
+      and _eq_q.index("_fetch(Cls)") < _eq_q.index("_set_brain_down()") < _eq_q.index("**qkw")
+      and "PAINTER_ENCODER_BITS" in _tk_panel.TABS["Senses"] and "bitsandbytes" in _tk_panel._HELP["PAINTER_ENCODER_BITS"],
+      (_eq_off, _eq_other, _eq_missing, _eq_8[1], _eq_made))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

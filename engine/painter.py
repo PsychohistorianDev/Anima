@@ -19,6 +19,8 @@ the same Python that runs the ear (it already has the CUDA torch):
     py -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
     py -m pip install -U diffusers transformers accelerate safetensors pillow sentencepiece protobuf tiktoken
 
+(For Qwen-Image: py -m pip install bitsandbytes, and PAINTER_ENCODER_BITS = 8 puts its text encoder in 8-bit so the
+whole pipeline fits the card and paints without offload — about twice as quick.)
 (torchvision from the same index as torch, so the two match: Qwen-Image's text encoder wants it. sentencepiece and
 protobuf read a T5 tokenizer (Chroma); tiktoken is transformers' fallback for some tokenizers. Z-Image-Turbo alone
 needs none of the four, and they cost nothing to have.)
@@ -126,6 +128,56 @@ _GUIDANCE_KEY = {"qwen21": "true_cfg_scale"}  # a pipeline that names its guidan
 _OFFLOAD_FAMILIES = {"qwen21"}  # too big for the card whole: diffusers' model offload, the parts taking the card in turn
 
 
+_QUANT_FAMILIES = {"qwen21"}  # a text encoder big enough that quantizing it puts the whole pipeline on the card
+
+
+def _encoder_bits(fam: str) -> int:
+    """PAINTER_ENCODER_BITS (8 or 4) for a family whose encoder it applies to; 0 otherwise."""
+    try:
+        bits = int(getattr(config, "PAINTER_ENCODER_BITS", 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+    return bits if bits in (4, 8) and fam in _QUANT_FAMILIES else 0
+
+
+def _quant_kwargs(fam: str) -> tuple[dict, str]:
+    """({"quantization_config": …}, "text encoder in 8-bit") when the family's encoder is to be quantized and
+    bitsandbytes is there; ({}, the reason) when it can't be; ({}, "") when it isn't asked for."""
+    bits = _encoder_bits(fam)
+    if not bits:
+        return {}, ""
+    try:
+        import bitsandbytes  # noqa: F401
+        import torch
+        from diffusers import PipelineQuantizationConfig
+    except ImportError as e:
+        return {}, (f"PAINTER_ENCODER_BITS is {bits} but {getattr(e, 'name', None) or 'a package'} isn't installed "
+                    "(py -m pip install bitsandbytes) — painting under offload instead")
+    if bits == 8:
+        qc = PipelineQuantizationConfig(quant_backend="bitsandbytes_8bit", quant_kwargs={"load_in_8bit": True},
+                                        components_to_quantize=["text_encoder"])
+    else:
+        qc = PipelineQuantizationConfig(quant_backend="bitsandbytes_4bit",
+                                        quant_kwargs={"load_in_4bit": True, "bnb_4bit_quant_type": "nf4",
+                                                      "bnb_4bit_compute_dtype": torch.bfloat16},
+                                        components_to_quantize=["text_encoder"])
+    return {"quantization_config": qc}, f"text encoder in {bits}-bit"
+
+
+def _fetch(Cls) -> None:
+    """The model's files local before anything is built on the card: from the cache when they are there, the
+    network for the first time — the brain still up while it downloads."""
+    if Path(MODEL_ID).exists():
+        return  # a folder on disk: nothing to fetch
+    try:
+        Cls.download(MODEL_ID, local_files_only=True)
+    except Exception:
+        try:
+            Cls.download(MODEL_ID)
+        except Exception as e:  # noqa: BLE001 — said; from_pretrained tries again and says what it says
+            print(f"  (couldn't fetch {MODEL_ID} first: {type(e).__name__}: {e})", flush=True)
+
+
 def _call_kwargs(model_id: str, steps: int, guidance: float, negative: str = "") -> dict:
     """The keywords one painting is called with: the steps, the guidance under the pipeline's own name for it, and
     the negative prompt for the families whose guidance honours one."""
@@ -197,16 +249,37 @@ def _load():
             return Cls.from_pretrained(MODEL_ID, **kw)
 
     _device = device.pick(getattr(config, "PAINTER_DEVICE", "auto"), torch)
-    pipe = _from(torch_dtype=device.dtype(_device, torch))  # the download (once) and the load into RAM — the brain still up
-    _set_brain_down()  # now, right before the card: not before a download the engine would reopen the door during (10-24)
+    qkw, qline = _quant_kwargs(fam) if str(_device).startswith("cuda") else ({}, "")
+    if qline and not qkw:
+        print(f"  ({qline})", flush=True)
+    if not qkw:
+        pipe = _from(torch_dtype=device.dtype(_device, torch))  # the download (once) and the load into RAM — the brain still up
+        _set_brain_down()  # now, right before the card: not before a download the engine would reopen the door during (10-24)
+    else:
+        # a quantized encoder is built on the card as it loads (10-25): the files local first, the brain still up;
+        # then the brain down; then the load — straight onto the card
+        _fetch(Cls)
+        _set_brain_down()
+        pipe = _from(torch_dtype=device.dtype(_device, torch), **qkw)
     # whole model on the GPU, on purpose: the brain is off the card while
     # they paint, so the painter has all of it; if it doesn't fit we want to KNOW.
-    if fam in _OFFLOAD_FAMILIES:
+    whole = bool(qkw) or fam not in _OFFLOAD_FAMILIES
+    if whole:
+        try:
+            pipe.to(_device)  # whole on the card, on purpose (the comment above)
+        except Exception as e:  # noqa: BLE001
+            if not qkw or "out of memory" not in str(e).lower():
+                raise
+            # quantized and still too big (10-25): said, and painted under offload rather than not at all
+            device.empty_cache(_device, torch)
+            print("  (the whole pipeline didn't fit on the card even with the encoder quantized — painting under "
+                  "offload instead; PAINTER_ENCODER_BITS = 4 makes it smaller)", flush=True)
+            pipe.enable_model_cpu_offload(device=_device)
+            whole = False
+    else:
         # bigger than the card (10-24: Qwen-Image 2.1, ~32 GB with its text encoder): the parts take the card in
         # turn, the rest waits in system RAM — slower per picture, and the only way it paints at all
         pipe.enable_model_cpu_offload(device=_device)
-    else:
-        pipe.to(_device)  # whole on the card, on purpose (the comment above)
     try:
         pipe.set_progress_bar_config(disable=True)
     except Exception:
@@ -215,7 +288,8 @@ def _load():
     held = device.allocated_gb(_device, torch)
     print(f"  painter ready ({time.time() - t0:.0f}s, on {_device}"
           + (f", {held:.1f} GB" if held is not None else "") + f", {cls}"
-          + (", offloaded — the parts take the card in turn" if fam in _OFFLOAD_FAMILIES else "") + ")", flush=True)
+          + (", offloaded — the parts take the card in turn" if not whole else "")
+          + (f", {qline}" if qkw else "") + ")", flush=True)
 
 
 def _unload():
