@@ -6028,6 +6028,24 @@ check("engine's week (10-25): due on its day from its hour, once; \"\" never; th
       and "self.week_if_due()" in _pr_inspect.getsource(_ew_tg.Bridge.poll_once)
       and 'elif cmd == "/week":' in _pr_inspect.getsource(_ew_tg.Bridge)
       and "ENGINE_WEEK_DAY" in _tk_panel.TABS["Phone"] and "ENGINE_WEEK_DAY" in _tk_panel._HELP, _ew_due)
+# reference sets (10-25): a set's word alone (or its list whole) is its pictures in order and its line for the painter
+_rs0 = getattr(config, "PAINTER_REFERENCE_SETS", {})
+try:
+    config.PAINTER_REFERENCE_SETS = {"pair": ("rsa, rsb", "Picture 1 is the scale. Picture 2 is the face.")}
+    _rs_word = tools._reference_set("pair")
+    _rs_list = tools._reference_set("rsa,  rsb")
+    _rs_other = tools._reference_set("rsa")
+    config.PAINTER_REFERENCE_SETS = {}
+    _rs_none = tools._reference_set("pair")
+finally:
+    config.PAINTER_REFERENCE_SETS = _rs0
+_rs_src = _pr_inspect.getsource(tools.paint)
+check("paint (10-25): a reference set — its word alone or its list whole gives its pictures and its line (to the painter, named in the result); else as given",
+      _rs_word == ("rsa, rsb", "Picture 1 is the scale. Picture 2 is the face.", "pair") and _rs_list[1] == _rs_word[1]
+      and _rs_other == ("rsa", "", "") and _rs_none == ("pair", "", "")
+      and "(ref_say + \" \" + pr) if ref_say else pr" in _rs_src and "told the painter first" in _rs_src
+      and "PAINTER_REFERENCE_SETS" in _tk_panel.TABS["Senses"] and "PAINTER_REFERENCE_SETS" in _tk_panel._HELP,
+      (_rs_word, _rs_list, _rs_other, _rs_none))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

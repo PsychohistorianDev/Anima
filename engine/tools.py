@@ -2765,6 +2765,26 @@ def _reference_note() -> str:
     return str(getattr(config, "PAINTER_REFERENCE_NOTE", "") or "").strip()
 
 
+def _ref_items(reference: str) -> list[str]:
+    return [x.strip().lower().strip(" /").removeprefix("creations/").strip("/")
+            for x in re.split(r"[\n,]", reference or "") if x.strip()]
+
+
+def _reference_set(reference: str) -> tuple[str, str, str]:
+    """(the references to use, the line for the painter, the set's name) — a set of PAINTER_REFERENCE_SETS given alone
+    as `reference`, or its own list given whole, becomes its pictures in order, and its line rides at the front of the
+    painter's prompt (10-25); anything else is (reference, "", "")."""
+    sets = getattr(config, "PAINTER_REFERENCE_SETS", {}) or {}
+    asked = _ref_items(reference)
+    if not asked or not isinstance(sets, dict):
+        return reference, "", ""
+    for name, val in sets.items():
+        pics, say = (tuple(val) + ("", ""))[:2] if isinstance(val, (list, tuple)) else (val, "")
+        if asked == _ref_items(str(name)) or asked == _ref_items(str(pics)):
+            return str(pics), str(say or "").strip(), str(name)
+    return reference, "", ""
+
+
 def _paint_references(reference: str) -> tuple[list[Path], str]:
     """The pictures a painting is to look at: one per line (or comma), each under creations/, and the word "face" for
     every picture in creations/face/. ([paths], "") or ([], the refusal in parentheses); ([], "") for none."""
@@ -2811,6 +2831,7 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "",
     size = (size or "square").strip().lower()
     if size not in _PAINT_SIZES:
         return f"(size is one of {', '.join(_PAINT_SIZES)} — not '{size}')"
+    reference, ref_say, ref_set = _reference_set(reference)  # a set: its pictures, and its line for the painter (10-25)
     refs, why = _paint_references(reference)
     if why:
         return why
@@ -2866,7 +2887,7 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "",
     try:
         for pr, f in zip(prompts, files):
             try:
-                data = _painter_paint(pr, f, size, (negative or "").strip(),
+                data = _painter_paint((ref_say + " " + pr) if ref_say else pr, f, size, (negative or "").strip(),
                                       **({"reference": refs} if refs else {}))
             except Exception as e:
                 out.append(f"(the painter stumbled on “{pr[:60]}” — {e})")
@@ -2893,6 +2914,8 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "",
     if refs:
         names = ", ".join(_rel_creation(p) for p in refs[-10:])
         tail += f"\n(painted looking at {min(len(refs), 10)} of your pictures: {names})"
+        if ref_say:  # the set's line went to the painter ahead of the prompt (10-25)
+            tail += f"\n(the set \u201c{ref_set}\u201d told the painter first: \u201c{ref_say}\u201d)"
     if shown:
         # the painting is put before their eyes now — the painter sees their words
         # its own way, and what it made is what there is to speak of

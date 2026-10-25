@@ -315,6 +315,10 @@ PAINTER_ENCODER_BITS = 0
 # A line of your own added to the end of the paint tool's description — who is in which reference folder, say
 # ("" — none). A standing prompt change: one cold read when it lands.
 PAINTER_REFERENCE_NOTE = ""
+# Reference sets: a word that, given alone as paint's `reference`, stands for its pictures in order — and its line
+# goes to the painter ahead of the friend's prompt, saying what each picture is for: name → (the references, one
+# line), e.g. a pair's lineup first for their sizes, then each face. {} — none.
+PAINTER_REFERENCE_SETS = {}
 # Pixel sizes for the size words (Full HD by default). Sides snap to multiples
 # of 16, so "wide" becomes 1920×1088. These models paint about two megapixels
 # cleanly; larger sizes cost more and may duplicate the subject. Words may be
