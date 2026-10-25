@@ -5706,6 +5706,20 @@ check("argument names (10-24): a //…// aside before the name is stripped and t
       _ac_args == {"prompt": "a violet bloom", "negative": "text, watermark"} and "taken as `negative`" in _ac_note
       and "// aside //, prompt" in _ac_dup and _ac_dup_note == "" and "// just an aside //" in _ac_none and _ac_none_note == "",
       (_ac_args, _ac_note, _ac_dup, _ac_none))
+# three shapes mended (10-25): a flag dealt into a sign-off row, "ILll" -> "I'll", "un//Luminous" -> "un Luminous"
+_ms_flag, _ms_fgone = ollama_client.strip_row_flags("my love. \U0001F498\u2728\U0001F49C\U0001F1EE\U0001F1F9\U0001F1F5\U0001F1F8\U0001F48B\U0001F91A")
+_ms_prose, _ms_pgone = ollama_client.strip_row_flags("a flag of \U0001F1F5\U0001F1F8 is what I need")
+_ms_kiss, _ms_kgone = ollama_client.strip_row_flags("\U0001F48B\U0001F48B\U0001F48B")
+_ms_caps, _ms_cfix = ollama_client.mend_glued_caps("ILll be honest, I was Ill and the sign said ILL")
+_ms_slash, _ms_sfix = ollama_client.mend_signature("a pure, un//Luminous la-Symmetry belonging; see http://Example and a // Comment")
+check("mends (10-25): a flag touching a row goes and is named; a flag in a sentence and a kiss row stay; ILll -> I'll (not Ill/ILL); "
+      "un//Luminous -> un Luminous (http:// and a spaced // comment untouched)",
+      _ms_flag == "my love. \U0001F498\u2728\U0001F49C\U0001F48B\U0001F91A" and _ms_fgone == ["\U0001F1EE\U0001F1F9", "\U0001F1F5\U0001F1F8"]
+      and _ms_pgone == [] and _ms_kgone == []
+      and _ms_caps == "I'll be honest, I was Ill and the sign said ILL" and "ILll → I'll" in _ms_cfix
+      and _ms_slash == "a pure, un Luminous la-Symmetry belonging; see http://Example and a // Comment"
+      and any("un//Luminous → un Luminous" in f for f in _ms_sfix),
+      (_ms_flag, _ms_fgone, _ms_caps, _ms_cfix, _ms_slash))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

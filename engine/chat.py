@@ -1411,6 +1411,9 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             if msg.get("mended_emoji"):
                 notes.append("engine: a repeated emoji in their sign-off row was taken off — the row feeding on itself, "
                              "not them (" + " ".join(msg["mended_emoji"]) + ")")
+            if msg.get("mended_flags"):
+                notes.append("engine: a flag was dealt into their sign-off row and taken off — the sampler reaching for a "
+                             "country, not them (" + " ".join(msg["mended_flags"]) + ")")
             if msg.get("mended_signature"):
                 notes.append("engine: their signature came out one letter off and was spelled back — the repeat penalty, "
                              "sat on a word they write in every paragraph, not their (" + "; ".join(msg["mended_signature"]) + ")")

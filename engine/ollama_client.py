@@ -2345,6 +2345,9 @@ _CAP_AFTER_CAPWORD_RE = re.compile(r"\b([A-Z][a-z]{2,})([A-Z])\b")
 # one letter, so neither rule above saw it. The stray is the first letter of the word that follows ("L" before
 # "la-"); mended to "I" when it is, and never a word of its own (IT, ID, IQ…) or before a shouted word.
 _CAP_AFTER_I_RE = re.compile(r"\bI([A-Z])\b(?=\s+([A-Za-z])(?![A-Z]))")
+# "ILll be honest" (10-24): "I'll" with the apostrophe gone, the "ll" capitalised and doubled by the repeat penalty —
+# I, a capital L, then lowercase l's. Not "Ill" (lowercase l after I, the word) and not "ILL" (a capital where the l goes).
+_CAP_I_LL_RE = re.compile(r"\bIL(l+)\b")
 _I_WORDS = {"IT", "ID", "IQ", "IP", "IV", "IR", "II", "IS", "IN", "IM", "IO"}
 # a seam: junk run into a real word at a capital — "termsLSimulation Nine"
 # (09-14) → Simulation, "laLuminous silk" → luminous; and a word doubled
@@ -2410,6 +2413,10 @@ def mend_glued_caps(text: str) -> tuple[str, list[str]]:
         fixes.append(f"{m.group(0)} → I")
         return "I"
     out = _CAP_AFTER_I_RE.sub(_i, out)
+    def _ill(m):
+        fixes.append(f"{m.group(0)} → I'll")
+        return "I'll"
+    out = _CAP_I_LL_RE.sub(_ill, out)
     if not fixes:
         return text, []
     return out, fixes
@@ -2433,6 +2440,7 @@ def mend_signature(text: str) -> tuple[str, list[str]]:
         out = _SLASH_TAIL_RE.sub(lambda m: _slash_tail(m, fixes),
                                  _SLASH_MID_RE.sub(lambda m: _slash_mid(m, fixes), out))  # the "//" mends need no signature
         out = _SLASH_GLUED_RE.sub(lambda m: _slash_tail(m, fixes), out)  # "loopy-pants//" (10-23)
+        out = _SLASH_SPLIT_RE.sub(lambda m: _slash_split(m, fixes), out)  # "un//Luminous" (10-24)
         return (out, fixes) if fixes else (text or "", [])
     head, word, tail = parts
     stem = tail[:5]
@@ -2459,6 +2467,7 @@ def mend_signature(text: str) -> tuple[str, list[str]]:
     out = _SLASH_TAIL_RE.sub(lambda m: _slash_tail(m, fixes),
                              _SLASH_MID_RE.sub(lambda m: _slash_mid(m, fixes), restart.sub(_restart, out)))
     out = _SLASH_GLUED_RE.sub(lambda m: _slash_tail(m, fixes), out)  # "loopy-pants//" (10-23)
+    out = _SLASH_SPLIT_RE.sub(lambda m: _slash_split(m, fixes), out)  # "un//Luminous" (10-24)
     # a doubled head (10-18): "la la-fucking-luminate" — the repeat penalty stuttering the first part; said once
     doubled = re.compile(r"\b(" + re.escape(head) + r") (" + re.escape(head) + r"-)", re.IGNORECASE)
     def _doubled(m):
@@ -2473,6 +2482,9 @@ _SLASH_TAIL_RE = re.compile(r"\b([A-Za-z][\w'-]*[A-Za-z0-9'])[-_]//(?=\s|$|[.,!?
 # "//" glued straight onto the end of a hyphenated word, no joiner — "la-fucking-loopy-pants//" (10-23, the sixth
 # shape); a hyphenated compound only, before a space, a mark or the end: "https://" and a "// comment" after a space stay
 _SLASH_GLUED_RE = re.compile(r"\b([A-Za-z][\w']*(?:-[A-Za-z][\w']*)+)//(?=\s|$|[.,!?;:)\]\u2026\u2014'\"])")
+# a word, "//", a capitalised word, no joiner and no space (10-24: "un//Luminous la-Symmetry belonging") — the sampler
+# used the comment mark where a space goes; the "//" becomes a space, both words stand ("http://" has a ":" before it)
+_SLASH_SPLIT_RE = re.compile(r"\b([A-Za-z]+)//([A-Z][a-z][\w']*)")
 # "//" INSIDE a hyphenated word — "la-//LUMINATE//", "la-//luminate" (10-18): the sampler landed on the comment
 # mark where the next part goes, wrote the part, and closed it like a mark-up; the letters stay, the slashes go
 # ...and the joiner may be a hyphen or an underscore (10-18, the fourth shape: "touch_//LUMINATE//"); it is kept
@@ -2506,6 +2518,12 @@ def _slash_mid(m, fixes: list[str]) -> str:
 def _slash_tail(m, fixes: list[str]) -> str:
     fixes.append(f"{m.group(0)} → {m.group(1)}")
     return m.group(1)
+
+
+def _slash_split(m, fixes: list[str]) -> str:
+    fixed = f"{m.group(1)} {m.group(2)}"
+    fixes.append(f"{m.group(0)} → {fixed}")
+    return fixed
 
 
 def collapse_stutter(text: str) -> str:
@@ -2636,6 +2654,33 @@ def mend_emoji_row(text: str) -> tuple[str, list[str]]:
         return "".join(out)
     mended = _EMOJI_ROW_RE.sub(_row, text or "")
     return (mended, gone) if gone else (text, [])
+
+
+_FLAG_RE = re.compile(r"[\U0001F1E6-\U0001F1FF]{2}")  # a flag: two regional-indicator letters, below the emoji range
+_FLAGS_AFTER_RE = re.compile("(" + _EMOJI_TOKEN_RE.pattern + r")((?:\s*[\U0001F1E6-\U0001F1FF]{2})+)")
+_FLAGS_BEFORE_RE = re.compile(r"((?:[\U0001F1E6-\U0001F1FF]{2}\s*)+)(" + _EMOJI_TOKEN_RE.pattern + ")")
+
+
+def strip_row_flags(text: str) -> tuple[str, list[str]]:
+    """(text with flags taken out of its sign-off rows, ["\U0001F1EE\U0001F1F9"]); untouched with [] when none (10-24: the
+    keeper asked that flags dealt into a row go — a flag of one country beside another is the sampler, not her). A flag
+    goes only when it touches a decorative emoji (it is in a row, not a sentence); a flag standing in prose stays, and a
+    row that is only flags is left for the rails."""
+    gone: list[str] = []
+
+    def _after(m):
+        for f in _FLAG_RE.findall(m.group(2)):
+            gone.append(f)
+        return m.group(1)
+
+    def _before(m):
+        for f in _FLAG_RE.findall(m.group(1)):
+            gone.append(f)
+        return m.group(2)
+
+    out = _FLAGS_AFTER_RE.sub(_after, text or "")
+    out = _FLAGS_BEFORE_RE.sub(_before, out)
+    return (out, gone) if gone else (text, [])
 
 
 def row_redealt(units: list[str]) -> bool:
@@ -3166,6 +3211,7 @@ def _parse(data: dict) -> dict:
     clean, mended_caps = mend_glued_caps(clean)
     clean, mended_sig = mend_signature(clean)
     clean, mended_row = mend_emoji_row(clean)  # a repeat in the sign-off row, taken off (10-22)
+    clean, mended_flags = strip_row_flags(clean)  # a flag dealt into a row, taken off (10-24)
     clean, unwrapped = unwrap_speak(clean)
     if unwrapped:
         msg["unwrapped_speak"] = unwrapped
@@ -3185,6 +3231,7 @@ def _parse(data: dict) -> dict:
     msg["mended_caps"] = mended_caps
     msg["mended_signature"] = mended_sig
     msg["mended_emoji"] = mended_row
+    msg["mended_flags"] = mended_flags
     # what this call cost: tokens read (the prompt) and written (thinking +
     # words + tool calls), straight from Ollama's counters
     msg["tokens"] = {"prompt": int(data.get("prompt_eval_count") or 0),
