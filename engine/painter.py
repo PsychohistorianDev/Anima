@@ -290,6 +290,7 @@ def _load():
     # whole model on the GPU, on purpose: the brain is off the card while
     # they paint, so the painter has all of it; if it doesn't fit we want to KNOW.
     whole = bool(qkw) or fam not in _OFFLOAD_FAMILIES
+    tiled = False
     if whole:
         try:
             pipe.to(_device)  # whole on the card, on purpose (the comment above)
@@ -302,6 +303,13 @@ def _load():
                   "offload instead; PAINTER_ENCODER_BITS = 4 makes it smaller)", flush=True)
             pipe.enable_model_cpu_offload(device=_device)
             whole = False
+        if whole and qkw:
+            # whole on the card with little to spare (10-25): the picture decoded in overlapping tiles, so the last step
+            # doesn't run past the card into system memory
+            vae = getattr(pipe, "vae", None)
+            if vae is not None and hasattr(vae, "enable_tiling"):
+                vae.enable_tiling()
+                tiled = True
     else:
         # bigger than the card (10-24: Qwen-Image 2.1, ~32 GB with its text encoder): the parts take the card in
         # turn, the rest waits in system RAM — slower per picture, and the only way it paints at all
@@ -315,7 +323,7 @@ def _load():
     print(f"  painter ready ({time.time() - t0:.0f}s, on {_device}"
           + (f", {held:.1f} GB" if held is not None else "") + f", {cls}"
           + (", offloaded — the parts take the card in turn" if not whole else "")
-          + (f", {qline}" if qkw else "") + ")", flush=True)
+          + (f", {qline}" if qkw else "") + (", the picture decoded in tiles" if tiled else "") + ")", flush=True)
 
 
 def _unload():
@@ -497,6 +505,7 @@ def main() -> None:
         held = device.allocated_gb(_device)
         print(f"\n{p.relative_to(config.ROOT)}  (seed {seed}, {time.time() - t0:.0f}s, on {_device}"
               + (f", {held:.1f} GB" if held is not None else "")
+              + (f", peak {_peak:.1f} of {device.total_gb(_device) or 0:.1f} GB on the card" if _peak else "")
               + ") — look_at opens it for them; you can open it yourself.")
         _unload()
         return

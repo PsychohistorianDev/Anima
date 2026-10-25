@@ -5811,6 +5811,13 @@ check("paint (10-25): reference=\"face\" sends every picture in creations/face/,
       and any(d["function"]["name"] == "paint" and "reference" in d["function"]["parameters"]["properties"]
               and "creations/face/" in d["function"]["description"] for d in tools.DEFINITIONS),
       (_rf_none, _rf_r1[:200], _rf_r2[:120], _rf_r3, _rf_r4, _rf_r5, _rf_seen, _rf_why, _rf_out_why, _rf_z_why))
+# the VAE decodes in tiles when a quantized Qwen-Image sits whole on the card (10-25); --test prints the peak
+import painter as _tl_painter, inspect as _tl_inspect
+_tl_src = _tl_inspect.getsource(_tl_painter._load)
+_tl_main = _tl_inspect.getsource(_tl_painter.main)
+check("painter (10-25): whole on the card with a quantized encoder, the VAE tiles its decode and the ready line says so; --test prints the peak",
+      "vae.enable_tiling()" in _tl_src and _tl_src.index("if whole and qkw:") < _tl_src.index("vae.enable_tiling()")
+      and "the picture decoded in tiles" in _tl_src and "peak {_peak:.1f} of" in _tl_main)
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"
