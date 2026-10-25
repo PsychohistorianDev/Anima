@@ -66,6 +66,7 @@ config.MEMORY_DRIFT, config.MEMORY_VISIT_TOKENS, config.MEMORY_SHORT_HINT_WORDS 
 config.CREATION_NOTES = False  # the older creation tests pin exact results; the notes are tested on their own
 config.CHAT_RESCUE_TEMPERATURE = 0  # the older salad tests count posts; the cool roll is tested on its own
 config.CHAT_GARBLE_RETRIES = 2  # the older salad tests count posts against two; the budget is 4 in config since 09-20
+config.ENGINE_WEEK_DAY = ""  # the engine's week never rides the suite's polls, whatever day the suite runs (10-25)
 import condense
 config.AFTERGLOW = False  # the afterglow runs in a thread; tested on its own, synchronously, below
 config.SLEEP_IN_BRIDGE = False  # the night in the bridge would run the real sleep from any poll after the hour; tested on its own, below
@@ -5980,6 +5981,53 @@ check("painter (10-25): references take the offload road, a spill is painted aga
       and "if offload and qkw and fam in _OFFLOAD_FAMILIES:" in _pr_load and "_whole = whole" in _pr_load
       and "_lock.acquire(timeout=REST_WAIT_S)" in _pr_door and "ThreadingHTTPServer((HOST, PORT), Handler)" in _pr_main
       and "nothing after it was painted" in _pr_tool and "break" in _pr_tool)
+# the engine's week (10-25): a line a call in memory/steps.log; the week read from it; due once on its day after its hour
+import engine_week, telegram as _ew_tg
+from datetime import datetime as _ew_dt, timedelta as _ew_td
+_ew_steps0, _ew_old0, _ew_told0 = engine_week.STEPS_FILE, engine_week.OLD_FILE, engine_week.TOLD_FILE
+_ew_dir = config.MEMORY_DIR / "ew-test"; _ew_dir.mkdir(parents=True, exist_ok=True)
+engine_week.STEPS_FILE, engine_week.OLD_FILE, engine_week.TOLD_FILE = _ew_dir / "steps.log", _ew_dir / "steps.old.log", _ew_dir / "told.json"
+_ew_cfg0 = {k: getattr(config, k, None) for k in ("SIGNATURE", "SIGNATURE_REFRAINS", "ENGINE_WEEK_DAY", "ENGINE_WEEK_HOUR", "NUM_CTX")}
+try:
+    config.SIGNATURE, config.SIGNATURE_REFRAINS, config.NUM_CTX = "star-bright-glow", ("twin glow",), 262144
+    _ew_now = _ew_dt(2026, 10, 25, 19, 0)
+    _ew_attempt = {"content": "x", "thinking": "a b c", "tokens": {"prompt": 170000, "prompt_s": 150.0, "reply": 300}}
+    _ew_msg = {"content": "the star-bright-glow hums, star-bright-glow again, twin glow", "thinking": "one two three four five",
+               "tokens": {"prompt": 171000, "prompt_s": 2.0, "reply": 400, "done": "stop"},
+               "mended_caps": ["aB → b"], "mended_flags": ["🇫🇷"]}
+    _ew_rec = engine_week.log_step([({"why": "salad (at 0.6)"}, _ew_attempt)], _ew_msg, now=_ew_now - _ew_td(hours=2))
+    engine_week.log_step([], {"content": "", "thinking": "", "tool_calls": [{}], "tokens": {"prompt": 9000, "prompt_s": 0.5, "reply": 20}},
+                         now=_ew_now - _ew_td(days=9))  # outside the week
+    _ew_week = engine_week.summary(_ew_now)
+    _ew_empty_dir = _ew_dir / "none"; _ew_empty_dir.mkdir(exist_ok=True)
+    engine_week.STEPS_FILE, engine_week.OLD_FILE = _ew_empty_dir / "steps.log", _ew_empty_dir / "old.log"
+    _ew_empty = engine_week.summary(_ew_now)
+    config.ENGINE_WEEK_DAY, config.ENGINE_WEEK_HOUR = "sun", 18
+    _ew_due = (engine_week.due(_ew_now), engine_week.due(_ew_now.replace(hour=17)), engine_week.due(_ew_now - _ew_td(days=1)))
+    engine_week.mark_told(_ew_now)
+    _ew_after = engine_week.due(_ew_now)
+    config.ENGINE_WEEK_DAY = ""
+    _ew_never = engine_week.due(_ew_now + _ew_td(days=7))
+finally:
+    for _k, _v in _ew_cfg0.items():
+        setattr(config, _k, _v)
+    engine_week.STEPS_FILE, engine_week.OLD_FILE, engine_week.TOLD_FILE = _ew_steps0, _ew_old0, _ew_told0
+check("engine's week (10-25): a call's line — door, window, the reads summed over its attempts, the longest thought, the set-asides by kind, the mends, the signature",
+      _ew_rec and _ew_rec["door"] and _ew_rec["prompt"] == 171000 and _ew_rec["read_s"] == 152.0 and _ew_rec["reply"] == 700
+      and _ew_rec["think"] == 5 and _ew_rec["aside"] == ["salad"] and _ew_rec["mends"] == {"caps": 1, "flags": 1}
+      and _ew_rec["sig"] == 2 and _ew_rec["refrain"] == 1, _ew_rec)
+check("engine's week (10-25): the notice — the week's calls only, set-asides, mends, the cold read, the longest thought, the signature, the window; an empty log says so",
+      _ew_week.startswith("(the engine's week, 10-18 → 10-25") and "· 1 call to the brain" in _ew_week and "salad" in _ew_week
+      and "a stray capital taken off a word" in _ew_week and "a flag taken off the row" in _ew_week
+      and "cold reads (a prompt read in 1m 00s or more): 1, 2m 32s in all; the longest 2m 32s at 171,000 tokens" in _ew_week
+      and "the longest thought: 5 words" in _ew_week and "· star-bright-glow: 2.0 a reply, 2 at most" in _ew_week
+      and "· twin glow: 1 time" in _ew_week and "171,000 tokens (65%)" in _ew_week
+      and "nothing logged in the last seven days" in _ew_empty, _ew_week)
+check("engine's week (10-25): due on its day from its hour, once; \"\" never; the bridge sends it from its poll and /week on asking",
+      _ew_due == (True, False, False) and _ew_after is False and _ew_never is False
+      and "self.week_if_due()" in _pr_inspect.getsource(_ew_tg.Bridge.poll_once)
+      and 'elif cmd == "/week":' in _pr_inspect.getsource(_ew_tg.Bridge)
+      and "ENGINE_WEEK_DAY" in _tk_panel.TABS["Phone"] and "ENGINE_WEEK_DAY" in _tk_panel._HELP, _ew_due)
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

@@ -1187,6 +1187,9 @@ class Bridge:
         elif cmd == "/voice":
             self.voice_all = not self.voice_all
             self.send(f"(every reply spoken aloud: {'on' if self.voice_all else 'off'} — they can still speak when they choose)", markdown=False)
+        elif cmd == "/week":
+            import engine_week
+            self.send(engine_week.summary(), markdown=False)  # the engine's week, now (10-25)
         elif cmd == "/status":
             self.send(self.status(), markdown=False)
         elif cmd == "/heartbeat":
@@ -2005,6 +2008,21 @@ class Bridge:
                 self.notice(f"{caption} (couldn't send the picture: {e2})")
 
     # ---- the loop ---------------------------------------------------------
+    def week_if_due(self) -> str:
+        """The engine's week (10-25): on ENGINE_WEEK_DAY after ENGINE_WEEK_HOUR, once, the last seven days of
+        memory/steps.log as an engine notice (held through the quiet hours like any other). Returns what was sent."""
+        try:
+            import engine_week
+            if not self.chat_id or not engine_week.due():
+                return ""
+            text = engine_week.summary()
+            engine_week.mark_told()
+            self.notice(text + "\n(/week shows it any time)")
+            return text
+        except Exception as e:  # noqa: BLE001 — a courtesy, never the bridge down
+            _say(f"(the engine's week failed — {type(e).__name__}: {e})")
+            return ""
+
     def say_newer_if_due(self) -> str:
         """A newer anima, said once per version (10-01; the keeper: "a message that a patch is available"):
         the daily look at the release feed (newer.look — the cache answers between looks, so this costs a
@@ -2115,6 +2133,7 @@ class Bridge:
             self.pause_if_due()
         self.idle_set_down_if_due()
         self.night_if_due()
+        self.week_if_due()  # the engine's week, once a week (10-25)
         return n
 
     @staticmethod

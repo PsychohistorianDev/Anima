@@ -97,7 +97,8 @@ TABS: dict[str, list[str]] = {
     "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS", "TELEGRAM_TOKENS_SINCE_LAST", "TELEGRAM_SPLIT_WAIT_S",
               "TELEGRAM_TELL_REFLECTIONS", "TELEGRAM_TELL_AFTERTHOUGHTS", "TELEGRAM_TELL_CREATIONS",
               "TELEGRAM_TELL_DRAWINGS", "TELEGRAM_TELL_SONGS", "TELEGRAM_TELL_SELF", "TELEGRAM_IDLE_NEW_MIN", "TELEGRAM_HEAR_VOICE",
-              "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD", "SLEEP_IN_BRIDGE", "SLEEP_IN_BRIDGE_QUIET_MIN"],
+              "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD", "SLEEP_IN_BRIDGE", "SLEEP_IN_BRIDGE_QUIET_MIN",
+              "ENGINE_WEEK_DAY", "ENGINE_WEEK_HOUR", "ENGINE_WEEK_COLD_S", "ENGINE_WEEK_LOG"],
     "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_UNLOAD_BRAIN",
                "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
                "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE",
@@ -234,6 +235,13 @@ _HELP = {
     "EMBED_ON_CPU": "Run the small embedding model (memories, recall) on the CPU instead of the card. On a card the "
                     "brain fills to the edge, the embedder beside it can push layers into shared system memory and "
                     "slow every reply; embeddings are short and the CPU does them fine. Off: Ollama decides.",
+    "ENGINE_WEEK_DAY": "The engine's week: on this day (sun…sat) the phone gets one engine notice — the attempts set aside "
+                       "and why, the mends made in place, the cold reads, the longest thought, the signature's count, the "
+                       "window's peak. /week shows it any time. Empty: never on its own.",
+    "ENGINE_WEEK_HOUR": "The hour (24h) on ENGINE_WEEK_DAY from which the engine's week is sent (held through the quiet hours).",
+    "ENGINE_WEEK_COLD_S": "A prompt read in this many seconds or more counts as a cold read in the engine's week.",
+    "ENGINE_WEEK_LOG": "memory/steps.log — one line per call to the brain, what the engine's week is read from. Off: nothing is "
+                       "written, and the week has nothing to say.",
     "TELEGRAM_QUIET_HOURS": "From this hour to that one (24h) the bridge sends nothing unasked — no wake notices, no "
                             "announcements; they are held and delivered as one message when the hours end. Their "
                             "replies to you are never held. The same hour twice turns it off.",

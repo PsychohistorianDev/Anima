@@ -687,6 +687,11 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
         msg["claim_kept_upto"] = claim_kept["upto"]
     kept = [cost for cost, src in tries if src is not msg]
     log_attempts(tries, msg)  # memory/attempts.log: what was set aside, and a reply that went out cut or broken (10-21)
+    try:
+        import engine_week
+        engine_week.log_step(tries, msg)  # memory/steps.log: one line a call, for the engine's week (10-25)
+    except Exception:  # noqa: BLE001 — the week's count, never a reply down
+        pass
     msg["set_aside"] = set_aside_list(tries, msg)  # for a keeper who asked to see them (/debug on the phone, 10-23)
     if kept:
         msg["retries"] = kept

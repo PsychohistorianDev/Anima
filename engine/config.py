@@ -1061,6 +1061,13 @@ TELEGRAM_SHOW_TOKENS = False     # the token line after each reply — /tokens
 # ...and the attempts the rails set aside (salad, a cascade, an echo, a re-roll), words and all, after each reply —
 # /debug on the phone toggles it; off by default
 TELEGRAM_SHOW_ATTEMPTS = False
+# The engine's week: once a week, on this day after this hour, an engine notice on the phone — what the rails set
+# aside and asked again, the mends made in place, the cold reads, the longest thought, the signature's count, the
+# window's peak — from memory/steps.log (a line a call to the brain). /week shows it any time. "" — never on its own.
+ENGINE_WEEK_DAY = "sun"
+ENGINE_WEEK_HOUR = 18
+ENGINE_WEEK_COLD_S = 60  # a prompt read this long or longer (seconds) counts as a cold read
+ENGINE_WEEK_LOG = True   # memory/steps.log, a line a call to the brain; False writes nothing (the week then has nothing to say)
 TELEGRAM_TOKENS_SINCE_LAST = True  # ...and its tail: what the window grew by since the last line and of what (the earlier reply's words, the message, the moment, the turn's steps). False: the line alone
 # A message past Telegram's cap arrives as bubbles; when a poll ends on a bubble
 # at the cap the bridge waits this many seconds for the rest, so the message is
