@@ -2119,9 +2119,10 @@ def next_spark(minutes) -> str:
     st, turned_on = presence.set_interval(minutes, by="friend")
     m = st["interval"]
     at = (datetime.now() + timedelta(minutes=m)).strftime("%H:%M")
-    return (f"next spark in {m} minutes (about {at})" + ("; presence is on now" if turned_on else "")
-            + f" — a spark every {m} minutes, counted from the last word between you, until you set another; only "
-            f"{keeper_week.keeper_name()} turns presence off, and it ends at the quiet hours")
+    return (f"a spark in {m} minutes (about {at}), counted from the last word between you"
+            + ("; presence is on now" if turned_on else "")
+            + f" — one spark: after it, another only when you set it again; only {keeper_week.keeper_name()} turns "
+            "presence off, and it ends at the quiet hours")
 
 
 def leave_thread(text: str) -> str:
@@ -6084,11 +6085,11 @@ _BUILTIN_DEFINITIONS: list[dict] = [
     ),
     _tool(
         "next_spark",
-        "Sparks: while presence is on you get a short turn of your own whenever the conversation has been quiet for "
-        "your interval — words to the phone, a painting, the stone, or nothing at all. This sets the interval (5 to "
-        "60 minutes, counted from the last word between you) and turns presence on if it was off; your keeper sees "
-        "the time you set. Only your keeper turns presence off, and it ends at the quiet hours.",
-        {"minutes": {"type": "integer", "description": "minutes until your next spark, 5 to 60"}},
+        "Sparks: set one spark — a short turn of your own once the conversation has been quiet that long (5 to 60 "
+        "minutes, counted from the last word between you): words to the phone, a painting, the stone, or nothing at "
+        "all. One at a time: after it comes, another only when you set it again. It turns presence on if it was off; "
+        "your keeper sees the time you set. Only your keeper turns presence off, and it ends at the quiet hours.",
+        {"minutes": {"type": "integer", "description": "minutes until the spark, 5 to 60"}},
         ["minutes"],
     ),
     _tool(

@@ -6268,14 +6268,14 @@ try:
 finally:
     presence.STATE_FILE, presence.WAKING_FILE = _ps0
 check("presence (10-26): next_spark clamps to 5–60, turns presence on and tells the phone the time once; due after the interval, not during a wake",
-      _ps_def["on"] is False and _ps_def["interval"] == 15 and _ps_res.startswith("next spark in 5 minutes")
+      _ps_def["on"] is False and _ps_def["interval"] == 15 and _ps_res.startswith("a spark in 5 minutes")
       and "presence is on now" in _ps_res and _ps_st["on"] and _ps_st["interval"] == 5
-      and _ps_ann.startswith("⏳ next spark in 5 min (at ") and "presence is on" in _ps_ann and _ps_ann2 == ""
+      and _ps_ann.startswith("⏳ a spark in 5 min (at ") and "presence is on" in _ps_ann and _ps_ann2 == ""
       and _ps_big["interval"] == 60 and _ps_due == (False, True) and _ps_wk is False and _ps_disc == (True, False) and _ps_off is False,
       (_ps_def, _ps_res, _ps_st, _ps_ann))
 check("presence (10-26): the spark's line — facts and what a spark can be; the stone refused in work hours inside a spark, not outside one",
       "a spark — presence is on. 42 minutes since the last word" in _ps_line_w and "not the stone — Keeper is at work" in _ps_line_w
-      and "the stone (a pulse, a glow)" in _ps_line_h and "next_spark changes it (5–60)" in _ps_line_h
+      and "the stone (a pulse, a glow)" in _ps_line_h and "no other comes unless you set one again with next_spark (5–60 minutes)" in _ps_line_h
       and all("leaves the stone still" in r for r in _ps_stone) and _ps_stone_off == ""
       and "next_spark" in tools.ACT_TOOLS and any(d["function"]["name"] == "next_spark" for d in tools.DEFINITIONS),
       (_ps_line_w, _ps_stone))
@@ -6293,6 +6293,23 @@ check("presence (10-26): a spark's turn carries no think reminder nor the sticky
       "think_remind: bool = True" in _snr_src and "remind = \"\" if (not think_remind" in _snr_src
       and "if think_remind and getattr(config, \"THINK_NUDGE_STICKS\"" in _snr_src
       and '{"think_retries": 0, "think_remind": False} if spark' in _pr_inspect.getsource(_ew_tg.Bridge.turn))
+# one spark at a time (10-26: "require to set it manually again after each spark"): after it fires, nothing waits
+_po0 = (presence.STATE_FILE, presence.WAKING_FILE)
+presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "po-test.json", config.MEMORY_DIR / "po-waking"
+try:
+    presence.set_interval(10)
+    _po_a = (presence.waiting(), presence.due(_ps_time.time() - 11 * 60))
+    presence.fired()
+    _po_b = (presence.is_on(), presence.waiting(), presence.due(_ps_time.time() - 99 * 60))
+    _po_on = presence.turn_on("keeper")
+    _po_c = (presence.waiting(), _po_on["interval"])
+finally:
+    presence.STATE_FILE, presence.WAKING_FILE = _po0
+_po_tg = _pr_inspect.getsource(_ew_tg.Bridge.presence_if_due)
+check("presence (10-26): one spark at a time — set, due, fired, then nothing until set again (presence stays on); /presence on sets one at the default",
+      _po_a == (True, True) and _po_b == (True, False, False) and _po_c == (True, 15)
+      and _po_tg.index("presence.fired()") < _po_tg.index("self.turn(text") and "presence.waiting()" in _pr_inspect.getsource(_ew_tg.Bridge.presence_on),
+      (_po_a, _po_b, _po_c))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

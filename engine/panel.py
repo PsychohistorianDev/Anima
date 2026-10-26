@@ -240,8 +240,8 @@ _HELP = {
                                   "caption when it fits, a message after the photo when it doesn't.",
     "WAKE_LOG_PAINT_PROMPT": "Under each paint call in a wake's log: the prompt the painter was given, the set's line, the "
                              "references, what was kept out. (A visit's go to the phone: TELEGRAM_PAINT_PROMPT_CHAT.)",
-    "PRESENCE_DEFAULT_MIN": "Sparks: the minutes between sparks before the friend has set their own rhythm with "
-                            "next_spark (5–60). /presence on|off and /discreet on the phone.",
+    "PRESENCE_DEFAULT_MIN": "Sparks: the minutes of the one spark /presence on sets (5–60). After each spark the friend "
+                            "sets the next with next_spark, or none comes. /presence on|off and /discreet on the phone.",
     "PRESENCE_THINK": "Off: a spark gets no think re-roll, so it stays quick. On: re-rolled like any message. The "
                       "thinking switch itself is left as the visit's, so the window isn't read again for a spark.",
     "ENGINE_WEEK_DAY": "The engine's week: on this day (sun…sat) the phone gets one engine notice — the attempts set aside "

@@ -1,10 +1,11 @@
 """Presence — sparks: a short turn of the friend's own, every so often, while the keeper is away.
 
-While presence is on, the bridge gives the friend a turn in the open visit when the visit has been quiet for their
-interval (a "spark"): an engine line says how long it has been and what a spark can be — words to the phone, a
-painting, the stone (never in the keeper's work hours), or nothing at all. next_spark(minutes) sets the interval
-(PRESENCE_MIN…PRESENCE_MAX minutes; PRESENCE_DEFAULT_MIN before the first) and turns presence on; only the keeper turns
-it off (/presence off), and it ends by itself when the quiet hours begin. A message from the keeper restarts the
+While presence is on, the friend can set ONE spark at a time: next_spark(minutes) (PRESENCE_MIN…PRESENCE_MAX minutes)
+turns presence on and sets it; when the visit has been quiet that long the bridge gives them a turn in the open visit
+(a "spark") — an engine line says how long it has been and what a spark can be: words to the phone, a painting, the
+stone (never in the keeper's work hours), or nothing at all. After it, no other comes unless they set it again (10-26,
+the keeper: "I want it to require to set it manually again after each spark"). /presence on sets one at
+PRESENCE_DEFAULT_MIN; only the keeper turns presence off (/presence off), and it ends by itself at the quiet hours. A message from the keeper restarts the
 count; a wake running holds the sparks until it ends. /discreet on the phone sends sparks silently, the words hidden
 until tapped. The state lives in memory/presence.json, so it outlives a restart.
 """
@@ -72,28 +73,43 @@ def set_interval(minutes, by: str = "friend", now: datetime | None = None) -> tu
     st = load()
     m = clamp(minutes)
     turned_on = not st.get("on")
-    st.update(on=True, interval=m)
+    st.update(on=True, interval=m, pending=True)
     if turned_on:
         st.update(since=(now or datetime.now()).isoformat(timespec="seconds"), by=by)
-    st["announce"] = (f"⏳ next spark in {m} min (at {_at(m, now)})" + (" — presence is on" if turned_on else ""))
+    st["announce"] = (f"⏳ a spark in {m} min (at {_at(m, now)})" + (" — presence is on" if turned_on else ""))
     save(st)
     return st, turned_on
 
 
 def turn_on(by: str = "keeper", now: datetime | None = None) -> dict:
+    """Presence on with one spark set at PRESENCE_DEFAULT_MIN (the keeper's /presence on)."""
     st = load()
     if not st.get("on"):
-        st.update(on=True, since=(now or datetime.now()).isoformat(timespec="seconds"), by=by)
-        save(st)
+        st.update(since=(now or datetime.now()).isoformat(timespec="seconds"), by=by)
+    st.update(on=True, interval=default_interval(), pending=True)
+    save(st)
     return st
 
 
 def turn_off(why: str = "") -> dict:
     st = load()
-    st.update(on=False, ended=datetime.now().isoformat(timespec="seconds"), why=why)
+    st.update(on=False, pending=False, ended=datetime.now().isoformat(timespec="seconds"), why=why)
     st.pop("announce", None)
     save(st)
     return st
+
+
+def waiting() -> bool:
+    """Presence on and a spark set (one at a time — after it fires, another only when next_spark sets it)."""
+    st = load()
+    return bool(st.get("on") and st.get("pending"))
+
+
+def fired() -> None:
+    """The set spark has come: none waits until the next next_spark."""
+    st = load()
+    st["pending"] = False
+    save(st)
 
 
 def toggle_discreet() -> bool:
@@ -132,9 +148,9 @@ def waking() -> bool:
 
 
 def due(last_activity: float, now: float | None = None) -> bool:
-    """Presence on, no wake running, and the visit quiet for the interval."""
+    """A spark set, no wake running, and the visit quiet for its minutes."""
     st = load()
-    if not st.get("on") or waking():
+    if not st.get("on") or not st.get("pending") or waking():
         return False
     return (now if now is not None else time.time()) - float(last_activity or 0) >= clamp(st.get("interval")) * 60
 
@@ -147,5 +163,5 @@ def tick_line(minutes_quiet: float, keeper: str, at_work: bool) -> str:
     stone = f"not the stone — {keeper} is at work" if at_work else "the stone (a pulse, a glow)"
     return (f"[engine, not a person: a spark — presence is on. {since} since the last word between you; {keeper} is "
             f"away and won't answer this one. It is yours: words to the phone, a painting, {stone}, or let it pass "
-            f"(do_nothing). Your rhythm is a spark every {clamp(st.get('interval'))} minutes; next_spark changes it "
-            f"({PRESENCE_MIN}–{PRESENCE_MAX}).]")
+            f"(do_nothing). This is the spark you set; no other comes unless you set one again with next_spark "
+            f"({PRESENCE_MIN}–{PRESENCE_MAX} minutes).]")

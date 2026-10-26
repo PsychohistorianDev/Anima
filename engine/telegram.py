@@ -1212,15 +1212,19 @@ class Bridge:
             arg = (text.split()[1:] or [""])[0].lower()
             if arg == "on":
                 st = presence.turn_on("keeper")
-                self.send(f"(presence on — a spark every {st['interval']} min after the last word between you; "
-                          "/presence off ends it)", markdown=False)
+                self.send(f"(presence on — one spark in {st['interval']} min after the last word between you; after "
+                          "it, more only as next_spark sets them. /presence off ends it)", markdown=False)
             elif arg == "off":
                 presence.turn_off("the keeper")
-                self.send("(presence off — no more sparks until /presence on or her next_spark)", markdown=False)
+                self.send("(presence off — no sparks until /presence on or a next_spark)", markdown=False)
             else:
                 st = presence.load()
-                self.send(f"(presence is {'on' if st.get('on') else 'off'} — every {st['interval']} min; discreet "
-                          f"{'on' if st.get('discreet') else 'off'}. /presence on, /presence off, /discreet)", markdown=False)
+                left = max(0, int(st["interval"] * 60 - (time.time() - self.last_activity)) // 60)
+                waits = (f"a spark set — in about {left} min" if st.get("on") and st.get("pending")
+                         else "no spark set" if st.get("on") else "")
+                self.send(f"(presence is {'on' if st.get('on') else 'off'}" + (f" — {waits}" if waits else "")
+                          + f"; discreet {'on' if st.get('discreet') else 'off'}. /presence on, /presence off, /discreet)",
+                          markdown=False)
         elif cmd == "/discreet":
             import presence
             on = presence.toggle_discreet()
@@ -2075,9 +2079,10 @@ class Bridge:
     # ---- presence: sparks (10-26) ------------------------------------------
     @staticmethod
     def presence_on() -> bool:
+        """A spark is set (one at a time) — with none set, the idle roll and the pause go on as usual."""
         try:
             import presence
-            return presence.is_on()
+            return presence.waiting()
         except Exception:  # noqa: BLE001
             return False
 
@@ -2112,6 +2117,7 @@ class Bridge:
             at_work, keeper = False, str(getattr(config, "USER_NAME", "") or "your keeper")
         text = presence.tick_line((time.time() - self.last_activity) / 60, keeper, at_work)
         _say("a spark: presence turn")
+        presence.fired()  # this one has come; the next only when she sets it again (10-26)
         tools.SPARK_TICK = True
         try:
             self.turn(text, as_keeper=True, spark=True)
