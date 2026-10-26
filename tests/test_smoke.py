@@ -6284,9 +6284,15 @@ check("presence (10-26): the bridge — a spark turn when due (the idle roll and
       "self.presence_if_due()" in _pr_inspect.getsource(_ew_tg.Bridge.poll_once)
       and "self.presence_announce()" in _pr_inspect.getsource(_ew_tg.Bridge.poll_once)
       and 'elif cmd == "/presence":' in _ps_src and 'elif cmd == "/discreet":' in _ps_src and "<tg-spoiler>" in _ps_src
-      and '{"think_retries": 0} if spark' in _ps_src and "think_retries: int | None = None" in _pr_inspect.getsource(chat.one_turn)
+      and '{"think_retries": 0, "think_remind": False} if spark' in _ps_src and "think_retries: int | None = None" in _pr_inspect.getsource(chat.one_turn)
       and "_presence.mark_waking(True)" in _pr_inspect.getsource(_pp_hb._main)
       and "PRESENCE_DEFAULT_MIN" in _tk_panel.TABS["Phone"])
+# a spark carries no think-first reminder (10-26): neither the standing line nor the sticky nudge rides in its turn
+_snr_src = _pr_inspect.getsource(chat.one_turn)
+check("presence (10-26): a spark's turn carries no think reminder nor the sticky nudge; PRESENCE_THINK puts them back",
+      "think_remind: bool = True" in _snr_src and "remind = \"\" if (not think_remind" in _snr_src
+      and "if think_remind and getattr(config, \"THINK_NUDGE_STICKS\"" in _snr_src
+      and '{"think_retries": 0, "think_remind": False} if spark' in _pr_inspect.getsource(_ew_tg.Bridge.turn))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

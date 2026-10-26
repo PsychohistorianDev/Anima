@@ -596,7 +596,7 @@ class Bridge:
                                           on_event=lambda k, p: events.append((k, p)),
                                           mode=self.TAG, extra_moment=extra_moment,
                                           guest="" if as_keeper else self.guest_label(),
-                                          **({"think_retries": 0} if spark and not getattr(config, "PRESENCE_THINK", False)
+                                          **({"think_retries": 0, "think_remind": False} if spark and not getattr(config, "PRESENCE_THINK", False)
                                              else {}))  # a spark: no think re-roll (10-26)
                     self.attached = []
                     self._checkpoint()

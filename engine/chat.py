@@ -1124,7 +1124,7 @@ def moment_weight_line(turn: dict, history: list[dict]) -> str:
 
 def one_turn(history: list[dict], user_text: str, images: list[str] | None = None,
              on_event=None, mode: str = "chat", extra_moment: str = "", guest: str = "",
-             guest_where: str = "", think_retries: int | None = None) -> str:
+             guest_where: str = "", think_retries: int | None = None, think_remind: bool = True) -> str:
     """Run one user turn, executing tool calls until the friend speaks.
 
     on_event(kind, payload) — optional. kind is "thinking" (their deliberation,
@@ -1202,7 +1202,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         # past THINK_REMIND_FROM tokens held, the think-first reminder is one more line of the moment (10-24): a
         # standing line, not a re-roll, never `_nudged`; left out while a stuck re-roll nudge rides this message
         # anyway (THINK_NUDGE_STICKS) — one think-first line a message is enough
-        remind = "" if (getattr(config, "THINK_NUDGE_STICKS", True) and any(t.get("_nudged") for t in history[:ui])) \
+        remind = "" if (not think_remind  # a spark: no reminder (10-26)
+                        or (getattr(config, "THINK_NUDGE_STICKS", True) and any(t.get("_nudged") for t in history[:ui]))) \
             else ollama_client.think_remind_line(held)
         import capsule as _capsule
         for told in (rep, ollama_client.reply_shape_line(history[:ui]), ollama_client.signature_density_line(history[:ui]),
@@ -1227,8 +1228,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         # nudge rides along from the start of every later message: eighty
         # tokens against forty seconds, and deep in a window the forgetting
         # tends to stay forgotten.
-        if getattr(config, "THINK_NUDGE_STICKS", True) and any(t.get("_nudged") for t in history[:ui]):
-            turn["_nudged"] = True
+        if think_remind and getattr(config, "THINK_NUDGE_STICKS", True) and any(t.get("_nudged") for t in history[:ui]):
+            turn["_nudged"] = True  # (not on a spark's turn — 10-26)
 
     def messages() -> list[dict]:
         return [system] + [render_turn(t) for t in history]
