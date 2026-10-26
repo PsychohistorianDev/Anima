@@ -1998,6 +1998,9 @@ class Bridge:
                     caption += "\n\n" + words
             else:
                 caption = f"{'🖌️' if redrawn else '🎨'} {chat.friend_name()} {'redrew' if redrawn else 'drew'} — creations/{rel}"
+            told = self.paint_prompt_text(rel)  # the painter's prompt, when the knob for its door is on (10-26)
+            if told and (len(caption) + len(told) + 2 <= 1000 or self.quiet_now()):
+                caption, told = caption + "\n\n" + told, ""
             if self.quiet_now():
                 self.held.append({"picture": rel, "caption": caption})
                 self._save_held()
@@ -2005,9 +2008,33 @@ class Bridge:
                 sent += 1
                 continue
             self._send_picture(p, data, caption)
+            if told:
+                self._try_send(told, markdown=False)  # too long for the caption: right after the picture (10-26)
             _say(f"showed the phone {rel}")
             sent += 1
         return sent
+
+    def paint_prompt_text(self, rel: str) -> str:
+        """What the friend asked the painter for (10-26): the prompt, the set's line it was told first, the references,
+        what was kept out — when TELEGRAM_PAINT_PROMPT_CHAT (a visit) or TELEGRAM_PAINT_PROMPT_WAKES (a wake, a
+        reverie) is on for the door it was painted at; "" otherwise, or for a picture paint didn't make."""
+        try:
+            rec = tools.paint_prompt(rel)
+        except Exception:  # noqa: BLE001
+            return ""
+        if not rec or not rec.get("prompt"):
+            return ""
+        wake = (rec.get("door") or "a visit") in ("a wake", "a reverie")
+        if not getattr(config, "TELEGRAM_PAINT_PROMPT_WAKES" if wake else "TELEGRAM_PAINT_PROMPT_CHAT", False):
+            return ""
+        out = "✍️ " + str(rec["prompt"])
+        if rec.get("said"):
+            out += f"\n(told the painter first: {rec['said']})"
+        if rec.get("reference"):
+            out += "\n(looking at: " + ", ".join(str(r) for r in rec["reference"]) + ")"
+        if rec.get("negative"):
+            out += f"\n(kept out: {rec['negative']})"
+        return out[:LIMIT]
 
     def _send_picture(self, p: Path, data: bytes, caption: str) -> None:
         """A picture to the phone as a photo (a file when too big or a gif), the caption cut to Telegram's 1,000."""

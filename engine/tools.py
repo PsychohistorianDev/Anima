@@ -2815,6 +2815,50 @@ def _painter_paint(prompt: str, path: Path, size: str, negative: str = "", refer
 _PAINT_SIZES = ("square", "wide", "tall")
 
 
+PAINT_LOG = config.MEMORY_DIR / "paint_prompts.jsonl"  # every painting's prompt, for the phone's knobs (10-26)
+PAINT_LOG_KEEP = 500
+
+
+def _log_paint_prompt(f: Path, prompt: str, said: str = "", refs: list | None = None, negative: str = "") -> None:
+    """One line for one painting: its path under creations/, the prompt as written, the set's line the painter was told
+    first, the references, what was kept out, the door. The newest PAINT_LOG_KEEP are kept. Never raises."""
+    try:
+        rec = {"t": datetime.now().isoformat(timespec="seconds"), "path": _rel_of(f), "prompt": prompt,
+               "door": DOOR or "a visit"}
+        if said:
+            rec["said"] = said
+        if refs:
+            rec["reference"] = [_rel_of(Path(r)) for r in refs][-10:]
+        if negative:
+            rec["negative"] = negative
+        PAINT_LOG.parent.mkdir(parents=True, exist_ok=True)
+        lines = PAINT_LOG.read_text(encoding="utf-8").splitlines() if PAINT_LOG.exists() else []
+        lines = (lines + [json.dumps(rec, ensure_ascii=False)])[-PAINT_LOG_KEEP:]
+        PAINT_LOG.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    except Exception:  # noqa: BLE001 — the painting is made either way
+        pass
+
+
+def paint_prompt(rel: str) -> dict | None:
+    """The newest logged painting at `rel` (under creations/), or by its file name when it has moved since; None."""
+    try:
+        lines = PAINT_LOG.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    name = Path(rel).name
+    by_name = None
+    for line in reversed(lines):
+        try:
+            r = json.loads(line)
+        except Exception:  # noqa: BLE001
+            continue
+        if r.get("path") == rel:
+            return r
+        if by_name is None and Path(str(r.get("path") or "")).name == name:
+            by_name = r
+    return by_name
+
+
 def _paint_slug(text: str, n: int = 40) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
     return s[:n].rstrip("-") or "painting"
@@ -2987,6 +3031,7 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "",
                     break
                 continue
             painted += 1
+            _log_paint_prompt(f, pr, ref_say, refs, (negative or "").strip())  # for the phone's knobs (10-26)
             if paint_budget is not None:
                 paint_budget -= 1
             noted = _note_picture("painted", f, about=pr, facts=f"seed {data.get('seed')}")

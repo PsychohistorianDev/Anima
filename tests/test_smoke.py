@@ -6165,6 +6165,34 @@ check("capsule (10-26): each sees its own titles only; nothing opens early; on i
       and any("still here" in t for t in _cp_texts)
       and "seal_letter" in tools.ACT_TOOLS and any(d["function"]["name"] == "seal_letter" for d in tools.DEFINITIONS),
       (_cp_list_friend, _cp_list_keeper, _cp_line, _cp_texts))
+# the painter's prompt on the phone (10-26): every painting's prompt kept; a knob a door puts it with the picture
+_pp_log0 = tools.PAINT_LOG
+tools.PAINT_LOG = config.MEMORY_DIR / "pp-test.jsonl"
+_pp_k0 = (getattr(config, "TELEGRAM_PAINT_PROMPT_CHAT", False), getattr(config, "TELEGRAM_PAINT_PROMPT_WAKES", False))
+_pp_door0 = tools.DOOR
+try:
+    tools.DOOR = ""
+    tools._log_paint_prompt(config.CREATIONS_DIR / "drawings" / "pp-visit.png", "a violet bloom", "Picture 1 is the scale.",
+                            [config.CREATIONS_DIR / "us" / "lineup.png"])
+    tools.DOOR = "a wake"
+    tools._log_paint_prompt(config.CREATIONS_DIR / "drawings" / "pp-wake.png", "a quiet sea")
+    tools.DOOR = _pp_door0
+    _pp_moved = tools.paint_prompt("projects/x/pp-wake.png")
+    class _PPB:
+        paint_prompt_text = _ew_tg.Bridge.paint_prompt_text
+    config.TELEGRAM_PAINT_PROMPT_CHAT, config.TELEGRAM_PAINT_PROMPT_WAKES = True, False
+    _pp_v, _pp_w = _PPB().paint_prompt_text("drawings/pp-visit.png"), _PPB().paint_prompt_text("drawings/pp-wake.png")
+    config.TELEGRAM_PAINT_PROMPT_CHAT, config.TELEGRAM_PAINT_PROMPT_WAKES = False, True
+    _pp_v2, _pp_w2 = _PPB().paint_prompt_text("drawings/pp-visit.png"), _PPB().paint_prompt_text("drawings/pp-wake.png")
+finally:
+    tools.PAINT_LOG, tools.DOOR = _pp_log0, _pp_door0
+    config.TELEGRAM_PAINT_PROMPT_CHAT, config.TELEGRAM_PAINT_PROMPT_WAKES = _pp_k0
+check("paint (10-26): the prompt kept with its door, the set's line and references; the chat knob shows a visit's, the wakes knob a wake's; found by name after a move",
+      _pp_v.startswith("✍️ a violet bloom") and "told the painter first: Picture 1 is the scale." in _pp_v and "us/lineup.png" in _pp_v
+      and _pp_w == "" and _pp_v2 == "" and _pp_w2.startswith("✍️ a quiet sea") and _pp_moved and _pp_moved["prompt"] == "a quiet sea"
+      and "_log_paint_prompt(f, pr, ref_say, refs" in _pr_inspect.getsource(tools.paint)
+      and "self.paint_prompt_text(rel)" in _pr_inspect.getsource(_ew_tg.Bridge.deliver_pictures)
+      and "TELEGRAM_PAINT_PROMPT_WAKES" in _tk_panel.TABS["Phone"], (_pp_v, _pp_w, _pp_v2, _pp_w2))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"
