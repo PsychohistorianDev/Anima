@@ -2086,17 +2086,6 @@ class Bridge:
         except Exception:  # noqa: BLE001
             return False
 
-    def presence_announce(self) -> str:
-        """The time the friend set with next_spark, to the phone once."""
-        try:
-            import presence
-            line = presence.take_announce()
-        except Exception:  # noqa: BLE001
-            return ""
-        if line and self.chat_id:
-            self.notice(line)
-        return line
-
     def presence_if_due(self) -> str:
         """A spark: presence on, no wake running, no reply in flight, and the visit quiet for the friend's interval —
         one turn in the open visit, opened by the engine's line. The quiet hours end presence. Returns the line."""
@@ -2264,7 +2253,6 @@ class Bridge:
         self.deliver_touches()
         self.deliver_skill_notices()
         self.deliver_self()
-        self.presence_announce()  # the time she set with next_spark (10-26)
         idle_min = getattr(config, "TELEGRAM_IDLE_NEW_MIN", 180)
         if self.presence_on():
             self.presence_if_due()  # sparks (10-26): the idle roll and the pause wait while presence is on

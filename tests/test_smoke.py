@@ -6246,7 +6246,7 @@ try:
     _ps_def = presence.load()
     _ps_res = tools.dispatch("next_spark", {"minutes": 3})
     _ps_st = presence.load()
-    _ps_ann, _ps_ann2 = presence.take_announce(), presence.take_announce()
+    _ps_ann = "announce" in presence.load()  # no separate phone notice — the tool's line shows the time (10-26)
     _ps_big, _ = presence.set_interval(90)
     _ps_due = (presence.due(_ps_time.time() - 59 * 60), presence.due(_ps_time.time() - 61 * 60))
     presence.mark_waking(True); _ps_wk = presence.due(_ps_time.time() - 61 * 60); presence.mark_waking(False)
@@ -6267,10 +6267,10 @@ try:
         _ps_kweek.where, tools.SPARK_TICK = _ps_where0, False
 finally:
     presence.STATE_FILE, presence.WAKING_FILE = _ps0
-check("presence (10-26): next_spark clamps to 5–60, turns presence on and tells the phone the time once; due after the interval, not during a wake",
+check("presence (10-26): next_spark clamps to 5–60, turns presence on, its line carries the time (no separate notice); due after the interval, not during a wake",
       _ps_def["on"] is False and _ps_def["interval"] == 15 and _ps_res.startswith("a spark in 5 minutes")
       and "presence is on now" in _ps_res and _ps_st["on"] and _ps_st["interval"] == 5
-      and _ps_ann.startswith("⏳ a spark in 5 min (at ") and "presence is on" in _ps_ann and _ps_ann2 == ""
+      and "(about " in _ps_res and _ps_ann is False and not hasattr(presence, "take_announce")
       and _ps_big["interval"] == 60 and _ps_due == (False, True) and _ps_wk is False and _ps_disc == (True, False) and _ps_off is False,
       (_ps_def, _ps_res, _ps_st, _ps_ann))
 check("presence (10-26): the spark's line — facts and what a spark can be; the stone refused in work hours inside a spark, not outside one",
@@ -6282,7 +6282,7 @@ check("presence (10-26): the spark's line — facts and what a spark can be; the
 _ps_src = _pr_inspect.getsource(_ew_tg.Bridge)
 check("presence (10-26): the bridge — a spark turn when due (the idle roll and the pause wait), no think re-roll, discreet sends, /presence and /discreet; a wake holds them",
       "self.presence_if_due()" in _pr_inspect.getsource(_ew_tg.Bridge.poll_once)
-      and "self.presence_announce()" in _pr_inspect.getsource(_ew_tg.Bridge.poll_once)
+      and "presence_announce" not in _ps_src
       and 'elif cmd == "/presence":' in _ps_src and 'elif cmd == "/discreet":' in _ps_src and "<tg-spoiler>" in _ps_src
       and '{"think_retries": 0, "think_remind": False} if spark' in _ps_src and "think_retries: int | None = None" in _pr_inspect.getsource(chat.one_turn)
       and "_presence.mark_waking(True)" in _pr_inspect.getsource(_pp_hb._main)

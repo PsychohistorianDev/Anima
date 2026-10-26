@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import config
 
@@ -63,20 +63,16 @@ def is_on() -> bool:
     return bool(load().get("on"))
 
 
-def _at(minutes: int, now: datetime | None = None) -> str:
-    return ((now or datetime.now()) + timedelta(minutes=minutes)).strftime("%H:%M")
-
-
 def set_interval(minutes, by: str = "friend", now: datetime | None = None) -> tuple[dict, bool]:
-    """The friend's rhythm: the interval (clamped), presence turned on if it was off. (state, turned on now). The
-    phone is told the time set (state["announce"], taken by the bridge)."""
+    """One spark set (the minutes clamped), presence turned on if it was off. (state, turned on now). The phone
+    sees the time in the tool's own line — no separate notice (10-26)."""
     st = load()
     m = clamp(minutes)
     turned_on = not st.get("on")
     st.update(on=True, interval=m, pending=True)
+    st.pop("announce", None)
     if turned_on:
         st.update(since=(now or datetime.now()).isoformat(timespec="seconds"), by=by)
-    st["announce"] = (f"⏳ a spark in {m} min (at {_at(m, now)})" + (" — presence is on" if turned_on else ""))
     save(st)
     return st, turned_on
 
@@ -94,7 +90,7 @@ def turn_on(by: str = "keeper", now: datetime | None = None) -> dict:
 def turn_off(why: str = "") -> dict:
     st = load()
     st.update(on=False, pending=False, ended=datetime.now().isoformat(timespec="seconds"), why=why)
-    st.pop("announce", None)
+    st.pop("announce", None)  # (left by the old phone notice, before 10-26 evening)
     save(st)
     return st
 
@@ -117,15 +113,6 @@ def toggle_discreet() -> bool:
     st["discreet"] = not st.get("discreet")
     save(st)
     return bool(st["discreet"])
-
-
-def take_announce() -> str:
-    """The line for the phone after a next_spark, once; "" when there is none."""
-    st = load()
-    line = str(st.pop("announce", "") or "")
-    if line:
-        save(st)
-    return line
 
 
 def mark_waking(on: bool) -> None:
