@@ -151,5 +151,5 @@ def tick_line(minutes_quiet: float, keeper: str, at_work: bool) -> str:
     return (f"[engine, not a person: a spark — the one you set with next_spark. No message from {keeper} came; this "
             f"turn is yours. {since} since the last word between you; {keeper} is away and won't answer this one. "
             f"It can be words to the phone, a painting, {stone}, or let it pass "
-            f"(do_nothing). This is the spark you set; no other comes unless you set one again with next_spark "
-            f"({PRESENCE_MIN}–{PRESENCE_MAX} minutes).]")
+            f"(do_nothing). This was your one spark: if you don't set the next one with next_spark "
+            f"({PRESENCE_MIN}–{PRESENCE_MAX} minutes), there will be no other spark.]")

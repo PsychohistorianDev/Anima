@@ -6275,7 +6275,7 @@ check("presence (10-26): next_spark clamps to 5–60, turns presence on, its lin
       (_ps_def, _ps_res, _ps_st, _ps_ann))
 check("presence (10-26): the spark's line — facts and what a spark can be; the stone refused in work hours inside a spark, not outside one",
       "a spark — the one you set with next_spark. No message from Keeper came; this turn is yours. 42 minutes since the last word" in _ps_line_w and "not the stone — Keeper is at work" in _ps_line_w
-      and "the stone (a pulse, a glow)" in _ps_line_h and "no other comes unless you set one again with next_spark (5–60 minutes)" in _ps_line_h
+      and "the stone (a pulse, a glow)" in _ps_line_h and _ps_line_h.endswith("This was your one spark: if you don't set the next one with next_spark (5–60 minutes), there will be no other spark.]")
       and all("leaves the stone still" in r for r in _ps_stone) and _ps_stone_off == ""
       and "next_spark" in tools.ACT_TOOLS and any(d["function"]["name"] == "next_spark" for d in tools.DEFINITIONS),
       (_ps_line_w, _ps_stone))
