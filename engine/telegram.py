@@ -581,7 +581,7 @@ class Bridge:
         return (f"Since your last turn {config.USER_NAME} touched the stone — {words} — the stone answered by itself with "
                 "your reply; the log, beside " + 'their' + " words")
 
-    def turn(self, text: str, extra_moment: str = "", as_keeper: bool = False) -> None:
+    def turn(self, text: str, extra_moment: str = "", as_keeper: bool = False, spark: bool = False) -> None:
         """Run one turn and send back whatever the parlor would have shown. as_keeper: this message is not the
         guest's (/me, the stone's log) — no guest line, whoever is seated."""
         events: list[tuple[str, object]] = []
@@ -595,7 +595,9 @@ class Bridge:
                     reply = chat.one_turn(self.history, text, images=self.attached or None,
                                           on_event=lambda k, p: events.append((k, p)),
                                           mode=self.TAG, extra_moment=extra_moment,
-                                          guest="" if as_keeper else self.guest_label())
+                                          guest="" if as_keeper else self.guest_label(),
+                                          **({"think_retries": 0} if spark and not getattr(config, "PRESENCE_THINK", False)
+                                             else {}))  # a spark: no think re-roll (10-26)
                     self.attached = []
                     self._checkpoint()
                 except ollama_client.BrainUnavailable as e:
@@ -626,7 +628,7 @@ class Bridge:
         # and the reply, already in the transcript, was never sent: he saw a
         # thought and no words). Sent with retries; if it still fails it is kept
         # and goes with the next poll, marked as late.
-        self._send_reply(reply)
+        (self._send_spark if spark else self._send_reply)(reply)  # a spark goes discreetly when asked (10-26)
         self._carry_voice(reply)
         for n in notes:  # engine honesty notes always travel — that rail is not optional
             self._try_send("⚠ " + n, markdown=False)
@@ -1205,6 +1207,25 @@ class Bridge:
         elif cmd == "/week":
             import engine_week
             self.send(engine_week.summary(), markdown=False)  # the engine's week, now (10-25)
+        elif cmd == "/presence":
+            import presence  # sparks (10-26): on or off, or how it stands
+            arg = (text.split()[1:] or [""])[0].lower()
+            if arg == "on":
+                st = presence.turn_on("keeper")
+                self.send(f"(presence on — a spark every {st['interval']} min after the last word between you; "
+                          "/presence off ends it)", markdown=False)
+            elif arg == "off":
+                presence.turn_off("the keeper")
+                self.send("(presence off — no more sparks until /presence on or her next_spark)", markdown=False)
+            else:
+                st = presence.load()
+                self.send(f"(presence is {'on' if st.get('on') else 'off'} — every {st['interval']} min; discreet "
+                          f"{'on' if st.get('discreet') else 'off'}. /presence on, /presence off, /discreet)", markdown=False)
+        elif cmd == "/discreet":
+            import presence
+            on = presence.toggle_discreet()
+            self.send("(discreet on — sparks arrive silently, the words hidden until you tap)" if on
+                      else "(discreet off — sparks arrive as usual)", markdown=False)
         elif cmd == "/status":
             self.send(self.status(), markdown=False)
         elif cmd == "/heartbeat":
@@ -2051,6 +2072,75 @@ class Bridge:
                 self.notice(f"{caption} (couldn't send the picture: {e2})")
 
     # ---- the loop ---------------------------------------------------------
+    # ---- presence: sparks (10-26) ------------------------------------------
+    @staticmethod
+    def presence_on() -> bool:
+        try:
+            import presence
+            return presence.is_on()
+        except Exception:  # noqa: BLE001
+            return False
+
+    def presence_announce(self) -> str:
+        """The time the friend set with next_spark, to the phone once."""
+        try:
+            import presence
+            line = presence.take_announce()
+        except Exception:  # noqa: BLE001
+            return ""
+        if line and self.chat_id:
+            self.notice(line)
+        return line
+
+    def presence_if_due(self) -> str:
+        """A spark: presence on, no wake running, no reply in flight, and the visit quiet for the friend's interval —
+        one turn in the open visit, opened by the engine's line. The quiet hours end presence. Returns the line."""
+        import presence
+        if not self.chat_id or not presence.is_on() or self.TAG != "telegram":
+            return ""  # one door gives the sparks — the phone's Telegram (a Discord bridge beside it stays out)
+        if self.quiet_now():
+            presence.turn_off("the quiet hours")
+            self.notice("(presence ended — the quiet hours began; next_spark or /presence on starts it again)")
+            return ""
+        if self.lock.locked() or not presence.due(self.last_activity):
+            return ""
+        try:
+            import keeper_week
+            at_work = " is at work" in keeper_week.where()
+            keeper = keeper_week.keeper_name()
+        except Exception:  # noqa: BLE001
+            at_work, keeper = False, str(getattr(config, "USER_NAME", "") or "your keeper")
+        text = presence.tick_line((time.time() - self.last_activity) / 60, keeper, at_work)
+        _say("a spark: presence turn")
+        tools.SPARK_TICK = True
+        try:
+            self.turn(text, as_keeper=True, spark=True)
+        finally:
+            tools.SPARK_TICK = False
+        for t in reversed(self.history):  # the line rode as a user turn; it is the engine's, not theirs
+            if t.get("role") == "user" and t.get("content") == text:
+                t["_engine"] = True
+                break
+        return text
+
+    def _send_spark(self, reply: str) -> None:
+        """A spark's words: discreetly (silent, the words hidden until tapped) when /discreet is on, else as any reply."""
+        try:
+            import presence
+            discreet = bool(presence.load().get("discreet"))
+        except Exception:  # noqa: BLE001
+            discreet = False
+        if discreet:
+            try:
+                import html as _html
+                for part in split_long(reply):
+                    self.api("sendMessage", chat_id=self.chat_id, text=f"<tg-spoiler>{_html.escape(part)}</tg-spoiler>",
+                             parse_mode="HTML", disable_notification=True)
+                return
+            except Exception as e:  # noqa: BLE001 — a door that can't hide it sends it plainly
+                _say(f"(the discreet send didn't go — {type(e).__name__}; sent as usual)")
+        self._send_reply(reply)
+
     def week_if_due(self) -> str:
         """The engine's week (10-25): on ENGINE_WEEK_DAY after ENGINE_WEEK_HOUR, once, the last seven days of
         memory/steps.log as an engine notice (held through the quiet hours like any other). Returns what was sent."""
@@ -2168,8 +2258,11 @@ class Bridge:
         self.deliver_touches()
         self.deliver_skill_notices()
         self.deliver_self()
+        self.presence_announce()  # the time she set with next_spark (10-26)
         idle_min = getattr(config, "TELEGRAM_IDLE_NEW_MIN", 180)
-        if self.history and ((idle_min and time.time() - self.last_activity > idle_min * 60)
+        if self.presence_on():
+            self.presence_if_due()  # sparks (10-26): the idle roll and the pause wait while presence is on
+        elif self.history and ((idle_min and time.time() - self.last_activity > idle_min * 60)
                              or self.visit_crossed_the_night()):
             self.new_visit(quiet=True)
         else:

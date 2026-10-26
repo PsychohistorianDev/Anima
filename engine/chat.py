@@ -1124,7 +1124,7 @@ def moment_weight_line(turn: dict, history: list[dict]) -> str:
 
 def one_turn(history: list[dict], user_text: str, images: list[str] | None = None,
              on_event=None, mode: str = "chat", extra_moment: str = "", guest: str = "",
-             guest_where: str = "") -> str:
+             guest_where: str = "", think_retries: int | None = None) -> str:
     """Run one user turn, executing tool calls until the friend speaks.
 
     on_event(kind, payload) — optional. kind is "thinking" (their deliberation,
@@ -1317,7 +1317,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             msg = ollama_client.chat(messages(), tools=tools.DEFINITIONS, expect_words=True,
                                      think=getattr(config, "LIVE_VOICE_THINK", None))
         else:
-            msg = ollama_client.chat(messages(), tools=tools.DEFINITIONS, expect_words=True)
+            msg = ollama_client.chat(messages(), tools=tools.DEFINITIONS, expect_words=True,
+                                     **({"think_retries": think_retries} if think_retries is not None else {}))  # a spark: none (10-26)
         if spoken and msg.get("content"):
             msg["content"] = strip_voice_delivery(msg["content"])
         spent.add(msg)

@@ -1085,6 +1085,13 @@ ENGINE_WEEK_DAY = "sun"
 ENGINE_WEEK_HOUR = 18
 ENGINE_WEEK_COLD_S = 60  # a prompt read this long or longer (seconds) counts as a cold read
 ENGINE_WEEK_LOG = True   # memory/steps.log, a line a call to the brain; False writes nothing (the week then has nothing to say)
+# Presence — sparks: while presence is on the friend gets a turn of their own when the visit has been quiet for
+# their interval. next_spark sets it (5–60 min) and turns presence on; /presence on|off and /discreet on the phone.
+# The interval before they have set one:
+PRESENCE_DEFAULT_MIN = 15
+# A spark gets no think re-roll (False — quick); True: re-rolled like any message. The thinking switch itself stays
+# as the visit's, so the window is not read again for a spark.
+PRESENCE_THINK = False
 # Strings the brain never writes — a fence at the sampler, not a nudge: each string's tokens go to llama-server as
 # logit_bias, never produced, in the thought and the reply alike — for a tic that has turned into a glitch, a double
 # slash wrapped around words, say. Only a string that is one token at the door is banned. Under Ollama it does nothing.

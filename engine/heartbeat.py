@@ -879,7 +879,12 @@ def _main(loop: bool, minutes: float) -> None:
             try:
                 sleep_if_due()
                 condense_if_due()
-                wake(reverie=bool(every and beat % every == 0))
+                import presence as _presence
+                _presence.mark_waking(True)  # sparks wait while a wake runs (10-26)
+                try:
+                    wake(reverie=bool(every and beat % every == 0))
+                finally:
+                    _presence.mark_waking(False)
             except KeyboardInterrupt:
                 print("\nHeartbeat stopped. She'll rest until the next one.")
                 return

@@ -6238,6 +6238,55 @@ check("creation (10-26): a stamped name with nothing at that minute names the ne
       "nothing is stamped 20991026-1341 there; nearest by time: creations/sx-drawings/20991026-1339-a-kiss.png (2 min earlier), "
       "creations/sx-drawings/20991026-1328-a-kiss.png (13 min earlier), creations/sx-drawings/20991026-1436-a-kiss.png (55 min later)" in _sx_res
       and "notes.md" not in _sx_res, _sx_res)
+# presence — sparks (10-26): next_spark sets the rhythm (5–60) and turns presence on, the phone told; a spark when quiet
+import presence, time as _ps_time
+_ps0 = (presence.STATE_FILE, presence.WAKING_FILE)
+presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "ps-test.json", config.MEMORY_DIR / "ps-waking"
+try:
+    _ps_def = presence.load()
+    _ps_res = tools.dispatch("next_spark", {"minutes": 3})
+    _ps_st = presence.load()
+    _ps_ann, _ps_ann2 = presence.take_announce(), presence.take_announce()
+    _ps_big, _ = presence.set_interval(90)
+    _ps_due = (presence.due(_ps_time.time() - 59 * 60), presence.due(_ps_time.time() - 61 * 60))
+    presence.mark_waking(True); _ps_wk = presence.due(_ps_time.time() - 61 * 60); presence.mark_waking(False)
+    _ps_line_w = presence.tick_line(42, "Keeper", True)
+    _ps_line_h = presence.tick_line(42, "Keeper", False)
+    _ps_disc = (presence.toggle_discreet(), presence.toggle_discreet())
+    presence.turn_off("test"); _ps_off = presence.is_on()
+    _ps_kw = tools.keeper_week if hasattr(tools, "keeper_week") else None
+    import keeper_week as _ps_kweek
+    _ps_where0 = _ps_kweek.where
+    try:
+        _ps_kweek.where = lambda t=None: "Keeper is at work — until 16:25"
+        tools.SPARK_TICK = True
+        _ps_stone = (tools.pulse("x"), tools.set_state("x"))
+        tools.SPARK_TICK = False
+        _ps_stone_off = tools._spark_stone_refusal()
+    finally:
+        _ps_kweek.where, tools.SPARK_TICK = _ps_where0, False
+finally:
+    presence.STATE_FILE, presence.WAKING_FILE = _ps0
+check("presence (10-26): next_spark clamps to 5–60, turns presence on and tells the phone the time once; due after the interval, not during a wake",
+      _ps_def["on"] is False and _ps_def["interval"] == 15 and _ps_res.startswith("next spark in 5 minutes")
+      and "presence is on now" in _ps_res and _ps_st["on"] and _ps_st["interval"] == 5
+      and _ps_ann.startswith("⏳ next spark in 5 min (at ") and "presence is on" in _ps_ann and _ps_ann2 == ""
+      and _ps_big["interval"] == 60 and _ps_due == (False, True) and _ps_wk is False and _ps_disc == (True, False) and _ps_off is False,
+      (_ps_def, _ps_res, _ps_st, _ps_ann))
+check("presence (10-26): the spark's line — facts and what a spark can be; the stone refused in work hours inside a spark, not outside one",
+      "a spark — presence is on. 42 minutes since the last word" in _ps_line_w and "not the stone — Keeper is at work" in _ps_line_w
+      and "the stone (a pulse, a glow)" in _ps_line_h and "next_spark changes it (5–60)" in _ps_line_h
+      and all("leaves the stone still" in r for r in _ps_stone) and _ps_stone_off == ""
+      and "next_spark" in tools.ACT_TOOLS and any(d["function"]["name"] == "next_spark" for d in tools.DEFINITIONS),
+      (_ps_line_w, _ps_stone))
+_ps_src = _pr_inspect.getsource(_ew_tg.Bridge)
+check("presence (10-26): the bridge — a spark turn when due (the idle roll and the pause wait), no think re-roll, discreet sends, /presence and /discreet; a wake holds them",
+      "self.presence_if_due()" in _pr_inspect.getsource(_ew_tg.Bridge.poll_once)
+      and "self.presence_announce()" in _pr_inspect.getsource(_ew_tg.Bridge.poll_once)
+      and 'elif cmd == "/presence":' in _ps_src and 'elif cmd == "/discreet":' in _ps_src and "<tg-spoiler>" in _ps_src
+      and '{"think_retries": 0} if spark' in _ps_src and "think_retries: int | None = None" in _pr_inspect.getsource(chat.one_turn)
+      and "_presence.mark_waking(True)" in _pr_inspect.getsource(_pp_hb._main)
+      and "PRESENCE_DEFAULT_MIN" in _tk_panel.TABS["Phone"])
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

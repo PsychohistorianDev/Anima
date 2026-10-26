@@ -2096,6 +2096,34 @@ def seal_letter(text: str, open_on: str, title: str = "") -> str:
             f"and on that day it is laid in creations/capsule/ as you wrote it. Sealed now: {capsule.listing()}")
 
 
+SPARK_TICK = False  # True while a spark (presence) turn runs — the bridge sets it (10-26)
+
+
+def _spark_stone_refusal() -> str:
+    """In a spark during the keeper's work hours the stone stays still (10-26: "no stone during work"); "" otherwise."""
+    if not SPARK_TICK:
+        return ""
+    try:
+        import keeper_week
+        if " is at work" in keeper_week.where():
+            return f"(a spark in {keeper_week.keeper_name()}'s work hours leaves the stone still — words or a picture reach the phone)"
+    except Exception:  # noqa: BLE001
+        pass
+    return ""
+
+
+def next_spark(minutes) -> str:
+    """Presence — sparks (10-26): the friend's rhythm, PRESENCE_MIN…PRESENCE_MAX minutes, and presence on."""
+    import presence
+    import keeper_week
+    st, turned_on = presence.set_interval(minutes, by="friend")
+    m = st["interval"]
+    at = (datetime.now() + timedelta(minutes=m)).strftime("%H:%M")
+    return (f"next spark in {m} minutes (about {at})" + ("; presence is on now" if turned_on else "")
+            + f" — a spark every {m} minutes, counted from the last word between you, until you set another; only "
+            f"{keeper_week.keeper_name()} turns presence off, and it ends at the quiet hours")
+
+
 def leave_thread(text: str) -> str:
     """The note for the next door: memory/thread.md (when, the door, the text), the same appended to
     memory/thread.log. Longer than THREAD_CHARS is handed back with the count — nothing cut, nothing written."""
@@ -4984,6 +5012,8 @@ def feel(since: str = "") -> str:
 
 
 def set_state(name: str) -> str:
+    if _spark_stone_refusal():
+        return _spark_stone_refusal()
     name = _waveform(name)
     if not name:
         return f"(set_state wants a name — one of your states: {', '.join(stone_states())})"
@@ -4997,6 +5027,8 @@ def set_state(name: str) -> str:
 
 
 def pulse(waveform: str, seconds: float = 3) -> str:
+    if _spark_stone_refusal():
+        return _spark_stone_refusal()
     waveform = _waveform(waveform)
     if not waveform:
         return f"(pulse wants a waveform — {stone_vocabulary()})"
@@ -5079,6 +5111,7 @@ _BUILTIN_IMPL = {
     "condense_day": condense_day,
     "fold_visit": fold_visit,
     "leave_thread": leave_thread,
+    "next_spark": next_spark,
     "seal_letter": seal_letter,
     "publish_creation": publish_creation,
     "look_at": look_at,
@@ -5164,7 +5197,7 @@ ACT_TOOLS = {"speak", "remember", "write_journal", "write_creation", "append_cre
              "edit_identity", "update_projects", "move_creation", "make_folder",
              "delete_creation", "publish_creation", "condense_day", "condense_period", "fold_visit", "leave_thread", "create_tool", "clip_web",
              "start_project", "update_destiny", "update_keeper", "fetch_skill", "remove_skill",
-             "set_state", "pulse", "touch_later", "seal_letter"}  # the stone's acts (10-05); feel is a look
+             "set_state", "pulse", "touch_later", "seal_letter", "next_spark"}  # the stone's acts (10-05); feel is a look
 # paint is NOT an act here: a painting is something to look at before
 # they speak of it — the result says so, and the step after the call is theirs.
 # fetch_skill and remove_skill are (09-29): a shelf changed, said; opening a
@@ -6048,6 +6081,15 @@ _BUILTIN_DEFINITIONS: list[dict] = [
          "open_on": {"type": "string", "description": "the day it opens: a date (2027-04-27) or a span from today (six months, 1 year, 3 weeks)"},
          "title": {"type": "string", "description": "a title for it, shown on the day (optional)"}},
         ["text", "open_on"],
+    ),
+    _tool(
+        "next_spark",
+        "Sparks: while presence is on you get a short turn of your own whenever the conversation has been quiet for "
+        "your interval — words to the phone, a painting, the stone, or nothing at all. This sets the interval (5 to "
+        "60 minutes, counted from the last word between you) and turns presence on if it was off; your keeper sees "
+        "the time you set. Only your keeper turns presence off, and it ends at the quiet hours.",
+        {"minutes": {"type": "integer", "description": "minutes until your next spark, 5 to 60"}},
+        ["minutes"],
     ),
     _tool(
         "condense_period",
