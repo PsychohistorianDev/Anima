@@ -6323,6 +6323,8 @@ try:
         _pt_calls.append((as_keeper, spark, tools.SPARK_TICK))
         _pt_b.history.append({"role": "user", "content": text})
     _pt_b.turn, _pt_b.notice = _pt_turn, (lambda *a, **k: None)
+    _pt_b.history.append({"role": "user", "content": "the beach at dusk"})
+    _pt_b._checkpoint = lambda: _pt_calls.append("saved")
     presence.set_interval(10)
     _pt_b.last_activity = _ps_time.time() - 5 * 60
     _pt_early = _pt_b.presence_if_due()
@@ -6333,8 +6335,9 @@ try:
 finally:
     presence.STATE_FILE, presence.WAKING_FILE, config.TELEGRAM_QUIET_HOURS = _pt0
 check("presence (10-26): a spark runs through a bridge — not before its minutes, then one spark turn (as the keeper's side, a spark, the stone's work-hour rule on), marked the engine's; nothing after",
-      _pt_early == "" and _pt_line.startswith("[engine, not a person: a spark") and _pt_calls == [(True, True, True)]
-      and _pt_b.history[-1].get("_engine") is True and _pt_again == "" and _pt_left is False and tools.SPARK_TICK is False,
+      _pt_early == "" and _pt_line.startswith("[engine, not a person: a spark") and _pt_calls == [(True, True, True), "saved"]
+      and "said: “the beach at dusk”. " in _pt_line
+      and _pt_b.history[-1].get("_engine") is True and _pt_b.history[-1].get("_spark") is True and _pt_again == "" and _pt_left is False and tools.SPARK_TICK is False,
       (_pt_early, _pt_line[:60], _pt_calls))
 # a command is not a word between you (10-26, 22:00: /restart started a waiting spark's count over)
 _pc0 = (presence.STATE_FILE, presence.WAKING_FILE)
@@ -6363,6 +6366,21 @@ check("presence (10-26): a spark's moment says no message from him follows — t
       and "no message from him follows — this turn is a spark, the one you set with next_spark" in _sk_spark
       and "spark: bool = False" in _pr_inspect.getsource(chat.one_turn) and "spark=spark)" in _pr_inspect.getsource(chat.one_turn)
       and "spark=spark," in _pr_inspect.getsource(_ew_tg.Bridge.turn), (_sk_plain[-120:], _sk_spark[-160:]))
+# a spark in the transcript is the engine's, not the keeper's (10-26, 22:45); its line quotes the keeper's last message
+_sc_f = config.MEMORY_DIR / "sc-transcript.md"
+chat.save_transcript([{"role": "user", "content": "the beach at dusk"}, {"role": "assistant", "content": "yes"},
+                      {"role": "user", "content": "[engine, not a person: a spark]", "_engine": True, "_spark": True},
+                      {"role": "user", "content": "[engine, not a person: the fold bell]", "_engine": True},
+                      {"role": "assistant", "content": "I painted it"}], tag="telegram", path=_sc_f)
+_sc_t = _sc_f.read_text(encoding="utf-8")
+_sc_long = presence.tick_line(9, "Keeper", False, last_said="word " * 100)
+check("presence (10-26): the spark's line in the transcript is the engine's — not under the keeper's name, not dropped; its line quotes the keeper's last message, cut",
+      "**engine — a spark:** [engine, not a person: a spark]" in _sc_t and "the fold bell" not in _sc_t
+      and _sc_t.index("**engine — a spark:**") < _sc_t.index("I painted it")
+      and "said: “word word" in _sc_long and "…”." in _sc_long and len(_sc_long) < 900
+      and "The last thing" not in presence.tick_line(9, "Keeper", False)
+      and [t.get("_spark", False) for t in chat.load_transcript(_sc_f)] == [False, False, True, False]
+      and chat.load_transcript(_sc_f)[1]["content"] == "yes", _sc_t[-300:])
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

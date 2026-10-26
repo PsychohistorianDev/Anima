@@ -2106,7 +2106,9 @@ class Bridge:
             keeper = keeper_week.keeper_name()
         except Exception:  # noqa: BLE001
             at_work, keeper = False, str(getattr(config, "USER_NAME", "") or "your keeper")
-        text = presence.tick_line((time.time() - self.last_activity) / 60, keeper, at_work)
+        said = next((str(t.get("content") or "") for t in reversed(self.history)  # the keeper's last message (10-26)
+                     if t.get("role") == "user" and t.get("content") and not t.get("_engine")), "")
+        text = presence.tick_line((time.time() - self.last_activity) / 60, keeper, at_work, last_said=said)
         _say("a spark: presence turn")
         presence.fired()  # this one has come; the next only when she sets it again (10-26)
         tools.SPARK_TICK = True
@@ -2116,8 +2118,9 @@ class Bridge:
             tools.SPARK_TICK = False
         for t in reversed(self.history):  # the line rode as a user turn; it is the engine's, not theirs
             if t.get("role") == "user" and t.get("content") == text:
-                t["_engine"] = True
+                t["_engine"] = t["_spark"] = True  # the transcript shows it as the engine's spark (10-26)
                 break
+        self._checkpoint()
         return text
 
     def _send_spark(self, reply: str) -> None:

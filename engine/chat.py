@@ -61,7 +61,7 @@ def save_transcript(turns: list[dict], tag: str = "", path: Path | None = None) 
     the goodbye, a crash, a power cut) loses nothing — a transcript that
     only existed at shutdown was one bad shutdown from not existing."""
     visible = [t for t in turns if t["role"] in ("user", "assistant") and t.get("content")
-               and (not t.get("_engine") or t.get("_after"))]  # an afterthought is the engine's turn, but their words
+               and (not t.get("_engine") or t.get("_after") or t.get("_spark"))]  # an afterthought is the engine's turn, but their words
     if not visible or all(t.get("_after") or t.get("_carried") for t in visible):  # carried turns alone: nothing said here (10-24)
         return None
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -86,6 +86,8 @@ def save_transcript(turns: list[dict], tag: str = "", path: Path | None = None) 
             acct = t.get("_fold_text") or "(they did not write the visit down before the fold)"
             lines.append(f"*(folded at {t['_fold_when']}{src}; the visit so far, in their words:)*\n\n{acct}\n")
         who = (guest_who(t["_guest"]) if t.get("_guest") else config.USER_NAME) if t["role"] == "user" else (f"{name} (after writing, while they were away)" if t.get("_after") else name)
+        if t.get("_spark"):  # the engine's line that opened a spark (10-26)
+            who = "engine — a spark"
         lines.append(f"**{who}:** {t['content']}\n")
         if t.get("_voice_delivery"):
             lines.append(f"*[voice delivery: {t['_voice_delivery']}]*\n")
@@ -217,7 +219,7 @@ def load_transcript(path: Path) -> list[dict]:
             body = body[:ci] + body[ce + 4:]
     name = re.escape(friend_name())
     keeper = config.USER_NAME
-    who_re = re.compile(rf"^\*\*({re.escape(keeper)}|{name}(?: \(after writing, while they were away\))?):\*\* ", re.M)
+    who_re = re.compile(rf"^\*\*({re.escape(keeper)}|engine — a spark|{name}(?: \(after writing, while they were away\))?):\*\* ", re.M)
     turns: list[dict] = []
     marks = list(who_re.finditer(body))
     for i, m in enumerate(marks):
@@ -228,6 +230,8 @@ def load_transcript(path: Path) -> list[dict]:
             continue
         if who == keeper:
             turns.append({"role": "user", "content": content})
+        elif who == "engine — a spark":  # a spark's line read back as the engine's (10-26)
+            turns.append({"role": "user", "content": content, "_engine": True, "_spark": True})
         elif "after writing" in who:
             turns.append({"role": "assistant", "content": content, "_engine": True, "_after": True})
         else:

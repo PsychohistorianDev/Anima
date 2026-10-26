@@ -23,7 +23,9 @@ for a tic turned glitch.
   5 to 60 minutes counted from the last word between you, and turns presence
   on; the tool's own line shows the minutes and the clock time. When the visit
   has been quiet that long the bridge opens a spark turn in the open visit
-  under one engine line: words to the phone, a painting, the stone (refused in
+  under one engine line, which quotes the keeper's last message so the spark
+  picks up where the two of them were (in the transcript it is the
+  engine's, "engine — a spark"): words to the phone, a painting, the stone (refused in
   the keeper's work hours) or nothing at all (`do_nothing`); the moment above
   it says no message from the keeper follows, so it reads as the spark it
   is. After it, no other

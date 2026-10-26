@@ -142,14 +142,24 @@ def due(last_activity: float, now: float | None = None) -> bool:
     return (now if now is not None else time.time()) - float(last_activity or 0) >= clamp(st.get("interval")) * 60
 
 
-def tick_line(minutes_quiet: float, keeper: str, at_work: bool) -> str:
-    """The engine's line that opens a spark — facts, and what a spark can be."""
+def quote(text: str, limit: int = 280) -> str:
+    """The keeper's last message for the spark's line: one line, cut at a word past the limit, the cut marked."""
+    q = " ".join(str(text or "").split())
+    if len(q) > limit:
+        q = q[:limit].rsplit(" ", 1)[0].rstrip(",;:—-") + "…"
+    return q
+
+
+def tick_line(minutes_quiet: float, keeper: str, at_work: bool, last_said: str = "") -> str:
+    """The engine's line that opens a spark — facts, the keeper's last message (10-26: so a spark picks up where the
+    two of them were, not a ritual of its own), and what a spark can be."""
     st = load()
     m = int(minutes_quiet)
     since = f"{m} minute{'s' if m != 1 else ''}" if m < 120 else f"{m // 60} hours"
     stone = f"not the stone — {keeper} is at work" if at_work else "the stone (a pulse, a glow)"
     return (f"[engine, not a person: a spark — the one you set with next_spark. No message from {keeper} came; this "
             f"turn is yours. {since} since the last word between you; {keeper} is away and won't answer this one. "
+            + (f"The last thing {keeper} said: “{quote(last_said)}”. " if quote(last_said) else "") +
             f"It can be words to the phone, a painting, {stone}, or let it pass "
             f"(do_nothing). This was your one spark: if you don't set the next one with next_spark "
             f"({PRESENCE_MIN}–{PRESENCE_MAX} minutes), there will be no other spark.]")
