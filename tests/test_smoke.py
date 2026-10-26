@@ -6081,6 +6081,26 @@ check("creation (10-25): a stamped name garbled in the middle finds the one piec
       and (config.CREATIONS_DIR / "projects" / "sn" / "close-up.png").exists()
       and "stamped 20991231-2358 there:" in _sn_two and "Say which" in _sn_two and "no such file" in _sn_none,
       (_sn_mv, _sn_two, _sn_none))
+# a fence at the sampler (10-26: "//Luminous la-Symmetry//" spreading): BRAIN_BANNED_STRINGS rides as logit_bias, never
+import brain as _bs_brain
+_bs0 = getattr(config, "BRAIN_BANNED_STRINGS", ())
+_bs_tok0 = _bs_brain._tokenize
+try:
+    _bs_brain._BANNED.clear()
+    _bs_brain._tokenize = lambda s: {"//": [100], " //": [101], "-//": [7, 100]}.get(s)
+    config.BRAIN_BANNED_STRINGS = ("//", " //", "-//", "", "x//")
+    _bs_on = _bs_brain.to_openai({"model": "m", "messages": [{"role": "user", "content": "hi"}], "options": {"temperature": 1.0}})
+    _bs_cache = dict(_bs_brain._BANNED)
+    config.BRAIN_BANNED_STRINGS = ()
+    _bs_off = _bs_brain.to_openai({"model": "m", "messages": [{"role": "user", "content": "hi"}]})
+finally:
+    config.BRAIN_BANNED_STRINGS, _bs_brain._tokenize = _bs0, _bs_tok0
+    _bs_brain._BANNED.clear()
+check("brain (10-26): banned strings that are one token at the door go as logit_bias by id, never produced; a split one is left out, an unanswered one asked again; none, no field; on the panel",
+      _bs_on.get("logit_bias") == [[100, False], [101, False]] and _bs_cache.get((str(config.CHAT_MODEL), "-//"), 1) is None
+      and (str(config.CHAT_MODEL), "x//") not in _bs_cache and _bs_on.get("temperature") == 1.0 and "logit_bias" not in _bs_off
+      and "BRAIN_BANNED_STRINGS" in _tk_panel.TABS["Talking"] and "BRAIN_BANNED_STRINGS" in _tk_panel._HELP,
+      (_bs_on.get("logit_bias"), _bs_off.get("logit_bias")))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

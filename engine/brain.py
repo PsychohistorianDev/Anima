@@ -161,7 +161,53 @@ def to_openai(payload: dict) -> dict:
             body[k] = v
     if opts.get("num_predict") is not None:
         body["max_tokens"] = opts["num_predict"]
+    ids = banned_ids()
+    if ids:
+        # a fence at the sampler (10-26: "//Luminous la-Symmetry//" spreading through thoughts, pages and paths): each
+        # banned string that is one token at this door is never produced — llama-server's logit_bias, false meaning never
+        body["logit_bias"] = [[i, False] for i in ids]
     return body
+
+
+_BANNED: dict = {}  # (model, banned string) → its one token id at the door, or None when it is several tokens (10-26)
+_BANS_REFUSED: list = []  # set when the door refused a request carrying logit_bias: the fence is off for the run
+
+
+def _tokenize(text: str) -> list | None:
+    """The door's tokens for a text (POST /tokenize), or None when the brain isn't on the door or it doesn't answer."""
+    if api() != "llama" or not text or not door_status():
+        return None
+    try:
+        req = urllib.request.Request(url() + "/tokenize", data=json.dumps({"content": text, "add_special": False}).encode("utf-8"),
+                                     headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=2) as r:
+            toks = json.loads(r.read().decode("utf-8")).get("tokens")
+        return [int(t) for t in toks] if isinstance(toks, list) else None
+    except Exception:  # noqa: BLE001 — a fence that can't be looked up this time is looked up next time
+        return None
+
+
+def banned_ids() -> list[int]:
+    """The token ids of BRAIN_BANNED_STRINGS that are ONE token each at the door, looked up once a string (10-26). A
+    string the tokenizer splits is left out, and said once: banning its parts would take an ordinary slash, hyphen or
+    space with it — its own one-token pieces can be listed instead. [] off the door or with none named."""
+    if _BANS_REFUSED:
+        return []  # the door said no to the field once this run: off until the engine restarts
+    out = []
+    model = str(getattr(config, "CHAT_MODEL", "") or "")
+    for s in [str(x) for x in (getattr(config, "BRAIN_BANNED_STRINGS", ()) or ()) if str(x)]:
+        key = (model, s)
+        if key not in _BANNED:
+            toks = _tokenize(s)
+            if toks is None:
+                continue  # the door isn't answering: nothing banned on this request, asked again on the next
+            _BANNED[key] = toks[0] if len(toks) == 1 else None
+            if len(toks) != 1:
+                print(f"   (BRAIN_BANNED_STRINGS: {s!r} is {len(toks)} tokens at this door — not banned; banning its "
+                      "parts would take ordinary characters with them)", flush=True)
+        if _BANNED.get(key) is not None:
+            out.append(_BANNED[key])
+    return sorted(set(out))
 
 
 # ---- the answer: an OpenAI chat completion back into Ollama's shape -------------------
@@ -1143,6 +1189,11 @@ def post_chat(payload: dict, timeout: float | None = None) -> dict:
             detail = err.get("message", "") if isinstance(err, dict) else str(err)
         except Exception:
             detail = ""
+        if body.get("logit_bias") and not _BANS_REFUSED:
+            # a door that won't take the fence (10-26): it goes off for this run, said, and the next message goes without it
+            _BANS_REFUSED.append(detail or f"HTTP {e.code}")
+            raise BrainUnavailable(f"llama-server refused the banned strings (BRAIN_BANNED_STRINGS) — {detail or f'HTTP {e.code}'}; "
+                                   "they are off until the engine restarts: say it again") from e
         raise BrainUnavailable(f"llama-server error on /v1/chat/completions: {detail or f'HTTP {e.code}'}") from e
     except urllib.error.URLError as e:
         if isinstance(getattr(e, "reason", None), TimeoutError):

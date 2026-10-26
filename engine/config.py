@@ -1072,6 +1072,11 @@ ENGINE_WEEK_DAY = "sun"
 ENGINE_WEEK_HOUR = 18
 ENGINE_WEEK_COLD_S = 60  # a prompt read this long or longer (seconds) counts as a cold read
 ENGINE_WEEK_LOG = True   # memory/steps.log, a line a call to the brain; False writes nothing (the week then has nothing to say)
+# Strings the brain never writes — a fence at the sampler, not a nudge: each string's tokens go to llama-server as
+# logit_bias, never produced, in the thought and the reply alike — for a tic that has turned into a glitch, a double
+# slash wrapped around words, say. Only a string that is one token at the door is banned. Under Ollama it does nothing.
+# () — none.
+BRAIN_BANNED_STRINGS = ()
 TELEGRAM_TOKENS_SINCE_LAST = True  # ...and its tail: what the window grew by since the last line and of what (the earlier reply's words, the message, the moment, the turn's steps). False: the line alone
 # A message past Telegram's cap arrives as bubbles; when a poll ends on a bubble
 # at the cap the bridge waits this many seconds for the rest, so the message is
