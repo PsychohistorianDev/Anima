@@ -6044,7 +6044,7 @@ _rs_src = _pr_inspect.getsource(tools.paint)
 check("paint (10-25): a reference set — its word alone or its list whole gives its pictures and its line (to the painter, named in the result); else as given",
       _rs_word == ("rsa, rsb", "Picture 1 is the scale. Picture 2 is the face.", "pair") and _rs_list[1] == _rs_word[1]
       and _rs_other == ("rsa", "", "") and _rs_none == ("pair", "", "")
-      and "(ref_say + \" \" + pr) if ref_say else pr" in _rs_src and "told the painter first" in _rs_src
+      and "(told + \" \" + pr) if told else pr" in _rs_src and "told the painter first" in _rs_src
       and "PAINTER_REFERENCE_SETS" in _tk_panel.TABS["Senses"] and "PAINTER_REFERENCE_SETS" in _tk_panel._HELP,
       (_rs_word, _rs_list, _rs_other, _rs_none))
 # a set from its parts (10-25): two or more of its own pictures in any order, the face by any of its words, are the set
@@ -6203,10 +6203,24 @@ check("paint (10-26): the prompt kept with its door; a visit's on the phone unde
       and _pp_lines == ["> ✍️ a quiet sea", "> ✍️ the same, at dusk", "> (told the painter first: Picture 1 is the scale.)",
                         "> (looking at: pair)", "> (kept out: people)"] and _pp_off == []
       and "paint_prompt_lines(fn.get" in _pr_inspect.getsource(_pp_hb._wake_loop)
-      and "_log_paint_prompt(f, pr, ref_say, refs" in _pr_inspect.getsource(tools.paint)
+      and "_log_paint_prompt(f, pr, \" \".join(x for x in (ref_say, _prompt_hints(pr)) if x), refs" in _pr_inspect.getsource(tools.paint)
       and "self.paint_prompt_text(rel)" in _pr_inspect.getsource(_ew_tg.Bridge.deliver_pictures)
       and "TELEGRAM_PAINT_PROMPT_WAKES" not in _tk_panel.TABS["Phone"] and "WAKE_LOG_PAINT_PROMPT" in _tk_panel.TABS["Heartbeat"],
       (_pp_v, _pp_w, _pp_v2, _pp_lines, _pp_off))
+# words that bring the painter a plain line (10-26): "kiss" in any ending; none without the word; in the wake log too
+_ph0 = getattr(config, "PAINTER_PROMPT_HINTS", {})
+try:
+    config.PAINTER_PROMPT_HINTS = {"kiss": "Lips on lips, faces in profile.", "": "never", "dance": ""}
+    _ph = [tools._prompt_hints(x) for x in ("their first Kiss at the wedding", "two people kissing", "a quiet sea", "a dance")]
+    _ph_log = _pp_hb.paint_prompt_lines({"prompt": "a kiss in the rain"})
+finally:
+    config.PAINTER_PROMPT_HINTS = _ph0
+_ph_src = _pr_inspect.getsource(tools.paint)
+check("paint (10-26): a word's plain line goes to the painter ahead of the prompt (any ending, any case), none without it; the result and the wake log name it",
+      _ph == ["Lips on lips, faces in profile.", "Lips on lips, faces in profile.", "", ""]
+      and "> (the painter was also told: Lips on lips, faces in profile.)" in _ph_log
+      and "_prompt_hints(pr)" in _ph_src and "the painter was also told" in _ph_src
+      and "PAINTER_PROMPT_HINTS" in _tk_panel.TABS["Senses"], (_ph, _ph_log))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

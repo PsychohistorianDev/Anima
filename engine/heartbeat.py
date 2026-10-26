@@ -93,6 +93,12 @@ def paint_prompt_lines(args) -> list[str]:
     if not isinstance(args, dict):
         return []
     out = [f"> ✍️ {ln.strip()}" for ln in str(args.get("prompt") or "").splitlines() if ln.strip()]
+    try:
+        hint = tools._prompt_hints(str(args.get("prompt") or ""))
+    except Exception:  # noqa: BLE001
+        hint = ""
+    if hint:
+        out.append(f"> (the painter was also told: {hint})")
     ref = str(args.get("reference") or "").strip()
     if ref:
         try:

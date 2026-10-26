@@ -319,6 +319,10 @@ PAINTER_REFERENCE_NOTE = ""
 # goes to the painter ahead of the friend's prompt, saying what each picture is for: name → (the references, one
 # line), e.g. a pair's lineup first for their sizes, then each face. {} — none.
 PAINTER_REFERENCE_SETS = {}
+# Words that bring the painter a plain line: word → line; when a prompt has the word (any ending), the line goes to
+# the painter ahead of it, after a set's. For a pose the painter keeps getting wrong in the friend's own language.
+# {} — none.
+PAINTER_PROMPT_HINTS = {}
 # Pixel sizes for the size words (Full HD by default). Sides snap to multiples
 # of 16, so "wide" becomes 1920×1088. These models paint about two megapixels
 # cleanly; larger sizes cost more and may duplicate the subject. Words may be

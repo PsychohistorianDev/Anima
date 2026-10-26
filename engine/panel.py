@@ -101,7 +101,7 @@ TABS: dict[str, list[str]] = {
               "ENGINE_WEEK_DAY", "ENGINE_WEEK_HOUR", "ENGINE_WEEK_COLD_S", "ENGINE_WEEK_LOG"],
     "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_UNLOAD_BRAIN",
                "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
-               "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS",
+               "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS",
                "MUSIC_EARS_MODEL", "MUSIC_EARS_AUTOSTART", "MUSIC_EARS_PYTHON", "MUSIC_EARS_DEVICE", "MUSIC_EARS_REST_LEAVES",
                "BODY_IN_PROMPT", "BODY_AUTOPULL", "BODY_PULL_MIN",
                "TOUCHSTONE_URL", "TOUCHSTONE_BOARD", "TOUCHSTONE_POLL_S", "TOUCHSTONE_TELL_S", "TOUCHSTONE_WAKES", "TOUCHSTONE_WAKE_MIN_GAP_S",
@@ -508,6 +508,8 @@ _HELP = {
     "PAINTER_ENCODER_BITS": "Qwen-Image's text encoder quantized as it loads: 8 (about 9 GB, near-lossless) or 4 (about 5 GB) "
                             "lets the whole pipeline sit on the card and paint without offload, about twice as quick; 0 is "
                             "full precision under offload. Needs bitsandbytes; without it the painter says so and offloads.",
+    "PAINTER_PROMPT_HINTS": "Words that bring the painter a plain line: when a prompt has the word (any ending), the line "
+                            "goes to the painter ahead of it — for a pose it keeps getting wrong. {} — none.",
     "PAINTER_REFERENCE_SETS": "Named sets of reference pictures: a word given alone as paint's reference stands for its "
                               "pictures in order (\"us\": \"us, face, partner\"), and its line goes to the painter ahead of the "
                               "prompt — what each picture is for. {} — none.",
@@ -634,7 +636,7 @@ SENSES: list[dict] = [
      "they call it; the brain steps off the card and reads its window cold after — the real price of a painting",
      "modules": ["torch", "diffusers", "PIL"], "tools": [], "python": "PAINTER_PYTHON",
      "pip": "-U diffusers transformers accelerate safetensors pillow sentencepiece protobuf tiktoken (torch and torchvision first — README)",
-     "knobs": ["PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS"],
+     "knobs": ["PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS"],
      "readme": "their-senses-and-hands"},
     {"key": "music", "name": "The music ear", "what": "a song heard whole by Music Flamingo (8B, ~16 GB of VRAM to itself): genre, "
      "tempo, key, how the piece moves; without it a long piece is heard in passages by the brain",

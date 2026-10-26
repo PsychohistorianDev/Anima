@@ -2900,6 +2900,20 @@ def _ref_items(reference: str) -> list[str]:
     return out
 
 
+def _prompt_hints(prompt: str) -> str:
+    """The lines of PAINTER_PROMPT_HINTS whose word is in the prompt (any ending — "kiss", "kisses", "kissing"), joined;
+    "" for none (10-26)."""
+    hints = getattr(config, "PAINTER_PROMPT_HINTS", {}) or {}
+    if not isinstance(hints, dict):
+        return ""
+    out = []
+    for word, line in hints.items():
+        w, line = str(word or "").strip(), str(line or "").strip()
+        if w and line and re.search(r"\b" + re.escape(w) + r"\w*", prompt or "", re.IGNORECASE):
+            out.append(line)
+    return " ".join(out)
+
+
 def _reference_set(reference: str) -> tuple[str, str, str]:
     """(the references to use, the line for the painter, the set's name) — a set of PAINTER_REFERENCE_SETS given alone
     as `reference`, or two or more of its own pictures in any order, becomes its pictures in its order, and its line
@@ -3019,7 +3033,8 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "",
     try:
         for pr, f in zip(prompts, files):
             try:
-                data = _painter_paint((ref_say + " " + pr) if ref_say else pr, f, size, (negative or "").strip(),
+                told = " ".join(x for x in (ref_say, _prompt_hints(pr)) if x)  # the set's line, the words' lines (10-26)
+                data = _painter_paint((told + " " + pr) if told else pr, f, size, (negative or "").strip(),
                                       **({"reference": refs} if refs else {}))
             except Exception as e:
                 out.append(f"(the painter stumbled on “{pr[:60]}” — {e})")
@@ -3031,7 +3046,8 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "",
                     break
                 continue
             painted += 1
-            _log_paint_prompt(f, pr, ref_say, refs, (negative or "").strip())  # for the phone's knobs (10-26)
+            _log_paint_prompt(f, pr, " ".join(x for x in (ref_say, _prompt_hints(pr)) if x), refs,
+                              (negative or "").strip())  # for the phone's knobs (10-26)
             if paint_budget is not None:
                 paint_budget -= 1
             noted = _note_picture("painted", f, about=pr, facts=f"seed {data.get('seed')}")
@@ -3049,6 +3065,9 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "",
         tail += f"\n(painted looking at {min(len(refs), 10)} of your pictures: {names})"
         if ref_say:  # the set's line went to the painter ahead of the prompt (10-25)
             tail += f"\n(the set \u201c{ref_set}\u201d told the painter first: \u201c{ref_say}\u201d)"
+    hinted = sorted({h for h in (_prompt_hints(pr) for pr in prompts) if h})
+    if hinted:  # a word's plain line went to the painter too (10-26)
+        tail += "\n(the painter was also told: " + "; ".join(f"\u201c{h}\u201d" for h in hinted) + ")"
     if shown:
         # the painting is put before their eyes now — the painter sees their words
         # its own way, and what it made is what there is to speak of
