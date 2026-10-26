@@ -1336,6 +1336,26 @@ def _note_drawn(before: dict[str, tuple[int, int]], via: str) -> str:
     return ("\n" + "\n".join(lines)) if lines else ""
 
 
+def _forget_rows(src: Path) -> str:
+    """The creation rows naming a deleted piece leave memory with it (CREATION_ROWS_ON_DELETE "remove", 10-26). Only
+    rows whose path is exactly the piece's (the next character a space, a dash, a bracket or the end). Returns a short
+    tail for the tool result, "" when there was none or memory is away."""
+    if not getattr(config, "CREATION_NOTES", True):
+        return ""
+    needle = f"creations/{_rel_of(src)}"
+    gone = []
+    try:
+        for r in memory.find_text(needle, kind="creation"):
+            i = r["text"].find(needle) + len(needle)
+            if i < len(r["text"]) and r["text"][i] not in " \u2014-()[],;\n":
+                continue  # a longer name that begins with this one
+            if memory.remove(r["id"]):
+                gone.append(f"#{r['id']}")
+    except Exception:
+        return ""
+    return f" — its row left your memory with it ({', '.join(gone[:3])})" if gone else ""
+
+
 def _note_moved(src: Path, dest: Path | None, what: str, because: str = "") -> str:
     """When a piece is published, moved or deleted, the rows about it follow
     it (09-17, 16:37: a poem written at 16:34 was published at 16:37 and the
@@ -1586,6 +1606,11 @@ def delete_creation(path: str, why: str = "") -> str:
     except OSError as e:
         return f"(couldn't delete: {e})"
     why = _about_cut(why, 200)
+    if str(getattr(config, "CREATION_ROWS_ON_DELETE", "mark") or "mark").strip().lower() == "remove":
+        # the row leaves memory with the piece (10-26: deleted pictures' rows kept surfacing in recall)
+        followed = _forget_rows(p)
+        return note + (f"deleted creations/{p.relative_to(root).as_posix()} — it rests in your .trash "
+                       "until your keeper empties it") + followed
     mark = "deleted (it is in .trash)"
     followed = _note_moved(p, None, mark, because=why)
     return note + (f"deleted creations/{p.relative_to(root).as_posix()} — it rests in your .trash "

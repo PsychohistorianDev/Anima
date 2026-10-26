@@ -1028,6 +1028,10 @@ CREATION_NOTES = True
 # work to shelve. `bat\backfill.bat --letters --write` removes letter rows made
 # earlier.
 CREATION_NOTES_SKIP = ()
+# What a delete does to the piece's row: "mark" — the row stays, saying it went (the friend remembers making it and
+# letting it go); "remove" — the row leaves memory with the piece. The rows of pieces already gone:
+# bat\backfill.bat --gone lists them, --gone --write lets them go.
+CREATION_ROWS_ON_DELETE = "mark"
 CREATIONS_DAYS_IN_PROMPT = 14
 # The songbook (keep_song): the songs they kept, each with their own score
 # and words. SONGBOOK_CHARS_IN_PROMPT is how much of it rides in every prompt,

@@ -67,6 +67,7 @@ config.CREATION_NOTES = False  # the older creation tests pin exact results; the
 config.CHAT_RESCUE_TEMPERATURE = 0  # the older salad tests count posts; the cool roll is tested on its own
 config.CHAT_GARBLE_RETRIES = 2  # the older salad tests count posts against two; the budget is 4 in config since 09-20
 config.ENGINE_WEEK_DAY = ""  # the engine's week never rides the suite's polls, whatever day the suite runs (10-25)
+config.CREATION_ROWS_ON_DELETE = "mark"  # the older delete tests pin the mark; "remove" is tested on its own (10-26)
 import condense
 config.AFTERGLOW = False  # the afterglow runs in a thread; tested on its own, synchronously, below
 config.SLEEP_IN_BRIDGE = False  # the night in the bridge would run the real sleep from any poll after the hour; tested on its own, below
@@ -6101,6 +6102,29 @@ check("brain (10-26): banned strings that are one token at the door go as logit_
       and (str(config.CHAT_MODEL), "x//") not in _bs_cache and _bs_on.get("temperature") == 1.0 and "logit_bias" not in _bs_off
       and "BRAIN_BANNED_STRINGS" in _tk_panel.TABS["Talking"] and "BRAIN_BANNED_STRINGS" in _tk_panel._HELP,
       (_bs_on.get("logit_bias"), _bs_off.get("logit_bias")))
+# rows of pieces that are gone (10-26): CREATION_ROWS_ON_DELETE "remove" takes the row with the piece; --gone finds the rest
+import backfill_creations as _rg_bf
+_rg0 = getattr(config, "CREATION_ROWS_ON_DELETE", "mark")
+_rg_dir = config.CREATIONS_DIR / "drawings"; _rg_dir.mkdir(parents=True, exist_ok=True)
+(_rg_dir / "rg-keep.png").write_bytes(PNG_1PX); (_rg_dir / "rg-keepers.png").write_bytes(PNG_1PX)
+_rg_a = memory.add("creation", "[painted 2099-01-01 10:00] creations/drawings/rg-keep.png — 1440×1440")
+_rg_b = memory.add("creation", "[painted 2099-01-01 10:01] creations/drawings/rg-keepers.png — 1440×1440")
+_rg_notes0 = config.CREATION_NOTES
+try:
+    config.CREATION_ROWS_ON_DELETE, config.CREATION_NOTES = "remove", True
+    _rg_del = tools.dispatch("delete_creation", {"path": "drawings/rg-keep.png"})
+finally:
+    config.CREATION_ROWS_ON_DELETE, config.CREATION_NOTES = _rg0, _rg_notes0
+_rg_c = memory.add("creation", "[painted 2099-01-01 10:02] creations/drawings/rg-vanished.png — 1440×1440")
+_rg_d = memory.add("creation", "[painted 2099-01-01 10:03] creations/drawings/rg-old.png — 1440×1440 \u2192 deleted (it is in .trash) 2099-01-01 11:00")
+_rg_list = _rg_bf.gone(False)
+_rg_still = (memory.get(_rg_c) is not None, memory.get(_rg_d) is not None)
+_rg_n = _rg_bf.gone(True)
+check("rows (10-26): a delete under \"remove\" takes the piece's row (not a longer name's); --gone lists the marked and the missing, --write lets them go (memory.db copied first)",
+      "its row left your memory with it" in _rg_del and memory.get(_rg_a) is None and memory.get(_rg_b) is not None
+      and _rg_list >= 2 and _rg_still == (True, True) and _rg_n == _rg_list and memory.get(_rg_c) is None and memory.get(_rg_d) is None
+      and memory.get(_rg_b) is not None and any(Path(config.DB_PATH).parent.glob(Path(config.DB_PATH).name + ".before-gone-*")),
+      (_rg_del, _rg_list, _rg_n))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

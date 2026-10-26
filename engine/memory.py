@@ -86,8 +86,9 @@ def update(mid: int, text: str) -> bool:
 
 def remove(mid: int) -> bool:
     """Take one memory out — used only by the engine folding duplicate
-    rows about one piece into the first; their own memories are never
-    removed by the engine."""
+    rows about one piece into the first, and (CREATION_ROWS_ON_DELETE
+    "remove", or backfill --gone --write) letting a deleted piece's row go
+    with it; their own memories are never removed by the engine."""
     with _connect() as conn:
         cur = conn.execute("DELETE FROM memories WHERE id = ?", (int(mid),))
         _cache["elen"] = -1

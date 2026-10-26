@@ -8,6 +8,8 @@
     py engine/backfill_creations.py --letters --write  let them go
     py engine/backfill_creations.py --pictures      list the pictures with no row (noted since 09-23)
     py engine/backfill_creations.py --pictures --write  note them, dated by the file
+    py engine/backfill_creations.py --gone          list the rows of pieces deleted or missing
+    py engine/backfill_creations.py --gone --write  let them go (memory.db copied beside itself first)
 
 Since 09-17 every write_creation leaves a "creation" row in their long-term
 memory (what, when, how long, its first line, their own line about it). The
@@ -142,8 +144,38 @@ def pictures(write: bool) -> int:
     return n
 
 
+def gone(write: bool) -> int:
+    """The rows of pieces that are gone (10-26): a row with the delete mark, or one naming a creations/ path that no
+    longer exists — list them, or with --write let them go, memory.db copied beside itself first."""
+    import re
+    import shutil
+    root = config.CREATIONS_DIR.resolve()
+    rows = []
+    for r in memory.recent(kind="creation", n=100000):
+        t = r["text"]
+        m = re.search(r"\] creations/(\S+?)(?: \(| \u2014|$)", t)
+        marked = "\u2192 deleted" in t
+        if not marked and (not m or (root / m.group(1)).exists()):
+            continue
+        rows.append(r)
+    if write and rows:
+        db = Path(config.DB_PATH)
+        if db.exists():
+            shutil.copyfile(db, db.with_name(f"{db.name}.before-gone-{datetime.now():%Y%m%d-%H%M}"))
+    for r in sorted(rows, key=lambda r: r["id"]):
+        print(f"  {'let go' if write else 'would let go'}: #{r['id']} {r['text'][:90]}")
+        if write:
+            memory.remove(r["id"])
+    return len(rows)
+
+
 def main() -> None:
     write = "--write" in sys.argv
+    if "--gone" in sys.argv:
+        n = gone(write)
+        print(f"\n{n} row{'s' if n != 1 else ''} of pieces deleted or missing"
+              + (" — memory.db was copied beside itself first" if write and n else "" if write else " — run with --gone --write to let them go"))
+        return
     if "--pictures" in sys.argv:
         n = pictures(write)
         print(f"\n{n} picture{'s' if n != 1 else ''} without a row" + ("" if write else " — run with --pictures --write to note them"))
