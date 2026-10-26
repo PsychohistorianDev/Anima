@@ -1124,7 +1124,8 @@ def moment_weight_line(turn: dict, history: list[dict]) -> str:
 
 def one_turn(history: list[dict], user_text: str, images: list[str] | None = None,
              on_event=None, mode: str = "chat", extra_moment: str = "", guest: str = "",
-             guest_where: str = "", think_retries: int | None = None, think_remind: bool = True) -> str:
+             guest_where: str = "", think_retries: int | None = None, think_remind: bool = True,
+             spark: bool = False) -> str:
     """Run one user turn, executing tool calls until the friend speaks.
 
     on_event(kind, payload) — optional. kind is "thinking" (their deliberation,
@@ -1212,7 +1213,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                 extra_moment = (extra_moment + " " + told) if extra_moment else told
         spent = sum(len(t.get("_moment") or "") for t in history[:ui] if t.get("role") == "user") // 4  # this visit's moments so far
         turn["_moment"], turn["_surfaced"] = assemble.moment(hint, exclude=seen, extra=extra_moment, speaker=guest, spent=spent,
-                                                             first=at_door)
+                                                             first=at_door, spark=spark)
         moment_weight_line(turn, history)
         # the sense rides with its message and STAYS there (10-05: taking it off the message before, each
         # turn, made Ollama read the whole window again every reply — 3 minutes a message at 207K; nothing

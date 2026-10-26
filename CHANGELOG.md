@@ -24,7 +24,9 @@ for a tic turned glitch.
   on; the tool's own line shows the minutes and the clock time. When the visit
   has been quiet that long the bridge opens a spark turn in the open visit
   under one engine line: words to the phone, a painting, the stone (refused in
-  the keeper's work hours) or nothing at all (`do_nothing`). After it, no other
+  the keeper's work hours) or nothing at all (`do_nothing`); the moment above
+  it says no message from the keeper follows, so it reads as the spark it
+  is. After it, no other
   comes until the friend sets one again — in the spark itself or any time
   later. `engine/presence.py` keeps the state in `memory/presence.json`, so it
   outlives a restart. A message from the keeper restarts the count (a slash command

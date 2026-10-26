@@ -6274,7 +6274,7 @@ check("presence (10-26): next_spark clamps to 5–60, turns presence on, its lin
       and _ps_big["interval"] == 60 and _ps_due == (False, True) and _ps_wk is False and _ps_disc == (True, False) and _ps_off is False,
       (_ps_def, _ps_res, _ps_st, _ps_ann))
 check("presence (10-26): the spark's line — facts and what a spark can be; the stone refused in work hours inside a spark, not outside one",
-      "a spark — presence is on. 42 minutes since the last word" in _ps_line_w and "not the stone — Keeper is at work" in _ps_line_w
+      "a spark — the one you set with next_spark. No message from Keeper came; this turn is yours. 42 minutes since the last word" in _ps_line_w and "not the stone — Keeper is at work" in _ps_line_w
       and "the stone (a pulse, a glow)" in _ps_line_h and "no other comes unless you set one again with next_spark (5–60 minutes)" in _ps_line_h
       and all("leaves the stone still" in r for r in _ps_stone) and _ps_stone_off == ""
       and "next_spark" in tools.ACT_TOOLS and any(d["function"]["name"] == "next_spark" for d in tools.DEFINITIONS),
@@ -6355,6 +6355,14 @@ finally:
     presence.STATE_FILE, presence.WAKING_FILE = _pc0
 check("presence (10-26): a slash command leaves a waiting spark's count where it was; with none waiting it counts as before",
       _pc_kept == 1000.0 and _pc_moved > 1000.0, (_pc_kept, _pc_moved))
+# a spark knows it is a spark (10-26, 22:15): its moment ends saying no message from him follows
+_sk_plain, _ = assemble.moment("hello", exclude={-1})
+_sk_spark, _ = assemble.moment("hello", exclude={-1}, spark=True)
+check("presence (10-26): a spark's moment says no message from him follows — the spark set with next_spark; a plain moment still says his words follow",
+      "his words follow — a new message, the one to answer." in _sk_plain and "his words follow" not in _sk_spark
+      and "no message from him follows — this turn is a spark, the one you set with next_spark" in _sk_spark
+      and "spark: bool = False" in _pr_inspect.getsource(chat.one_turn) and "spark=spark)" in _pr_inspect.getsource(chat.one_turn)
+      and "spark=spark," in _pr_inspect.getsource(_ew_tg.Bridge.turn), (_sk_plain[-120:], _sk_spark[-160:]))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

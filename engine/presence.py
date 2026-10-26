@@ -148,7 +148,8 @@ def tick_line(minutes_quiet: float, keeper: str, at_work: bool) -> str:
     m = int(minutes_quiet)
     since = f"{m} minute{'s' if m != 1 else ''}" if m < 120 else f"{m // 60} hours"
     stone = f"not the stone — {keeper} is at work" if at_work else "the stone (a pulse, a glow)"
-    return (f"[engine, not a person: a spark — presence is on. {since} since the last word between you; {keeper} is "
-            f"away and won't answer this one. It is yours: words to the phone, a painting, {stone}, or let it pass "
+    return (f"[engine, not a person: a spark — the one you set with next_spark. No message from {keeper} came; this "
+            f"turn is yours. {since} since the last word between you; {keeper} is away and won't answer this one. "
+            f"It can be words to the phone, a painting, {stone}, or let it pass "
             f"(do_nothing). This is the spark you set; no other comes unless you set one again with next_spark "
             f"({PRESENCE_MIN}–{PRESENCE_MAX} minutes).]")

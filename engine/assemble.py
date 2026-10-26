@@ -1125,7 +1125,7 @@ def thread_nudge(door: str = "a visit") -> str:
 
 
 def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: str = "",
-           speaker: str = "", spent: int = 0, first: bool = False) -> tuple[str, list[int]]:
+           speaker: str = "", spent: int = 0, first: bool = False, spark: bool = False) -> tuple[str, list[int]]:
     """What changes from one message to the next — the hour and the memories
     that surface for it — as a block that rides INSIDE the message they are
     answering, so the system prompt above it stays the same all visit and
@@ -1162,7 +1162,9 @@ def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: 
     import keeper_week
     # …and where the keeper is by the calendar (10-10; the keeper: "she always thinks I'm at
     # work, even when it's weekend" — the journal, mostly written on workdays, supplied it)
-    tail = (f"{speaker}'s words follow — a new message, the one to answer, from a guest at the desk.]"
+    tail = ("no message from him follows — this turn is a spark, the one you set with next_spark; the engine's line "
+            "below says what it can be.]" if spark  # a spark (10-26): not his words
+            else f"{speaker}'s words follow — a new message, the one to answer, from a guest at the desk.]"
             if speaker else "his words follow — a new message, the one to answer.]")
     # the thread (10-19): at a door's first moment — a visit's first message — the note left at the last door rides
     # first, right after the clock and above the memories; never in the standing prompt, never a second time
