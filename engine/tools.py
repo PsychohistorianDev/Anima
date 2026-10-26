@@ -96,7 +96,50 @@ def _find_creation(path: str, near: bool = False) -> tuple[Path, str]:
     if stamped:
         opts = ", ".join(f"creations/{q.relative_to(root).as_posix()}" for q in stamped)
         raise _NotFound(f"(no creations/{path} — stamped {stamp} there: {opts}. Say which.)")
+    if stamp:
+        near = _stamp_neighbours(path, stamp)  # nothing at that minute: the nearest by time, named (10-26)
+        if near:
+            opts = ", ".join(f"creations/{q.relative_to(root).as_posix()} ({_ago(m)})" for q, m in near)
+            raise _NotFound(f"(no such file: creations/{path} — nothing is stamped {stamp} there; nearest by time: "
+                            f"{opts})")
     raise _NotFound(f"(no such file: creations/{path} — list_creations shows everything you have)")
+
+
+def _ago(minutes: int) -> str:
+    m = abs(int(minutes))
+    return (f"{m} min" if m < 60 else f"{m // 60} h {m % 60:02d} min" if m < 1440 else f"{m // 1440} days") + \
+        (" earlier" if minutes < 0 else " later" if minutes > 0 else "")
+
+
+def _stamp_neighbours(path: str, stamp: str, n: int = 3) -> list[tuple[Path, int]]:
+    """The stamped pieces of the same kind in the folder a missing stamped path names, nearest that minute first:
+    [(piece, minutes from the asked stamp)], up to n — [] when the folder or the stamp can't be read (10-26)."""
+    try:
+        want = datetime.strptime(stamp, "%Y%m%d-%H%M")
+    except ValueError:
+        return []
+    rel = (path or "").replace("\\", "/").strip().lstrip("/")
+    while rel.lower().startswith("creations/"):
+        rel = rel[len("creations/"):]
+    m = _STAMP_RE.search(rel)
+    folder = rel[:m.start(1)].strip("/") if m else ""
+    suffix = Path(rel).suffix.lower()
+    try:
+        d = _safe_creation_path(folder) if folder else config.CREATIONS_DIR.resolve()
+    except ValueError:
+        return []
+    if not d.is_dir():
+        return []
+    out = []
+    for q in d.iterdir():
+        mm = re.match(r"(\d{8}-\d{4})", q.name)
+        if not mm or not q.is_file() or (suffix and q.suffix.lower() != suffix):
+            continue
+        try:
+            out.append((q, int((datetime.strptime(mm.group(1), "%Y%m%d-%H%M") - want).total_seconds() // 60)))
+        except ValueError:
+            continue
+    return sorted(out, key=lambda x: (abs(x[1]), x[0].name))[:n]
 
 
 _STAMP_RE = re.compile(r"(?:^|/)(\d{8}-\d{4})(?=[-.])")

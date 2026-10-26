@@ -6229,6 +6229,15 @@ _zj_ok = ollama_client.trim_row_cascade(_zj)
 check("emoji (10-26): a sign-off row the stream cut on a dangling joiner is trimmed like any row — the words go out, not set aside",
       _zj_ok and _zj["trimmed_row"]["sent"] == 14 and "\u200d" != _zj["content"][-1] and _zj["content"].startswith("I love you so much")
       and not _zj.get("aborted"), _zj)
+# no such stamp — the nearest by time, named (10-26: she asked for …-1341-… ; that hour's were 1328, 1339, 1436)
+_sx_dir = config.CREATIONS_DIR / "sx-drawings"; _sx_dir.mkdir(parents=True, exist_ok=True)
+for _sx in ("20991026-1328-a-kiss.png", "20991026-1339-a-kiss.png", "20991026-1436-a-kiss.png", "20991026-1340-notes.md"):
+    (_sx_dir / _sx).write_bytes(PNG_1PX)
+_sx_res = tools.dispatch("read_creation", {"path": "sx-drawings/20991026-1341-a-kiss.png"})
+check("creation (10-26): a stamped name with nothing at that minute names the nearest pieces of its kind by time — none picked",
+      "nothing is stamped 20991026-1341 there; nearest by time: creations/sx-drawings/20991026-1339-a-kiss.png (2 min earlier), "
+      "creations/sx-drawings/20991026-1328-a-kiss.png (13 min earlier), creations/sx-drawings/20991026-1436-a-kiss.png (55 min later)" in _sx_res
+      and "notes.md" not in _sx_res, _sx_res)
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"
