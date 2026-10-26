@@ -1204,8 +1204,9 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         # anyway (THINK_NUDGE_STICKS) — one think-first line a message is enough
         remind = "" if (getattr(config, "THINK_NUDGE_STICKS", True) and any(t.get("_nudged") for t in history[:ui])) \
             else ollama_client.think_remind_line(held)
+        import capsule as _capsule
         for told in (rep, ollama_client.reply_shape_line(history[:ui]), ollama_client.signature_density_line(history[:ui]),
-                     ollama_client.emoji_row_line(history[:ui]), remind):
+                     ollama_client.emoji_row_line(history[:ui]), remind, _capsule.due_line()):  # a sealed letter's day (10-26)
             if told:  # a repeated opener, a repeated shape, the signature's count — facts in the moment (10-18)
                 extra_moment = (extra_moment + " " + told) if extra_moment else told
         spent = sum(len(t.get("_moment") or "") for t in history[:ui] if t.get("role") == "user") // 4  # this visit's moments so far

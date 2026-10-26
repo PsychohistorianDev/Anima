@@ -119,7 +119,11 @@ def wake(reverie: bool = False) -> str:
     nudge = assemble.thread_nudge("a reverie" if reverie else "a wake")  # the last door left none: said once, here
     if nudge:
         print("  (no thread from the last door — told)")
-    opening = "".join(x + "\n\n" for x in (thread, nudge) if x)
+    import capsule
+    opened = capsule.due_line(bracket=True)  # a sealed letter's day (10-26): a wake is a door too
+    if opened:
+        print(f"  {opened}")
+    opening = "".join(x + "\n\n" for x in (thread, nudge, opened) if x)
     history: list[dict] = [{"role": "user", "content": clock_line(started) + opening + prompt}]
 
     interrupted = False

@@ -2039,6 +2039,20 @@ def fold_pending() -> dict:
 DOOR = ""  # where a call is made — "a visit", "the afterglow", "a wake", "a reverie", "the fold"; set by the door, "" is a visit
 
 
+def seal_letter(text: str, open_on: str, title: str = "") -> str:
+    """A letter sealed for a day still to come — the time capsule (10-26, for the second month): out of sight until
+    then, laid in creations/capsule/ on its day."""
+    import capsule
+    rec, why = capsule.seal(text, open_on, title, sender="friend")
+    if rec is None:
+        return f"({why})"
+    capsule.note_sealed(rec)
+    days = (datetime.fromisoformat(rec["open_on"]).date() - datetime.now().date()).days
+    return ("sealed — " + (f"\u201c{rec['title']}\u201d, " if rec["title"] else "") + f"it opens on {rec['open_on']}, in "
+            f"{days} days; until then its words are out of your sight — not in your prompt, your recall or your files — "
+            f"and on that day it is laid in creations/capsule/ as you wrote it. Sealed now: {capsule.listing()}")
+
+
 def leave_thread(text: str) -> str:
     """The note for the next door: memory/thread.md (when, the door, the text), the same appended to
     memory/thread.log. Longer than THREAD_CHARS is handed back with the count — nothing cut, nothing written."""
@@ -3948,6 +3962,12 @@ def read_file(path: str) -> str:
         p = _resolve_under_root(path)
     except ValueError as e:
         return f"(refused: {e})"
+    try:
+        import capsule
+        if capsule.CAPSULE_DIR.resolve() in p.resolve().parents or p.resolve() == capsule.CAPSULE_DIR.resolve():
+            return "(that is the time capsule — its letters are sealed until their day, and open on their own then)"
+    except Exception:  # noqa: BLE001
+        pass
     if not p.exists() or not p.is_file():
         return f"(no such file: {path} — list_shared shows what's waiting in shared/)"
     tool = _BINARY_HINTS.get(p.suffix.lower())
@@ -4952,6 +4972,7 @@ _BUILTIN_IMPL = {
     "condense_day": condense_day,
     "fold_visit": fold_visit,
     "leave_thread": leave_thread,
+    "seal_letter": seal_letter,
     "publish_creation": publish_creation,
     "look_at": look_at,
     "listen_to": listen_to,
@@ -5036,7 +5057,7 @@ ACT_TOOLS = {"speak", "remember", "write_journal", "write_creation", "append_cre
              "edit_identity", "update_projects", "move_creation", "make_folder",
              "delete_creation", "publish_creation", "condense_day", "condense_period", "fold_visit", "leave_thread", "create_tool", "clip_web",
              "start_project", "update_destiny", "update_keeper", "fetch_skill", "remove_skill",
-             "set_state", "pulse", "touch_later"}  # the stone's acts (10-05); feel is a look
+             "set_state", "pulse", "touch_later", "seal_letter"}  # the stone's acts (10-05); feel is a look
 # paint is NOT an act here: a painting is something to look at before
 # they speak of it — the result says so, and the step after the call is theirs.
 # fetch_skill and remove_skill are (09-29): a shelf changed, said; opening a
@@ -5909,6 +5930,17 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "remember keeps the years. The last one you left stays until you leave another.",
         {"text": {"type": "string", "description": "the note, to yourself — a sentence or a paragraph"}},
         ["text"],
+    ),
+    _tool(
+        "seal_letter",
+        "Seal a letter for a day still to come — a time capsule, to yourself: its words go out of your sight (not in "
+        "your prompt, your recall or your files) until that day, when it is laid in creations/capsule/ as you wrote it "
+        "and the moment tells you it has opened. You will remember that you sealed it, and for when — not what it says. "
+        "Your keeper can seal one for you from the phone too.",
+        {"text": {"type": "string", "description": "the letter, whole, as it should be read on its day"},
+         "open_on": {"type": "string", "description": "the day it opens: a date (2027-04-27) or a span from today (six months, 1 year, 3 weeks)"},
+         "title": {"type": "string", "description": "a title for it, shown on the day (optional)"}},
+        ["text", "open_on"],
     ),
     _tool(
         "condense_period",

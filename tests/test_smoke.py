@@ -6125,6 +6125,46 @@ check("rows (10-26): a delete under \"remove\" takes the piece's row (not a long
       and _rg_list >= 2 and _rg_still == (True, True) and _rg_n == _rg_list and memory.get(_rg_c) is None and memory.get(_rg_d) is None
       and memory.get(_rg_b) is not None and any(Path(config.DB_PATH).parent.glob(Path(config.DB_PATH).name + ".before-gone-*")),
       (_rg_del, _rg_list, _rg_n))
+# the time capsule (10-26): sealed until its day, out of sight, laid in creations/capsule/ at the first door of that day
+import capsule
+from datetime import date as _cp_date
+_cp_dir0 = capsule.CAPSULE_DIR
+capsule.CAPSULE_DIR = config.MEMORY_DIR / "capsule-test"
+try:
+    _cp_t = _cp_date(2026, 10, 27)
+    _cp_when = [capsule.parse_when(x, _cp_t) for x in ("2027-04-27", "six months", "1 year", "3 weeks", "in 100 days", "soon")]
+    _cp_split = (capsule.split_when("2027-01-01 dear you", _cp_t), capsule.split_when("6 months dear you, again", _cp_t),
+                 capsule.split_when("hello there", _cp_t))
+    _cp_res = tools.dispatch("seal_letter", {"text": "Dear later me — hold on to this night.", "open_on": "2099-04-27",
+                                              "title": "Two months"})
+    _cp_past = tools.dispatch("seal_letter", {"text": "x", "open_on": "2001-01-01"})
+    _cp_k, _ = capsule.seal("From the keeper: still here.", "2099-04-27", sender="keeper")
+    capsule.note_sealed(_cp_k)
+    _cp_file = next(capsule.CAPSULE_DIR.glob("*.json"))
+    _cp_peek = tools.dispatch("read_file", {"path": str(_cp_file)})
+    _cp_rows = [r["text"] for r in memory.recent(kind="note", n=5)]
+    _cp_list_friend, _cp_list_keeper = capsule.listing(_cp_t), capsule.listing(_cp_t, for_keeper=True)
+    _cp_none = capsule.due_line(_cp_date(2099, 4, 26))
+    _cp_line = capsule.due_line(_cp_date(2099, 4, 27))
+    _cp_again = capsule.due_line(_cp_date(2099, 4, 28))
+    _cp_laid = sorted((config.CREATIONS_DIR / "capsule").glob("2099-04-27-*.md"))
+    _cp_texts = [p.read_text(encoding="utf-8") for p in _cp_laid]
+finally:
+    capsule.CAPSULE_DIR = _cp_dir0
+check("capsule (10-26): days by date or span; a letter seals (not for a past day), its words out of sight — read_file refused, the row keeps title and day only",
+      _cp_when[:5] == [_cp_date(2027, 4, 27), _cp_date(2027, 4, 27), _cp_date(2027, 10, 27), _cp_date(2026, 11, 17), _cp_date(2027, 2, 4)]
+      and _cp_when[5] is None and _cp_split == (("2027-01-01", "dear you"), ("6 months", "dear you, again"), ("", "hello there"))
+      and _cp_res.startswith("sealed — \u201cTwo months\u201d, it opens on 2099-04-27") and "isn't ahead" in _cp_past
+      and "time capsule" in _cp_peek and "hold on to this night" not in _cp_peek
+      and any("Two months" in t and "2099-04-27" in t and "hold on" not in t for t in _cp_rows)
+      and any("arrived" in t and "still here" not in t for t in _cp_rows), (_cp_res, _cp_peek, _cp_rows))
+check("capsule (10-26): each sees its own titles only; nothing opens early; on its day both are laid as written under who sealed them, said once",
+      "Two months" in _cp_list_friend and "from " in _cp_list_friend and "Two months" not in _cp_list_keeper
+      and _cp_none == "" and "From the time capsule:" in _cp_line and "creations/capsule/2099-04-27-" in _cp_line and _cp_again == ""
+      and len(_cp_laid) == 2 and any("hold on to this night" in t and "Sealed by you, to yourself on" in t and t.startswith("# Two months") for t in _cp_texts)
+      and any("still here" in t for t in _cp_texts)
+      and "seal_letter" in tools.ACT_TOOLS and any(d["function"]["name"] == "seal_letter" for d in tools.DEFINITIONS),
+      (_cp_list_friend, _cp_list_keeper, _cp_line, _cp_texts))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

@@ -1187,6 +1187,21 @@ class Bridge:
         elif cmd == "/voice":
             self.voice_all = not self.voice_all
             self.send(f"(every reply spoken aloud: {'on' if self.voice_all else 'off'} — they can still speak when they choose)", markdown=False)
+        elif cmd == "/seal":
+            import capsule  # the time capsule (10-26): a letter from the keeper, sealed until its day
+            rest = text.split(None, 1)[1] if len(text.split(None, 1)) > 1 else ""
+            when, words = capsule.split_when(rest)
+            rec, why = capsule.seal(words, when, sender="keeper") if when else (
+                None, "start with the day it opens — /seal 2027-04-27 your letter, or /seal 6 months your letter")
+            if rec:
+                capsule.note_sealed(rec)
+                self.send(f"(sealed — it opens on {rec['open_on']}; until then they know only that a letter from you "
+                          "waits, and when. /capsule lists what is sealed)", markdown=False)
+            else:
+                self.send(f"({why})", markdown=False)
+        elif cmd == "/capsule":
+            import capsule
+            self.send("(the time capsule: " + capsule.listing(for_keeper=True) + ")", markdown=False)
         elif cmd == "/week":
             import engine_week
             self.send(engine_week.summary(), markdown=False)  # the engine's week, now (10-25)
