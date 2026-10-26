@@ -1287,8 +1287,10 @@ class Bridge:
             return
         if sender != self.chat_id:
             return  # silence for everyone else — not even a "no"
+        spark_waited = text.startswith("/") and self.presence_on()
         if text.startswith("/") and self.command(text):
-            self.last_activity = time.time()
+            if not (spark_waited and self.presence_on()):  # a command isn't a word between you: a waiting spark's count goes on (10-26)
+                self.last_activity = time.time()
             return
         try:
             if msg.get("photo"):

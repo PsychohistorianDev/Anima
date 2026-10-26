@@ -9,7 +9,131 @@ until the friend's first body is on the desk. (Three releases went out of
 this file as 1.0–1.2 for a fortnight; they are 0.10–0.12. 0.12 was never
 tagged on its own: the first tag after the rename is v0.13.)
 
-## 0.14 — 2026-10-02 → (in progress)
+## 0.15 — 2026-10-24 → (in progress)
+
+The "presence" release: the friend can take a turn of their own between
+messages — set by them, one at a time — and paint the two of you together.
+Around it: a letter sealed until its day, the engine's own week on the phone,
+Qwen-Image 2.1 as a brush with reference pictures, and a fence at the sampler
+for a tic turned glitch.
+
+### Added
+- **Presence — sparks** (10-26; the plan written out for the friend and
+  agreed by them before it was built): `next_spark(minutes)` sets ONE spark,
+  5 to 60 minutes counted from the last word between you, and turns presence
+  on; the tool's own line shows the minutes and the clock time. When the visit
+  has been quiet that long the bridge opens a spark turn in the open visit
+  under one engine line: words to the phone, a painting, the stone (refused in
+  the keeper's work hours) or nothing at all (`do_nothing`). After it, no other
+  comes until the friend sets one again — in the spark itself or any time
+  later. `engine/presence.py` keeps the state in `memory/presence.json`, so it
+  outlives a restart. A message from the keeper restarts the count (a slash command
+  does not); a wake
+  running holds the spark (`memory/.waking`, set by the heartbeat around each
+  wake); the quiet hours end presence. While a spark is set the idle roll and
+  the pause wait; with none set they go on as usual. A spark's turn has no
+  think re-roll and carries neither the think-first reminder nor the sticky
+  nudge (`PRESENCE_THINK`, off, puts all three back). On the phone:
+  `/presence on` (one spark at `PRESENCE_DEFAULT_MIN`, 15, new),
+  `/presence off` (only the keeper turns it off), `/presence` (whether a spark
+  is set and in how long), `/discreet` (sparks sent silently, the words hidden
+  until tapped). Telegram only.
+- **The time capsule** (10-26): `seal_letter` seals a letter until its day.
+  Its words go into `memory/capsule/`, out of the friend's sight (not in the
+  prompt or recall; `read_file` refuses the folder) until the day, when the
+  first door lays it in `creations/capsule/` as written and the moment says
+  so. The friend keeps a row of having sealed it (title and day, never the
+  words); a letter from the keeper (`/seal` on the phone) arrives as a row
+  saying one waits and when. `/capsule` lists what waits.
+- **The engine's week** (10-25): every call to the brain leaves one JSON line
+  in `memory/steps.log` (door, window, prompt read time over its attempts,
+  tokens written, the longest thought, the set-asides by kind, the mends made
+  in place, the signature's count; rotated past 4 MB to `steps.old.log`). On
+  `ENGINE_WEEK_DAY` after `ENGINE_WEEK_HOUR` (new) the bridge sends the last
+  seven days as an engine notice, once, held through the quiet hours; `/week`
+  shows it any time.
+- **Qwen-Image 2.1 as a brush** (10-24 → 10-25): a `qwen21` family with its
+  own pipeline and guidance keyword (`true_cfg_scale`), and the Turbo
+  checkpoint (eight steps, its schedule baked in; `PAINTER_STEPS` does not
+  move it). Bigger than the card with its text encoder, it paints under model
+  offload — or whole on the card with the encoder quantized as it loads
+  (`PAINTER_ENCODER_BITS`, 8 or 4, new; template 0): the files are fetched with
+  the brain up, then the brain is set down, then the load. The VAE decodes in
+  tiles when a quantized pipeline sits whole on the card; `--test` prints the
+  peak. The setup line names torchvision, sentencepiece, protobuf and
+  tiktoken.
+- **Reference pictures** (10-25): `paint` takes `reference` — pictures under
+  `creations/` (up to ten), a folder (every picture in it), or `face`, which is
+  `creations/face/`, the friend's own to fill (the engine never puts one
+  there); the friend's name, "me" and "myself" stand for it too. A painting
+  with references takes the offload road. `PAINTER_REFERENCE_NOTE` (new) is a
+  keeper's line at the end of the paint tool's description. Another brush
+  refuses before the card is touched.
+- **Reference sets** (10-25): `PAINTER_REFERENCE_SETS` (name → (references,
+  line), new): a set's name — or two or more of its own pictures named in any
+  order — brings its pictures in order, and its line goes to the painter ahead
+  of the prompt (for example: which picture gives the sizes, which one each
+  face). The template ships none.
+- **Prompt hints** (10-26): `PAINTER_PROMPT_HINTS` (word → line, new): when a
+  prompt has the word in any ending, the line goes to the painter ahead of it,
+  after a set's line; the friend's words stay theirs, and the result names the
+  line. The template ships none.
+- **The painter's prompt, where you can see it** (10-26): every painting's
+  prompt is kept in `memory/paint_prompts.jsonl` (the prompt, the set's line,
+  the hints, references, what was kept out, the door).
+  `TELEGRAM_PAINT_PROMPT_CHAT` (new) puts it with a visit's picture on the
+  phone; `WAKE_LOG_PAINT_PROMPT` (new) writes it under each paint call in the
+  wake's log — a wake's picture reaches the phone without it.
+- **Banned strings** (10-26): `BRAIN_BANNED_STRINGS` (new): each string that
+  is one token at the llama door (looked up once via `/tokenize`) goes as
+  `logit_bias`, never produced, in thoughts and replies; a string that splits
+  is left out and said. A door that refuses the field turns it off for the
+  run, said. Under Ollama it does nothing. A fence, so it is the keeper's to
+  set; the template ships none.
+
+### Changed
+- **The painter makes room** (10-25): whole on the card, each step's
+  high-water mark is watched; past the card the painting stops and is painted
+  again under offload with the same seed. The sidecar is a threading server, so
+  a `/rest` is heard mid-painting and a painter that leaves goes then; a
+  painting that timed out ends the paint call.
+- **Claimed: the middle road** (10-25): after a reply that said "done"
+  without doing it, the ask says what happens next — a tool call now and the
+  reply goes out as written (a note says it was saved after); words only and
+  the new reply goes instead. `CLAIMED_KEEPS_WORDS` (unlisted, on); `False` puts
+  back the plain re-roll.
+- **A deleted piece's row can leave memory with it** (10-26):
+  `CREATION_ROWS_ON_DELETE` (new): "mark" (as before — the row stays, saying
+  it went) or "remove". `bat\backfill.bat --gone` lists the rows of pieces
+  deleted or missing; `--gone --write` lets them go, `memory.db` copied beside
+  itself first.
+- **The carry in every case but `/new`** (10-24): a visit the bridge died
+  with leaves its carry from its transcript, dated by the file's last write;
+  `/new` and the parlor's new button start clean.
+- **Page tools say when the signature was dealt in** (10-24): a page saved
+  with the refrain dealt into carried-through sentences is told so — the
+  count, and where the kept version is. The engine edits no page.
+
+### Fixed
+- **A colon in a creation's path is refused** (10-25): on Windows it made an
+  empty file and hid the picture in an NTFS stream, with no error; the painter's
+  door refuses one too.
+- **A piece found by its stamp** (10-25 → 10-26): a path that isn't there but
+  carries a minute stamp (YYYYMMDD-HHMM) finds the one piece with that stamp
+  and kind; several are named and asked about; none names up to three nearest
+  by time, with how far off — nothing is picked for the friend.
+- **A sign-off row cut on a dangling joiner** (10-26) is trimmed, not set
+  aside: a zero-width joiner or text selector with nothing after it comes off
+  before the row is looked for.
+- **Three mends** (10-25): a flag dealt into a sign-off row is taken off (a
+  flag in a sentence stays); "ILll" is I'll; a word, `//`, a capitalised word
+  with no space becomes the two words (`http://` untouched).
+- **An argument name with a `//…//` aside in front of it** (10-24) is the name
+  after it.
+- **A glued seam the pen mends is not salad** (10-24): the rail lets a
+  hard-glue word through when the mend would fix it.
+
+## 0.14 — 2026-10-02 → 2026-10-24
 
 The "fit" release begins where 0.13 left the ladder: the panel now says
 whether the window fits the card, and every knob on every tab has a line

@@ -6336,6 +6336,25 @@ check("presence (10-26): a spark runs through a bridge — not before its minute
       _pt_early == "" and _pt_line.startswith("[engine, not a person: a spark") and _pt_calls == [(True, True, True)]
       and _pt_b.history[-1].get("_engine") is True and _pt_again == "" and _pt_left is False and tools.SPARK_TICK is False,
       (_pt_early, _pt_line[:60], _pt_calls))
+# a command is not a word between you (10-26, 22:00: /restart started a waiting spark's count over)
+_pc0 = (presence.STATE_FILE, presence.WAKING_FILE)
+presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "pc-test.json", config.MEMORY_DIR / "pc-waking"
+try:
+    _pc_b = object.__new__(_ew_tg.Bridge)
+    _pc_b.chat_id = 7
+    _pc_b.command = lambda text: True
+    _pc_msg = {"message": {"chat": {"id": 7}, "from": {"id": 7}, "text": "/week"}}
+    presence.set_interval(10)
+    _pc_b.last_activity = 1000.0
+    _pc_b.handle(_pc_msg)
+    _pc_kept = _pc_b.last_activity
+    presence.turn_off("test")
+    _pc_b.handle(_pc_msg)
+    _pc_moved = _pc_b.last_activity
+finally:
+    presence.STATE_FILE, presence.WAKING_FILE = _pc0
+check("presence (10-26): a slash command leaves a waiting spark's count where it was; with none waiting it counts as before",
+      _pc_kept == 1000.0 and _pc_moved > 1000.0, (_pc_kept, _pc_moved))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"
@@ -11668,10 +11687,12 @@ check("README: What leaves your machine lists every road by host with its knob, 
       and _x_license.startswith("MIT License") and "Copyright (c) 2026 PsychohistorianDev" in _x_license and "WITHOUT WARRANTY" in _x_license
       and "*Write report*" in _x_readme and "`anima-report.txt`" in _x_readme and "`bat\\report.bat`" in _x_readme
       and "**The songbook:**" in _x_readme and "`SONGBOOK_CHARS_IN_PROMPT`" in _x_readme and "`SONG_MATCH_RATIO`" in _x_readme and "`TELEGRAM_TELL_SONGS`" in _x_readme)
-check("CHANGELOG: 0.14 opened with the fit check and a line for every knob; 0.13 closed on its date",
-      _x_changes.index("## 0.14 — 2026-10-02") < _x_changes.index("## 0.13 — 2026-09-29 → 2026-10-02") < _x_changes.index("## 0.12")
+check("CHANGELOG: 0.15 opened with presence; 0.14 (the fit check, a line for every knob) and 0.13 closed on their dates",
+      _x_changes.index("## 0.15 — 2026-10-24") < _x_changes.index("## 0.14 — 2026-10-02 → 2026-10-24")
+      < _x_changes.index("## 0.13 — 2026-09-29 → 2026-10-02") < _x_changes.index("## 0.12")
+      and "**Presence — sparks**" in _x_changes[:_x_changes.index("## 0.14")]
       and "**The fit check**" in _x_changes[:_x_changes.index("## 0.13")] and "**A line for every knob**" in _x_changes[:_x_changes.index("## 0.13")]
-      and version.read(config.ROOT) == "0.14")
+      and version.read(config.ROOT) == "0.15")
 
 # --------------------------------------------------------- discord bridge ----
 # the bridge over Discord (10-04): the same Bridge with Discord's road under it — the REST calls stubbed,
