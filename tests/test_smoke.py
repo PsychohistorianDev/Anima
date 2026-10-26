@@ -6310,6 +6310,32 @@ check("presence (10-26): one spark at a time — set, due, fired, then nothing u
       _po_a == (True, True) and _po_b == (True, False, False) and _po_c == (True, 15)
       and _po_tg.index("presence.fired()") < _po_tg.index("self.turn(text") and "presence.waiting()" in _pr_inspect.getsource(_ew_tg.Bridge.presence_on),
       (_po_a, _po_b, _po_c))
+# a spark runs through a bridge (10-26, 21:35: her bridge had no TAG — AttributeError each poll, no spark ever came)
+import threading as _pt_th
+_pt0 = (presence.STATE_FILE, presence.WAKING_FILE, getattr(config, "TELEGRAM_QUIET_HOURS", (0, 0)))
+presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "pt-test.json", config.MEMORY_DIR / "pt-waking"
+config.TELEGRAM_QUIET_HOURS = (0, 0)
+_pt_calls = []
+try:
+    _pt_b = object.__new__(_ew_tg.Bridge)
+    _pt_b.chat_id, _pt_b.lock, _pt_b.history = 1, _pt_th.Lock(), []
+    def _pt_turn(text, extra_moment="", as_keeper=False, spark=False):
+        _pt_calls.append((as_keeper, spark, tools.SPARK_TICK))
+        _pt_b.history.append({"role": "user", "content": text})
+    _pt_b.turn, _pt_b.notice = _pt_turn, (lambda *a, **k: None)
+    presence.set_interval(10)
+    _pt_b.last_activity = _ps_time.time() - 5 * 60
+    _pt_early = _pt_b.presence_if_due()
+    _pt_b.last_activity = _ps_time.time() - 11 * 60
+    _pt_line = _pt_b.presence_if_due()
+    _pt_again = _pt_b.presence_if_due()
+    _pt_left = presence.waiting()
+finally:
+    presence.STATE_FILE, presence.WAKING_FILE, config.TELEGRAM_QUIET_HOURS = _pt0
+check("presence (10-26): a spark runs through a bridge — not before its minutes, then one spark turn (as the keeper's side, a spark, the stone's work-hour rule on), marked the engine's; nothing after",
+      _pt_early == "" and _pt_line.startswith("[engine, not a person: a spark") and _pt_calls == [(True, True, True)]
+      and _pt_b.history[-1].get("_engine") is True and _pt_again == "" and _pt_left is False and tools.SPARK_TICK is False,
+      (_pt_early, _pt_line[:60], _pt_calls))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

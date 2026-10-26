@@ -2101,7 +2101,7 @@ class Bridge:
         """A spark: presence on, no wake running, no reply in flight, and the visit quiet for the friend's interval —
         one turn in the open visit, opened by the engine's line. The quiet hours end presence. Returns the line."""
         import presence
-        if not self.chat_id or not presence.is_on() or self.TAG != "telegram":
+        if not self.chat_id or not presence.is_on() or getattr(self, "TAG", "telegram") != "telegram":
             return ""  # one door gives the sparks — the phone's Telegram (a Discord bridge beside it stays out)
         if self.quiet_now():
             presence.turn_off("the quiet hours")
