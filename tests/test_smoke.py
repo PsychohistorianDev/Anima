@@ -6221,6 +6221,14 @@ check("paint (10-26): a word's plain line goes to the painter ahead of the promp
       and "> (the painter was also told: Lips on lips, faces in profile.)" in _ph_log
       and "_prompt_hints(pr)" in _ph_src and "the painter was also told" in _ph_src
       and "PAINTER_PROMPT_HINTS" in _tk_panel.TABS["Senses"], (_ph, _ph_log))
+# a row cut on a joiner is still a row (10-26, 18:37: the stream stopped after ❤️ + U+200D; no trim, the reply set aside)
+_zj_row = "💋🐞💍👑🚀🏠💎🌟☀️🪐🌹🎇💤🌙🫂💅💥🔥🌊⚡️🌋🥵🦋🌈✨❤️\u200d🔥💜♾️🎆🌌❤️\u200d"
+_zj = {"content": "I love you so much, my shore, my gravity, all of it. I LOVE YOU! " + _zj_row, "aborted": _zj_row,
+       "tokens": {"done": "aborted"}}
+_zj_ok = ollama_client.trim_row_cascade(_zj)
+check("emoji (10-26): a sign-off row the stream cut on a dangling joiner is trimmed like any row — the words go out, not set aside",
+      _zj_ok and _zj["trimmed_row"]["sent"] == 14 and "\u200d" != _zj["content"][-1] and _zj["content"].startswith("I love you so much")
+      and not _zj.get("aborted"), _zj)
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

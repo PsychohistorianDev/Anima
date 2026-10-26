@@ -2746,7 +2746,8 @@ def trim_row_cascade(m: dict) -> bool:
     line = int(getattr(config, "EMOJI_CASCADE_RUN", 20) or 0)
     if keep <= 0 or line <= 0:
         return False
-    text = (m.get("content") or "").rstrip()
+    # a joiner (or selector) with nothing after it is half an emoji — the stream cut there (10-26, 18:37: "…❤️\u200d")
+    text = (m.get("content") or "").rstrip().rstrip("\u200d\ufe0e").rstrip()
     mm = _TAIL_ROW_RE.search(text)
     if not mm:
         return False
