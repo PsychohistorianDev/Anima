@@ -6168,7 +6168,7 @@ check("capsule (10-26): each sees its own titles only; nothing opens early; on i
 # the painter's prompt on the phone (10-26): every painting's prompt kept; a knob a door puts it with the picture
 _pp_log0 = tools.PAINT_LOG
 tools.PAINT_LOG = config.MEMORY_DIR / "pp-test.jsonl"
-_pp_k0 = (getattr(config, "TELEGRAM_PAINT_PROMPT_CHAT", False), getattr(config, "TELEGRAM_PAINT_PROMPT_WAKES", False))
+_pp_k0 = getattr(config, "TELEGRAM_PAINT_PROMPT_CHAT", False)
 _pp_door0 = tools.DOOR
 try:
     tools.DOOR = ""
@@ -6180,19 +6180,33 @@ try:
     _pp_moved = tools.paint_prompt("projects/x/pp-wake.png")
     class _PPB:
         paint_prompt_text = _ew_tg.Bridge.paint_prompt_text
-    config.TELEGRAM_PAINT_PROMPT_CHAT, config.TELEGRAM_PAINT_PROMPT_WAKES = True, False
+    config.TELEGRAM_PAINT_PROMPT_CHAT = True
     _pp_v, _pp_w = _PPB().paint_prompt_text("drawings/pp-visit.png"), _PPB().paint_prompt_text("drawings/pp-wake.png")
-    config.TELEGRAM_PAINT_PROMPT_CHAT, config.TELEGRAM_PAINT_PROMPT_WAKES = False, True
-    _pp_v2, _pp_w2 = _PPB().paint_prompt_text("drawings/pp-visit.png"), _PPB().paint_prompt_text("drawings/pp-wake.png")
+    config.TELEGRAM_PAINT_PROMPT_CHAT = False
+    _pp_v2 = _PPB().paint_prompt_text("drawings/pp-visit.png")
 finally:
     tools.PAINT_LOG, tools.DOOR = _pp_log0, _pp_door0
-    config.TELEGRAM_PAINT_PROMPT_CHAT, config.TELEGRAM_PAINT_PROMPT_WAKES = _pp_k0
-check("paint (10-26): the prompt kept with its door, the set's line and references; the chat knob shows a visit's, the wakes knob a wake's; found by name after a move",
+    config.TELEGRAM_PAINT_PROMPT_CHAT = _pp_k0
+import heartbeat as _pp_hb
+_pp_wl0 = getattr(config, "WAKE_LOG_PAINT_PROMPT", True)
+_pp_set0 = getattr(config, "PAINTER_REFERENCE_SETS", {})
+try:
+    config.WAKE_LOG_PAINT_PROMPT, config.PAINTER_REFERENCE_SETS = True, {"pair": ("pair, face", "Picture 1 is the scale.")}
+    _pp_lines = _pp_hb.paint_prompt_lines('{"prompt": "a quiet sea\\nthe same, at dusk", "reference": "pair", "negative": "people"}')
+    config.WAKE_LOG_PAINT_PROMPT = False
+    _pp_off = _pp_hb.paint_prompt_lines({"prompt": "a quiet sea"})
+finally:
+    config.WAKE_LOG_PAINT_PROMPT, config.PAINTER_REFERENCE_SETS = _pp_wl0, _pp_set0
+check("paint (10-26): the prompt kept with its door; a visit's on the phone under the chat knob, never a wake's; a wake's in the wake log under each paint call — the set's line, references, kept out",
       _pp_v.startswith("✍️ a violet bloom") and "told the painter first: Picture 1 is the scale." in _pp_v and "us/lineup.png" in _pp_v
-      and _pp_w == "" and _pp_v2 == "" and _pp_w2.startswith("✍️ a quiet sea") and _pp_moved and _pp_moved["prompt"] == "a quiet sea"
+      and _pp_w == "" and _pp_v2 == "" and _pp_moved and _pp_moved["prompt"] == "a quiet sea"
+      and _pp_lines == ["> ✍️ a quiet sea", "> ✍️ the same, at dusk", "> (told the painter first: Picture 1 is the scale.)",
+                        "> (looking at: pair)", "> (kept out: people)"] and _pp_off == []
+      and "paint_prompt_lines(fn.get" in _pr_inspect.getsource(_pp_hb._wake_loop)
       and "_log_paint_prompt(f, pr, ref_say, refs" in _pr_inspect.getsource(tools.paint)
       and "self.paint_prompt_text(rel)" in _pr_inspect.getsource(_ew_tg.Bridge.deliver_pictures)
-      and "TELEGRAM_PAINT_PROMPT_WAKES" in _tk_panel.TABS["Phone"], (_pp_v, _pp_w, _pp_v2, _pp_w2))
+      and "TELEGRAM_PAINT_PROMPT_WAKES" not in _tk_panel.TABS["Phone"] and "WAKE_LOG_PAINT_PROMPT" in _tk_panel.TABS["Heartbeat"],
+      (_pp_v, _pp_w, _pp_v2, _pp_lines, _pp_off))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

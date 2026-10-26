@@ -80,6 +80,34 @@ _PLAN_RE = ollama_client._PLAN_RE
 clock_line = assemble.clock_line
 
 
+def paint_prompt_lines(args) -> list[str]:
+    """What a paint call gave the painter, for the wake's log (WAKE_LOG_PAINT_PROMPT, 10-26): each prompt line, the
+    set's line it was told first, the references as asked, what was kept out — blockquoted. [] when off."""
+    if not getattr(config, "WAKE_LOG_PAINT_PROMPT", True):
+        return []
+    if isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except Exception:  # noqa: BLE001
+            args = {"prompt": args}
+    if not isinstance(args, dict):
+        return []
+    out = [f"> ✍️ {ln.strip()}" for ln in str(args.get("prompt") or "").splitlines() if ln.strip()]
+    ref = str(args.get("reference") or "").strip()
+    if ref:
+        try:
+            _, said, _ = tools._reference_set(ref)
+        except Exception:  # noqa: BLE001
+            said = ""
+        if said:
+            out.append(f"> (told the painter first: {said})")
+        out.append(f"> (looking at: {' '.join(ref.split())})")
+    neg = str(args.get("negative") or "").strip()
+    if neg:
+        out.append(f"> (kept out: {neg})")
+    return out
+
+
 def wake(reverie: bool = False) -> str:
     """One autonomous session (printed live). Returns the log text."""
     started = datetime.now()
@@ -664,6 +692,10 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
             line = f"- `{name}` → {tools.headline(result)}"
             print(f"  {line}")
             log.append(line)
+            told = paint_prompt_lines(fn.get("arguments", {})) if name == "paint" else []
+            for t in told:  # the painter's prompt in the wake's log (10-26)
+                print(f"    {t}")
+                log.append(f"  {t}")
             # their plan rides with the result. 09-14, 21:xx: step one's
             # thinking laid out four steps (list_shared, reread late August,
             # reflect, maybe a letter to the seed); the step after the tool

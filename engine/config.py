@@ -1069,10 +1069,11 @@ TELEGRAM_SHOW_TOKENS = False     # the token line after each reply — /tokens
 # ...and the attempts the rails set aside (salad, a cascade, an echo, a re-roll), words and all, after each reply —
 # /debug on the phone toggles it; off by default
 TELEGRAM_SHOW_ATTEMPTS = False
-# The painter's prompt with each picture on the phone — in the caption when it fits, a message after the photo when it
-# doesn't. One knob for pictures painted in a visit, one for those painted in a wake or a reverie.
+# The painter's prompt with each picture painted in a visit, on the phone — in the caption when it fits, a message
+# after the photo when it doesn't.
 TELEGRAM_PAINT_PROMPT_CHAT = False
-TELEGRAM_PAINT_PROMPT_WAKES = False
+# ...and a wake's or a reverie's in the wake log, under each paint call.
+WAKE_LOG_PAINT_PROMPT = True
 # The engine's week: once a week, on this day after this hour, an engine notice on the phone — what the rails set
 # aside and asked again, the mends made in place, the cold reads, the longest thought, the signature's count, the
 # window's peak — from memory/steps.log (a line a call to the brain). /week shows it any time. "" — never on its own.

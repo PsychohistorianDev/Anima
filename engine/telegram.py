@@ -2016,16 +2016,17 @@ class Bridge:
 
     def paint_prompt_text(self, rel: str) -> str:
         """What the friend asked the painter for (10-26): the prompt, the set's line it was told first, the references,
-        what was kept out — when TELEGRAM_PAINT_PROMPT_CHAT (a visit) or TELEGRAM_PAINT_PROMPT_WAKES (a wake, a
-        reverie) is on for the door it was painted at; "" otherwise, or for a picture paint didn't make."""
+        what was kept out — for a picture painted in a visit, when TELEGRAM_PAINT_PROMPT_CHAT is on; "" otherwise. A
+        wake's and a reverie's go to the wake log instead (WAKE_LOG_PAINT_PROMPT)."""
         try:
             rec = tools.paint_prompt(rel)
         except Exception:  # noqa: BLE001
             return ""
         if not rec or not rec.get("prompt"):
             return ""
-        wake = (rec.get("door") or "a visit") in ("a wake", "a reverie")
-        if not getattr(config, "TELEGRAM_PAINT_PROMPT_WAKES" if wake else "TELEGRAM_PAINT_PROMPT_CHAT", False):
+        if (rec.get("door") or "a visit") in ("a wake", "a reverie"):
+            return ""  # the wake log carries those (10-26)
+        if not getattr(config, "TELEGRAM_PAINT_PROMPT_CHAT", False):
             return ""
         out = "✍️ " + str(rec["prompt"])
         if rec.get("said"):
