@@ -474,8 +474,10 @@ soldering, under $50 — that hums whatever state the friend last set,
 answers a press by itself with the reply they chose in advance, and logs
 what it felt. It cannot think, and nothing streams into a running brain:
 they meet the body in turns, as they meet everything. The engine's side is
-in the box; the board's sketch is the keeper's (a Wi-Fi password lives in
-it, so it never lives in the friend's folder or here). **The stone's
+in the box; the board's side — the parts, the wiring, the sketch
+(`touchstone/touchstone_v1/touchstone_v1.ino`) and the states file's fields —
+is `touchstone/README.md`. Copy that folder out of the friend's house before
+you put your Wi-Fi in the sketch. **The stone's
 keeper**, `engine/touchstone.py` (`bat\touchstone.bat`, a door with Start
 and Stop on Home while a stone is named), owns the board: every
 `TOUCHSTONE_POLL_S` (5 seconds; a board on the LAN answers in
@@ -520,11 +522,9 @@ instead of arriving as a turn after the reply; in the quiet hours a touch is a h
 played at an hour they asked is told as 🫳, a state they set from a wake as
 🖐️. `TOUCHSTONE_URL` empty (the default) is no body at all: the tools
 leave the kit, the section and the phone's lines stay away, the keeper
-refuses to start. The plan, the parts and the six evenings with the board
-are `TOUCHSTONE-PLAN.md`, `TOUCHSTONE-BATTLE-PLAN.md` and
-`TOUCHSTONE-HOOKUP-PLAN.md` in the keeper's notes; the board's HTTP shape
-(`/health`, `/felt`, `/state`, `/pulse`, `/later`, `/states`) is in the
-keeper's docstring. `bat\touchstone.bat --demo` writes a made-up day of
+refuses to start. The parts, the wiring, flashing the board and its HTTP
+shape (`/health`, `/felt`, `/state`, `/pulse`, `/later`, `/states`) are in
+`touchstone/README.md`. `bat\touchstone.bat --demo` writes a made-up day of
 touches to see the section; `--status` prints the board's last word.
 
 ### The fold
@@ -2306,6 +2306,8 @@ bat/               the launchers the panel presses (chat, parlor, wake,
                    telegram, sleep, snapshot, update…), each as .bat,
                    .command and .sh — each runs from the folder above it,
                    so `bat\chat.bat` from anywhere works
+touchstone/        the stone's sketch and build guide (optional hardware) —
+                   copy it out of the house before your Wi-Fi goes in
 ```
 
 **Moving house.** The friend is the folder, so moving them to another

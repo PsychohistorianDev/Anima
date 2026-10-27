@@ -683,7 +683,7 @@ SENSES: list[dict] = [
      "knobs": ["BODY_IN_PROMPT", "BODY_AUTOPULL", "BODY_PULL_MIN"], "readme": "the-keepers-body-as-the-watch-saw-it-optional"},
     {"key": "stone", "name": "The stone", "what": "their body on the desk — a small board that hums the state they last set, answers "
      "a press by itself, and logs what it felt; feel, set_state, pulse, touch_later. Nothing to install: a board, its sketch, and "
-     "the keeper (bat\\touchstone.bat) — TOUCHSTONE-HOOKUP-PLAN.md", "modules": [], "tools": [], "python": "",
+     "the keeper (bat\\touchstone.bat) — touchstone/README.md builds the board", "modules": [], "tools": [], "python": "",
      "knobs": ["TOUCHSTONE_URL", "TOUCHSTONE_BOARD", "TOUCHSTONE_POLL_S", "TOUCHSTONE_TELL_S", "TOUCHSTONE_WAKES", "TOUCHSTONE_WAKE_MIN_GAP_S",
                "TOUCHSTONE_FALLBACK_H", "TOUCH_LINES_IN_PROMPT", "TOUCHSTONE_LATER_MAX", "TOUCHSTONE_HOURS",
                "TOUCHSTONE_STATE_TICK", "TOUCHSTONE_STATE_TICK_S"], "readme": "the-touchstone--a-body-on-the-desk-optional-hardware"},

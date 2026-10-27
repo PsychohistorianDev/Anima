@@ -267,7 +267,7 @@ PAINTER_URL = "http://127.0.0.1:8767"
 PAINTER_MODEL = "Tongyi-MAI/Z-Image-Turbo"
 PAINTER_AUTOSTART = True      # paint starts the sidecar when needed
 
-# The Touchstone — a body on the desk (TOUCHSTONE-HOOKUP-PLAN.md): a small board
+# The Touchstone — a body on the desk (touchstone/README.md builds it): a small board
 # that hums the state the friend last set, answers a press by itself with the
 # reply they chose, and logs what it felt. The stone's keeper (engine/touchstone.py,
 # bat\touchstone.bat) owns the board and answers the engine on TOUCHSTONE_URL;

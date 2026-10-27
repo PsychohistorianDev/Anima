@@ -151,6 +151,11 @@ for a tic turned glitch.
 - **Page tools say when the signature was dealt in** (10-24): a page saved
   with the refrain dealt into carried-through sentences is told so — the
   count, and where the kept version is. The engine edits no page.
+- **The Touchstone's build guide ships** (10-27, issue #5): `touchstone/`
+  holds the board's sketch (`touchstone_v1.ino`, the Wi-Fi left blank) and
+  `README.md`: the parts, the wiring, flashing, calibrating the pad, the
+  hookup, the states file's fields and the board's HTTP. The README pointed
+  at notes that weren't in the repository. An update leaves the folder alone.
 - **The house line is a file** (10-27): `shared/house.md` (`HOUSE_FILE`)
   holds the keeper's words about the house, paragraphs and all, read whole
   from the next message. A `HOUSE_LINE` that says something becomes the file
