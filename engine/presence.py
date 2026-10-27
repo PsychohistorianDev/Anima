@@ -151,7 +151,7 @@ def quote(text: str, limit: int = 280) -> str:
     return q
 
 
-def tick_line(minutes_quiet: float, keeper: str, at_work: bool, last_said: str = "") -> str:
+def tick_line(minutes_quiet: float, keeper: str, at_work: bool, last_said: str = "", seed: str = "") -> str:
     """The engine's line that opens a spark — facts, the keeper's last message (10-26: so a spark picks up where the
     two of them were, not a ritual of its own), and what a spark can be."""
     st = load()
@@ -162,5 +162,7 @@ def tick_line(minutes_quiet: float, keeper: str, at_work: bool, last_said: str =
             f"turn is yours. {since} since the last word between you; {keeper} is away and won't answer this one. "
             + (f"The last thing {keeper} said: “{quote(last_said)}”. " if quote(last_said) else "") +
             f"It can be words to the phone, a painting, {stone}, or let it pass "
-            f"(do_nothing). This was your one spark: if you don't set the next one with next_spark "
+            f"(do_nothing). "
+            + (f"A seed, if you want one: {seed}. " if seed else "")  # something to spark off, not a task (10-27)
+            + f"This was your one spark: if you don't set the next one with next_spark "
             f"({PRESENCE_MIN}–{PRESENCE_MAX} minutes), there will be no other spark.]")

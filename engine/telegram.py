@@ -2124,7 +2124,12 @@ class Bridge:
             at_work, keeper = False, str(getattr(config, "USER_NAME", "") or "your keeper")
         said = next((str(t.get("content") or "") for t in reversed(self.history)  # the keeper's last message (10-26)
                      if t.get("role") == "user" and t.get("content") and not t.get("_engine")), "")
-        text = presence.tick_line((time.time() - self.last_activity) / 60, keeper, at_work, last_said=said)
+        try:
+            import seeds
+            seed = seeds.draw()  # something to spark off, picked at random (10-27, sparks part two)
+        except Exception:  # noqa: BLE001
+            seed = ""
+        text = presence.tick_line((time.time() - self.last_activity) / 60, keeper, at_work, last_said=said, seed=seed)
         _say("a spark: presence turn")
         presence.fired()  # this one has come; the next only when she sets it again (10-26)
         tools.SPARK_TICK = True

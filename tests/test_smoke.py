@@ -6571,6 +6571,49 @@ check("paint (10-27): names in the words bring their pictures when no reference 
       and 'if (reference or "").strip() else _auto_reference(prompts)' in _ar_src and "the words named" in _ar_src
       and "PAINTER_AUTO_REFERENCE" in _tk_panel.TABS["Senses"] and _tk_panel._HELP.get("PAINTER_AUTO_REFERENCE"),
       (_ar_one, _ar_both, _ar_set, _ar_none, _ar_off, _ar_brush))
+# seeds (10-27, sparks part two): one thing picked at random for a spark, no repeats among the last 20
+import seeds as _sdz, memory as _sdz_mem, random as _sdz_rand
+from datetime import datetime as _sdz_dt
+_sdz_root = config.MEMORY_DIR / "seedtest"
+(_sdz_root / "creations" / "lexicon").mkdir(parents=True, exist_ok=True)
+(_sdz_root / "creations" / "poems").mkdir(parents=True, exist_ok=True)
+(_sdz_root / "creations" / "face").mkdir(parents=True, exist_ok=True)
+(_sdz_root / "journal").mkdir(parents=True, exist_ok=True)
+(_sdz_root / "creations" / "lexicon" / "lex.md").write_text("# Lexicon\n\n* **tidewalk**: walking the edge of the sea at night.\n", encoding="utf-8")
+(_sdz_root / "creations" / "poems" / "night.md").write_text("# The Night Tide\n\nwords\n", encoding="utf-8")
+(_sdz_root / "creations" / "face" / "face.png").write_bytes(b"x")
+(_sdz_root / "journal" / "2026-10-17.md").write_text("## Journal\n\n" + "The sea was loud tonight and I thought of him walking home. " * 2 + "\n", encoding="utf-8")
+_sd0 = (config.CREATIONS_DIR, config.JOURNAL_DIR, getattr(config, "PRESENCE_SEEDS", _sdz.KINDS), _sdz.seen_file,
+        _sdz_mem.recent, _sdz_mem.songs)
+_sdz_now = _sdz_dt(2026, 10, 27, 9, 0)
+try:
+    config.CREATIONS_DIR, config.JOURNAL_DIR = _sdz_root / "creations", _sdz_root / "journal"
+    _sdz.seen_file = lambda: _sdz_root / "seen.json"
+    _sdz_mem.recent = lambda kind=None, n=10: [{"id": 7, "kind": "fact", "text": "He likes the sea at night.", "created": "2026-10-01T10:00:00"},
+                                              {"id": 8, "kind": "creation", "text": "a painting", "created": "2026-10-02"}]
+    _sdz_mem.songs = lambda order="score": [{"id": 3, "title": "Teardrop", "artist": "Massive Attack", "score": 9}]
+    _sdz_got = {}
+    for _k in _sdz.KINDS:
+        config.PRESENCE_SEEDS = (_k,)
+        _sdz_got[_k] = _sdz.draw(now=_sdz_now, rng=_sdz_rand.Random(1))
+    config.PRESENCE_SEEDS = ("word",)
+    _sdz_again = _sdz.draw(now=_sdz_now)  # the one word was drawn above: nothing new to give
+    config.PRESENCE_SEEDS = ()
+    _sdz_none = _sdz.draw(now=_sdz_now)
+finally:
+    (config.CREATIONS_DIR, config.JOURNAL_DIR, config.PRESENCE_SEEDS, _sdz.seen_file, _sdz_mem.recent, _sdz_mem.songs) = _sd0
+_sdz_line = presence.tick_line(9, "Keeper", False, seed="a word from your lexicon: “tidewalk”")
+check("seeds (10-27): one of each kind — a memory, a piece (not a reference picture), a song, the journal from 10 days ago, the world, a lexicon word; no repeat; () none; the spark line offers it",
+      _sdz_got["memory"] == "a memory of yours, from 1 October: “He likes the sea at night.”"
+      and _sdz_got["creation"] == "your piece “The Night Tide” (creations/poems/night.md), from " + _sdz_got["creation"].split("from ")[-1]
+      and _sdz_got["song"] == "a song from your songbook: “Teardrop” by Massive Attack — you gave it 9/10"
+      and _sdz_got["journal"].startswith("from your journal, 17 October (10 days ago): “The sea was loud tonight")
+      and _sdz_got["world"].startswith("the world: Tuesday, autumn, the morning")
+      and _sdz_got["word"] == "a word from your lexicon: “tidewalk” — walking the edge of the sea at night."
+      and _sdz_again == "" and _sdz_none == ""
+      and "(do_nothing). A seed, if you want one: a word from your lexicon: “tidewalk”. This was your one spark" in _sdz_line
+      and "seeds.draw()" in _pr_inspect.getsource(_ew_tg.Bridge.presence_if_due)
+      and "PRESENCE_SEEDS" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_SEEDS"), _sdz_got)
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

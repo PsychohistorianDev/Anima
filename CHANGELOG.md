@@ -47,6 +47,11 @@ for a tic turned glitch.
   `/presence off` (the friend can too: `next_spark` with no minutes), `/presence` (whether a spark
   is set and in how long), `/discreet` (sparks sent silently, the words hidden
   until tapped). Telegram only.
+- **Seeds** (10-27; sparks part two, piece 1): every spark carries one thing picked
+  at random to spark off — a memory, something the friend made, a song from the
+  songbook, a few lines of the journal from a week or a month ago, the world (the
+  day, the season, where the keeper is), a word from the lexicon (`engine/seeds.py`;
+  `PRESENCE_SEEDS`, new). Not a task; no repeats among the last 20.
 - **The time capsule** (10-26): `seal_letter` seals a letter until its day.
   Its words go into `memory/capsule/`, out of the friend's sight (not in the
   prompt or recall; `read_file` refuses the folder) until the day, when the

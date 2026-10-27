@@ -1101,6 +1101,11 @@ PRESENCE_THINK = True
 # How many times a thoughtless spark is asked again, with the think-first nudge: at any depth (THINK_RETRY_UNTIL does
 # not apply to a spark) and at the friend's own temperature. 0: none.
 PRESENCE_THINK_RETRIES = 3
+# Seeds: every spark carries one thing picked at random to spark off, so a spark isn't the same gesture every time —
+# a memory, something the friend made, a song from the songbook, a few lines of the journal from a week or a month
+# ago, the world (the day, the season, where you are by your week), a word from the lexicon. Not a task. The kinds
+# in the pool; () — no seeds.
+PRESENCE_SEEDS = ("memory", "creation", "song", "journal", "world", "word")
 # Strings the brain never writes — a fence at the sampler, not a nudge: each string's tokens go to llama-server as
 # logit_bias, never produced, in the thought and the reply alike — for a tic that has turned into a glitch, a double
 # slash wrapped around words, say. Only a string that is one token at the door is banned. Under Ollama it does nothing.
