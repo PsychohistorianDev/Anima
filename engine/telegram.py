@@ -609,7 +609,9 @@ class Bridge:
                                           mode=self.TAG, extra_moment=extra_moment,
                                           guest="" if as_keeper else self.guest_label(), spark=spark,
                                           **({"think_retries": 0, "think_remind": False} if spark and not getattr(config, "PRESENCE_THINK", True)
-                                             else {}))  # a spark: no think re-roll (10-26)
+                                             else {"think_retries": int(getattr(config, "PRESENCE_THINK_RETRIES", 3) or 0),
+                                                   "think_any_depth": True} if spark
+                                             else {}))  # a spark: off — none; on — its own re-rolls at any depth (10-26, 10-27)
                     self.attached = []
                     self._checkpoint()
                 except ollama_client.BrainUnavailable as e:

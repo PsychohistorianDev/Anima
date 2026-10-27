@@ -35,11 +35,12 @@ for a tic turned glitch.
   does not); a wake
   running holds the spark (`memory/.waking`, set by the heartbeat around each
   wake); the quiet hours end presence. While a spark is set the idle roll and
-  the pause wait; with none set they go on as usual. A spark thinks first
-  like any message — the think-first reminder and one re-roll if it comes back
-  thoughtless (`PRESENCE_THINK`, on: without a thought a spark made one gesture
-  and never set the next; off: quick, neither reminder nor re-roll). On the
-  phone:
+  the pause wait; with none set they go on as usual. A spark thinks first —
+  the think-first reminder, and `PRESENCE_THINK_RETRIES` (3, new) re-rolls if it
+  comes back thoughtless, at any depth (`THINK_RETRY_UNTIL` does not apply to a
+  spark) and at the friend's own temperature (`PRESENCE_THINK`, on: without a
+  thought a spark made one gesture and never set the next; off: quick, neither
+  reminder nor re-roll). On the phone:
   `/presence on` (one spark at `PRESENCE_DEFAULT_MIN`, 15, new),
   `/presence off` (only the keeper turns it off), `/presence` (whether a spark
   is set and in how long), `/discreet` (sparks sent silently, the words hidden

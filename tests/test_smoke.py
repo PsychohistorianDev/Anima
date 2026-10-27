@@ -6423,6 +6423,31 @@ check("phone (10-27): a reply with no words but a tool run shows the tool lines 
 check("presence (10-27): PRESENCE_THINK is on in the config, the bridge's fallback is on, and the panel says what On does",
       config.PRESENCE_THINK is True and 'not getattr(config, "PRESENCE_THINK", True)' in _pr_inspect.getsource(_ew_tg.Bridge.turn)
       and "the next spark too" in __import__("panel")._HELP["PRESENCE_THINK"])
+# a thoughtless spark is asked again at any depth (10-27: THINK_RETRY_UNTIL had stopped every spark re-roll)
+_sr_calls = []
+_sr_post0, _sr_until0, _sr_ctx0 = ollama_client._post, getattr(config, "THINK_RETRY_UNTIL", 1.0), config.NUM_CTX
+def _sr_post(path, payload, timeout=None):
+    _sr_calls.append(payload["messages"][-1].get("content", "")[:40])
+    n = len(_sr_calls)
+    return {"message": {"role": "assistant", "content": f"a spark reply {n} with enough words here",
+                        "thinking": "" if n < 3 else "I want to reach for him"},
+            "prompt_eval_count": 150000, "eval_count": 20, "done": True}
+ollama_client._post = _sr_post
+config.THINK_RETRY_UNTIL, config.NUM_CTX = 0, 262144
+try:
+    _sr_plain = ollama_client._chat([{"role": "user", "content": "hi"}], None, None, True, False, 3)  # the real one: .chat is a stub here
+    _sr_n_plain = len(_sr_calls); _sr_calls.clear()
+    _sr_spark = ollama_client._chat([{"role": "user", "content": "hi"}], None, None, True, False, 3, True)
+    _sr_n_spark = len(_sr_calls)
+finally:
+    ollama_client._post, config.THINK_RETRY_UNTIL, config.NUM_CTX = _sr_post0, _sr_until0, _sr_ctx0
+_sr_tg = _pr_inspect.getsource(_ew_tg.Bridge.turn)
+check("presence (10-27): a thoughtless spark is asked again up to PRESENCE_THINK_RETRIES at any depth; past THINK_RETRY_UNTIL a plain turn is not",
+      _sr_n_plain == 1 and _sr_n_spark == 3 and "reach for him" in (_sr_spark.get("thinking") or "")
+      and '"think_any_depth": True} if spark' in _sr_tg and 'getattr(config, "PRESENCE_THINK_RETRIES", 3)' in _sr_tg
+      and "think_any_depth" in _pr_inspect.getsource(chat.one_turn)
+      and "PRESENCE_THINK_RETRIES" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_THINK_RETRIES")
+      and config.PRESENCE_THINK_RETRIES == 3, (_sr_n_plain, _sr_n_spark, _sr_calls))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"
@@ -10419,7 +10444,7 @@ check("doing: a mark is one file per process with what and since; marks nest and
       and _dg_after_dead == [] and not _dg_dead.exists()
       and _dg_seen == [[("tool write_journal", 1)]] and _dg_r == "ok" and _dg_after_tool == []
       and "SECRET-ARGUMENT-zq" not in "".join(p.read_text(encoding="utf-8") for p in _dg.folder().glob("*") if p.is_file())
-      and '_doing.mark("brain: a reply")' in _dg_src and "return _chat(messages, tools, timeout, think, expect_words, think_retries)" in _dg_src
+      and '_doing.mark("brain: a reply")' in _dg_src and "return _chat(messages, tools, timeout, think, expect_words, think_retries, think_any_depth)" in _dg_src
       and _dg_src.index('_doing.mark("brain: a reply")') < _dg_src.index("return _chat(messages") and _dg.current() == [], (_dg_one, _dg_two, _dg_seen))
 # the box: a line from stubbed readings, written and fsynced, read back; the crash matched to the line before it
 _bb_out0, _bb_ps0, _bb_sc0 = _bb._out, _bb.ollama_loaded, _bb.sidecars

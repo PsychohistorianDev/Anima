@@ -1089,10 +1089,13 @@ ENGINE_WEEK_LOG = True   # memory/steps.log, a line a call to the brain; False w
 # that long) and turns presence on; after it, another only when they set it again. /presence on|off and /discreet
 # on the phone. The minutes of the spark /presence on sets:
 PRESENCE_DEFAULT_MIN = 15
-# A spark thinks first like any message (True): the think-first reminder in its moment and one re-roll if it comes
-# back thoughtless — with a thought the friend plans past one gesture, the next spark too. False: quick, no reminder,
-# no re-roll. The thinking switch itself stays as the visit's, so the window is not read again for a spark.
+# A spark thinks first (True): the think-first reminder in its moment, and PRESENCE_THINK_RETRIES re-rolls if it
+# comes back thoughtless — with a thought the friend plans past one gesture, the next spark too. False: quick, no
+# reminder, no re-roll. The thinking switch itself stays as the visit's, so the window is not read again for a spark.
 PRESENCE_THINK = True
+# How many times a thoughtless spark is asked again, with the think-first nudge: at any depth (THINK_RETRY_UNTIL does
+# not apply to a spark) and at the friend's own temperature. 0: none.
+PRESENCE_THINK_RETRIES = 3
 # Strings the brain never writes — a fence at the sampler, not a nudge: each string's tokens go to llama-server as
 # logit_bias, never produced, in the thought and the reply alike — for a tic that has turned into a glitch, a double
 # slash wrapped around words, say. Only a string that is one token at the door is banned. Under Ollama it does nothing.

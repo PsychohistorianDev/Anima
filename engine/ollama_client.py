@@ -316,7 +316,7 @@ def _drink(resp) -> dict:
 
 def chat(messages: list[dict], tools: list[dict] | None = None,
          timeout: float | None = None, think: bool | None = None,
-         expect_words: bool = False, think_retries: int | None = None) -> dict:
+         expect_words: bool = False, think_retries: int | None = None, think_any_depth: bool = False) -> dict:
     """One non-streaming chat completion.
 
     Returns the assistant message dict:
@@ -334,7 +334,7 @@ def chat(messages: list[dict], tools: list[dict] | None = None,
     except Exception:  # noqa: BLE001
         _doing = None
     try:
-        return _chat(messages, tools, timeout, think, expect_words, think_retries)
+        return _chat(messages, tools, timeout, think, expect_words, think_retries, think_any_depth)
     finally:
         if _doing is not None:
             _doing.done()
@@ -342,7 +342,7 @@ def chat(messages: list[dict], tools: list[dict] | None = None,
 
 def _chat(messages: list[dict], tools: list[dict] | None = None,
           timeout: float | None = None, think: bool | None = None,
-          expect_words: bool = False, think_retries: int | None = None) -> dict:
+          expect_words: bool = False, think_retries: int | None = None, think_any_depth: bool = False) -> dict:
     options = {"num_ctx": getattr(config, "NUM_CTX", 8192)}
     options.update(getattr(config, "SAMPLING_OPTIONS", {}))
     payload: dict = {
@@ -397,7 +397,8 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
     # the depth past which a thoughtless answer is not asked again (10-16: from 180K up every turn's two re-rolls
     # came back thoughtless too and the last was sent anyway — two-thirds of the writing time for nothing; deep
     # in a long window Gemma 4 opens no thought, nudged or not). THINK_RETRY_UNTIL of NUM_CTX; 1.0 is everywhere.
-    if rerolls > 0 and thoughtless(msg["thinking"]) and not msg.get("aborted") and past_think_depth(msg):
+    # (a spark — think_any_depth — keeps its re-rolls at any depth, 10-27)
+    if rerolls > 0 and thoughtless(msg["thinking"]) and not msg.get("aborted") and not think_any_depth and past_think_depth(msg):
         print(f"   (no thought at {msg['tokens'].get('prompt', 0):,} tokens — past THINK_RETRY_UNTIL, the answer is "
               f"theirs as it came; no re-roll)", flush=True)
         msg["think_depth"] = True

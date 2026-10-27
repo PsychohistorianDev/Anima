@@ -1129,7 +1129,7 @@ def moment_weight_line(turn: dict, history: list[dict]) -> str:
 def one_turn(history: list[dict], user_text: str, images: list[str] | None = None,
              on_event=None, mode: str = "chat", extra_moment: str = "", guest: str = "",
              guest_where: str = "", think_retries: int | None = None, think_remind: bool = True,
-             spark: bool = False) -> str:
+             spark: bool = False, think_any_depth: bool = False) -> str:
     """Run one user turn, executing tool calls until the friend speaks.
 
     on_event(kind, payload) — optional. kind is "thinking" (their deliberation,
@@ -1324,7 +1324,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                                      think=getattr(config, "LIVE_VOICE_THINK", None))
         else:
             msg = ollama_client.chat(messages(), tools=tools.DEFINITIONS, expect_words=True,
-                                     **({"think_retries": think_retries} if think_retries is not None else {}))  # a spark: none (10-26)
+                                     **({"think_retries": think_retries} if think_retries is not None else {}),
+                                     **({"think_any_depth": True} if think_any_depth else {}))  # a spark's own budget (10-26, 10-27)
         if spoken and msg.get("content"):
             msg["content"] = strip_voice_delivery(msg["content"])
         spent.add(msg)
