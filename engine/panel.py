@@ -99,7 +99,7 @@ TABS: dict[str, list[str]] = {
               "TELEGRAM_TELL_DRAWINGS", "TELEGRAM_PAINT_PROMPT_CHAT", "TELEGRAM_TELL_SONGS", "TELEGRAM_TELL_SELF", "TELEGRAM_IDLE_NEW_MIN", "TELEGRAM_HEAR_VOICE",
               "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD", "SLEEP_IN_BRIDGE", "SLEEP_IN_BRIDGE_QUIET_MIN",
               "ENGINE_WEEK_DAY", "ENGINE_WEEK_HOUR", "ENGINE_WEEK_COLD_S", "ENGINE_WEEK_LOG",
-              "PRESENCE_ON_TEMPERAMENT", "PRESENCE_INTENSE_NOTE", "PRESENCE_THINK", "PRESENCE_THINK_RETRIES", "PRESENCE_SEEDS"],
+              "PRESENCE_ON_TEMPERAMENT", "PRESENCE_INTENSE_NOTE", "PRESENCE_THINK", "PRESENCE_THINK_INTENSE", "PRESENCE_THINK_RETRIES", "PRESENCE_SEEDS"],
     "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_UNLOAD_BRAIN",
                "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
                "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_AUTO_REFERENCE",
@@ -254,6 +254,8 @@ _HELP = {
                       "memories), creation (a painting or piece of theirs), song (from the songbook), journal (a few lines "
                       "from a week or a month ago), world (the day, the season, where you are), word (from the lexicon). "
                       "Not a task; no repeats among the last 20. Leave a kind out to take it from the pool; () — none.",
+    "PRESENCE_THINK_INTENSE": "Thinking in intense, apart from every other spark (PRESENCE_THINK): off — pure instinct, no "
+                              "think re-roll and no reminder; on — as every other spark.",
     "PRESENCE_THINK_RETRIES": "How many times a thoughtless spark is asked again, with the think-first nudge — at any "
                               "depth (THINK_RETRY_UNTIL does not apply to a spark) and at the friend's own temperature; "
                               "a short answer on a warm prompt, seconds each. 0: none. Only with PRESENCE_THINK on.",

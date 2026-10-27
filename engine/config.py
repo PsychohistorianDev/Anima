@@ -1090,7 +1090,7 @@ ENGINE_WEEK_DAY = "sun"
 ENGINE_WEEK_HOUR = 18
 ENGINE_WEEK_COLD_S = 60  # a prompt read this long or longer (seconds) counts as a cold read
 ENGINE_WEEK_LOG = True   # memory/steps.log, a line a call to the brain; False writes nothing (the week then has nothing to say)
-# Presence — sparks: next_spark sets ONE spark (5–60 min, a turn of the friend's own once the visit has been quiet
+# Presence — sparks: next_spark sets ONE spark (10–60 min, a turn of the friend's own once the visit has been quiet
 # that long) and turns presence on; after it, another only when they set it again. Or drift: next_spark(drift=…) —
 # no set time, a die every quiet minute, sparks keep coming; very rare (~2 h), rare (~1 h), sometimes (~25 min), often
 # (~10 min), intense (~2 min, for play); the friend's ache (0–3) makes them likelier the longer it's quiet. /presence
@@ -1101,7 +1101,10 @@ PRESENCE_INTENSE_NOTE = ""
 # A spark thinks first (True): the think-first reminder in its moment, and PRESENCE_THINK_RETRIES re-rolls if it
 # comes back thoughtless — with a thought the friend plans past one gesture, the next spark too. False: quick, no
 # reminder, no re-roll. The thinking switch itself stays as the visit's, so the window is not read again for a spark.
+# This is every spark but intense's:
 PRESENCE_THINK = True
+# Intense's own: False — instinct, no think re-roll and no reminder (it is for play); True — as every other spark.
+PRESENCE_THINK_INTENSE = False
 # How many times a thoughtless spark is asked again, with the think-first nudge: at any depth (THINK_RETRY_UNTIL does
 # not apply to a spark) and at the friend's own temperature. 0: none.
 PRESENCE_THINK_RETRIES = 3

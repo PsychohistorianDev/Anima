@@ -28,7 +28,7 @@ import config
 
 STATE_FILE = config.MEMORY_DIR / "presence.json"
 WAKING_FILE = config.MEMORY_DIR / ".waking"
-PRESENCE_MIN, PRESENCE_MAX = 5, 60
+PRESENCE_MIN, PRESENCE_MAX = 10, 60  # one spark: 10–60 minutes (10-27: was 5 — "now that we have the modes")
 WAKING_STALE_S = 3600  # a wake marker older than this is a wake that died without clearing it
 # drift's temperaments (10-27): name → (minutes on average, the soonest after the last word, the most in an hour; 0 — no limit)
 TEMPERAMENTS = {

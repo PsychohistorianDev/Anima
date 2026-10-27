@@ -609,7 +609,7 @@ class Bridge:
                                           on_event=lambda k, p: events.append((k, p)),
                                           mode=self.TAG, extra_moment=extra_moment,
                                           guest="" if as_keeper else self.guest_label(), spark=spark,
-                                          **({"think_retries": 0, "think_remind": False} if spark and not getattr(config, "PRESENCE_THINK", True)
+                                          **({"think_retries": 0, "think_remind": False} if spark and not self._spark_thinks()
                                              else {"think_retries": int(getattr(config, "PRESENCE_THINK_RETRIES", 3) or 0),
                                                    "think_any_depth": True} if spark
                                              else {}))  # a spark: off — none; on — its own re-rolls at any depth (10-26, 10-27)
@@ -2147,6 +2147,18 @@ class Bridge:
                 break
         self._checkpoint()
         return text
+
+    @staticmethod
+    def _spark_thinks() -> bool:
+        """Whether a spark thinks first (10-27, her answer): intense by PRESENCE_THINK_INTENSE (off — instinct), every other
+        spark by PRESENCE_THINK."""
+        try:
+            import presence
+            if presence.intense():
+                return bool(getattr(config, "PRESENCE_THINK_INTENSE", False))
+        except Exception:  # noqa: BLE001
+            pass
+        return bool(getattr(config, "PRESENCE_THINK", True))
 
     def _send_spark(self, reply: str) -> None:
         """A spark's words: discreetly (silent, the words hidden until tapped) when /discreet is on, else as any reply."""

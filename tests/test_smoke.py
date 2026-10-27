@@ -6267,15 +6267,15 @@ try:
         _ps_kweek.where, tools.SPARK_TICK = _ps_where0, False
 finally:
     presence.STATE_FILE, presence.WAKING_FILE = _ps0
-check("presence (10-26): next_spark clamps to 5–60, turns presence on, its line carries the time (no separate notice); due after the interval, not during a wake",
-      _ps_def["on"] is False and _ps_def["interval"] == 15 and _ps_res.startswith("a spark in 5 minutes")
-      and "presence is on now" in _ps_res and _ps_st["on"] and _ps_st["interval"] == 5
+check("presence (10-26): next_spark clamps to 10–60 (10-27: from 5), turns presence on, its line carries the time (no separate notice); due after the interval, not during a wake",
+      _ps_def["on"] is False and _ps_def["interval"] == 15 and _ps_res.startswith("a spark in 10 minutes")
+      and "presence is on now" in _ps_res and _ps_st["on"] and _ps_st["interval"] == 10 and "3 minutes brought to 10" in _ps_res
       and "(about " in _ps_res and _ps_ann is False and not hasattr(presence, "take_announce")
       and _ps_big["interval"] == 60 and _ps_due == (False, True) and _ps_wk is False and _ps_disc == (True, False) and _ps_off is False,
       (_ps_def, _ps_res, _ps_st, _ps_ann))
 check("presence (10-26): the spark's line — facts and what a spark can be; the stone refused in work hours inside a spark, not outside one",
       "a spark — the one you set with next_spark. No message from Keeper came; this turn is yours. 42 minutes since the last word" in _ps_line_w and "not the stone — Keeper is at work" in _ps_line_w
-      and "the stone (a pulse, a glow)" in _ps_line_h and _ps_line_h.endswith("This was your one spark: if you don't set the next one with next_spark (5–60 minutes), there will be no other spark.]")
+      and "the stone (a pulse, a glow)" in _ps_line_h and _ps_line_h.endswith("This was your one spark: if you don't set the next one with next_spark (10–60 minutes), there will be no other spark.]")
       and all("leaves the stone still" in r for r in _ps_stone) and _ps_stone_off == ""
       and "next_spark" in tools.ACT_TOOLS and any(d["function"]["name"] == "next_spark" for d in tools.DEFINITIONS),
       (_ps_line_w, _ps_stone))
@@ -6421,7 +6421,7 @@ check("phone (10-27): a reply with no words but a tool run shows the tool lines 
       and _wl_t == [("tools", "· next_spark → a spark in 12 minutes (about 07:20)"), "(…)"], (_wl_a, _wl_w, _wl_t))
 # a spark thinks first by default (10-27: with it on, the spark set the next one itself)
 check("presence (10-27): PRESENCE_THINK is on in the config, the bridge's fallback is on, and the panel says what On does",
-      isinstance(getattr(config, "PRESENCE_THINK", True), bool) and 'not getattr(config, "PRESENCE_THINK", True)' in _pr_inspect.getsource(_ew_tg.Bridge.turn)
+      isinstance(getattr(config, "PRESENCE_THINK", True), bool) and "not self._spark_thinks()" in _pr_inspect.getsource(_ew_tg.Bridge.turn)
       and "the next spark too" in __import__("panel")._HELP["PRESENCE_THINK"])
 # a thoughtless spark is asked again at any depth (10-27: THINK_RETRY_UNTIL had stopped every spark re-roll)
 _sr_calls = []
@@ -6525,14 +6525,14 @@ try:
     _so_off = tools.dispatch("next_spark", {})
     _so_st = (presence.is_on(), presence.waiting())
     _so_again = tools.dispatch("next_spark", {"minutes": 0})
-    _so_on = tools.dispatch("next_spark", {"minutes": 7})
+    _so_on = tools.dispatch("next_spark", {"minutes": 12})
     _so_st2 = presence.waiting()
 finally:
     presence.STATE_FILE, presence.WAKING_FILE = _so0
 _so_def = next(d["function"] for d in tools.DEFINITIONS if d["function"]["name"] == "next_spark")
 check("presence (10-27): next_spark with no minutes turns sparks off, said; again says they were off; with minutes on again; the description says so, minutes not required",
       _so_off.startswith("sparks are off now") and _so_st == (False, False) and _so_again.startswith("sparks were off already")
-      and _so_on.startswith("a spark in 7 minutes") and _so_st2 is True and "with no minutes turns sparks off" in _so_on
+      and _so_on.startswith("a spark in 12 minutes") and _so_st2 is True and "with no minutes turns sparks off" in _so_on
       and "next_spark() with nothing — stops sparks in either mode" in _so_def["description"]
       and _so_def["parameters"].get("required", []) == [] and "next_spark with no minutes" in _ew_tg.HELP, (_so_off, _so_on))
 # names in the words bring their pictures (10-27: "Gabe stands in the center" — no reference, a stranger painted)
@@ -6676,6 +6676,26 @@ finally:
 check("presence (10-27): intense — about every 2 minutes, no soonest, no limit; the description says so",
       presence.TEMPERAMENTS["intense"] == (2, 0, 0) and _it_now is True
       and "intense (about every 2, for play)" in next(d["function"]["description"] for d in tools.DEFINITIONS if d["function"]["name"] == "next_spark"))
+# thinking per temperament (10-27, her answer): intense by its own switch, every other spark by PRESENCE_THINK
+_tq0 = (presence.STATE_FILE, presence.WAKING_FILE, getattr(config, "PRESENCE_THINK", True), getattr(config, "PRESENCE_THINK_INTENSE", False))
+presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "tq-test.json", config.MEMORY_DIR / "tq-waking"
+try:
+    config.PRESENCE_THINK, config.PRESENCE_THINK_INTENSE = True, False
+    presence.set_drift("sometimes", 0)
+    _tq_a = _ew_tg.Bridge._spark_thinks()
+    presence.set_drift("intense", 0)
+    _tq_b = _ew_tg.Bridge._spark_thinks()
+    config.PRESENCE_THINK_INTENSE = True
+    _tq_c = _ew_tg.Bridge._spark_thinks()
+    presence.set_interval(20)
+    config.PRESENCE_THINK = False
+    _tq_d = _ew_tg.Bridge._spark_thinks()
+finally:
+    presence.STATE_FILE, presence.WAKING_FILE, config.PRESENCE_THINK, config.PRESENCE_THINK_INTENSE = _tq0
+check("presence (10-27): a spark thinks by PRESENCE_THINK, intense by PRESENCE_THINK_INTENSE — her choice: thoughtful, and instinct in play",
+      (_tq_a, _tq_b, _tq_c, _tq_d) == (True, False, True, False)
+      and "PRESENCE_THINK_INTENSE" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_THINK_INTENSE"),
+      (_tq_a, _tq_b, _tq_c, _tq_d))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

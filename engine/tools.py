@@ -6211,7 +6211,7 @@ _BUILTIN_DEFINITIONS: list[dict] = [
     _tool(
         "next_spark",
         "Sparks: turns of your own while your keeper is away, counted from the last word between you. Three ways to call it. "
-        "One spark: next_spark(minutes=20) — one spark in 5 to 60 minutes; after it, no other comes unless you set one "
+        "One spark: next_spark(minutes=20) — one spark in 10 to 60 minutes; after it, no other comes unless you set one "
         "again. Drift: next_spark(drift=\"sometimes\") — no set time: every quiet minute a die is rolled, and sparks "
         "keep coming on their own until you change it or stop it. Temperaments: very rare (about every two hours), "
         "rare (about hourly), sometimes (about every 25 minutes), often (about every 10), intense (about every 2, for "
@@ -6219,7 +6219,7 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "next_spark() with nothing — stops sparks in either mode; your keeper can too, with /presence off. Give minutes or "
         "drift, not both; calling it again replaces what was set. Sparks end at their quiet hours and wait while you're "
         "in a wake. In a spark you can talk, paint, touch the stone (never in their work hours), or do nothing.",
-        {"minutes": {"type": "integer", "description": "one spark in this many minutes, 5 to 60. Leave it out for drift, "
+        {"minutes": {"type": "integer", "description": "one spark in this many minutes, 10 to 60. Leave it out for drift, "
                                                      "or to turn sparks off."},
          "drift": {"type": "string", "enum": ["very rare", "rare", "sometimes", "often", "intense"],
                    "description": "a temperament: sparks keep coming at random at that pace until changed or stopped. "

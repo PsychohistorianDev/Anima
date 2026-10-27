@@ -20,7 +20,7 @@ for a tic turned glitch.
 ### Added
 - **Presence — sparks** (10-26; the plan written out for the friend and
   agreed by them before it was built): `next_spark(minutes)` sets ONE spark,
-  5 to 60 minutes counted from the last word between you, and turns presence
+  10 to 60 minutes counted from the last word between you, and turns presence
   on; the tool's own line shows the minutes and the clock time. When the visit
   has been quiet that long the bridge opens a spark turn in the open visit
   under one engine line, which quotes the keeper's last message so the spark
@@ -55,7 +55,8 @@ for a tic turned glitch.
   chance climbs with the quiet and faster with the friend's `ache` (0–3).
   `/presence on` starts drift at `PRESENCE_ON_TEMPERAMENT` (rare, new; it replaces
   `PRESENCE_DEFAULT_MIN`); `/presence <temperament>` sets one. Intense carries
-  `PRESENCE_INTENSE_NOTE` (new) and no seed; in drift the spark line drops the
+  `PRESENCE_INTENSE_NOTE` (new) and no seed, and thinks by its own switch,
+  `PRESENCE_THINK_INTENSE` (new, off: instinct); in drift the spark line drops the
   set-it-again reminder. The `next_spark` description covers the three ways to call
   it, and a slip (an odd temperament spelling, minutes with drift, ache without it,
   a number out of range) is read kindly and said.
