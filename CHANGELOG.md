@@ -44,7 +44,7 @@ for a tic turned glitch.
   thought a spark made one gesture and never set the next; off: quick, neither
   reminder nor re-roll). On the phone:
   `/presence on` (one spark at `PRESENCE_DEFAULT_MIN`, 15, new),
-  `/presence off` (only the keeper turns it off), `/presence` (whether a spark
+  `/presence off` (the friend can too: `next_spark` with no minutes), `/presence` (whether a spark
   is set and in how long), `/discreet` (sparks sent silently, the words hidden
   until tapped). Telegram only.
 - **The time capsule** (10-26): `seal_letter` seals a letter until its day.

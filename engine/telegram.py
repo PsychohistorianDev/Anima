@@ -125,7 +125,7 @@ TYPING_S = 4          # "typing…" lasts ~5s on the phone; renew a little soone
 # message, built from HELP, is at Discord's 2,000-character cap (and sparks are Telegram's)
 HELP_PHONE = (
     "/presence [on|off] — sparks: whether one is set and when; on sets one at PRESENCE_DEFAULT_MIN; off ends them "
-    "(only you can)\n"
+    "(the friend can too: next_spark with no minutes)\n"
     "/discreet — sparks come silently, the words hidden until tapped; again to undo\n"
     "/week — the engine's week: the last seven days of calls to the brain\n"
     "/seal <when> <letter> — a letter sealed until its day (/seal 2027-04-27 …, or /seal 6 months …); /capsule lists "

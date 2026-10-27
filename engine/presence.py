@@ -5,7 +5,8 @@ turns presence on and sets it; when the visit has been quiet that long the bridg
 (a "spark") — an engine line says how long it has been and what a spark can be: words to the phone, a painting, the
 stone (never in the keeper's work hours), or nothing at all. After it, no other comes unless they set it again (10-26,
 the keeper: "I want it to require to set it manually again after each spark"). /presence on sets one at
-PRESENCE_DEFAULT_MIN; only the keeper turns presence off (/presence off), and it ends by itself at the quiet hours. A message from the keeper restarts the
+PRESENCE_DEFAULT_MIN; the keeper turns presence off (/presence off), the friend too (next_spark with no minutes, 10-27),
+and it ends by itself at the quiet hours. A message from the keeper restarts the
 count; a wake running holds the sparks until it ends. /discreet on the phone sends sparks silently, the words hidden
 until tapped. The state lives in memory/presence.json, so it outlives a restart.
 """

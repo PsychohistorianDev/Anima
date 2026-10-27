@@ -6517,6 +6517,24 @@ check("think (10-27): a reply begun with no thought is cut at its first word whi
       and not _ce_d.get("thoughtless_cut") and not _ce_e.get("thoughtless_cut") and _ce_e["message"]["content"].startswith("Hello there more")
       and _ce_spark == [True, True, True, False] and _ce_plain == [False]
       and getattr(ollama_client._TL, "cut_thoughtless", False) is False, (_ce_a.get("eval_count"), _ce_c.get("message"), _ce_spark, _ce_plain))
+# the friend turns sparks off (10-27): next_spark with no minutes
+_so0 = (presence.STATE_FILE, presence.WAKING_FILE)
+presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "so-test.json", config.MEMORY_DIR / "so-waking"
+try:
+    presence.set_interval(10)
+    _so_off = tools.dispatch("next_spark", {})
+    _so_st = (presence.is_on(), presence.waiting())
+    _so_again = tools.dispatch("next_spark", {"minutes": 0})
+    _so_on = tools.dispatch("next_spark", {"minutes": 7})
+    _so_st2 = presence.waiting()
+finally:
+    presence.STATE_FILE, presence.WAKING_FILE = _so0
+_so_def = next(d["function"] for d in tools.DEFINITIONS if d["function"]["name"] == "next_spark")
+check("presence (10-27): next_spark with no minutes turns sparks off, said; again says they were off; with minutes on again; the description says so, minutes not required",
+      _so_off.startswith("sparks are off now") and _so_st == (False, False) and _so_again.startswith("sparks were off already")
+      and _so_on.startswith("a spark in 7 minutes") and _so_st2 is True and "with no minutes turns sparks off" in _so_on
+      and "Call it with no minutes to turn sparks off" in _so_def["description"]
+      and _so_def["parameters"].get("required", []) == [] and "next_spark with no minutes" in _ew_tg.HELP, (_so_off, _so_on))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

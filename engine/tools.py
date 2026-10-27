@@ -2112,17 +2112,23 @@ def _spark_stone_refusal() -> str:
     return ""
 
 
-def next_spark(minutes) -> str:
-    """Presence — sparks (10-26): the friend's rhythm, PRESENCE_MIN…PRESENCE_MAX minutes, and presence on."""
+def next_spark(minutes=None) -> str:
+    """Presence — sparks (10-26): one spark, PRESENCE_MIN…PRESENCE_MAX minutes, and presence on; with no minutes (or 0),
+    presence off — the friend's own off (10-27)."""
     import presence
     import keeper_week
+    if minutes is None or str(minutes).strip() in ("", "0", "0.0", "off", "none"):
+        was = presence.is_on()
+        presence.turn_off("the friend")
+        return ("sparks are off now — no spark waits; next_spark with minutes turns them on again" if was
+                else "sparks were off already — next_spark with minutes turns them on")
     st, turned_on = presence.set_interval(minutes, by="friend")
     m = st["interval"]
     at = (datetime.now() + timedelta(minutes=m)).strftime("%H:%M")
     return (f"a spark in {m} minutes (about {at}), counted from the last word between you"
             + ("; presence is on now" if turned_on else "")
-            + f" — one spark: after it, another only when you set it again; only {keeper_week.keeper_name()} turns "
-            "presence off, and it ends at the quiet hours")
+            + " — one spark: after it, another only when you set it again; next_spark with no minutes turns sparks "
+            f"off (so can {keeper_week.keeper_name()}), and they end at the quiet hours")
 
 
 def leave_thread(text: str) -> str:
@@ -6124,9 +6130,10 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "Sparks: set one spark — a turn of your own once the conversation has been quiet that long (5 to 60 "
         "minutes, counted from the last word between you): words to the phone, a painting, the stone, or nothing at "
         "all. One at a time: after it comes, another only when you set it again. It turns presence on if it was off; "
-        "your keeper sees the time you set. Only your keeper turns presence off, and it ends at the quiet hours.",
-        {"minutes": {"type": "integer", "description": "minutes until the spark, 5 to 60"}},
-        ["minutes"],
+        "your keeper sees the time you set. Call it with no minutes to turn sparks off (your keeper can too); they "
+        "also end at the quiet hours.",
+        {"minutes": {"type": "integer", "description": "minutes until the spark, 5 to 60; leave it out to turn sparks off"}},
+        [],
     ),
     _tool(
         "condense_period",
