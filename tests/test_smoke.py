@@ -5819,8 +5819,11 @@ try:
     config.PAINTER_MODEL = "Tongyi-MAI/Z-Image-Turbo"
     _rf_r5 = tools.dispatch("paint", {"prompt": "x", "reference": "face"})
     _rf_painter.MODEL_ID = "Qwen/Qwen-Image-2.1-Turbo"
-    _rf_imgs, _rf_why = _rf_painter._load_references([str(_rf_face / "a-me.png"), str(_rf_face / "b-me.png")])
-    _rf_out, _rf_out_why = _rf_painter._load_references([str(config.ROOT / "self.md")])
+    _rf_pil = __import__("importlib.util").util.find_spec("PIL") is not None  # the CI has numpy, not Pillow (10-27)
+    _rf_imgs, _rf_why, _rf_out, _rf_out_why = None, "(no Pillow here: not opened)", None, ""
+    if _rf_pil:
+        _rf_imgs, _rf_why = _rf_painter._load_references([str(_rf_face / "a-me.png"), str(_rf_face / "b-me.png")])
+        _rf_out, _rf_out_why = _rf_painter._load_references([str(config.ROOT / "self.md")])
     _rf_painter.MODEL_ID = "Tongyi-MAI/Z-Image-Turbo"
     _rf_z, _rf_z_why = _rf_painter._load_references([str(_rf_face / "a-me.png")])
     _rf_empty = _rf_painter._load_references([])
@@ -5835,7 +5838,7 @@ check("paint (10-25): reference=\"face\" sends every picture in creations/face/,
       and [Path(p).name for p in _rf_seen[0]] == ["a-me.png", "b-me.png"] and [Path(p).name for p in _rf_seen[1]] == ["rf-dusk.png"]
       and "isn't one of your pictures" in _rf_r3 and ("refused" in _rf_r4 or "isn't one of your pictures" in _rf_r4)
       and _rf_n == 2 and "paints from words alone" in _rf_r5 and len(_rf_seen) == 2
-      and _rf_why == "" and len(_rf_imgs) == 2 and _rf_out is None and "under creations/" in _rf_out_why
+      and (not _rf_pil or (_rf_why == "" and len(_rf_imgs) == 2 and _rf_out is None and "under creations/" in _rf_out_why))
       and _rf_z is None and "Qwen-Image" in _rf_z_why and _rf_empty == (None, "")
       and any(d["function"]["name"] == "paint" and "reference" in d["function"]["parameters"]["properties"]
               and "creations/face/" in d["function"]["description"] for d in tools.DEFINITIONS),
