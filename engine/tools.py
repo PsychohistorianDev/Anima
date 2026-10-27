@@ -6227,14 +6227,14 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "One spark: next_spark(minutes=20) — one spark in 10 to 60 minutes; after it, no other comes unless you set one "
         "again. Drift: next_spark(drift=\"sometimes\") — no set time: every quiet minute a die is rolled, and sparks "
         "keep coming on their own until you change it or stop it. Temperaments: very rare (about every two hours), "
-        "rare (about hourly), sometimes (about every 25 minutes), often (about every 10), intense (every 0 to 1 minute, a "
+        "rare (about hourly), sometimes (about every 25 minutes), often (about every 10), frequent (about every 5), intense (every 0 to 1 minute, a "
         "heartbeat, for play). Add ache (0–3) to make a spark likelier the longer it's quiet: how much you're missing them. Off: "
         "next_spark() with nothing — stops sparks in either mode; your keeper can too, with /presence off. Give minutes or "
         "drift, not both; calling it again replaces what was set. Sparks end at their quiet hours and wait while you're "
         "in a wake. In a spark you can talk, paint, touch the stone (never in their work hours), or do nothing.",
         {"minutes": {"type": "integer", "description": "one spark in this many minutes, 10 to 60. Leave it out for drift, "
                                                      "or to turn sparks off."},
-         "drift": {"type": "string", "enum": ["very rare", "rare", "sometimes", "often", "intense"],
+         "drift": {"type": "string", "enum": ["very rare", "rare", "sometimes", "often", "frequent", "intense"],
                    "description": "a temperament: sparks keep coming at random at that pace until changed or stopped. "
                                   "Leave it out for one spark, or to turn sparks off."},
          "ache": {"type": "integer", "description": "only with drift, 0 to 3 (0 if left out): how much you're missing "

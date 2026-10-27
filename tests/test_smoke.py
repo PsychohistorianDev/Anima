@@ -6662,10 +6662,10 @@ check("presence (10-27): drift — temperaments read kindly, the chance climbs w
       and "a drift spark — chance picked this moment (sometimes)" in _dr_line_s and "This was your one spark" not in _dr_line_s
       and "You're drifting (sometimes, ache 3): the next spark comes on its own" in _dr_line_s and "A seed, if you want one: a seed." in _dr_line_s
       and "Play note. You're drifting (intense)" in _dr_line_i and _dr_on.get("temperament") == "rare"
-      and _dr_bad.startswith("(no temperament called 'wild'") and "very rare, rare, sometimes, often, intense" in _dr_bad
+      and _dr_bad.startswith("(no temperament called 'wild'") and "very rare, rare, sometimes, often, frequent, intense" in _dr_bad
       and _dr_one.startswith("a spark in 60 minutes") and "ache works only with drift" in _dr_one and "90 minutes brought to 60" in _dr_one
       and _dr_mode == "one"
-      and _dr_def["parameters"]["properties"]["drift"]["enum"] == ["very rare", "rare", "sometimes", "often", "intense"]
+      and _dr_def["parameters"]["properties"]["drift"]["enum"] == ["very rare", "rare", "sometimes", "often", "frequent", "intense"]
       and "Drift: next_spark(drift=" in _dr_def["description"] and "ache" in _dr_def["parameters"]["properties"]
       and 'presence.set_drift(temp, 0, by="keeper")' in _dr_src and 'seed = "" if presence.intense() else seeds.draw()' in _dr_src
       and "PRESENCE_INTENSE_NOTE" in _tk_panel.TABS["Phone"] and _tk_panel._HELP.get("PRESENCE_ON_TEMPERAMENT"),
@@ -6708,6 +6708,10 @@ check("presence (10-27): a spark thinks by PRESENCE_THINK, intense by PRESENCE_T
       (_tq_a, _tq_b, _tq_c, _tq_d) == (True, False, True, False)
       and "PRESENCE_THINK_INTENSE" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_THINK_INTENSE"),
       (_tq_a, _tq_b, _tq_c, _tq_d))
+# frequent (10-27): about every 5 minutes, a minute's wait, at most 15 an hour, thinking as every spark but intense
+check("presence (10-27): frequent — about every 5 minutes, soonest a minute, 15 an hour; read kindly; the description names it",
+      presence.TEMPERAMENTS["frequent"] == (5, 1, 15) and presence.temperament("Frequent!") == "frequent"
+      and "frequent (about every 5)" in next(d["function"]["description"] for d in tools.DEFINITIONS if d["function"]["name"] == "next_spark"))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

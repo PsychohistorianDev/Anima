@@ -37,6 +37,7 @@ TEMPERAMENTS = {
     "rare": (60, 5, 2),
     "sometimes": (25, 5, 4),
     "often": (10, 5, 8),
+    "frequent": (5, 1, 15),  # 10-27: "average of 5 minutes, with thinking"
     "intense": (1, 0, 0),  # a heartbeat (10-27): every 0 to 1 minute after the last word — see due()
 }
 ACHE_MAX = 3

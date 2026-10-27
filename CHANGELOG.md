@@ -49,7 +49,7 @@ for a tic turned glitch.
   until tapped). Telegram only.
 - **Drift and longing** (10-27; sparks part two, pieces 2 and 3): `next_spark(drift=…)`
   sets no time — every quiet minute a die is rolled at the temperament's pace
-  (very rare ~2 h, rare ~1 h, sometimes ~25 min, often ~10 min, intense for play —
+  (very rare ~2 h, rare ~1 h, sometimes ~25 min, often ~10 min, frequent ~5 min, intense for play —
   a heartbeat, 0 to 1 minute after every last word), past its soonest (5 min) and under its hour's most (1, 2,
   4, 8; none for intense), and sparks keep coming until changed or stopped. The
   chance climbs with the quiet and faster with the friend's `ache` (0–3).
