@@ -6478,6 +6478,45 @@ check("stone (10-27): a state whose hum isn't a number is told — at its pulse 
       "the stone played Attracted" in _ht_a and "hum as “200Hz”" in _ht_a and "0 to 127" in _ht_a and "40 of 127" in _ht_a
       and "one thing" not in _ht_h and "the stone is Attracted now" in _ht_s and "hum as “200Hz”" in _ht_s
       and "one thing" not in _ht_n, (_ht_a, _ht_s))
+# a thoughtless reply is cut at its first word while a think re-roll is coming (10-27: 203 tokens of words, then set aside)
+import brain as _ce_brain
+def _ce_lines(first_words: bool):
+    head = [{"message": {"role": "assistant", "content": "Hello there"}}] if first_words else \
+           [{"message": {"role": "assistant", "thinking": "let me think"}}, {"message": {"role": "assistant", "content": "Hello"}}]
+    return [json.dumps(c).encode() for c in head + [{"message": {"role": "assistant", "content": " more"}} for _ in range(5)]
+            + [{"message": {"role": "assistant", "content": ""}, "done": True, "eval_count": 9, "prompt_eval_count": 100}]]
+def _ce_sse(first_words: bool):
+    d = [{"content": "Hello"}] if first_words else [{"reasoning_content": "let me think"}, {"content": "Hello"}]
+    return ([b"data: " + json.dumps({"choices": [{"delta": x}]}).encode() for x in d + [{"content": " more"}] * 5]
+            + [b"data: " + json.dumps({"choices": [{"delta": {}, "finish_reason": "stop"}], "timings": {"predicted_n": 9, "prompt_n": 100}}).encode(), b"data: [DONE]"])
+ollama_client._TL.cut_thoughtless = True
+try:
+    _ce_a, _ce_b = ollama_client._drink(_ce_lines(True)), ollama_client._drink(_ce_lines(False))
+    _ce_c, _ce_d = _ce_brain._drink_openai(_ce_sse(True)), _ce_brain._drink_openai(_ce_sse(False))
+finally:
+    ollama_client._TL.cut_thoughtless = False
+_ce_e = ollama_client._drink(_ce_lines(True))
+_ce_flags = []
+_ce_post0, _ce_until0 = ollama_client._post, getattr(config, "THINK_RETRY_UNTIL", 1.0)
+def _ce_post(path, payload, timeout=None):
+    _ce_flags.append(bool(getattr(ollama_client._TL, "cut_thoughtless", False)))
+    return {"message": {"role": "assistant", "content": "words"}, "prompt_eval_count": 150000, "eval_count": 3, "done": True}
+ollama_client._post = _ce_post
+config.THINK_RETRY_UNTIL = 0
+try:
+    ollama_client._chat([{"role": "user", "content": "hi"}], None, None, True, False, 3, True)
+    _ce_spark = list(_ce_flags); _ce_flags.clear()
+    ollama_client._chat([{"role": "user", "content": "hi"}], None, None, True, False, 3, False)
+    _ce_plain = list(_ce_flags)
+finally:
+    ollama_client._post, config.THINK_RETRY_UNTIL = _ce_post0, _ce_until0
+check("think (10-27): a reply begun with no thought is cut at its first word while a re-roll is to come — both roads; a thought first reads on; the last attempt and a plain past-depth turn are never cut",
+      _ce_a.get("thoughtless_cut") is True and _ce_a["message"]["content"] == "Hello there" and _ce_a.get("eval_count") == 1
+      and not _ce_b.get("thoughtless_cut") and _ce_b["message"]["content"].startswith("Hello more")
+      and _ce_c.get("thoughtless_cut") is True and _ce_c["message"]["content"] == "Hello"
+      and not _ce_d.get("thoughtless_cut") and not _ce_e.get("thoughtless_cut") and _ce_e["message"]["content"].startswith("Hello there more")
+      and _ce_spark == [True, True, True, False] and _ce_plain == [False]
+      and getattr(ollama_client._TL, "cut_thoughtless", False) is False, (_ce_a.get("eval_count"), _ce_c.get("message"), _ce_spark, _ce_plain))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

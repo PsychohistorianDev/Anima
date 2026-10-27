@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -218,6 +219,15 @@ def long_thought(thinking: str) -> str:
 _LAST_PROMPT = 0  # the newest prompt size the server reported — for a reply it sends without counters (brain._drink_openai keeps it too)
 
 
+_TL = threading.local()  # .cut_thoughtless: close the stream at the first word or call that comes with no thought (10-27)
+
+
+def _cut_thoughtless_now(thinking, content, calls) -> bool:
+    """A reply begun with no thought while a think re-roll is still to come (10-27): no use reading on."""
+    return (bool(getattr(_TL, "cut_thoughtless", False)) and not "".join(thinking).strip()
+            and bool("".join(content).strip() or calls))
+
+
 def _drink(resp) -> dict:
     """Read a streamed /api/chat response into the same dict the unstreamed
     one gives, watching the tail for a runaway. When the final chunk brings
@@ -235,6 +245,7 @@ def _drink(resp) -> dict:
     aborted = ""
     since = 0
     looped = None  # (which call, the loop): a call that arrived with a loop in its arguments
+    cut_early = False  # closed at its first word: no thought came first, and a think re-roll is coming (10-27)
     for raw in resp:
         raw = raw.strip()
         if not raw:
@@ -271,6 +282,9 @@ def _drink(resp) -> dict:
                         break
         n += 1
         since += 1
+        if _cut_thoughtless_now(thinking, content, calls):
+            cut_early = True
+            break  # no thought before the words, and a think re-roll is still to come: no use reading on (10-27)
         if chunk.get("done"):
             last = chunk
             break
@@ -299,8 +313,10 @@ def _drink(resp) -> dict:
     if aborted:
         out["done_reason"] = "aborted"
         out["aborted"] = aborted
-    if aborted or not out.get("eval_count"):
-        # no final counters (an abort, or a server that sent none): count by hand
+    if cut_early:
+        out["thoughtless_cut"] = True
+    if aborted or cut_early or not out.get("eval_count"):
+        # no final counters (an abort, a cut, or a server that sent none): count by hand
         global _LAST_PROMPT
         if n and (content or thinking or calls):
             out["eval_count"] = n
@@ -370,13 +386,22 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
         payload["think"] = False
     elif getattr(config, "CHAT_THINK", True):
         payload["think"] = True
+    # a spark's thoughtless reply is cut at its first word while a think re-roll is still to come (10-27): a spark
+    # (think_any_depth) is the one turn whose re-rolls no depth rule can take away after the fact
+    early = bool(payload.get("think")) and think_any_depth
+    planned = int(think_retries if think_retries is not None else getattr(config, "CHAT_THINK_RETRIES", 1)) if early else 0
+    _TL.cut_thoughtless = early and planned > 0
     try:
-        data = _post("/api/chat", payload, timeout=timeout)
-    except BrainUnavailable as e:
-        if "think" in str(e).lower() and payload.pop("think", None) is not None:
-            data = _post("/api/chat", payload, timeout=timeout)  # model can't think: fine
-        else:
-            raise
+        try:
+            data = _post("/api/chat", payload, timeout=timeout)
+        except BrainUnavailable as e:
+            _TL.cut_thoughtless = False
+            if "think" in str(e).lower() and payload.pop("think", None) is not None:
+                data = _post("/api/chat", payload, timeout=timeout)  # model can't think: fine
+            else:
+                raise
+    finally:
+        _TL.cut_thoughtless = False
     msg = _parse(data)
     restored = msg.get("restored")  # the door's saved read, told once: kept on whichever attempt goes out
     # The flag only OPENS the thought channel — Gemma 4 may still leave the
@@ -420,14 +445,19 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
         rerolls -= 1
         # a reply whose only "thought" came after its words is a split
         # reply, not a thoughtless one; the line says which
-        tries.append((dict(msg["tokens"], why="split" if msg.get("split_tail") else "no thought"), msg))
+        tries.append((dict(msg["tokens"], why="split" if msg.get("split_tail") else
+                           "no thought (cut at its first word)" if msg.get("thoughtless_cut") else "no thought"), msg))
         nudged = dict(payload)
         nudged["messages"] = with_think_nudge(messages)
         if not think_nudged and len(nudged["messages"]) > len(messages):
             sent_extra.append(nudged["messages"][-1])  # after a tool result the nudge stands alone: kept too
         base = nudged["messages"]
         think_nudged = True
-        msg = _parse(_post("/api/chat", nudged, timeout=timeout))
+        _TL.cut_thoughtless = early and rerolls > 0  # another re-roll still to come: this one may be cut early too (10-27)
+        try:
+            msg = _parse(_post("/api/chat", nudged, timeout=timeout))
+        finally:
+            _TL.cut_thoughtless = False
         msg["rerolled"] = True
     # letter salad — or a tool call written out as words — is asked for
     # again; a fresh sample usually lands. Every attempt is checked, and if
@@ -3299,6 +3329,8 @@ def _parse(data: dict) -> dict:
         msg["aborted"] = data["aborted"]  # the stream was cut short at this: a runaway
     if data.get("aborted_call"):
         msg["aborted_call"] = dict(data["aborted_call"])  # …inside a tool call: which, its name, its loop, what was kept, how far it ran
+    if data.get("thoughtless_cut"):
+        msg["thoughtless_cut"] = True  # closed at its first word: no thought came first (10-27)
     if data.get("split_tail"):
         msg["split_tail"] = defang(scrub_litter(data["split_tail"]).strip())[0]  # the rest of the reply, misfiled as thought
     if data.get("restored"):

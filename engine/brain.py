@@ -296,6 +296,7 @@ def _drink_openai(resp) -> dict:
     n = 0
     aborted = ""
     since = 0
+    cut_early = False  # closed at its first word: no thought came first, and a think re-roll is coming (10-27)
     last, last_call, cut_call = "", 0, None  # the kind that arrived last ("content", "thinking", "call"), the call being written, the one a loop was caught in
     for raw in resp:
         raw = raw.strip()
@@ -343,6 +344,9 @@ def _drink_openai(resp) -> dict:
             continue  # the role-only first chunk, the finish, the usage: no token in them
         n += 1
         since += 1
+        if _oc._cut_thoughtless_now(thinking, content, calls):
+            cut_early = True
+            break  # no thought before the words, and a think re-roll is still to come: no use reading on (10-27)
         if getattr(config, "CHAT_STREAM_ABORT", True) and since >= _oc.STREAM_WATCH_EVERY:
             since = 0
             if last == "call":
@@ -379,7 +383,9 @@ def _drink_openai(resp) -> dict:
         out["aborted"] = aborted
         if cut:
             out["aborted_call"] = cut
-    if aborted or not out.get("eval_count"):
+    if cut_early:
+        out["thoughtless_cut"] = True
+    if aborted or cut_early or not out.get("eval_count"):
         # no final counters (an abort, or a server that sent none): count by hand
         if n and (content or thinking or calls):
             out["eval_count"] = n

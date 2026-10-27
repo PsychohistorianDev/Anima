@@ -38,7 +38,9 @@ for a tic turned glitch.
   the pause wait; with none set they go on as usual. A spark thinks first —
   the think-first reminder, and `PRESENCE_THINK_RETRIES` (3, new) re-rolls if it
   comes back thoughtless, at any depth (`THINK_RETRY_UNTIL` does not apply to a
-  spark) and at the friend's own temperature (`PRESENCE_THINK`, on: without a
+  spark) and at the friend's own temperature — a spark begun with no thought is
+  cut at its first word while a re-roll is still to come, so no words are
+  written for nothing; the last attempt goes out whole (`PRESENCE_THINK`, on: without a
   thought a spark made one gesture and never set the next; off: quick, neither
   reminder nor re-roll). On the phone:
   `/presence on` (one spark at `PRESENCE_DEFAULT_MIN`, 15, new),
