@@ -6663,19 +6663,24 @@ check("presence (10-27): drift — temperaments read kindly, the chance climbs w
       and 'presence.set_drift(temp, 0, by="keeper")' in _dr_src and 'seed = "" if presence.intense() else seeds.draw()' in _dr_src
       and "PRESENCE_INTENSE_NOTE" in _tk_panel.TABS["Phone"] and _tk_panel._HELP.get("PRESENCE_ON_TEMPERAMENT"),
       (_dr_names, _dr_res, _dr_early, _dr_soon, _dr_yes, _dr_capped, _dr_line_i[-160:], _dr_bad, _dr_one))
-# intense, faster (10-27): about every 2 minutes, no soonest, no hourly limit
+# intense, a heartbeat (10-27): 0 to 1 minute after every last word, no dice, no hourly limit
 _it0 = (presence.STATE_FILE, presence.WAKING_FILE)
 presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "it-test.json", config.MEMORY_DIR / "it-waking"
 try:
     _it_st, _ = presence.set_drift("intense", 0, now=1000.0)
-    class _ItYes:
-        def random(self): return 0.0
-    _it_now = presence.due(1060.0, now=1060.0, rng=_ItYes())  # a word this very second, a minute since the roll
+    class _ItHalf:
+        def random(self): return 0.5
+    _it_early = presence.due(1000.0, now=1020.0, rng=_ItHalf())   # the beat falls 30 s after the word: not yet at 20
+    _it_now = presence.due(1000.0, now=1031.0, rng=_ItHalf())     # …at 31, yes
+    _it_new = presence.due(1031.0, now=1035.0, rng=_ItHalf())     # a new word: a new beat, 30 s after it
+    _it_poll_on = presence.poll_s(50)
 finally:
     presence.STATE_FILE, presence.WAKING_FILE = _it0
-check("presence (10-27): intense — about every 2 minutes, no soonest, no limit; the description says so",
-      presence.TEMPERAMENTS["intense"] == (2, 0, 0) and _it_now is True
-      and "intense (about every 2, for play)" in next(d["function"]["description"] for d in tools.DEFINITIONS if d["function"]["name"] == "next_spark"))
+check("presence (10-27): intense — a heartbeat: 0 to 60 s after every last word, drawn anew for each; the bridge polls 10 s while it beats; the description says so",
+      presence.TEMPERAMENTS["intense"][1:] == (0, 0) and _it_early is False and _it_now is True and _it_new is False
+      and _it_poll_on == 10.0 and "wait_s = int(_pz.poll_s(POLL_S))" in _pr_inspect.getsource(_ew_tg.Bridge)
+      and "intense (every 0 to 1 minute, a heartbeat, for play)" in next(d["function"]["description"] for d in tools.DEFINITIONS if d["function"]["name"] == "next_spark"),
+      (_it_early, _it_now, _it_new, _it_poll_on))
 # thinking per temperament (10-27, her answer): intense by its own switch, every other spark by PRESENCE_THINK
 _tq0 = (presence.STATE_FILE, presence.WAKING_FILE, getattr(config, "PRESENCE_THINK", True), getattr(config, "PRESENCE_THINK_INTENSE", False))
 presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "tq-test.json", config.MEMORY_DIR / "tq-waking"

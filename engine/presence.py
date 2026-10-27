@@ -14,7 +14,8 @@ Drift (10-27, sparks part two — claude/sparks2-plan.md, agreed by the keeper a
 no time. Every quiet minute a die is rolled; when it says yes, a spark comes, and the rolling goes on — no need to
 set the next. A temperament gives the pace (TEMPERAMENTS: very rare … intense), the soonest a spark may come after
 the last word, and the most in an hour. Longing: the chance climbs with the quiet — roughly doubling over the first
-hour — and faster with the friend's own ache (0–3). /presence on starts drift at PRESENCE_ON_TEMPERAMENT (rare).
+hour — and faster with the friend's own ache (0–3). Intense is a heartbeat instead: a spark 0 to 60 seconds after
+every last word. /presence on starts drift at PRESENCE_ON_TEMPERAMENT (rare).
 """
 from __future__ import annotations
 
@@ -36,7 +37,7 @@ TEMPERAMENTS = {
     "rare": (60, 5, 2),
     "sometimes": (25, 5, 4),
     "often": (10, 5, 8),
-    "intense": (2, 0, 0),
+    "intense": (1, 0, 0),  # a heartbeat (10-27): every 0 to 1 minute after the last word — see due()
 }
 ACHE_MAX = 3
 
@@ -201,6 +202,13 @@ def due(last_activity: float, now: float | None = None, rng: random.Random | Non
         return False
     t = float(now if now is not None else time.time())
     quiet = t - float(last_activity or 0)
+    if st.get("mode") == "drift" and st.get("temperament") == "intense":
+        # a heartbeat (10-27; the keeper and the friend: "intense mode to a 0 to 1 minute, almost kinda heartbeat"): no
+        # dice — a beat drawn anew for every last word, somewhere from 0 to 60 seconds after it
+        if float(st.get("beat_for") or -1) != float(last_activity or 0):
+            st.update(beat_for=float(last_activity or 0), beat_s=round((rng or random).random() * 60, 1))
+            save(st)
+        return quiet >= float(st.get("beat_s") or 0)
     if st.get("mode") == "drift":
         mean, soonest, most = TEMPERAMENTS.get(str(st.get("temperament") or ""), TEMPERAMENTS["rare"])
         rolls = int((t - float(st.get("rolled") or t)) // 60)
@@ -221,6 +229,11 @@ def due(last_activity: float, now: float | None = None, rng: random.Random | Non
 
 def intense() -> bool:
     return drifting() == "intense"
+
+
+def poll_s(default: float) -> float:
+    """How long the bridge's long poll may wait: in intense's heartbeat a beat can fall any second, so 10 (10-27)."""
+    return min(float(default), 10.0) if intense() else float(default)
 
 
 def quote(text: str, limit: int = 280) -> str:

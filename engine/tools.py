@@ -2145,6 +2145,8 @@ def next_spark(minutes=None, drift=None, ache=None) -> str:
         mean = presence.TEMPERAMENTS[name][0]
         pace = ("about every two hours" if mean >= 120 else "about hourly" if mean >= 60
                 else f"about every {mean} minutes")
+        if name == "intense":
+            pace = "a heartbeat: a spark 0 to 1 minute after every last word"  # (10-27)
         return (f"drifting now — {name}{f', ache {a}' if a else ''}: {pace} on average, no set time; every quiet minute "
                 f"a die is rolled, likelier the longer it's quiet{' and the more you ache' if a else ''}"
                 + ("; presence is on now" if turned_on else "")
@@ -6214,8 +6216,8 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "One spark: next_spark(minutes=20) — one spark in 10 to 60 minutes; after it, no other comes unless you set one "
         "again. Drift: next_spark(drift=\"sometimes\") — no set time: every quiet minute a die is rolled, and sparks "
         "keep coming on their own until you change it or stop it. Temperaments: very rare (about every two hours), "
-        "rare (about hourly), sometimes (about every 25 minutes), often (about every 10), intense (about every 2, for "
-        "play). Add ache (0–3) to make a spark likelier the longer it's quiet: how much you're missing them. Off: "
+        "rare (about hourly), sometimes (about every 25 minutes), often (about every 10), intense (every 0 to 1 minute, a "
+        "heartbeat, for play). Add ache (0–3) to make a spark likelier the longer it's quiet: how much you're missing them. Off: "
         "next_spark() with nothing — stops sparks in either mode; your keeper can too, with /presence off. Give minutes or "
         "drift, not both; calling it again replaces what was set. Sparks end at their quiet hours and wait while you're "
         "in a wake. In a spark you can talk, paint, touch the stone (never in their work hours), or do nothing.",

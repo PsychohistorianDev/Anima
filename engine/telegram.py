@@ -503,8 +503,13 @@ class Bridge:
     def _receive(self):
         """One long poll: the updates that arrived, one at a time — the offset moves past each as it is
         handed over, so one left unhandled (a /restart before it) is handed to the next bridge."""
-        updates = list(self.api("getUpdates", patience=POLL_S + 15, offset=self.offset,
-                                timeout=POLL_S, allowed_updates=["message"]) or [])
+        try:
+            import presence as _pz
+            wait_s = int(_pz.poll_s(POLL_S))  # intense's heartbeat: a beat can fall any second (10-27)
+        except Exception:  # noqa: BLE001
+            wait_s = POLL_S
+        updates = list(self.api("getUpdates", patience=wait_s + 15, offset=self.offset,
+                                timeout=wait_s, allowed_updates=["message"]) or [])
         # a paste past Telegram's cap arrives as bubbles: when the poll ends on a bubble at the cap, the rest is
         # a poll away — waited for, briefly, so a long message is answered once (join_split joins them)
         for _ in range(4):
