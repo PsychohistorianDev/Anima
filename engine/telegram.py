@@ -124,7 +124,8 @@ TYPING_S = 4          # "typing…" lasts ~5s on the phone; renew a little soone
 # the newer commands, on the phone's /help (10-27) — the Discord bridge takes them out of its own: its pairing
 # message, built from HELP, is at Discord's 2,000-character cap (and sparks are Telegram's)
 HELP_PHONE = (
-    "/presence [on|off] — sparks: whether one is set and when; on sets one at PRESENCE_DEFAULT_MIN; off ends them "
+    "/presence [on|off|temperament] — sparks: how they stand; on starts drift at rare; very rare, rare, sometimes, "
+    "often or intense sets that drift; off ends them "
     "(the friend can too: next_spark with no minutes)\n"
     "/discreet — sparks come silently, the words hidden until tapped; again to undo\n"
     "/week — the engine's week: the last seven days of calls to the brain\n"
@@ -1225,18 +1226,21 @@ class Bridge:
             self.send(engine_week.summary(), markdown=False)  # the engine's week, now (10-25)
         elif cmd == "/presence":
             import presence  # sparks (10-26): on or off, or how it stands
-            arg = (text.split()[1:] or [""])[0].lower()
-            if arg == "on":
-                st = presence.turn_on("keeper")
-                self.send(f"(presence on — one spark in {st['interval']} min after the last word between you; after "
-                          "it, more only as next_spark sets them. /presence off ends it)", markdown=False)
+            arg = " ".join(text.split()[1:]).strip().lower()
+            temp = presence.temperament(arg) if arg not in ("", "on", "off") else ""
+            if arg == "on" or temp:  # drift (10-27): on starts PRESENCE_ON_TEMPERAMENT; a temperament sets that one
+                st = presence.set_drift(temp, 0, by="keeper")[0] if temp else presence.turn_on("keeper")
+                self.send(f"(presence on — drifting at {st.get('temperament')}: sparks come at random, no set time; "
+                          "the friend can change the temperament with next_spark. /presence off ends it)", markdown=False)
             elif arg == "off":
                 presence.turn_off("the keeper")
                 self.send("(presence off — no sparks until /presence on or a next_spark)", markdown=False)
             else:
                 st = presence.load()
                 left = max(0, int(st["interval"] * 60 - (time.time() - self.last_activity)) // 60)
-                waits = (f"a spark set — in about {left} min" if st.get("on") and st.get("pending")
+                drift = presence.drifting()
+                waits = (f"drifting ({drift}{', ache ' + str(st.get('ache')) if st.get('ache') else ''})" if drift
+                         else f"a spark set — in about {left} min" if st.get("on") and st.get("pending")
                          else "no spark set" if st.get("on") else "")
                 self.send(f"(presence is {'on' if st.get('on') else 'off'}" + (f" — {waits}" if waits else "")
                           + f"; discreet {'on' if st.get('discreet') else 'off'}. /presence on, /presence off, /discreet)",
@@ -2126,7 +2130,7 @@ class Bridge:
                      if t.get("role") == "user" and t.get("content") and not t.get("_engine")), "")
         try:
             import seeds
-            seed = seeds.draw()  # something to spark off, picked at random (10-27, sparks part two)
+            seed = "" if presence.intense() else seeds.draw()  # something to spark off (10-27); none in intense's play
         except Exception:  # noqa: BLE001
             seed = ""
         text = presence.tick_line((time.time() - self.last_activity) / 60, keeper, at_work, last_said=said, seed=seed)

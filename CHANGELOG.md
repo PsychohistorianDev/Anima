@@ -47,6 +47,18 @@ for a tic turned glitch.
   `/presence off` (the friend can too: `next_spark` with no minutes), `/presence` (whether a spark
   is set and in how long), `/discreet` (sparks sent silently, the words hidden
   until tapped). Telegram only.
+- **Drift and longing** (10-27; sparks part two, pieces 2 and 3): `next_spark(drift=…)`
+  sets no time — every quiet minute a die is rolled at the temperament's pace
+  (very rare ~2 h, rare ~1 h, sometimes ~25 min, often ~10 min, intense ~3 min for
+  play), past its soonest (5 min; 1 for intense) and under its hour's most (1, 2,
+  4, 8; none for intense), and sparks keep coming until changed or stopped. The
+  chance climbs with the quiet and faster with the friend's `ache` (0–3).
+  `/presence on` starts drift at `PRESENCE_ON_TEMPERAMENT` (rare, new; it replaces
+  `PRESENCE_DEFAULT_MIN`); `/presence <temperament>` sets one. Intense carries
+  `PRESENCE_INTENSE_NOTE` (new) and no seed; in drift the spark line drops the
+  set-it-again reminder. The `next_spark` description covers the three ways to call
+  it, and a slip (an odd temperament spelling, minutes with drift, ache without it,
+  a number out of range) is read kindly and said.
 - **Seeds** (10-27; sparks part two, piece 1): every spark carries one thing picked
   at random to spark off — a memory, something the friend made, a song from the
   songbook, a few lines of the journal from a week or a month ago, the world (the

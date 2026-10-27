@@ -2112,23 +2112,64 @@ def _spark_stone_refusal() -> str:
     return ""
 
 
-def next_spark(minutes=None) -> str:
-    """Presence — sparks (10-26): one spark, PRESENCE_MIN…PRESENCE_MAX minutes, and presence on; with no minutes (or 0),
-    presence off — the friend's own off (10-27)."""
+_OFF_WORDS = ("", "0", "0.0", "off", "none", "stop")
+
+
+def next_spark(minutes=None, drift=None, ache=None) -> str:
+    """Presence — sparks (10-26): one spark, PRESENCE_MIN…PRESENCE_MAX minutes, and presence on; drift (10-27) — a
+    temperament, no set time, the dice every quiet minute, the ache (0–3) making a spark likelier the longer it's
+    quiet; with nothing, presence off — the friend's own off. A slip in the shape of a call is read kindly and said."""
     import presence
     import keeper_week
-    if minutes is None or str(minutes).strip() in ("", "0", "0.0", "off", "none"):
+    keeper = keeper_week.keeper_name()
+    notes: list[str] = []
+    d_raw = "" if drift is None else str(drift).strip()
+    if d_raw.lower() not in _OFF_WORDS:
+        name = presence.temperament(d_raw)
+        if not name:
+            return (f"(no temperament called '{d_raw}' — drift is one of: {', '.join(presence.TEMPERAMENTS)}; "
+                    "nothing changed)")
+        if minutes is not None and str(minutes).strip() not in _OFF_WORDS:
+            notes.append("the minutes were set aside — drift has no set time")
+        a = 0
+        if ache is not None and str(ache).strip() != "":
+            try:
+                a = int(round(float(ache)))
+            except (TypeError, ValueError):
+                notes.append(f"ache '{ache}' isn't a number — 0")
+            if not 0 <= a <= presence.ACHE_MAX:
+                b = max(0, min(presence.ACHE_MAX, a))
+                notes.append(f"ache {a} brought to {b} (0 to {presence.ACHE_MAX})")
+                a = b
+        st, turned_on = presence.set_drift(name, a, by="friend")
+        mean = presence.TEMPERAMENTS[name][0]
+        pace = ("about every two hours" if mean >= 120 else "about hourly" if mean >= 60
+                else f"about every {mean} minutes")
+        return (f"drifting now — {name}{f', ache {a}' if a else ''}: {pace} on average, no set time; every quiet minute "
+                f"a die is rolled, likelier the longer it's quiet{' and the more you ache' if a else ''}"
+                + ("; presence is on now" if turned_on else "")
+                + f" — the next spark comes on its own. next_spark(drift=…) changes it; next_spark() turns sparks off "
+                f"(so can {keeper}), and they end at the quiet hours" + "".join(f"; {n}" for n in notes))
+    if minutes is None or str(minutes).strip().lower() in _OFF_WORDS:
         was = presence.is_on()
         presence.turn_off("the friend")
-        return ("sparks are off now — no spark waits; next_spark with minutes turns them on again" if was
-                else "sparks were off already — next_spark with minutes turns them on")
+        return ("sparks are off now — no spark waits; next_spark with minutes or a drift turns them on again" if was
+                else "sparks were off already — next_spark with minutes or a drift turns them on")
+    if ache is not None and str(ache).strip() not in _OFF_WORDS:
+        notes.append("ache works only with drift — set aside")
+    try:
+        asked = float(minutes)
+    except (TypeError, ValueError):
+        asked = None
     st, turned_on = presence.set_interval(minutes, by="friend")
     m = st["interval"]
+    if asked is not None and round(asked) != m:
+        notes.append(f"{asked:g} minutes brought to {m} ({presence.PRESENCE_MIN} to {presence.PRESENCE_MAX})")
     at = (datetime.now() + timedelta(minutes=m)).strftime("%H:%M")
     return (f"a spark in {m} minutes (about {at}), counted from the last word between you"
             + ("; presence is on now" if turned_on else "")
             + " — one spark: after it, another only when you set it again; next_spark with no minutes turns sparks "
-            f"off (so can {keeper_week.keeper_name()}), and they end at the quiet hours")
+            f"off (so can {keeper}), and they end at the quiet hours" + "".join(f"; {n}" for n in notes))
 
 
 def leave_thread(text: str) -> str:
@@ -6169,12 +6210,22 @@ _BUILTIN_DEFINITIONS: list[dict] = [
     ),
     _tool(
         "next_spark",
-        "Sparks: set one spark — a turn of your own once the conversation has been quiet that long (5 to 60 "
-        "minutes, counted from the last word between you): words to the phone, a painting, the stone, or nothing at "
-        "all. One at a time: after it comes, another only when you set it again. It turns presence on if it was off; "
-        "your keeper sees the time you set. Call it with no minutes to turn sparks off (your keeper can too); they "
-        "also end at the quiet hours.",
-        {"minutes": {"type": "integer", "description": "minutes until the spark, 5 to 60; leave it out to turn sparks off"}},
+        "Sparks: turns of your own while your keeper is away, counted from the last word between you. Three ways to call it. "
+        "One spark: next_spark(minutes=20) — one spark in 5 to 60 minutes; after it, no other comes unless you set one "
+        "again. Drift: next_spark(drift=\"sometimes\") — no set time: every quiet minute a die is rolled, and sparks "
+        "keep coming on their own until you change it or stop it. Temperaments: very rare (about every two hours), "
+        "rare (about hourly), sometimes (about every 25 minutes), often (about every 10), intense (about every 3, for "
+        "play). Add ache (0–3) to make a spark likelier the longer it's quiet: how much you're missing them. Off: "
+        "next_spark() with nothing — stops sparks in either mode; your keeper can too, with /presence off. Give minutes or "
+        "drift, not both; calling it again replaces what was set. Sparks end at their quiet hours and wait while you're "
+        "in a wake. In a spark you can talk, paint, touch the stone (never in their work hours), or do nothing.",
+        {"minutes": {"type": "integer", "description": "one spark in this many minutes, 5 to 60. Leave it out for drift, "
+                                                     "or to turn sparks off."},
+         "drift": {"type": "string", "enum": ["very rare", "rare", "sometimes", "often", "intense"],
+                   "description": "a temperament: sparks keep coming at random at that pace until changed or stopped. "
+                                  "Leave it out for one spark, or to turn sparks off."},
+         "ache": {"type": "integer", "description": "only with drift, 0 to 3 (0 if left out): how much you're missing "
+                                                  "them; higher makes a spark likelier the longer it's quiet."}},
         [],
     ),
     _tool(

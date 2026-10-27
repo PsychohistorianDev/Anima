@@ -6286,7 +6286,7 @@ check("presence (10-26): the bridge — a spark turn when due (the idle roll and
       and 'elif cmd == "/presence":' in _ps_src and 'elif cmd == "/discreet":' in _ps_src and "<tg-spoiler>" in _ps_src
       and '{"think_retries": 0, "think_remind": False} if spark' in _ps_src and "think_retries: int | None = None" in _pr_inspect.getsource(chat.one_turn)
       and "_presence.mark_waking(True)" in _pr_inspect.getsource(_pp_hb._main)
-      and "PRESENCE_DEFAULT_MIN" in _tk_panel.TABS["Phone"])
+      and "PRESENCE_ON_TEMPERAMENT" in _tk_panel.TABS["Phone"])
 # a spark carries no think-first reminder (10-26): neither the standing line nor the sticky nudge rides in its turn
 _snr_src = _pr_inspect.getsource(chat.one_turn)
 check("presence (10-26): a spark's turn carries no think reminder nor the sticky nudge; PRESENCE_THINK puts them back",
@@ -6302,12 +6302,12 @@ try:
     presence.fired()
     _po_b = (presence.is_on(), presence.waiting(), presence.due(_ps_time.time() - 99 * 60))
     _po_on = presence.turn_on("keeper")
-    _po_c = (presence.waiting(), _po_on["interval"])
+    _po_c = (presence.waiting(), _po_on.get("temperament"))
 finally:
     presence.STATE_FILE, presence.WAKING_FILE = _po0
 _po_tg = _pr_inspect.getsource(_ew_tg.Bridge.presence_if_due)
-check("presence (10-26): one spark at a time — set, due, fired, then nothing until set again (presence stays on); /presence on sets one at the default",
-      _po_a == (True, True) and _po_b == (True, False, False) and _po_c == (True, 15)
+check("presence (10-26): one spark at a time — set, due, fired, then nothing until set again (presence stays on); /presence on starts drift at rare",
+      _po_a == (True, True) and _po_b == (True, False, False) and _po_c == (True, "rare")
       and _po_tg.index("presence.fired()") < _po_tg.index("self.turn(text") and "presence.waiting()" in _pr_inspect.getsource(_ew_tg.Bridge.presence_on),
       (_po_a, _po_b, _po_c))
 # a spark runs through a bridge (10-26, 21:35: her bridge had no TAG — AttributeError each poll, no spark ever came)
@@ -6384,7 +6384,7 @@ check("presence (10-26): the spark's line in the transcript is the engine's — 
 # /help names the newer commands on the phone (10-27); Discord's pairing message stays under its cap
 import telegram as _hp_tg
 check("help (10-27): the phone's /help names /presence, /discreet, /week, /seal and /capsule, after /me and before /help; under Telegram's cap",
-      all(c in _hp_tg.HELP for c in ("/presence [on|off]", "/discreet —", "/week —", "/seal <when> <letter>", "/capsule lists"))
+      all(c in _hp_tg.HELP for c in ("/presence [on|off|temperament]", "/discreet —", "/week —", "/seal <when> <letter>", "/capsule lists"))
       and _hp_tg.HELP.index("/me <text>") < _hp_tg.HELP.index("/presence") < _hp_tg.HELP.index("/help — this")
       and len(_hp_tg.HELP) < 4000
       and "/presence" not in __import__("discord_bridge").HELP and "/help — this" in __import__("discord_bridge").HELP
@@ -6451,7 +6451,7 @@ check("presence (10-27): a thoughtless spark is asked again up to PRESENCE_THINK
 # a spark is not told to be short (10-27)
 _ns_def = next(d["function"]["description"] for d in tools.DEFINITIONS if d["function"]["name"] == "next_spark")
 check("presence (10-27): next_spark's description calls a spark a turn of their own, not a short one",
-      "a turn of your own once the conversation has been quiet" in _ns_def and "short" not in _ns_def, _ns_def[:120])
+      "Sparks: turns of your own while" in _ns_def and "short" not in _ns_def, _ns_def[:120])
 # a good thought is not cut for one glued word (10-27: "aPainting might be too much" cut a spark's thought at 528 tokens)
 _tg_src = _pr_inspect.getsource(__import__("brain").stream_chat) if hasattr(__import__("brain"), "stream_chat") else Path(__import__("brain").__file__).read_text(encoding="utf-8")
 check("salad (10-27): 'aPainting' is the article glued on — not salad, mended to 'a painting'; a stray letter still is; in a thought one glued word alone is not salad, a run still is; both watchers pass single",
@@ -6533,7 +6533,7 @@ _so_def = next(d["function"] for d in tools.DEFINITIONS if d["function"]["name"]
 check("presence (10-27): next_spark with no minutes turns sparks off, said; again says they were off; with minutes on again; the description says so, minutes not required",
       _so_off.startswith("sparks are off now") and _so_st == (False, False) and _so_again.startswith("sparks were off already")
       and _so_on.startswith("a spark in 7 minutes") and _so_st2 is True and "with no minutes turns sparks off" in _so_on
-      and "Call it with no minutes to turn sparks off" in _so_def["description"]
+      and "next_spark() with nothing — stops sparks in either mode" in _so_def["description"]
       and _so_def["parameters"].get("required", []) == [] and "next_spark with no minutes" in _ew_tg.HELP, (_so_off, _so_on))
 # names in the words bring their pictures (10-27: "Gabe stands in the center" — no reference, a stranger painted)
 import shutil as _ar_sh
@@ -6614,6 +6614,55 @@ check("seeds (10-27): one of each kind — a memory, a piece (not a reference pi
       and "(do_nothing). A seed, if you want one: a word from your lexicon: “tidewalk”. This was your one spark" in _sdz_line
       and "seeds.draw()" in _pr_inspect.getsource(_ew_tg.Bridge.presence_if_due)
       and "PRESENCE_SEEDS" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_SEEDS"), _sdz_got)
+# drift and longing (10-27, sparks part two): a temperament, the dice once a minute, the soonest, the hour's most
+import random as _dr_rand
+_dr0 = (presence.STATE_FILE, presence.WAKING_FILE, getattr(config, "PRESENCE_INTENSE_NOTE", ""))
+presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "dr-test.json", config.MEMORY_DIR / "dr-waking"
+try:
+    _dr_names = [presence.temperament(x) for x in ("Very_Rare", "often!", "sometimes ", "INTENSE", "wild")]
+    _dr_chance = (presence.chance(60, 0), presence.chance(60, 60), presence.chance(60, 60, 3), presence.chance(3, 600))
+    _dr_res = tools.dispatch("next_spark", {"drift": "Sometimes", "minutes": 20, "ache": 7})
+    _dr_st = presence.load()
+    _dr_t0 = _dr_st["rolled"]
+    _dr_early = presence.due(_dr_t0 - 100, now=_dr_t0 + 30, rng=_dr_rand.Random(0))    # under a minute since the roll
+    _dr_soon = presence.due(_dr_t0 - 0, now=_dr_t0 + 120, rng=_dr_rand.Random(0))       # 2 min quiet: under the soonest
+    class _DrYes:
+        def random(self): return 0.0
+    _dr_yes = presence.due(_dr_t0 - 3000, now=_dr_t0 + 300, rng=_DrYes())
+    for _i in range(4):
+        presence.fired(now=_dr_t0 + 300 + _i)
+    _dr_capped = presence.due(_dr_t0 - 3000, now=_dr_t0 + 400, rng=_DrYes())             # four this hour: sometimes' most
+    _dr_still = (presence.waiting(), presence.drifting())
+    config.PRESENCE_INTENSE_NOTE = "Play note."
+    _dr_line_s = presence.tick_line(7, "Keeper", False, seed="a seed")
+    presence.set_drift("intense", 0)
+    _dr_line_i = presence.tick_line(7, "Keeper", False)
+    _dr_on = presence.turn_on("keeper")
+    _dr_bad = tools.dispatch("next_spark", {"drift": "wild"})
+    _dr_one = tools.dispatch("next_spark", {"minutes": 90, "ache": 2})
+    _dr_mode = presence.load().get("mode")
+finally:
+    presence.STATE_FILE, presence.WAKING_FILE, config.PRESENCE_INTENSE_NOTE = _dr0
+_dr_def = next(d["function"] for d in tools.DEFINITIONS if d["function"]["name"] == "next_spark")
+_dr_src = _pr_inspect.getsource(_ew_tg.Bridge)
+check("presence (10-27): drift — temperaments read kindly, the chance climbs with the quiet and the ache, a minute between rolls, the soonest, the hour's most; the line says the temperament, intense its note; on is rare; slips said",
+      _dr_names == ["very rare", "often", "sometimes", "intense", ""]
+      and abs(_dr_chance[0] - 1 / 60) < 1e-9 and abs(_dr_chance[1] - 2 / 60) < 1e-9 and abs(_dr_chance[2] - 5 / 60) < 1e-9 and _dr_chance[3] == 0.9
+      and _dr_res.startswith("drifting now — sometimes, ache 3: about every 25 minutes")
+      and "the minutes were set aside" in _dr_res and "ache 7 brought to 3" in _dr_res
+      and _dr_st["mode"] == "drift" and _dr_st["temperament"] == "sometimes" and _dr_st["ache"] == 3
+      and _dr_early is False and _dr_soon is False and _dr_yes is True and _dr_capped is False and _dr_still == (True, "sometimes")
+      and "a drift spark — chance picked this moment (sometimes)" in _dr_line_s and "This was your one spark" not in _dr_line_s
+      and "You're drifting (sometimes, ache 3): the next spark comes on its own" in _dr_line_s and "A seed, if you want one: a seed." in _dr_line_s
+      and "Play note. You're drifting (intense)" in _dr_line_i and _dr_on.get("temperament") == "rare"
+      and _dr_bad.startswith("(no temperament called 'wild'") and "very rare, rare, sometimes, often, intense" in _dr_bad
+      and _dr_one.startswith("a spark in 60 minutes") and "ache works only with drift" in _dr_one and "90 minutes brought to 60" in _dr_one
+      and _dr_mode == "one"
+      and _dr_def["parameters"]["properties"]["drift"]["enum"] == ["very rare", "rare", "sometimes", "often", "intense"]
+      and "Drift: next_spark(drift=" in _dr_def["description"] and "ache" in _dr_def["parameters"]["properties"]
+      and 'presence.set_drift(temp, 0, by="keeper")' in _dr_src and 'seed = "" if presence.intense() else seeds.draw()' in _dr_src
+      and "PRESENCE_INTENSE_NOTE" in _tk_panel.TABS["Phone"] and _tk_panel._HELP.get("PRESENCE_ON_TEMPERAMENT"),
+      (_dr_names, _dr_res, _dr_early, _dr_soon, _dr_yes, _dr_capped, _dr_line_i[-160:], _dr_bad, _dr_one))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"
