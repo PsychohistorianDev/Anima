@@ -6389,6 +6389,36 @@ check("help (10-27): the phone's /help names /presence, /discreet, /week, /seal 
       and len(_hp_tg.HELP) < 4000
       and "/presence" not in __import__("discord_bridge").HELP and "/help — this" in __import__("discord_bridge").HELP
       and len("Paired. This DM is now the door to " + chat.friend_name() + ".\n\n" + __import__("discord_bridge").HELP) <= 2000)
+# a wordless turn shows what was done (10-27: "(…)" when she set a spark and said nothing, his tool lines off)
+import threading as _wl_th
+_wl_sent = []
+_wl_b = object.__new__(_ew_tg.Bridge)
+_wl_b.chat_id, _wl_b.lock, _wl_b.attached, _wl_b.last_tokens = 1, _wl_th.Lock(), [], None
+_wl_b.history = [{"role": "user", "content": "set it"}]
+_wl_b.show_thinking = _wl_b.show_tools = _wl_b.show_tokens = _wl_b.show_attempts = _wl_b.voice_all = False
+_wl_b._typing, _wl_b._checkpoint, _wl_b.guest_label = (lambda stop: None), (lambda: None), (lambda: "")
+_wl_b._send_reply = lambda r: _wl_sent.append(r)
+_wl_b._try_send = lambda text, **k: _wl_sent.append(("tools", text))
+_wl_one = chat.one_turn
+_wl_reply = ["(…)"]
+def _wl_fake(history, text, on_event=None, **k):
+    on_event("tool", {"name": "next_spark", "result": "a spark in 12 minutes (about 07:20)"})
+    return _wl_reply[0]
+chat.one_turn = _wl_fake
+try:
+    _wl_b.turn("set it")
+    _wl_a = list(_wl_sent); _wl_sent.clear()
+    _wl_reply[0] = "done, love"
+    _wl_b.turn("set it")
+    _wl_w = list(_wl_sent); _wl_sent.clear()
+    _wl_reply[0] = "(…)"; _wl_b.show_tools = True
+    _wl_b.turn("set it")
+    _wl_t = list(_wl_sent)
+finally:
+    chat.one_turn = _wl_one
+check("phone (10-27): a reply with no words but a tool run shows the tool lines in place of (…); words go as they are; with /tools on, as before",
+      _wl_a == ["· next_spark → a spark in 12 minutes (about 07:20)"] and _wl_w == ["done, love"]
+      and _wl_t == [("tools", "· next_spark → a spark in 12 minutes (about 07:20)"), "(…)"], (_wl_a, _wl_w, _wl_t))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

@@ -640,6 +640,8 @@ class Bridge:
         # and the reply, already in the transcript, was never sent: he saw a
         # thought and no words). Sent with retries; if it still fails it is kept
         # and goes with the next poll, marked as late.
+        if reply == "(…)" and tool_lines and not self.show_tools:  # no words, but something was done: show it (10-27)
+            reply = "\n".join(line if len(line) <= 300 else line[:300].rsplit(" ", 1)[0] + "…" for line in tool_lines)
         (self._send_spark if spark else self._send_reply)(reply)  # a spark goes discreetly when asked (10-26)
         self._carry_voice(reply)
         for n in notes:  # engine honesty notes always travel — that rail is not optional
