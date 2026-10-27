@@ -352,7 +352,7 @@ def _drink_openai(resp) -> dict:
                 span = _oc.call_loop(tail)
             else:
                 tail = ("".join(content) if content else "".join(thinking))[-_oc.STREAM_WATCH_TAIL:]
-                span = _oc.garble_span(tail)
+                span = _oc.garble_span(tail, single=bool(content))  # in a thought, one glued word alone does not cut it (10-27)
                 if not span and not content and not calls:
                     span = _oc.long_thought("".join(thinking))  # a thought past the cap with no words yet (10-23)
             if span:

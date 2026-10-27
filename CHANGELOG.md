@@ -135,6 +135,10 @@ for a tic turned glitch.
 - **Three mends** (10-25): a flag dealt into a sign-off row is taken off (a
   flag in a sentence stays); "ILll" is I'll; a word, `//`, a capitalised word
   with no space becomes the two words (`http://` untouched).
+- **A good thought is not cut for one glued word** (10-27): "aPainting" — the
+  article glued on — is mended to "a painting", not salad; and while only a
+  thought is being written, one glued word alone no longer cuts it (a run of
+  fragments, a cascade, a stuck chunk still do). A reply keeps the rule.
 - **An argument name with a `//…//` aside in front of it** (10-24) is the name
   after it.
 - **A glued seam the pen mends is not salad** (10-24): the rail lets a

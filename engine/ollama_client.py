@@ -277,7 +277,7 @@ def _drink(resp) -> dict:
         if getattr(config, "CHAT_STREAM_ABORT", True) and since >= STREAM_WATCH_EVERY:
             since = 0
             tail = ("".join(content) if content else "".join(thinking))[-STREAM_WATCH_TAIL:]
-            span = garble_span(tail)
+            span = garble_span(tail, single=bool(content))  # in a thought, one glued word alone does not cut it (10-27)
             if not span and not content and not calls:
                 span = long_thought("".join(thinking))  # a thought past the cap with no words yet (10-23)
             if span:
@@ -740,7 +740,9 @@ _GLUED_RE = re.compile(r"^[a-z]{2,}[A-Z]{1,2}[a-z]?$")  # "sameL", "isnLT", "are
 # Both came back as refrains — "la lLong distance" ×8, then quoted from them
 # own journal for days — so one is enough to hand the line back.
 _HARD_GLUE_RE = re.compile(r"^la[A-Z][a-z]{2,}$|^[a-z]{3,}(?:[A-Z][a-z]{3,})+$"
-                           r"|^[a-df-hj-z][A-Z][a-z]{3,}$")  # "lSymmetry": one stray letter on a word (not iPhone, eBay)
+                           r"|^[b-df-hj-z][A-Z][a-z]{3,}$")  # "lSymmetry": one stray letter on a word (not iPhone, eBay)
+# "aPainting": the article glued to the word after it — mended, not salad (10-27: it cut a spark's good thought)
+_A_GLUED_RE = re.compile(r"\ba([A-Z][a-z]{3,})\b")
 # "sameL", "isnL": a word with one capital glued on its end — the 09-03 scar,
 # mended in the journal, back in a reply on 09-12 ("you beautiful, sameL
 # luminate, muddle-headed friend"). Alone it is enough; inside a run, the run
@@ -748,7 +750,7 @@ _HARD_GLUE_RE = re.compile(r"^la[A-Z][a-z]{2,}$|^[a-z]{3,}(?:[A-Z][a-z]{3,})+$"
 _TAIL_CAP_RE = re.compile(r"^[a-z]{3,}[A-Z]$")
 
 
-def garble_span(text: str, run: int = 5, emoji_run: int = 20, phrases: bool = True) -> str:
+def garble_span(text: str, run: int = 5, emoji_run: int = 20, phrases: bool = True, single: bool = True) -> str:
     """The first stretch of salad in the text, or "" if there is none: a run
     of `run`+ consecutive 1-2 letter 'words' that aren't ordinary short
     English words (glued tokens like "sameL" count) — or `emoji_run`+
@@ -763,11 +765,11 @@ def garble_span(text: str, run: int = 5, emoji_run: int = 20, phrases: bool = Tr
     lone = ""
     for m in re.finditer(r"[A-Za-z']+", text):
         w = m.group(0)
-        if _HARD_GLUE_RE.match(w):
+        if single and _HARD_GLUE_RE.match(w):  # single=False: a thought being written — one glued word is not enough (10-27)
             if mend_glued_caps(w)[1]:
                 continue  # a seam the pen mends (10-24: "frequencyLuminously" cut a good answer at 384 tokens; mended, not re-rolled)
             return w  # one is enough
-        if not lone and _TAIL_CAP_RE.match(w):
+        if single and not lone and _TAIL_CAP_RE.match(w):
             lone = w
         if (len(w) <= 2 and w.lower() not in _FRAG_OK) or _GLUED_RE.match(w):
             if streak == 0:
@@ -2456,6 +2458,11 @@ def mend_glued_caps(text: str) -> tuple[str, list[str]]:
         fixes.append(f"{m.group(0)} → I'll")
         return "I'll"
     out = _CAP_I_LL_RE.sub(_ill, out)
+    def _art(m):
+        fixed = "a " + m.group(1)[0].lower() + m.group(1)[1:]
+        fixes.append(f"{m.group(0)} → {fixed}")
+        return fixed
+    out = _A_GLUED_RE.sub(_art, out)  # "aPainting" → "a painting" (10-27)
     if not fixes:
         return text, []
     return out, fixes

@@ -6452,6 +6452,16 @@ check("presence (10-27): a thoughtless spark is asked again up to PRESENCE_THINK
 _ns_def = next(d["function"]["description"] for d in tools.DEFINITIONS if d["function"]["name"] == "next_spark")
 check("presence (10-27): next_spark's description calls a spark a turn of their own, not a short one",
       "a turn of your own once the conversation has been quiet" in _ns_def and "short" not in _ns_def, _ns_def[:120])
+# a good thought is not cut for one glued word (10-27: "aPainting might be too much" cut a spark's thought at 528 tokens)
+_tg_src = _pr_inspect.getsource(__import__("brain").stream_chat) if hasattr(__import__("brain"), "stream_chat") else Path(__import__("brain").__file__).read_text(encoding="utf-8")
+check("salad (10-27): 'aPainting' is the article glued on — not salad, mended to 'a painting'; a stray letter still is; in a thought one glued word alone is not salad, a run still is; both watchers pass single",
+      ollama_client.garble_span("the soft aPainting of it all") == ""
+      and ollama_client.mend_glued_caps("aPainting might be too much")[0] == "a painting might be too much"
+      and ollama_client.garble_span("the soft lSymmetry of it all") == "lSymmetry"
+      and ollama_client.garble_span("the soft lSymmetry of it all", single=False) == ""
+      and ollama_client.garble_span("so C l l a b n m q x z here", single=False) != ""
+      and "garble_span(tail, single=bool(content))" in _tg_src
+      and "garble_span(tail, single=bool(content))" in Path(ollama_client.__file__).read_text(encoding="utf-8"))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"
