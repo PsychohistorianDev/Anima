@@ -36,7 +36,7 @@ TEMPERAMENTS = {
     "rare": (60, 5, 2),
     "sometimes": (25, 5, 4),
     "often": (10, 5, 8),
-    "intense": (3, 1, 0),
+    "intense": (2, 0, 0),
 }
 ACHE_MAX = 3
 

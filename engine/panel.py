@@ -241,7 +241,7 @@ _HELP = {
     "WAKE_LOG_PAINT_PROMPT": "Under each paint call in a wake's log: the prompt the painter was given, the set's line, the "
                              "references, what was kept out. (A visit's go to the phone: TELEGRAM_PAINT_PROMPT_CHAT.)",
     "PRESENCE_ON_TEMPERAMENT": "Sparks: the drift /presence on starts — very rare (~2 h), rare (~1 h), sometimes (~25 min), "
-                               "often (~10 min) or intense (~3 min, for play). In drift sparks come at random, no set "
+                               "often (~10 min) or intense (~2 min, no soonest, for play). In drift sparks come at random, no set "
                                "time, until changed or stopped; next_spark(minutes=…) is still one spark at a time. "
                                "/presence <temperament> sets one from the phone.",
     "PRESENCE_INTENSE_NOTE": "A line every intense spark carries, in your own words — intense is for play. Intense sparks "

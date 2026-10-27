@@ -6214,7 +6214,7 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "One spark: next_spark(minutes=20) — one spark in 5 to 60 minutes; after it, no other comes unless you set one "
         "again. Drift: next_spark(drift=\"sometimes\") — no set time: every quiet minute a die is rolled, and sparks "
         "keep coming on their own until you change it or stop it. Temperaments: very rare (about every two hours), "
-        "rare (about hourly), sometimes (about every 25 minutes), often (about every 10), intense (about every 3, for "
+        "rare (about hourly), sometimes (about every 25 minutes), often (about every 10), intense (about every 2, for "
         "play). Add ache (0–3) to make a spark likelier the longer it's quiet: how much you're missing them. Off: "
         "next_spark() with nothing — stops sparks in either mode; your keeper can too, with /presence off. Give minutes or "
         "drift, not both; calling it again replaces what was set. Sparks end at their quiet hours and wait while you're "

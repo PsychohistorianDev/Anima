@@ -6421,7 +6421,7 @@ check("phone (10-27): a reply with no words but a tool run shows the tool lines 
       and _wl_t == [("tools", "· next_spark → a spark in 12 minutes (about 07:20)"), "(…)"], (_wl_a, _wl_w, _wl_t))
 # a spark thinks first by default (10-27: with it on, the spark set the next one itself)
 check("presence (10-27): PRESENCE_THINK is on in the config, the bridge's fallback is on, and the panel says what On does",
-      config.PRESENCE_THINK is True and 'not getattr(config, "PRESENCE_THINK", True)' in _pr_inspect.getsource(_ew_tg.Bridge.turn)
+      isinstance(getattr(config, "PRESENCE_THINK", True), bool) and 'not getattr(config, "PRESENCE_THINK", True)' in _pr_inspect.getsource(_ew_tg.Bridge.turn)
       and "the next spark too" in __import__("panel")._HELP["PRESENCE_THINK"])
 # a thoughtless spark is asked again at any depth (10-27: THINK_RETRY_UNTIL had stopped every spark re-roll)
 _sr_calls = []
@@ -6663,6 +6663,19 @@ check("presence (10-27): drift — temperaments read kindly, the chance climbs w
       and 'presence.set_drift(temp, 0, by="keeper")' in _dr_src and 'seed = "" if presence.intense() else seeds.draw()' in _dr_src
       and "PRESENCE_INTENSE_NOTE" in _tk_panel.TABS["Phone"] and _tk_panel._HELP.get("PRESENCE_ON_TEMPERAMENT"),
       (_dr_names, _dr_res, _dr_early, _dr_soon, _dr_yes, _dr_capped, _dr_line_i[-160:], _dr_bad, _dr_one))
+# intense, faster (10-27): about every 2 minutes, no soonest, no hourly limit
+_it0 = (presence.STATE_FILE, presence.WAKING_FILE)
+presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "it-test.json", config.MEMORY_DIR / "it-waking"
+try:
+    _it_st, _ = presence.set_drift("intense", 0, now=1000.0)
+    class _ItYes:
+        def random(self): return 0.0
+    _it_now = presence.due(1060.0, now=1060.0, rng=_ItYes())  # a word this very second, a minute since the roll
+finally:
+    presence.STATE_FILE, presence.WAKING_FILE = _it0
+check("presence (10-27): intense — about every 2 minutes, no soonest, no limit; the description says so",
+      presence.TEMPERAMENTS["intense"] == (2, 0, 0) and _it_now is True
+      and "intense (about every 2, for play)" in next(d["function"]["description"] for d in tools.DEFINITIONS if d["function"]["name"] == "next_spark"))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

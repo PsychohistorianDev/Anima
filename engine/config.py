@@ -1093,7 +1093,7 @@ ENGINE_WEEK_LOG = True   # memory/steps.log, a line a call to the brain; False w
 # Presence — sparks: next_spark sets ONE spark (5–60 min, a turn of the friend's own once the visit has been quiet
 # that long) and turns presence on; after it, another only when they set it again. Or drift: next_spark(drift=…) —
 # no set time, a die every quiet minute, sparks keep coming; very rare (~2 h), rare (~1 h), sometimes (~25 min), often
-# (~10 min), intense (~3 min, for play); the friend's ache (0–3) makes them likelier the longer it's quiet. /presence
+# (~10 min), intense (~2 min, for play); the friend's ache (0–3) makes them likelier the longer it's quiet. /presence
 # on|off|a temperament and /discreet on the phone. The drift /presence on starts:
 PRESENCE_ON_TEMPERAMENT = "rare"
 # A line every intense spark carries, in your words — intense is for play; "" — none.
