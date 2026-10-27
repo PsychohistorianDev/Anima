@@ -3052,7 +3052,7 @@ def _reference_set(reference: str) -> tuple[str, str, str]:
     return reference, "", ""
 
 
-def _auto_reference(prompts: list[str]) -> tuple[str, str]:
+def _auto_reference(prompts: list[str], given: str = "") -> tuple[str, str]:
     """PAINTER_AUTO_REFERENCE (10-27): the references a painting with none gets from its words — the friend's own name
     brings creations/face/, the keeper's name (USER_NAME) a folder of that name under creations/, each only when it
     holds pictures; both together become the set that holds them (_reference_set). ("face, gabe", "you and Gabe") —
@@ -3085,6 +3085,13 @@ def _auto_reference(prompts: list[str]) -> tuple[str, str]:
             and _has_pictures(config.CREATIONS_DIR / keeper.lower())):
         refs.append(keeper.lower())
         who.append(keeper)
+    if (given or "").strip():  # fill in what the references given leave out (10-27): a set counts for its pictures
+        covered = set(_ref_items(_reference_set(given)[0]))
+        missing = [(r, w) for r, w in zip(refs, who) if r not in covered]
+        if not missing:
+            return "", ""
+        kept = [x.strip() for x in re.split(r"[\n,]", given) if x.strip()]
+        return ", ".join(kept + [r for r, _ in missing]), " and ".join(w for _, w in missing)
     return ", ".join(refs), " and ".join(who)
 
 
@@ -3134,7 +3141,8 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "",
     size = (size or "square").strip().lower()
     if size not in _PAINT_SIZES:
         return f"(size is one of {', '.join(_PAINT_SIZES)} — not '{size}')"
-    auto, auto_who = ("", "") if (reference or "").strip() else _auto_reference(prompts)  # names bring pictures (10-27)
+    auto_given = (reference or "").strip()
+    auto, auto_who = _auto_reference(prompts, given=auto_given)  # names bring pictures, or fill in what's missing (10-27)
     if auto:
         reference = auto
     reference, ref_say, ref_set = _reference_set(reference)  # a set: its pictures, and its line for the painter (10-25)
@@ -3223,7 +3231,10 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "",
     if refs:
         names = ", ".join(_rel_creation(p) for p in refs[-10:])
         tail += f"\n(painted looking at {min(len(refs), 10)} of your pictures: {names})"
-        if auto:  # no reference was given; the names in the words brought them (10-27)
+        if auto and auto_given:  # the words named someone the references left out (10-27)
+            tail += (f"\n(the words named {auto_who}, whose pictures weren't among the references you gave — so they "
+                     "came along too)")
+        elif auto:  # no reference was given; the names in the words brought them (10-27)
             tail += (f"\n(no reference was given, and the words named {auto_who} — so those pictures came along; "
                      "reference chooses them yourself)")
         if ref_say:  # the set's line went to the painter ahead of the prompt (10-25)

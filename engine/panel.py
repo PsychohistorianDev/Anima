@@ -531,7 +531,8 @@ _HELP = {
     "PAINTER_AUTO_REFERENCE": "Names in the words bring their pictures: a painting with no reference whose words name the "
                               "friend (their own name) brings creations/face/, your name (USER_NAME) a folder of that name "
                               "under creations/, both together the reference set that holds them both. Only on a brush "
-                              "that reads references; the result says what came; a reference given by hand always wins.",
+                              "that reads references; the result says what came. References given by hand are kept, and "
+                              "a name they leave out is added to them.",
     "PAINTER_PROMPT_HINTS": "Words that bring the painter a plain line: when a prompt has the word (any ending), the line "
                             "goes to the painter ahead of it — for a pose it keeps getting wrong. {} — none.",
     "PAINTER_REFERENCE_SETS": "Named sets of reference pictures: a word given alone as paint's reference stands for its "

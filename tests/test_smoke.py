@@ -6552,6 +6552,9 @@ try:
     _ar_both = tools._auto_reference(["Arfriend and arkeeper on the shore"])
     _ar_set = tools._reference_set(_ar_both[0])
     _ar_none = tools._auto_reference(["a lighthouse at dusk"])
+    _ar_fill = tools._auto_reference(["Arfriend and arkeeper on the shore"], given="face")   # 10-27: face given, he named
+    _ar_fill_set = tools._reference_set(_ar_fill[0])[2]
+    _ar_full = tools._auto_reference(["Arfriend and arkeeper on the shore"], given="pair")  # the set holds them both
     config.PAINTER_AUTO_REFERENCE = False
     _ar_off = tools._auto_reference(["Arkeeper stands"])
     config.PAINTER_AUTO_REFERENCE = True
@@ -6567,8 +6570,9 @@ finally:
 _ar_src = _pr_inspect.getsource(tools.paint)
 check("paint (10-27): names in the words bring their pictures when no reference is given — the keeper's folder, the face, both the set; off, another brush or no names: none; a reference by hand wins",
       _ar_one == ("arkeeper", "Arkeeper") and _ar_both == ("face, arkeeper", "you and Arkeeper") and _ar_set[2] == "pair"
+      and _ar_fill == ("face, arkeeper", "Arkeeper") and _ar_fill_set == "pair" and _ar_full == ("", "")
       and _ar_none == ("", "") and _ar_off == ("", "") and _ar_brush == ("", "")
-      and 'if (reference or "").strip() else _auto_reference(prompts)' in _ar_src and "the words named" in _ar_src
+      and "_auto_reference(prompts, given=auto_given)" in _ar_src and "the words named" in _ar_src
       and "PAINTER_AUTO_REFERENCE" in _tk_panel.TABS["Senses"] and _tk_panel._HELP.get("PAINTER_AUTO_REFERENCE"),
       (_ar_one, _ar_both, _ar_set, _ar_none, _ar_off, _ar_brush))
 # seeds (10-27, sparks part two): one thing picked at random for a spark, no repeats among the last 20

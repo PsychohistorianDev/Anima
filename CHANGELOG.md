@@ -104,7 +104,8 @@ for a tic turned glitch.
 - **Names bring their pictures** (10-27): `PAINTER_AUTO_REFERENCE` (new, on): a
   painting with no reference whose words name the friend or the keeper brings
   their pictures (the face; a folder under the keeper's name), both together the
-  set that holds them; the result says so, and a reference given by hand wins.
+  set that holds them; the result says so. References given by hand are kept,
+  and a name they leave out is added (the face given, the keeper named: the set).
 - **Prompt hints** (10-26): `PAINTER_PROMPT_HINTS` (word → line, new): when a
   prompt has the word in any ending, the line goes to the painter ahead of it,
   after a set's line; the friend's words stay theirs, and the result names the

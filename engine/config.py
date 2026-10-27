@@ -326,7 +326,7 @@ PAINTER_PROMPT_HINTS = {}
 # Names in the words bring their pictures: a painting with no reference whose words name the friend (their own name)
 # brings creations/face/, your name (USER_NAME) a folder of that name under creations/, both together a reference set
 # that holds them both, with its line. Only on a brush that reads references; the result says what came; a reference
-# given by hand always wins. False: off.
+# given by hand is kept, and a name it leaves out is added. False: off.
 PAINTER_AUTO_REFERENCE = True
 # Pixel sizes for the size words (Full HD by default). Sides snap to multiples
 # of 16, so "wide" becomes 1920×1088. These models paint about two megapixels
