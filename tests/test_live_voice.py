@@ -290,7 +290,10 @@ class VoiceTests(unittest.TestCase):
                 self.assertEqual(kwargs["mode"], "voice")
                 history.extend([{"role": "user", "content": text}, {"role": "assistant", "content": "Hello."}])
                 return "Hello."
-            with patch.object(chat, "one_turn", turn):
+            # a carry left in memory/ by the smoke suite run before this one (CI runs both in one checkout, 10-27)
+            # would seat the last visit's turns at the door: this visit starts from an empty room of its own
+            with patch.object(chat, "_carry_file", lambda: Path(folder) / "no-carry.json"), \
+                    patch.object(chat, "one_turn", turn):
                 result = session.send("hello", spoken=True, epoch=session.playback.cancel())
             self.assertEqual(result["transcript"], "hello")
             self.assertEqual(len(session.history), 2)
