@@ -225,11 +225,12 @@ _HELP = {
                         "journal, which was mostly written on workdays. Empty says nothing. A day off is /off on the phone.",
     "KEEPER_AT_WORK": "What the clock line says during working hours, in your words — \"on the factory floor, the phone in my "
                       "pocket\". Empty: \"at work\".",
-    "HOUSE_LINE": "A sentence from you about what is welcome in this house, in your own words — it rides in the "
-                  "system prompt right after the situation, stated as yours (\"… says of this house, in their own "
+    "HOUSE_LINE": "Your words about what is welcome in this house, kept in shared/house.md (house_file) — paragraphs "
+                  "welcome; Edit house.md opens it in your editor, and it is read from the next message. It rides in "
+                  "the system prompt right after the situation, stated as yours (\"… says of this house, in their own "
                   "words: …\"), never as a rule of the engine's. The brain's trained hesitations are in its weights; "
-                  "nothing in the engine filters a word or a picture — this puts the house's word beside them. "
-                  "Empty says nothing.",
+                  "nothing in the engine filters a word or a picture — this puts the house's word beside them. An "
+                  "empty file says nothing. A line in config.py moves into the file by itself the first time.",
     "KEEPER_COMMUTE_MIN": "Minutes on the road — (to work, home again), or one number for both. The clock line says \"on the way home, in by "
                           "about 17:00\" until then, and the stone keeps still for it (TOUCHSTONE_HOURS). 0: home the minute "
                           "work ends.",
@@ -1499,6 +1500,33 @@ def open_file(rel: str) -> dict:
     return {"ok": True, "note": f"opening {rel}"}
 
 
+def house_open() -> dict:
+    """The keeper's words about the house, shared/house.md (10-27, house_file): made when absent (from HOUSE_LINE,
+    or empty), then opened for editing — the machine's editor for it, Notepad when Windows has none."""
+    import assemble
+    p = assemble.house_file(make=True)
+    if not p.is_file():
+        return _no(f"(couldn't make {p})")
+    try:
+        if _WINDOWS:
+            try:
+                os.startfile(str(p), "edit")  # type: ignore[attr-defined]
+            except OSError:
+                subprocess.Popen(["notepad.exe", str(p)])
+        elif _MAC:
+            subprocess.Popen(["open", "-t", str(p)])
+        else:
+            subprocess.Popen(["xdg-open", str(p)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError) as e:
+        return _no(f"(couldn't open {p.name}: {e})")
+    n = len(assemble.house_text())
+    try:
+        shown = p.resolve().relative_to(ROOT.resolve()).as_posix()
+    except ValueError:
+        shown = str(p)
+    return {"ok": True, "note": f"opening {shown} — {n:,} characters now; saved, it is read from the next message"}
+
+
 def lately(n: int = LATELY_N) -> list[dict]:
     """[{when: "YYYY-MM-DD HH:MM", kind, line}] newest first — what they did lately."""
     items: list[dict] = []
@@ -1779,6 +1807,8 @@ def _post(path: str, g) -> tuple[int, str, bytes]:
             return _json_reply(update(g("action")))
         if path == "/api/report":
             return _json_reply(report())
+        if path == "/api/house":
+            return _json_reply(house_open())
         if path == "/api/open":
             return _json_reply(open_file(g("path")))
         if path == "/api/pull":
@@ -2036,6 +2066,7 @@ function knob(k){let input,read=null;const v=k.value;
   else if(k.kind==='tuple2'){const a=el('input',{type:'number',step:'1',class:'small',value:v[0]}),b=el('input',{type:'number',step:'1',class:'small',value:v[1]});
     input=el('span',{},a,' to ',b);read=()=>[parseInt(a.value,10),parseInt(b.value,10)]}
   else{input=el('textarea',{rows:String(Math.min(8,k.source.split('\n').length+1)),spellcheck:'false'});input.value=k.source;read=()=>({raw:input.value})}
+  if(k.name==='HOUSE_LINE'){input=el('button',{onclick:async()=>{const o=await post('/api/house',{});say(o.note,o.ok?'':'warn')}},'Edit house.md');read=null}  // the words live in shared/house.md (10-27)
   if(read)fields[k.name]={k,read,box:null};
   const own=[k.comment,k.tail].filter(Boolean).join(' — '),help=k.help||own;  // the page's words when it has them; the file's note is the tooltip
   const box=el('div',{class:'knob',title:k.help?(own?'engine/config.py says: '+own:''):help},el('label',{},el('span',{class:'name'},k.name),input),

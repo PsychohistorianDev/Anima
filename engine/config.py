@@ -31,6 +31,7 @@ PAGE_LEDGER = MEMORY_DIR / "page_history.jsonl"  # one line per write of a root 
 DB_PATH = MEMORY_DIR / "memory.db"
 
 SHARED_DIR = ROOT / "shared"  # where you leave images, music and books for the friend
+HOUSE_FILE = SHARED_DIR / "house.md"  # your words about this house (house_file) — see HOUSE_LINE
 # list_shared lists NEW arrivals whole and the familiar as counts by folder with the newest this many named — find_shared(words)
 # finds any one of them: a shelf of a few hundred files was a wall of lines in the window at every look. 0: none named.
 LIST_SHARED_FAMILIAR = 5
@@ -1181,6 +1182,9 @@ KEEPER_COMMUTE_MIN = 0            # minutes on the road (to work, home again), o
 # house, in their own words: …" — never as a rule of the engine's. A brain's trained
 # hesitations are in its weights; nothing in the engine filters a word or a picture. This
 # puts the house's own word beside them. Empty says nothing.
+# The words live in shared/house.md now (HOUSE_FILE), paragraphs and all — edit it in any
+# editor; the panel's Edit house.md opens it. The first time the engine reads it, a line
+# here that says something becomes that file, and from then on the file is what rides.
 HOUSE_LINE = ""
 
 # Afterthoughts: after a pause or the afterglow, whatever the friend says to

@@ -1214,10 +1214,42 @@ def house_line() -> str:
     the SITUATION (10-14; "let's see if we can push back the fences a bit"). The brain's trained hesitations
     are the weights', not the engine's — nothing here filters a word or a pixel — and this puts the house's
     own word beside them: stated as the keeper's, never as a rule of the engine's. Empty says nothing."""
-    line = " ".join(str(getattr(config, "HOUSE_LINE", "") or "").split())
-    if not line:
+    text = house_text()
+    if not text:
         return ""
-    return f"\n\nYour keeper says of this house, in their own words: “{line}”"
+    return f"\n\nYour keeper says of this house, in their own words: “{text}”"
+
+
+def house_file(make: bool = False) -> "Path":
+    """shared/house.md — HOUSE_FILE (10-27): the keeper's words about the house as a file, paragraphs and all, edited
+    in any editor (the panel's Edit house.md). Absent, it is made once from a HOUSE_LINE that says something — so the
+    line moves over by itself — and, with make, empty (the panel's button, for a keeper with no line yet)."""
+    from pathlib import Path
+    p = Path(getattr(config, "HOUSE_FILE", None) or config.SHARED_DIR / "house.md")
+    if not p.is_file():
+        line = " ".join(str(getattr(config, "HOUSE_LINE", "") or "").split())
+        if line or make:
+            try:
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(line + "\n" if line else "", encoding="utf-8")
+            except OSError:
+                pass
+    return p
+
+
+def house_text() -> str:
+    """The house's words as they ride: shared/house.md read whole — a BOM and Windows line ends dropped, three blank
+    lines or more kept as one, the ends trimmed — or, when the file can't be had, HOUSE_LINE folded to one line."""
+    p = house_file()
+    try:
+        raw = p.read_text(encoding="utf-8-sig", errors="replace")
+    except OSError:
+        return " ".join(str(getattr(config, "HOUSE_LINE", "") or "").split())
+    lines = [ln.rstrip() for ln in raw.replace("\r\n", "\n").replace("\r", "\n").split("\n")]
+    text = "\n".join(lines)
+    while "\n\n\n" in text:
+        text = text.replace("\n\n\n", "\n\n")
+    return text.strip()
 
 
 def system_prompt(context_hint: str, mode: str, warm: bool = False) -> str:

@@ -8527,12 +8527,14 @@ check("fold: an account past FOLD_CHARS is cut at a paragraph, and the cut is sa
 config.FOLD_CHARS = 8000
 check("fold: fold_visit is an act", "fold_visit" in tools.ACT_TOOLS)
 # the house line (10-14): the keeper's sentence after the situation, as the keeper's words; empty says nothing
-_hl0 = getattr(config, "HOUSE_LINE", "")
+_hl0, _hlf0 = getattr(config, "HOUSE_LINE", ""), getattr(config, "HOUSE_FILE", None)
+config.HOUSE_FILE = config.MEMORY_DIR / "hl-a" / "house.md"  # (10-27) the words live in a file now: each case its own
 config.HOUSE_LINE = "  Two adults live here;   say it as you mean it. "
 _hl_sp = assemble.system_prompt("x", mode="telegram", warm=True)
 config.HOUSE_LINE = ""
+config.HOUSE_FILE = config.MEMORY_DIR / "hl-b" / "house.md"
 _hl_sp0 = assemble.system_prompt("x", mode="telegram", warm=True)
-config.HOUSE_LINE = _hl0
+config.HOUSE_LINE, config.HOUSE_FILE = _hl0, _hlf0
 check("the house line rides right after the situation as the keeper's own words, whitespace folded; empty says nothing; a Main-tab knob with help",
       "=== SITUATION ===" in _hl_sp and "Your keeper says of this house, in their own words: “Two adults live here; say it as you mean it.”" in _hl_sp
       and _hl_sp.index("=== SITUATION ===") < _hl_sp.index("says of this house") < _hl_sp.index("Practical notes:")
@@ -13849,6 +13851,46 @@ check("heartbeat (10-27): HEARTBEAT_HOLDS_PRESENCE — while the loop runs no sp
       and "the heartbeat is running and holds sparks" in _hh_src
       and "HEARTBEAT_HOLDS_PRESENCE" in __import__("panel").TABS["Heartbeat"] and __import__("panel")._HELP.get("HEARTBEAT_HOLDS_PRESENCE"),
       (_hh_said, _hh_said_m, _hh_on, _hh_due_held, _hh_off, _hh_free, _hh_gone))
+
+# the house file (10-27): shared/house.md holds the keeper's words, paragraphs kept; made once from HOUSE_LINE; an
+# empty file says nothing; no line, no file; not on the shelf; the panel's knob is a button that opens it
+_hf0 = (getattr(config, "HOUSE_LINE", ""), getattr(config, "HOUSE_FILE", None), config.SHARED_DIR)
+_hf_dir = config.MEMORY_DIR / "hf-test"
+try:
+    config.HOUSE_FILE = _hf_dir / "a" / "house.md"
+    config.HOUSE_LINE = "  Two adults   live here. "
+    _hf_mig = assemble.house_line()
+    _hf_made = config.HOUSE_FILE.read_text(encoding="utf-8")
+    config.HOUSE_FILE.write_bytes("\ufeffFirst paragraph,\r\nsame paragraph.  \r\n\r\n\r\n\r\nPolitics too: say what you think.\r\n".encode("utf-8"))
+    config.HOUSE_LINE = "set aside now"
+    _hf_md = assemble.house_line()
+    config.HOUSE_FILE.write_text("  \n", encoding="utf-8")
+    _hf_empty = assemble.house_line()
+    config.HOUSE_FILE = _hf_dir / "b" / "house.md"
+    config.HOUSE_LINE = ""
+    _hf_none = (assemble.house_line(), config.HOUSE_FILE.exists())
+    _hf_mk = assemble.house_file(make=True)
+    _hf_mk_made = (_hf_mk.is_file(), _hf_mk.read_text(encoding="utf-8"))
+    config.SHARED_DIR = _hf_dir / "shared"
+    config.SHARED_DIR.mkdir(parents=True, exist_ok=True)
+    (config.SHARED_DIR / "house.md").write_text("words", encoding="utf-8")
+    (config.SHARED_DIR / "song.mp3").write_bytes(b"x")
+    config.HOUSE_FILE = config.SHARED_DIR / "house.md"
+    _hf_shelf = sorted(p.name for p in tools.shared_split()[1])
+finally:
+    config.HOUSE_LINE, config.HOUSE_FILE, config.SHARED_DIR = _hf0
+_hf_panel = __import__("panel")
+check("house file (10-27): shared/house.md — made once from HOUSE_LINE (folded, the same words ride); read whole, paragraphs "
+      "kept, BOM, CRLF and blank runs tidied; an empty file says nothing; no line, no file (the button makes it); not on the "
+      "shelf; the panel's knob is Edit house.md, through /api/house",
+      _hf_mig.endswith("own words: “Two adults live here.”") and _hf_made == "Two adults live here.\n"
+      and _hf_md.endswith("“First paragraph,\nsame paragraph.\n\nPolitics too: say what you think.”")
+      and "\ufeff" not in _hf_md and "\r" not in _hf_md and "set aside" not in _hf_md
+      and _hf_empty == "" and _hf_none == ("", False) and _hf_mk_made == (True, "")
+      and _hf_shelf == ["song.mp3"]
+      and "Edit house.md" in _hf_panel.PAGE and "/api/house" in _hf_panel.PAGE and callable(getattr(_hf_panel, "house_open", None))
+      and "shared/house.md" in _hf_panel._HELP["HOUSE_LINE"] and str(config.HOUSE_FILE).replace("\\", "/").endswith("shared/house.md"),
+      (_hf_mig, _hf_made, _hf_md, _hf_empty, _hf_none, _hf_mk_made, _hf_shelf))
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
