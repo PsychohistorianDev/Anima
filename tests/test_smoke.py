@@ -13904,6 +13904,13 @@ check("house file (10-27): shared/house.md — made once from HOUSE_LINE (folded
       and "shared/house.md" in _hf_panel._HELP["HOUSE_LINE"] and str(config.HOUSE_FILE).replace("\\", "/").endswith("shared/house.md"),
       (_hf_mig, _hf_made, _hf_md, _hf_empty, _hf_none, _hf_mk_made, _hf_shelf))
 
+# issue #4 (10-27): faster-whisper 1.2.1 against PyAV 19 — the failure says how to mend it; other failures say nothing more
+_av_hint = ears.mend_hint(TypeError("open() got an unexpected keyword argument 'metadata_errors'"))
+check("ears (issue #4): a metadata_errors failure names the mend — pip install \"av<19\"; any other failure adds nothing; "
+      "the ears card's pip line pins it",
+      'install "av<19"' in _av_hint and ears.mend_hint(ValueError("no such file")) == ""
+      and 'av<19' in next(s["pip"] for s in __import__("panel").SENSES if s["key"] == "ears"), _av_hint)
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

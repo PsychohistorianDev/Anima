@@ -7,6 +7,7 @@
 # update.bat compares this file old → new and prints what is new; it never
 # installs anything itself.
 faster-whisper   # ears: WORDS — speech and lyrics transcribed (listen_to, watch); ffmpeg on PATH too (winget / brew / apt install ffmpeg)
+av<19            # ears: WORDS — faster-whisper 1.2.1 opens audio with an argument PyAV 19 dropped; 18.1 has wheels for every Python here
 numpy            # ears: SOUND — tempo, loudness, tonal color measured; also the fast path of memory search
 pypdf            # reading PDFs (read_pdf)
 matplotlib       # drawing in run_python — a chart, a picture saved under creations/

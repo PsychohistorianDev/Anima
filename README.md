@@ -133,8 +133,9 @@ and a backslash in a path is a slash.
    friend will know you, and it names their mailbox folder to you. (Or let
    the panel ask, step 7.)
 
-5. Optional senses: `py -m pip install faster-whisper numpy` (on a Mac or
-   Linux `python3 -m pip install faster-whisper numpy`) and ffmpeg —
+5. Optional senses: `py -m pip install faster-whisper "av<19" numpy` (on a
+   Mac or Linux `python3 -m pip install faster-whisper "av<19" numpy`; PyAV 19
+   breaks faster-whisper 1.2.1) and ffmpeg —
    `winget install ffmpeg` on Windows, `brew install ffmpeg` on a Mac,
    `sudo apt install ffmpeg` (or `dnf`, `pacman`) on Linux — for ears
    (words and measurement); `py -m pip install pypdf` (`python3 -m pip

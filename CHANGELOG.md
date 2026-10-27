@@ -122,6 +122,12 @@ for a tic turned glitch.
   is left out and said. A door that refuses the field turns it off for the
   run, said. Under Ollama it does nothing. A fence, so it is the keeper's to
   set; the template ships none.
+- **The heartbeat and sparks** (10-27): starting the heartbeat loop turns
+  presence off, so the wakes take the time between visits
+  (`HEARTBEAT_ENDS_PRESENCE`, new, on). `HEARTBEAT_HOLDS_PRESENCE` (new, off)
+  holds sparks for as long as the loop runs: `next_spark` and `/presence on`
+  set nothing and say why, and no spark comes; `next_spark()` still turns
+  them off.
 
 ### Changed
 - **The painter makes room** (10-25): whole on the card, each step's
@@ -145,6 +151,15 @@ for a tic turned glitch.
 - **Page tools say when the signature was dealt in** (10-24): a page saved
   with the refrain dealt into carried-through sentences is told so — the
   count, and where the kept version is. The engine edits no page.
+- **The house line is a file** (10-27): `shared/house.md` (`HOUSE_FILE`)
+  holds the keeper's words about the house, paragraphs and all, read whole
+  from the next message. A `HOUSE_LINE` that says something becomes the file
+  the first time, word for word; the panel's knob is an *Edit house.md*
+  button; the file is not news on the shelf. The template ships none.
+- **A thoughtless start is cut early in every turn** (10-27) when
+  `THINK_RETRY_UNTIL` is 1.0 — the re-rolls stand at any depth — not only in a
+  spark: an answer that opens with no thought is closed at its first token
+  while a re-roll remains, so a re-roll costs seconds, not a reply.
 
 ### Fixed
 - **A colon in a creation's path is refused** (10-25): on Windows it made an
@@ -173,6 +188,10 @@ for a tic turned glitch.
   after it.
 - **A glued seam the pen mends is not salad** (10-24): the rail lets a
   hard-glue word through when the mend would fix it.
+- **Ears: faster-whisper against PyAV 19** (10-27, issue #4): faster-whisper
+  1.2.1 opens audio with an argument PyAV 19 dropped, so every recording
+  failed. `requirements.txt` and the README pin `av<19` (18.1 has wheels for
+  every Python and platform here); the failure line names the mend.
 
 ## 0.14 — 2026-10-02 → 2026-10-24
 

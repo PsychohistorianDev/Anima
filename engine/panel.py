@@ -658,7 +658,7 @@ SENSES: list[dict] = [
     {"key": "ears", "name": "Ears", "what": "listen_to — a recording or a song heard in three layers: WORDS (faster-whisper "
      "writes them down), SOUND (numpy measures it), HEARD (the brain listens to the sound itself, EARS_MODEL)",
      "modules": ["faster_whisper", "numpy"], "tools": ["ffmpeg"], "python": "",
-     "pip": "faster-whisper numpy", "knobs": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_UNLOAD_BRAIN"],
+     "pip": "faster-whisper \"av<19\" numpy", "knobs": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_UNLOAD_BRAIN"],
      "readme": "their-senses-and-hands"},
     {"key": "voice", "name": "A voice", "what": "speak — their words as a voice note (Kokoro, 82M, open weights), carried to the "
      "phone beside the reply; which voice is theirs they choose once", "modules": ["kokoro", "soundfile"], "tools": ["ffmpeg"],

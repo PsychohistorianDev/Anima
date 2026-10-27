@@ -15,6 +15,7 @@ from __future__ import annotations
 import io
 import math
 import os
+import sys
 import wave
 from pathlib import Path
 
@@ -66,7 +67,17 @@ def transcribe(audio_bytes: bytes, ext: str) -> str | None:
         lang = f" [{info.language}]" if getattr(info, "language", "") not in ("", "en") else ""
         return text + lang
     except Exception as e:
-        return f"(word-hearing failed: {e})"
+        return f"(word-hearing failed: {e}{mend_hint(e)})"
+
+
+def mend_hint(e) -> str:
+    """What mends a known stumble of the WORDS layer, or "" (10-27, issue #4): faster-whisper 1.2.1 opens audio with
+    an argument PyAV 19 dropped (metadata_errors) — every file fails until av<19 is installed."""
+    if "metadata_errors" in str(e):
+        py = "py" if sys.platform == "win32" else "python3"
+        return (f" — PyAV 19 dropped an argument faster-whisper still passes; {py} -m pip install \"av<19\" mends it "
+                "(requirements.txt pins it)")
+    return ""
 
 
 # ------------------------------------------------------------------ MUSIC ----
