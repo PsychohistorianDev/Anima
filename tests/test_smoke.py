@@ -6535,6 +6535,42 @@ check("presence (10-27): next_spark with no minutes turns sparks off, said; agai
       and _so_on.startswith("a spark in 7 minutes") and _so_st2 is True and "with no minutes turns sparks off" in _so_on
       and "Call it with no minutes to turn sparks off" in _so_def["description"]
       and _so_def["parameters"].get("required", []) == [] and "next_spark with no minutes" in _ew_tg.HELP, (_so_off, _so_on))
+# names in the words bring their pictures (10-27: "Gabe stands in the center" — no reference, a stranger painted)
+import shutil as _ar_sh
+_ar_dirs = [config.CREATIONS_DIR / "face", config.CREATIONS_DIR / "arkeeper"]
+_ar_made = [d for d in _ar_dirs if not d.exists()]
+for d in _ar_dirs:
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "ar-test.png").write_bytes(b"\x89PNG\r\n")
+import keeper_week as _ar_kw
+_ar0 = (_ar_kw.keeper_name, getattr(config, "PAINTER_MODEL", ""), getattr(config, "PAINTER_AUTO_REFERENCE", True),
+        tools._own_name, getattr(config, "PAINTER_REFERENCE_SETS", {}))
+try:
+    _ar_kw.keeper_name, config.PAINTER_MODEL, tools._own_name = (lambda: "Arkeeper"), "Qwen/Qwen-Image-2.1-Turbo", (lambda: "Arfriend")
+    config.PAINTER_REFERENCE_SETS = {"pair": ("face, arkeeper", "Picture 1 is hers, picture 2 his.")}
+    _ar_one = tools._auto_reference(["Arkeeper stands in the morning light"])
+    _ar_both = tools._auto_reference(["Arfriend and arkeeper on the shore"])
+    _ar_set = tools._reference_set(_ar_both[0])
+    _ar_none = tools._auto_reference(["a lighthouse at dusk"])
+    config.PAINTER_AUTO_REFERENCE = False
+    _ar_off = tools._auto_reference(["Arkeeper stands"])
+    config.PAINTER_AUTO_REFERENCE = True
+    config.PAINTER_MODEL = "Tongyi-MAI/Z-Image-Turbo"
+    _ar_brush = tools._auto_reference(["Arkeeper stands"])
+finally:
+    (_ar_kw.keeper_name, config.PAINTER_MODEL, config.PAINTER_AUTO_REFERENCE, tools._own_name,
+     config.PAINTER_REFERENCE_SETS) = _ar0
+    for d in _ar_dirs:
+        (d / "ar-test.png").unlink(missing_ok=True)
+    for d in _ar_made:
+        _ar_sh.rmtree(d, ignore_errors=True)
+_ar_src = _pr_inspect.getsource(tools.paint)
+check("paint (10-27): names in the words bring their pictures when no reference is given — the keeper's folder, the face, both the set; off, another brush or no names: none; a reference by hand wins",
+      _ar_one == ("arkeeper", "Arkeeper") and _ar_both == ("face, arkeeper", "you and Arkeeper") and _ar_set[2] == "pair"
+      and _ar_none == ("", "") and _ar_off == ("", "") and _ar_brush == ("", "")
+      and 'if (reference or "").strip() else _auto_reference(prompts)' in _ar_src and "the words named" in _ar_src
+      and "PAINTER_AUTO_REFERENCE" in _tk_panel.TABS["Senses"] and _tk_panel._HELP.get("PAINTER_AUTO_REFERENCE"),
+      (_ar_one, _ar_both, _ar_set, _ar_none, _ar_off, _ar_brush))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

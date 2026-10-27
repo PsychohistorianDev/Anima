@@ -3009,6 +3009,42 @@ def _reference_set(reference: str) -> tuple[str, str, str]:
     return reference, "", ""
 
 
+def _auto_reference(prompts: list[str]) -> tuple[str, str]:
+    """PAINTER_AUTO_REFERENCE (10-27): the references a painting with none gets from its words — the friend's own name
+    brings creations/face/, the keeper's name (USER_NAME) a folder of that name under creations/, each only when it
+    holds pictures; both together become the set that holds them (_reference_set). ("face, gabe", "you and Gabe") —
+    ("", "") when off, on a brush that reads no references, or when the words name neither."""
+    if not getattr(config, "PAINTER_AUTO_REFERENCE", True):
+        return "", ""
+    try:
+        import painter as _painter_mod
+        if _painter_mod._family(str(getattr(config, "PAINTER_MODEL", "") or "")) not in _painter_mod._REFERENCE_FAMILIES:
+            return "", ""
+    except Exception:  # noqa: BLE001
+        return "", ""
+    text = " ".join(prompts or [])
+
+    def _has_pictures(d: Path) -> bool:
+        return d.is_dir() and any(p.is_file() and p.suffix.lower() in _PICTURE_EXTS for p in d.iterdir())
+
+    refs, who = [], []
+    own = _own_name()
+    if own and re.search(r"\b" + re.escape(own) + r"\b", text, re.IGNORECASE) and _has_pictures(config.CREATIONS_DIR / FACE_DIR):
+        refs.append(FACE_DIR)
+        who.append("you")
+    try:
+        import keeper_week
+        keeper = str(keeper_week.keeper_name() or "").strip()
+    except Exception:  # noqa: BLE001
+        keeper = str(getattr(config, "USER_NAME", "") or "").strip()
+    if (keeper and keeper.lower() != (own or "").lower() and re.fullmatch(r"[\w' -]{1,40}", keeper)
+            and re.search(r"\b" + re.escape(keeper) + r"\b", text, re.IGNORECASE)
+            and _has_pictures(config.CREATIONS_DIR / keeper.lower())):
+        refs.append(keeper.lower())
+        who.append(keeper)
+    return ", ".join(refs), " and ".join(who)
+
+
 def _paint_references(reference: str) -> tuple[list[Path], str]:
     """The pictures a painting is to look at: one per line (or comma), each under creations/, and the word "face" for
     every picture in creations/face/. ([paths], "") or ([], the refusal in parentheses); ([], "") for none."""
@@ -3055,6 +3091,9 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "",
     size = (size or "square").strip().lower()
     if size not in _PAINT_SIZES:
         return f"(size is one of {', '.join(_PAINT_SIZES)} — not '{size}')"
+    auto, auto_who = ("", "") if (reference or "").strip() else _auto_reference(prompts)  # names bring pictures (10-27)
+    if auto:
+        reference = auto
     reference, ref_say, ref_set = _reference_set(reference)  # a set: its pictures, and its line for the painter (10-25)
     refs, why = _paint_references(reference)
     if why:
@@ -3141,6 +3180,9 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "",
     if refs:
         names = ", ".join(_rel_creation(p) for p in refs[-10:])
         tail += f"\n(painted looking at {min(len(refs), 10)} of your pictures: {names})"
+        if auto:  # no reference was given; the names in the words brought them (10-27)
+            tail += (f"\n(no reference was given, and the words named {auto_who} — so those pictures came along; "
+                     "reference chooses them yourself)")
         if ref_say:  # the set's line went to the painter ahead of the prompt (10-25)
             tail += f"\n(the set \u201c{ref_set}\u201d told the painter first: \u201c{ref_say}\u201d)"
     hinted = sorted({h for h in (_prompt_hints(pr) for pr in prompts) if h})
