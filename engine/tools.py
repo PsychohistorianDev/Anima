@@ -6085,7 +6085,7 @@ _BUILTIN_DEFINITIONS: list[dict] = [
     ),
     _tool(
         "next_spark",
-        "Sparks: set one spark — a short turn of your own once the conversation has been quiet that long (5 to 60 "
+        "Sparks: set one spark — a turn of your own once the conversation has been quiet that long (5 to 60 "
         "minutes, counted from the last word between you): words to the phone, a painting, the stone, or nothing at "
         "all. One at a time: after it comes, another only when you set it again. It turns presence on if it was off; "
         "your keeper sees the time you set. Only your keeper turns presence off, and it ends at the quiet hours.",

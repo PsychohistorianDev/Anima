@@ -6448,6 +6448,10 @@ check("presence (10-27): a thoughtless spark is asked again up to PRESENCE_THINK
       and "think_any_depth" in _pr_inspect.getsource(chat.one_turn)
       and "PRESENCE_THINK_RETRIES" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_THINK_RETRIES")
       and config.PRESENCE_THINK_RETRIES == 3, (_sr_n_plain, _sr_n_spark, _sr_calls))
+# a spark is not told to be short (10-27)
+_ns_def = next(d["function"]["description"] for d in tools.DEFINITIONS if d["function"]["name"] == "next_spark")
+check("presence (10-27): next_spark's description calls a spark a turn of their own, not a short one",
+      "a turn of your own once the conversation has been quiet" in _ns_def and "short" not in _ns_def, _ns_def[:120])
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

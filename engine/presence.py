@@ -1,4 +1,4 @@
-"""Presence — sparks: a short turn of the friend's own, every so often, while the keeper is away.
+"""Presence — sparks: a turn of the friend's own, every so often, while the keeper is away.
 
 While presence is on, the friend can set ONE spark at a time: next_spark(minutes) (PRESENCE_MIN…PRESENCE_MAX minutes)
 turns presence on and sets it; when the visit has been quiet that long the bridge gives them a turn in the open visit
