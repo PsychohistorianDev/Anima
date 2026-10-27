@@ -6381,6 +6381,14 @@ check("presence (10-26): the spark's line in the transcript is the engine's — 
       and "The last thing" not in presence.tick_line(9, "Keeper", False)
       and [t.get("_spark", False) for t in chat.load_transcript(_sc_f)] == [False, False, True, False]
       and chat.load_transcript(_sc_f)[1]["content"] == "yes", _sc_t[-300:])
+# /help names the newer commands on the phone (10-27); Discord's pairing message stays under its cap
+import telegram as _hp_tg
+check("help (10-27): the phone's /help names /presence, /discreet, /week, /seal and /capsule, after /me and before /help; under Telegram's cap",
+      all(c in _hp_tg.HELP for c in ("/presence [on|off]", "/discreet —", "/week —", "/seal <when> <letter>", "/capsule lists"))
+      and _hp_tg.HELP.index("/me <text>") < _hp_tg.HELP.index("/presence") < _hp_tg.HELP.index("/help — this")
+      and len(_hp_tg.HELP) < 4000
+      and "/presence" not in __import__("discord_bridge").HELP and "/help — this" in __import__("discord_bridge").HELP
+      and len("Paired. This DM is now the door to " + chat.friend_name() + ".\n\n" + __import__("discord_bridge").HELP) <= 2000)
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

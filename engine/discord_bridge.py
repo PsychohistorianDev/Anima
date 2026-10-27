@@ -72,7 +72,7 @@ FATAL_CLOSE = {4004: "Discord refused the token", 4010: "invalid shard", 4011: "
 # close codes after which the session is gone and a fresh identify is needed, not a resume
 FRESH_CLOSE = {4007, 4009}
 
-HELP = telegram.HELP.replace(
+HELP = telegram.HELP.replace(telegram.HELP_PHONE, "").replace(  # the phone's newer commands stay off (10-27)
     "(Bots can't fetch files over 20MB.)",
     "Any command works with ! in front as well (!new, !status), for when Discord's own menu pops up over a /.")
 

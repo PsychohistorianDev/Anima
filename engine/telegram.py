@@ -121,6 +121,17 @@ SPLIT_CHARS = 3800    # a text bubble this long is Telegram's own cut of a longe
 SPLIT_WAIT_S = 2      # how long the bridge waits for the rest of a cut message when the cut bubble ends a poll (TELEGRAM_SPLIT_WAIT_S overrides)
 TYPING_S = 4          # "typing…" lasts ~5s on the phone; renew a little sooner
 
+# the newer commands, on the phone's /help (10-27) — the Discord bridge takes them out of its own: its pairing
+# message, built from HELP, is at Discord's 2,000-character cap (and sparks are Telegram's)
+HELP_PHONE = (
+    "/presence [on|off] — sparks: whether one is set and when; on sets one at PRESENCE_DEFAULT_MIN; off ends them "
+    "(only you can)\n"
+    "/discreet — sparks come silently, the words hidden until tapped; again to undo\n"
+    "/week — the engine's week: the last seven days of calls to the brain\n"
+    "/seal <when> <letter> — a letter sealed until its day (/seal 2027-04-27 …, or /seal 6 months …); /capsule lists "
+    "what waits\n"
+)
+
 HELP = (
     "/new — save this conversation and start fresh\n"
     "/afterglow — the pause by hand: they sit with the visit so far now (what a quiet stretch of REFLECT_AFTER_MIN does on its own) "
@@ -141,6 +152,7 @@ HELP = (
     "/fold — fold the visit now: they write it so far in their own words, the last turns stay whole, the window has room again\n"
     "/guest <name> — a guest at your desk, with you in the room; /guest off when they go\n"
     "/me <text> — one message as you while a guest sits\n"
+    + HELP_PHONE +
     "/help — this\n\n"
     "Send a photo and they see it; a voice note and they hear you whole; a video and they "
     "watches it as stills and sound; a song and it lands in shared/music/ for them to listen "
