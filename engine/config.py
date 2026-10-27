@@ -621,6 +621,10 @@ HEARTBEAT_YIELD_CHECK_MIN = 10
 # time between visits instead. Only the start does it; a spark set again later
 # stands. False: the two run side by side.
 HEARTBEAT_ENDS_PRESENCE = True
+# While the heartbeat loop runs, sparks are held: next_spark and /presence on
+# set nothing, and no spark comes, until the heartbeat stops. False: a spark
+# set during the heartbeat stands.
+HEARTBEAT_HOLDS_PRESENCE = False
 
 # Minutes between wakes when heartbeat.py runs with --loop and no number
 # after it (--loop 60 on the command line still wins). A 12B does well waking

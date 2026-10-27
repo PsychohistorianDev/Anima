@@ -187,6 +187,18 @@ def mark_waking(on: bool) -> None:
         pass
 
 
+def held() -> bool:
+    """HEARTBEAT_HOLDS_PRESENCE and the heartbeat loop running (10-27): no spark may be set, and none comes, until the
+    heartbeat stops — the wakes have the time between visits. False when the knob is off or the loop isn't running."""
+    if not getattr(config, "HEARTBEAT_HOLDS_PRESENCE", False):
+        return False
+    try:
+        import doors
+        return bool(doors.status("heartbeat"))
+    except Exception:  # noqa: BLE001 — a door file that can't be read holds nothing
+        return False
+
+
 def waking() -> bool:
     try:
         return time.time() - WAKING_FILE.stat().st_mtime < WAKING_STALE_S
@@ -199,7 +211,7 @@ def due(last_activity: float, now: float | None = None, rng: random.Random | Non
     last roll all count, so a long poll rolls them together), past the temperament's soonest, under its hour's most.
     Never while a wake runs."""
     st = load()
-    if not st.get("on") or waking():
+    if not st.get("on") or waking() or held():
         return False
     t = float(now if now is not None else time.time())
     quiet = t - float(last_activity or 0)

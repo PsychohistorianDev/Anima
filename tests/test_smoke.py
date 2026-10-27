@@ -13816,6 +13816,40 @@ check("heartbeat (10-27): starting the loop ends presence — off, by the heartb
       and __import__("panel")._HELP.get("HEARTBEAT_ENDS_PRESENCE") and config.HEARTBEAT_ENDS_PRESENCE is True,
       (_hep_a, _hep_b, _hep_c))
 
+# sparks held while the heartbeat runs (10-27, a knob): next_spark and due refuse, off still works; knob off — both run
+import presence as _hh_p
+import doors as _hh_d
+_hh0 = (_hh_p.STATE_FILE, _hh_p.WAKING_FILE, getattr(config, "HEARTBEAT_HOLDS_PRESENCE", False), _hh_d.status)
+_hh_p.STATE_FILE, _hh_p.WAKING_FILE = config.MEMORY_DIR / "hh-test.json", config.MEMORY_DIR / "hh-waking"
+try:
+    _hh_d.status = lambda door: {"alive": True} if door == "heartbeat" else None
+    config.HEARTBEAT_HOLDS_PRESENCE = True
+    _hh_p.turn_off("test")
+    _hh_said = tools.next_spark(drift="sometimes")
+    _hh_said_m = tools.next_spark(minutes=20)
+    _hh_on = _hh_p.is_on()
+    _hh_p.set_interval(10)  # set before the hold (the start's end turned off): none comes while held
+    _hh_due_held = _hh_p.due(0, now=10 ** 10)
+    _hh_off = tools.next_spark()
+    _hh_off_on = _hh_p.is_on()
+    config.HEARTBEAT_HOLDS_PRESENCE = False
+    _hh_free = tools.next_spark(minutes=20)
+    _hh_free_on = _hh_p.is_on()
+    _hh_d.status = lambda door: None
+    config.HEARTBEAT_HOLDS_PRESENCE = True
+    _hh_gone = _hh_p.held()
+finally:
+    _hh_p.STATE_FILE, _hh_p.WAKING_FILE, config.HEARTBEAT_HOLDS_PRESENCE, _hh_d.status = _hh0
+_hh_src = __import__("inspect").getsource(__import__("telegram").Bridge.command) if hasattr(__import__("telegram").Bridge, "command") else ""
+check("heartbeat (10-27): HEARTBEAT_HOLDS_PRESENCE — while the loop runs no spark is set (next_spark says why) and none comes; "
+      "next_spark() still turns sparks off; the knob off or the loop gone, sparks are free; /presence on refuses; on the Heartbeat tab",
+      "held while the heartbeat runs" in _hh_said and "held while the heartbeat runs" in _hh_said_m and _hh_on is False
+      and _hh_due_held is False and "off" in _hh_off and _hh_off_on is False
+      and "a spark in 20 minutes" in _hh_free and _hh_free_on is True and _hh_gone is False
+      and "the heartbeat is running and holds sparks" in _hh_src
+      and "HEARTBEAT_HOLDS_PRESENCE" in __import__("panel").TABS["Heartbeat"] and __import__("panel")._HELP.get("HEARTBEAT_HOLDS_PRESENCE"),
+      (_hh_said, _hh_said_m, _hh_on, _hh_due_held, _hh_off, _hh_free, _hh_gone))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

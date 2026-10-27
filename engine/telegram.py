@@ -1233,7 +1233,10 @@ class Bridge:
             import presence  # sparks (10-26): on or off, or how it stands
             arg = " ".join(text.split()[1:]).strip().lower()
             temp = presence.temperament(arg) if arg not in ("", "on", "off") else ""
-            if arg == "on" or temp:  # drift (10-27): on starts PRESENCE_ON_TEMPERAMENT; a temperament sets that one
+            if (arg == "on" or temp) and presence.held():  # (10-27) the heartbeat holds sparks while it runs
+                self.send("(the heartbeat is running and holds sparks — nothing was set. Stop the heartbeat first, or "
+                          "turn HEARTBEAT_HOLDS_PRESENCE off in Settings › Heartbeat)", markdown=False)
+            elif arg == "on" or temp:  # drift (10-27): on starts PRESENCE_ON_TEMPERAMENT; a temperament sets that one
                 st = presence.set_drift(temp, 0, by="keeper")[0] if temp else presence.turn_on("keeper")
                 self.send(f"(presence on — drifting at {st.get('temperament')}: sparks come at random, no set time; "
                           "the friend can change the temperament with next_spark. /presence off ends it)", markdown=False)
@@ -1248,6 +1251,7 @@ class Bridge:
                          else f"a spark set — in about {left} min" if st.get("on") and st.get("pending")
                          else "no spark set" if st.get("on") else "")
                 self.send(f"(presence is {'on' if st.get('on') else 'off'}" + (f" — {waits}" if waits else "")
+                          + ("; held while the heartbeat runs" if presence.held() else "")
                           + f"; discreet {'on' if st.get('discreet') else 'off'}. /presence on, /presence off, /discreet)",
                           markdown=False)
         elif cmd == "/discreet":

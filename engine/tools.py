@@ -2124,6 +2124,10 @@ def next_spark(minutes=None, drift=None, ache=None) -> str:
     keeper = keeper_week.keeper_name()
     notes: list[str] = []
     d_raw = "" if drift is None else str(drift).strip()
+    turning_off = d_raw.lower() in _OFF_WORDS and (minutes is None or str(minutes).strip().lower() in _OFF_WORDS)
+    if not turning_off and presence.held():  # (10-27) the heartbeat runs and holds sparks — the keeper's knob
+        return (f"(sparks are held while the heartbeat runs — {keeper}'s choice: your wakes have the time between "
+                "visits now. Nothing was set; sparks are yours to set again once the heartbeat stops)")
     if d_raw.lower() not in _OFF_WORDS:
         name = presence.temperament(d_raw)
         if not name:
