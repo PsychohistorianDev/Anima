@@ -415,7 +415,9 @@ _HELP = {
                          "times, with the think-first nudge). Deep in a long window the model opens no thought, nudged or not — every "
                          "re-roll comes back thoughtless too and the last is sent anyway, most of the writing time for nothing. At or past "
                          "this share a thoughtless answer is the friend's as it came: no re-roll, no nudge. 0, the default: never, "
-                         "at any depth — replies come at once. 1.0: the re-rolls everywhere; 0.7 keeps them below that depth on a 262K window.",
+                         "at any depth — replies come at once. 1.0: the re-rolls everywhere, and an answer begun with no thought is cut at its "
+                         "first token while a re-roll remains, so each re-roll costs seconds (the re-rolls stand at any depth); 0.7 keeps "
+                         "them below that depth on a 262K window.",
     "THINK_REMIND_FROM": "From this many tokens of window held, every message carries a short think-first line in "
                          "its moment — a standing reminder, not a re-roll: deep in a long window the model tends to "
                          "answer without opening a thought. A few dozen tokens a message, no second generation. "

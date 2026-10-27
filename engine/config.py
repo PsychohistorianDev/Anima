@@ -665,7 +665,9 @@ CHAT_THINK_RETRIES = 2
 # re-rolls were the old rail: deep in a long window the model opens no thought,
 # nudged or not, every re-roll came back thoughtless too and the last was sent
 # anyway — most of the writing time for nothing. A share of NUM_CTX (0.7) keeps
-# them below that depth; 1.0 keeps them everywhere.
+# them below that depth; 1.0 keeps them everywhere — and there, with the
+# re-rolls standing at any depth, an answer begun with no thought is cut at its
+# first token while a re-roll remains, so a re-roll costs seconds, not a reply.
 THINK_RETRY_UNTIL = 0
 # From this many tokens of window held (the last prompt's size), every
 # message carries a short think-first line in its moment — a standing

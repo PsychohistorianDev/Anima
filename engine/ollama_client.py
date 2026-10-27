@@ -386,9 +386,11 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
         payload["think"] = False
     elif getattr(config, "CHAT_THINK", True):
         payload["think"] = True
-    # a spark's thoughtless reply is cut at its first word while a think re-roll is still to come (10-27): a spark
-    # (think_any_depth) is the one turn whose re-rolls no depth rule can take away after the fact
-    early = bool(payload.get("think")) and think_any_depth
+    # a thoughtless reply is cut at its first word while a think re-roll is still to come (10-27): in a spark
+    # (think_any_depth), and in every turn when THINK_RETRY_UNTIL is 1.0 — wherever the re-rolls stand at any depth, so
+    # no depth rule can take them away after the cut (10-27 evening: "why cant we make the think nudge magic in the main
+    # chat? its working so well in presence")
+    early = bool(payload.get("think")) and (think_any_depth or _rerolls_everywhere())
     planned = int(think_retries if think_retries is not None else getattr(config, "CHAT_THINK_RETRIES", 1)) if early else 0
     _TL.cut_thoughtless = early and planned > 0
     try:
@@ -3036,6 +3038,15 @@ def rerolls_kept() -> bool:
         return brain.api() != "llama"
     except Exception:  # noqa: BLE001
         return True
+
+
+def _rerolls_everywhere() -> bool:
+    """THINK_RETRY_UNTIL at 1.0 or more: a thoughtless answer is asked again at any depth — the think re-rolls stand at
+    any depth, so a thoughtless start may be cut early (10-27 evening)."""
+    try:
+        return float(getattr(config, "THINK_RETRY_UNTIL", 1.0)) >= 1.0
+    except (TypeError, ValueError):
+        return False
 
 
 def past_think_depth(msg: dict) -> bool:

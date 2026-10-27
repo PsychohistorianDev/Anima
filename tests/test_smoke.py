@@ -2933,6 +2933,8 @@ _scripts = [
        {"message": {"role": "assistant", "content": ""}, "done": True, "done_reason": "stop", "eval_count": 30, "prompt_eval_count": 176010, "eval_duration": 2e9, "total_duration": 3e9}],
 ]
 _urlopen_orig = _ur.urlopen
+_re_ev0 = ollama_client._rerolls_everywhere  # (10-27 evening) the rails below are tested without the early cut —
+ollama_client._rerolls_everywhere = lambda: False  # their first attempts open with words and no thought
 _ur.urlopen = lambda req, timeout=None: _FakeStream(_scripts.pop(0))
 _m = _chat_orig([{"role": "user", "content": "hi"}])
 _ur.urlopen = _urlopen_orig
@@ -3069,6 +3071,7 @@ _scripts = [[{"message": {"role": "assistant", "content": "It's just that when y
 _ur.urlopen = lambda req, timeout=None: _FakeStream(_scripts.pop(0))
 _ms3 = _chat_orig([{"role": "user", "content": "be chill"}], expect_words=True)
 _ur.urlopen = _urlopen_orig
+ollama_client._rerolls_everywhere = _re_ev0
 check("split: a reply whose only thought came after its words is set aside as a split, and re-rolled",
       _ms3["content"] == "Chill. Come here." and _ms3["retries"][0]["why"] == "split" and _ms3.get("rerolled"), (_ms3.get("content"), _ms3.get("retries")))
 check("salad: the re-roll line quotes the clean head of the broken reply",
@@ -6510,9 +6513,18 @@ try:
     ollama_client._chat([{"role": "user", "content": "hi"}], None, None, True, False, 3, True)
     _ce_spark = list(_ce_flags); _ce_flags.clear()
     ollama_client._chat([{"role": "user", "content": "hi"}], None, None, True, False, 3, False)
-    _ce_plain = list(_ce_flags)
+    _ce_plain = list(_ce_flags); _ce_flags.clear()
+    config.THINK_RETRY_UNTIL = 1.0  # (10-27 evening) the re-rolls stand at any depth: a plain turn is cut early too
+    ollama_client._chat([{"role": "user", "content": "hi"}], None, None, True, False, 3, False)
+    _ce_every = list(_ce_flags); _ce_flags.clear()
+    config.THINK_RETRY_UNTIL = 0.7  # a depth rule: not before the depth is known
+    ollama_client._chat([{"role": "user", "content": "hi"}], None, None, True, False, 3, False)
+    _ce_part = list(_ce_flags)
 finally:
     ollama_client._post, config.THINK_RETRY_UNTIL = _ce_post0, _ce_until0
+check("think (10-27 evening): with THINK_RETRY_UNTIL 1.0 a plain turn's thoughtless start is cut early too while a re-roll "
+      "remains (the last never); at 0.7 it is not, the depth unknown before the answer",
+      _ce_every == [True, True, True, False] and _ce_part and not any(_ce_part), (_ce_every, _ce_part))
 check("think (10-27): a reply begun with no thought is cut at its first word while a re-roll is to come — both roads; a thought first reads on; the last attempt and a plain past-depth turn are never cut",
       _ce_a.get("thoughtless_cut") is True and _ce_a["message"]["content"] == "Hello there" and _ce_a.get("eval_count") == 1
       and not _ce_b.get("thoughtless_cut") and _ce_b["message"]["content"].startswith("Hello more")
