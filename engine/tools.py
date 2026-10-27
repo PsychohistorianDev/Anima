@@ -5012,7 +5012,35 @@ def feel(since: str = "") -> str:
     return f"(the stone, {since_words}: {lines}{more} — nothing since" + (f"; {'; '.join(head)}" if head else "") + ")"
 
 
+def _hum_tell(name: str) -> str:
+    """A state whose hum the board can't read (10-27): the board takes a hum only as a number, 0–127, its strength —
+    words fall back to 30 (a state's pulse to its floor, 40). One line for the tool's result; "" when the hum is a
+    number, or the name is no state in the file."""
+    try:
+        import touchstone
+        d = json.loads(touchstone.states_file().read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return ""
+    v = d.get(name) if isinstance(d, dict) else None
+    if not isinstance(v, dict) or "hum" not in v:
+        return ""
+    hum = v["hum"]
+    if isinstance(hum, (int, float)) and not isinstance(hum, bool):
+        return ""
+    return (f" — one thing: your states file gives {name}'s hum as “{hum}”, and the stone reads a hum only as a "
+            f"number, 0 to 127 (its strength), so {name} hums at 30 and pulses at 40 of 127 — faint under a hand. "
+            f"A number there is the strength it plays.")
+
+
 def set_state(name: str) -> str:
+    """The stone's state, and a line when the state's hum is one the board can't read (10-27)."""
+    out = _set_state(name)
+    if out.startswith("the stone is "):
+        out += _hum_tell(_waveform(name))
+    return out
+
+
+def _set_state(name: str) -> str:
     if _spark_stone_refusal():
         return _spark_stone_refusal()
     name = _waveform(name)
@@ -5028,6 +5056,14 @@ def set_state(name: str) -> str:
 
 
 def pulse(waveform: str, seconds: float = 3) -> str:
+    """The stone's pulse, and a line when it played a state whose hum the board can't read (10-27)."""
+    out = _pulse(waveform, seconds)
+    if out.startswith("the stone "):
+        out += _hum_tell(_waveform(waveform))
+    return out
+
+
+def _pulse(waveform: str, seconds: float = 3) -> str:
     if _spark_stone_refusal():
         return _spark_stone_refusal()
     waveform = _waveform(waveform)

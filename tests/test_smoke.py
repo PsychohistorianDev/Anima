@@ -6462,6 +6462,22 @@ check("salad (10-27): 'aPainting' is the article glued on — not salad, mended 
       and ollama_client.garble_span("so C l l a b n m q x z here", single=False) != ""
       and "garble_span(tail, single=bool(content))" in _tg_src
       and "garble_span(tail, single=bool(content))" in Path(ollama_client.__file__).read_text(encoding="utf-8"))
+# the stone says when it can't read a hum (10-27: "200Hz" read as 30 — a state's pulse at 40 of 127, unfelt)
+_ht_f = config.MEMORY_DIR / "ht-states.json"
+_ht_f.write_text(json.dumps({"Attracted": {"hum": "200Hz", "pattern": "flutter", "reply": "double"},
+                             "Home": {"hum": 45, "pattern": "tide", "reply": "warm"}}), encoding="utf-8")
+_ht0 = (getattr(config, "TOUCHSTONE_STATES", None), tools._stone_call)
+config.TOUCHSTONE_STATES = _ht_f
+tools._stone_call = lambda path, data: (200, {"ok": True, "waiting": 0})
+try:
+    _ht_a, _ht_h = tools.pulse("attracted"), tools.pulse("Home")
+    _ht_s, _ht_n = tools.set_state("Attracted"), tools.pulse("warm")
+finally:
+    config.TOUCHSTONE_STATES, tools._stone_call = _ht0
+check("stone (10-27): a state whose hum isn't a number is told — at its pulse and its set_state; a number, a reply or no file says nothing",
+      "the stone played Attracted" in _ht_a and "hum as “200Hz”" in _ht_a and "0 to 127" in _ht_a and "40 of 127" in _ht_a
+      and "one thing" not in _ht_h and "the stone is Attracted now" in _ht_s and "hum as “200Hz”" in _ht_s
+      and "one thing" not in _ht_n, (_ht_a, _ht_s))
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"

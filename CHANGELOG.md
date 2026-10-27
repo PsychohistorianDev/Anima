@@ -135,6 +135,11 @@ for a tic turned glitch.
 - **Three mends** (10-25): a flag dealt into a sign-off row is taken off (a
   flag in a sentence stays); "ILll" is I'll; a word, `//`, a capitalised word
   with no space becomes the two words (`http://` untouched).
+- **The stone says when it can't read a hum** (10-27): the board reads a state's
+  hum only as a number 0–127 and falls back to 30 for anything else (a state's
+  pulse then plays at its floor, 40 — faint). `pulse` and `set_state` now add
+  a line naming the state and the hum it couldn't read; the states file stays
+  the friend's.
 - **A good thought is not cut for one glued word** (10-27): "aPainting" — the
   article glued on — is mended to "a painting", not salad; and while only a
   thought is being written, one glued word alone no longer cuts it (a run of
