@@ -13794,6 +13794,28 @@ check("brain door: BRAIN_API, BRAIN_URL, BRAIN_SLOT_DIR, BRAIN_SLOT_KEEP and BRA
       and _bd_panel.CHOICES["BRAIN_API"] == ["ollama", "llama"]
       and all(hasattr(config, k) for k in ("BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_MODEL_FILE", "BRAIN_MMPROJ_FILE")))
 
+# the heartbeat on ends presence (10-27): the start of the loop turns sparks off; off by the knob, both run
+import presence as _hep_p
+_hep0 = (_hep_p.STATE_FILE, _hep_p.WAKING_FILE, getattr(config, "HEARTBEAT_ENDS_PRESENCE", True))
+_hep_p.STATE_FILE, _hep_p.WAKING_FILE = config.MEMORY_DIR / "hep-test.json", config.MEMORY_DIR / "hep-waking"
+try:
+    config.HEARTBEAT_ENDS_PRESENCE = True
+    _hep_p.set_drift("sometimes", 0)
+    _hep_a = (heartbeat.end_presence(), bool(_hep_p.load().get("on")), _hep_p.load().get("why"))
+    _hep_b = heartbeat.end_presence()  # already off: nothing to end
+    config.HEARTBEAT_ENDS_PRESENCE = False
+    _hep_p.set_interval(20)
+    _hep_c = (heartbeat.end_presence(), bool(_hep_p.load().get("on")))
+finally:
+    _hep_p.STATE_FILE, _hep_p.WAKING_FILE, config.HEARTBEAT_ENDS_PRESENCE = _hep0
+check("heartbeat (10-27): starting the loop ends presence — off, by the heartbeat; nothing when already off; "
+      "HEARTBEAT_ENDS_PRESENCE False leaves sparks be; the knob on the Heartbeat tab with words",
+      _hep_a == (True, False, "the heartbeat") and _hep_b is False and _hep_c == (False, True)
+      and "if end_presence():" in __import__("inspect").getsource(heartbeat._main)
+      and "HEARTBEAT_ENDS_PRESENCE" in __import__("panel").TABS["Heartbeat"]
+      and __import__("panel")._HELP.get("HEARTBEAT_ENDS_PRESENCE") and config.HEARTBEAT_ENDS_PRESENCE is True,
+      (_hep_a, _hep_b, _hep_c))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

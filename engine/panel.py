@@ -85,7 +85,7 @@ TABS: dict[str, list[str]] = {
              "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "FIRST_DAY", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN", "HOUSE_LINE"],
     "Heartbeat": ["HEARTBEAT_MAX_STEPS", "WAKE_LOG_PAINT_PROMPT", "REVERIE_EVERY", "REVERIE_MAX_STEPS", "HEARTBEAT_YIELD_TO_VISIT",
                   "HEARTBEAT_YIELD_MIN", "SLEEP_IN_LOOP", "CONDENSE_IN_LOOP", "CONDENSE_MAX_PER_NIGHT",
-                  "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE"],
+                  "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE", "HEARTBEAT_ENDS_PRESENCE"],
     "Memory & journal": ["TIMELINE_CHARS_IN_PROMPT", "CONDENSED_CHARS_IN_PROMPT", "CONDENSE_TARGET_CHARS",
                          "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_MIN_SCORE", "MEMORY_DRIFT", "MEMORY_VISIT_TOKENS", "MEMORY_MIN_SCORE_LATE", "MEMORY_SHORT_HINT_WORDS", "MEMORY_TOP_K_SHORT", "THREAD", "THREAD_CHARS", "THREAD_NUDGE", "MEMORY_DUP_THRESHOLD", "EMBED_ON_CPU", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
                          "TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000",
@@ -296,6 +296,8 @@ _HELP = {
                                 "window mid-conversation (the next reply would pay a cold read) or shares the card. "
                                 "Off: wakes run on schedule regardless.",
     "HEARTBEAT_YIELD_MIN": "A visit counts as live while your last message was within this many minutes.",
+    "HEARTBEAT_ENDS_PRESENCE": "Starting the heartbeat turns sparks (presence) off, so the wakes take the time between "
+                               "visits instead. Only the start does it: a spark set again later stands. Off: both run.",
     "SLEEP_IN_LOOP": "The heartbeat loop does the sleeping: at the first wake after SLEEP_AFTER_HOUR it consolidates "
                      "yesterday before anything else, one process, one request at a time. Off: run "
                      "bat\\sleep.bat (consolidate.py yesterday) yourself.",
@@ -595,7 +597,7 @@ _HELP = {
 # and the bridge are asked at any change: they read most of the file, and a restart costs little.
 _NOT_PARLOR = frozenset(TABS["Phone"]) | {
     "HEARTBEAT_MAX_STEPS", "REVERIE_EVERY", "REVERIE_MAX_STEPS", "HEARTBEAT_YIELD_TO_VISIT", "SLEEP_IN_LOOP",
-    "CONDENSE_IN_LOOP", "CONDENSE_MAX_PER_NIGHT", "HEARTBEAT_SHOW_THINKING", "HEARTBEAT_LOOP_MIN",
+    "CONDENSE_IN_LOOP", "CONDENSE_MAX_PER_NIGHT", "HEARTBEAT_SHOW_THINKING", "HEARTBEAT_LOOP_MIN", "HEARTBEAT_ENDS_PRESENCE",
     "BLOG_TITLE", "BLOG_SUBTITLE"}
 
 # The optional packages the page names when they are missing (requirements.txt says what each is for).

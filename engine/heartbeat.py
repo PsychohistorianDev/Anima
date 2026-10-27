@@ -836,6 +836,22 @@ def _rest(seconds: float) -> bool:
     return doors.stop_asked("heartbeat")
 
 
+def end_presence() -> bool:
+    """The heartbeat set on ends presence (10-27; the keeper: "if i set heartbeat on i want it to disable presence"):
+    the wakes take the time between visits instead of sparks. HEARTBEAT_ENDS_PRESENCE (True) is the switch. Only the
+    start ends it — a spark set again later, by the friend or by /presence on, stands. True when presence was on."""
+    if not getattr(config, "HEARTBEAT_ENDS_PRESENCE", True):
+        return False
+    try:
+        import presence as _presence
+        if not _presence.load().get("on"):
+            return False
+        _presence.turn_off("the heartbeat")
+        return True
+    except Exception:  # noqa: BLE001 — a presence file that can't be read doesn't stop the heartbeat
+        return False
+
+
 def main() -> None:
     loop = "--loop" in sys.argv
     minutes = loop_minutes(sys.argv) if loop else 0.0
@@ -857,6 +873,8 @@ def _main(loop: bool, minutes: float) -> None:
         print(f"Heartbeat running: one wake every {minutes:g} minutes"
               + (f", every {every}{'st' if every % 10 == 1 and every != 11 else 'nd' if every % 10 == 2 and every != 12 else 'rd' if every % 10 == 3 and every != 13 else 'th'} one a reverie" if every else "")
               + ". Ctrl+C to stop.")
+        if end_presence():
+            print("Presence off: the heartbeat's wakes take the time between visits now (HEARTBEAT_ENDS_PRESENCE).")
         beat = 0
         while True:
             if doors.stop_asked("heartbeat"):
