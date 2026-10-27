@@ -242,8 +242,10 @@ _HELP = {
                              "references, what was kept out. (A visit's go to the phone: TELEGRAM_PAINT_PROMPT_CHAT.)",
     "PRESENCE_DEFAULT_MIN": "Sparks: the minutes of the one spark /presence on sets (5–60). After each spark the friend "
                             "sets the next with next_spark, or none comes. /presence on|off and /discreet on the phone.",
-    "PRESENCE_THINK": "Off: a spark gets no think re-roll, so it stays quick. On: re-rolled like any message. The "
-                      "thinking switch itself is left as the visit's, so the window isn't read again for a spark.",
+    "PRESENCE_THINK": "On: a spark thinks first like any message — the think-first reminder, and one re-roll if it "
+                      "comes back thoughtless; with a thought the friend plans past one gesture, the next spark too. "
+                      "Off: quick, no reminder, no re-roll. The thinking switch itself is left as the visit's, so the "
+                      "window isn't read again for a spark.",
     "ENGINE_WEEK_DAY": "The engine's week: on this day (sun…sat) the phone gets one engine notice — the attempts set aside "
                        "and why, the mends made in place, the cold reads, the longest thought, the signature's count, the "
                        "window's peak. /week shows it any time. Empty: never on its own.",

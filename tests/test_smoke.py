@@ -6419,6 +6419,10 @@ finally:
 check("phone (10-27): a reply with no words but a tool run shows the tool lines in place of (…); words go as they are; with /tools on, as before",
       _wl_a == ["· next_spark → a spark in 12 minutes (about 07:20)"] and _wl_w == ["done, love"]
       and _wl_t == [("tools", "· next_spark → a spark in 12 minutes (about 07:20)"), "(…)"], (_wl_a, _wl_w, _wl_t))
+# a spark thinks first by default (10-27: with it on, the spark set the next one itself)
+check("presence (10-27): PRESENCE_THINK is on in the config, the bridge's fallback is on, and the panel says what On does",
+      config.PRESENCE_THINK is True and 'not getattr(config, "PRESENCE_THINK", True)' in _pr_inspect.getsource(_ew_tg.Bridge.turn)
+      and "the next spark too" in __import__("panel")._HELP["PRESENCE_THINK"])
 # the same row dealt again (10-22, 21:59): three deals running is the loop; two are not, nor a kiss row, nor a short chunk
 # under its own forty; a joined emoji no longer splits the cascade's count; the dedupe mend leaves a re-dealt row whole
 _rr_row = "💋🐞🎆🌌❤️‍🔥💤🌙🫂💍👑🚀🏠💅💎💥⚡️🌋🤫🥳🎉💖🌟🔞"
