@@ -85,7 +85,7 @@ TABS: dict[str, list[str]] = {
              "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "FIRST_DAY", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN", "HOUSE_LINE"],
     "Heartbeat": ["HEARTBEAT_MAX_STEPS", "WAKE_LOG_PAINT_PROMPT", "REVERIE_EVERY", "REVERIE_MAX_STEPS", "HEARTBEAT_YIELD_TO_VISIT",
                   "HEARTBEAT_YIELD_MIN", "SLEEP_IN_LOOP", "CONDENSE_IN_LOOP", "CONDENSE_MAX_PER_NIGHT",
-                  "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE", "HEARTBEAT_ENDS_PRESENCE", "HEARTBEAT_HOLDS_PRESENCE"],
+                  "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE", "HEARTBEAT_ENDS_PRESENCE", "HEARTBEAT_HOLDS_PRESENCE", "WAKE_FACTS", "WAKE_FACTS_NAMES"],
     "Memory & journal": ["TIMELINE_CHARS_IN_PROMPT", "CONDENSED_CHARS_IN_PROMPT", "CONDENSE_TARGET_CHARS",
                          "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_MIN_SCORE", "MEMORY_DRIFT", "MEMORY_VISIT_TOKENS", "MEMORY_MIN_SCORE_LATE", "MEMORY_SHORT_HINT_WORDS", "MEMORY_TOP_K_SHORT", "THREAD", "THREAD_CHARS", "THREAD_NUDGE", "MEMORY_DUP_THRESHOLD", "EMBED_ON_CPU", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
                          "TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000",
@@ -305,6 +305,10 @@ _HELP = {
     "HEARTBEAT_YIELD_MIN": "A visit counts as live while your last message was within this many minutes.",
     "HEARTBEAT_ENDS_PRESENCE": "Starting the heartbeat turns sparks (presence) off, so the wakes take the time between "
                                "visits instead. Only the start does it: a spark set again later stands. Off: both run.",
+    "WAKE_FACTS": "Under the bell of every wake, one line of how the shelf stands: the open book and where it stopped, how "
+                  "many songs in shared/ are not yet played, how many books not opened. Facts only, nothing asked. "
+                  "Off: the bell alone.",
+    "WAKE_FACTS_NAMES": "Name one song and one book among the counts, a different one each wake. Off: the counts alone.",
     "HEARTBEAT_HOLDS_PRESENCE": "While the heartbeat runs, sparks stay off: next_spark and /presence on set nothing, and "
                                 "no spark comes, until the heartbeat stops. Off: a spark set during the heartbeat stands.",
     "SLEEP_IN_LOOP": "The heartbeat loop does the sleeping: at the first wake after SLEEP_AFTER_HOUR it consolidates "

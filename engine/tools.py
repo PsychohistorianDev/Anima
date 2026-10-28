@@ -2549,6 +2549,132 @@ def list_shared() -> str:
     return "\n".join(out)
 
 
+# ------------------------------------------------- what the shelf still holds unheard, unopened ----
+# WAKE_FACTS (10-28): the wake's bell carries one line of how the shelf stands — the open book, how many
+# songs have not been played, how many books not opened. "Seen" (shared_seen.json) is not "played": a look
+# at the shelf marks every name seen, so the songs heard keep a ledger of their own, memory/heard.json —
+# {path under shared/: the day}, written by every listen, in chat or in a wake. A kept song counts as heard
+# too. The first time the ledger is wanted it is filled from the logs' own lines ("[through your ears — …").
+_HEARD_FILE = config.MEMORY_DIR / "heard.json"
+_MUSIC_EXTS = {".mp3", ".wav", ".m4a", ".flac", ".ogg", ".oga", ".opus", ".aac", ".wma", ".aiff", ".aif"}
+_HEARD_LOG_RE = re.compile(r"\[through your ears — shared/([^;\]\n]+?\.[A-Za-z0-9]{2,5});")
+
+
+def _heard() -> dict:
+    """The ledger of songs heard: {path under shared/ (posix): the day}. Absent, it is filled once from the
+    logs in memory/episodic (the listens before it existed) and written."""
+    try:
+        d = json.loads(_HEARD_FILE.read_text(encoding="utf-8"))
+        if isinstance(d, dict):
+            return d
+    except (OSError, ValueError):
+        pass
+    d = {}
+    try:
+        for f in sorted(Path(config.EPISODIC_DIR).glob("*.md")):
+            try:
+                text = f.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            for m in _HEARD_LOG_RE.finditer(text):
+                d.setdefault(m.group(1).strip(), "before the ledger")
+    except OSError:
+        pass
+    try:
+        _HEARD_FILE.write_text(json.dumps(d, indent=1, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+    return d
+
+
+def _mark_heard(p) -> None:
+    """A file in shared/ was listened to: into the ledger, with the day."""
+    try:
+        shared = config.SHARED_DIR.resolve()
+        p = Path(p).resolve()
+        if shared not in p.parents:
+            return
+        d = _heard()
+        d[p.relative_to(shared).as_posix()] = date.today().isoformat()
+        _HEARD_FILE.write_text(json.dumps(d, indent=1, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _shelf_files() -> list[Path]:
+    root, files, _new, _old = shared_split()
+    return files
+
+
+def unplayed_songs() -> list[Path]:
+    """The songs in shared/ never listened to: not in the ledger, not kept in the songbook (by file or by
+    title and artist). Spoken notes (shared/letters/, voice-…) are not songs."""
+    root = config.SHARED_DIR.resolve()
+    voice_dir = Path(getattr(config, "VOICE_DIR", config.SHARED_DIR / "letters")).resolve()
+    heard = set(_heard())
+    try:
+        kept = memory.songs()
+    except Exception:  # noqa: BLE001 — no songbook is an empty songbook
+        kept = []
+    keys = {str(s.get("key") or "") for s in kept} - {""}
+    sources = {str(s.get("source") or "").replace("\\", "/").rsplit("/", 1)[-1].lower() for s in kept} - {""}
+    out = []
+    for p in _shelf_files():
+        if p.suffix.lower() not in _MUSIC_EXTS or p.name.lower().startswith("voice-"):
+            continue
+        if voice_dir == p.parent.resolve() or voice_dir in p.parents:
+            continue
+        if p.relative_to(root).as_posix() in heard or p.name.lower() in sources:
+            continue
+        try:
+            if song_key(*parse_song(p.name)) in keys:
+                continue
+        except Exception:  # noqa: BLE001
+            pass
+        out.append(p)
+    return out
+
+
+def unopened_books() -> list[Path]:
+    """The books in shared/ never opened: an EPUB anywhere, a PDF in a folder called books — with no bookmark."""
+    marks = {str(k).lower() for k in _bookmarks()}
+    out = []
+    for p in _shelf_files():
+        ext = p.suffix.lower()
+        if ext == ".epub" or (ext == ".pdf" and any(q.name.lower() == "books" for q in p.parents)):
+            if p.name.lower() not in marks:
+                out.append(p)
+    return out
+
+
+def open_books(n: int = 2) -> list[str]:
+    """The books in hand, newest sitting first: "Exhalation: chapter 12 of 20, last sitting 4 days ago" —
+    a bookmark not at the end, sat with within READING_OPEN_DAYS."""
+    open_days = int(getattr(config, "READING_OPEN_DAYS", 30) or 0)
+    today = date.today()
+    out = []
+    for name, bm in sorted(_bookmarks().items(), key=lambda kv: str(kv[1].get("date", "")), reverse=True):
+        kind = bm.get("kind") or ("epub" if str(name).lower().endswith(".epub") else "pdf")
+        total = int(bm.get("total") or 0)
+        if not total or not _is_book(kind, total):
+            continue
+        at = int(bm.get("chapter" if kind == "epub" else "page") or 0)
+        if bm.get("finished") or at >= total:
+            continue
+        try:
+            age = (today - date.fromisoformat(str(bm.get("date")))).days
+        except (TypeError, ValueError):
+            continue
+        if open_days and age > open_days:
+            continue
+        title = bm.get("title") or re.sub(r"\.(pdf|epub)$", "", str(name), flags=re.I)
+        when = "today" if age == 0 else "yesterday" if age == 1 else f"{age} days ago"
+        out.append(f"{title}: {'chapter' if kind == 'epub' else 'page'} {at} of {total}, last sitting {when}")
+        if len(out) >= n:
+            break
+    return out
+
+
 def shared_split() -> tuple[Path, list[Path], list[Path], list[Path]]:
     """One scan of shared/ for list_shared and the moment's shelf line: (root, every file, the NEW ones — not shown
     since the last look; with no memory of a look yet, the last two days — and the familiar). Her own spoken
@@ -3310,6 +3436,7 @@ def listen_to(source: str) -> str:
 
     source = (source or "").strip()
     found_by_words = ""  # the song's words given instead of its path (10-22): the shelf searched, the result says which file
+    heard_p = None  # the file heard, for the ledger of what has been played (10-28, WAKE_FACTS)
     if source.lower().startswith(("http://", "https://")):
         try:
             data = _fetch(source, max_bytes=_MAX_AUDIO_BYTES)
@@ -3342,6 +3469,7 @@ def listen_to(source: str) -> str:
             return "(that audio is too large — over 40MB; shorter pieces work best)"
         data = p.read_bytes()
         name = p.relative_to(config.ROOT.resolve()).as_posix()
+        heard_p = p
     fmt = _AUDIO_EXTS.get(ext)
     if not fmt and ext not in _TRANSCODE_EXTS:
         return f"(I don't recognize {ext or 'that'} as audio I can listen to)"
@@ -3416,6 +3544,8 @@ def listen_to(source: str) -> str:
                 parts.append(f"(the piece runs {_mmss(duration)}; you heard the first "
                              f"{_mmss(span * limit)} in passages — open your music ear for the whole)")
 
+    if heard_p is not None:
+        _mark_heard(heard_p)  # (10-28) played, whatever the ears made of it
     if found_by_words:
         parts.append("(found on the shelf by the words you gave — the file is the one named above)")
     if has("keep_song"):  # the songbook (10-03): the shelf is offered once, after the listen; the kept song named if it is one

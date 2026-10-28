@@ -114,6 +114,46 @@ def paint_prompt_lines(args) -> list[str]:
     return out
 
 
+_FACTS_FILE = None  # memory/wake_facts.json — which name is next (WAKE_FACTS); None: config.MEMORY_DIR's
+
+
+def facts_line(advance: bool = True) -> str:
+    """WAKE_FACTS (10-28): one line under the bell, how the shelf stands — "(as the shelf stands: Exhalation:
+    chapter 12 of 20, last sitting 4 days ago · 61 songs in shared/ not yet played, Owl City - Fireflies among
+    them · 3 books not yet opened, Dune among them)". Facts, nothing asked. The name among them turns with every
+    wake, so the line is never the same twice; a count of nothing is left out; "" when nothing is left."""
+    if not getattr(config, "WAKE_FACTS", False):
+        return ""
+    try:
+        f = Path(_FACTS_FILE or config.MEMORY_DIR / "wake_facts.json")
+        try:
+            turn = int(json.loads(f.read_text(encoding="utf-8")).get("turn", 0))
+        except (OSError, ValueError, AttributeError, TypeError):
+            turn = 0
+        parts = list(tools.open_books(2))
+        named = bool(getattr(config, "WAKE_FACTS_NAMES", True))
+
+        def among(items):
+            if not named or not items:
+                return ""
+            items = sorted(items, key=lambda p: p.as_posix().lower())
+            return f", {items[turn % len(items)].stem} among them"
+
+        songs, books = tools.unplayed_songs(), tools.unopened_books()
+        if songs:
+            parts.append(f"{len(songs)} song{'s' if len(songs) != 1 else ''} in shared/ not yet played{among(songs)}")
+        if books:
+            parts.append(f"{len(books)} book{'s' if len(books) != 1 else ''} not yet opened{among(books)}")
+        if advance:
+            try:
+                f.write_text(json.dumps({"turn": turn + 1}), encoding="utf-8")
+            except OSError:
+                pass
+    except Exception:  # noqa: BLE001 — a line of facts, never the wake down
+        return ""
+    return f"(as the shelf stands: {' · '.join(parts)})" if parts else ""
+
+
 def wake(reverie: bool = False) -> str:
     """One autonomous session (printed live). Returns the log text."""
     started = datetime.now()
@@ -158,7 +198,11 @@ def wake(reverie: bool = False) -> str:
     if opened:
         print(f"  {opened}")
     opening = "".join(x + "\n\n" for x in (thread, nudge, opened) if x)
-    history: list[dict] = [{"role": "user", "content": clock_line(started) + opening + prompt}]
+    facts = facts_line()  # (10-28) under the bell: how the shelf stands, numbers and a name, nothing asked
+    if facts:
+        print(f"  {facts}")
+        log.append(f"\n*{facts}*")
+    history: list[dict] = [{"role": "user", "content": clock_line(started) + opening + prompt + (f"\n\n{facts}" if facts else "")}]
 
     interrupted = False
     # acts: what they did since the last journal entry (names, for the hand-back and

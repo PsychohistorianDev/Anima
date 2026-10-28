@@ -154,6 +154,12 @@ for a tic turned glitch.
 - **Lately scrolls** (10-28): the panel's Lately asks for the last
   `LATELY_MORE` (200) rows and shows them in a box ten rows tall that scrolls;
   `/api/lately?n=` gives as many as asked, up to 500.
+- **How the shelf stands, under the bell** (10-28): `WAKE_FACTS` (new, off)
+  — one line under every wake's bell: the open book and where it stopped,
+  how many songs in `shared/` are not yet played, how many books not opened,
+  one of each named and turning each wake (`WAKE_FACTS_NAMES`). Facts only.
+  Every listen now goes in `memory/heard.json`, filled the first time from
+  the logs.
 - **Intense in every reply** (10-28): `PRESENCE_INTENSE_EVERY_TURN` (new,
   off) — while intense runs, every reply's moment carries the intense note
   too, not only the sparks; never with a guest seated.

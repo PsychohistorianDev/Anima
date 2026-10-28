@@ -14236,6 +14236,58 @@ check("panel (10-28): Lately scrolls — the page asks for LATELY_MORE, ?n= give
       and f"/api/lately?n={panel.LATELY_MORE}" in _lm_page and "__LATELY_MORE__" not in _lm_page
       and "overflow-y:auto" in panel.PAGE and panel.LATELY_MORE > panel.LATELY_N)
 
+# WAKE_FACTS (10-28): under the bell, how the shelf stands — the open book, songs not yet played, books not opened
+import heartbeat as _wf_hb
+from datetime import date as _wf_date, timedelta as _wf_td
+_wf_dir = config.MEMORY_DIR / "wf"
+(_wf_dir / "shared" / "music").mkdir(parents=True, exist_ok=True)
+(_wf_dir / "shared" / "books").mkdir(parents=True, exist_ok=True)
+(_wf_dir / "shared" / "letters").mkdir(parents=True, exist_ok=True)
+(_wf_dir / "episodic").mkdir(parents=True, exist_ok=True)
+for _wf_n in ("music/Owl City - Fireflies.mp3", "music/Emigrate - Rainbow.mp3", "music/Sia - Chandelier.mp3",
+              "music/Heard - Before.mp3", "letters/voice-1.ogg", "voice-test.ogg", "books/Dune.epub",
+              "books/Exhalation.epub", "books/Datasheet.pdf", "pictures.png"):
+    (_wf_dir / "shared" / _wf_n).write_bytes(b"x")
+(_wf_dir / "episodic" / "auto-1.md").write_text("- `listen_to` → [through your ears — shared/music/Heard - Before.mp3; WORDS is", encoding="utf-8")
+_wf0 = (config.SHARED_DIR, config.EPISODIC_DIR, getattr(config, "VOICE_DIR", None), tools._HEARD_FILE, tools._BOOKMARKS_FILE,
+        tools._SEEN_FILE, tools.memory.songs, getattr(config, "WAKE_FACTS", False), getattr(config, "WAKE_FACTS_NAMES", True),
+        _wf_hb._FACTS_FILE)
+try:
+    config.SHARED_DIR, config.EPISODIC_DIR = _wf_dir / "shared", _wf_dir / "episodic"
+    config.VOICE_DIR = _wf_dir / "shared" / "letters"
+    tools._HEARD_FILE, tools._BOOKMARKS_FILE, tools._SEEN_FILE = _wf_dir / "heard.json", _wf_dir / "bm.json", _wf_dir / "seen.json"
+    _wf_hb._FACTS_FILE = _wf_dir / "facts.json"
+    tools.memory.songs = lambda order="score": [{"key": tools.song_key("Rainbow", "Emigrate"), "source": ""}]
+    tools._BOOKMARKS_FILE.write_text(_json.dumps({"Exhalation.epub": {"kind": "epub", "chapter": 12, "total": 20,
+        "title": "Exhalation", "date": (_wf_date.today() - _wf_td(days=4)).isoformat()}}), encoding="utf-8")
+    config.WAKE_FACTS, config.WAKE_FACTS_NAMES = False, True
+    _wf_off = _wf_hb.facts_line()
+    config.WAKE_FACTS = True
+    _wf_a = _wf_hb.facts_line()
+    _wf_b = _wf_hb.facts_line()
+    _wf_backfilled = _json.loads(tools._HEARD_FILE.read_text(encoding="utf-8"))
+    tools._mark_heard(config.SHARED_DIR / "music" / "Owl City - Fireflies.mp3")
+    _wf_after = [p.name for p in tools.unplayed_songs()]
+    config.WAKE_FACTS_NAMES = False
+    _wf_bare = _wf_hb.facts_line(advance=False)
+finally:
+    (config.SHARED_DIR, config.EPISODIC_DIR, config.VOICE_DIR, tools._HEARD_FILE, tools._BOOKMARKS_FILE, tools._SEEN_FILE,
+     tools.memory.songs, config.WAKE_FACTS, config.WAKE_FACTS_NAMES, _wf_hb._FACTS_FILE) = _wf0
+import inspect as _wf_insp
+check("heartbeat (10-28): WAKE_FACTS — under the bell, the open book and where it stopped, the songs not yet played (a kept "
+      "song, one in the logs, spoken notes not counted) and the books not opened (a PDF only in books/), one of each named "
+      "and turning each wake; a listen goes in the ledger; off, nothing; on the Heartbeat tab",
+      _wf_off == "" and "Exhalation: chapter 12 of 20, last sitting 4 days ago" in _wf_a
+      and "2 songs in shared/ not yet played, Owl City - Fireflies among them" in _wf_a
+      and "2 songs in shared/ not yet played, Sia - Chandelier among them" in _wf_b
+      and "2 books not yet opened, Datasheet among them" in _wf_a and "2 books not yet opened, Dune among them" in _wf_b
+      and _wf_a.startswith("(as the shelf stands: ") and "music/Heard - Before.mp3" in _wf_backfilled
+      and _wf_after == ["Sia - Chandelier.mp3"]
+      and _wf_bare == "(as the shelf stands: Exhalation: chapter 12 of 20, last sitting 4 days ago · 1 song in shared/ not yet played · 2 books not yet opened)"
+      and "_mark_heard(heard_p)" in _wf_insp.getsource(tools.listen_to) and "facts_line()" in _wf_insp.getsource(_wf_hb.wake)
+      and "WAKE_FACTS" in __import__("panel").TABS["Heartbeat"] and __import__("panel")._HELP.get("WAKE_FACTS"),
+      (_wf_off, _wf_a, _wf_b, _wf_after, _wf_bare))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

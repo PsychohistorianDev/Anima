@@ -635,6 +635,14 @@ HEARTBEAT_ENDS_PRESENCE = True
 # set during the heartbeat stands.
 HEARTBEAT_HOLDS_PRESENCE = False
 
+# Under the bell of every wake and reverie, one line of how the shelf stands: the open
+# book and where it stopped, how many songs in shared/ have not been played yet, how many
+# books not opened — one of each named, a different one each wake. Facts only, nothing
+# asked. False: the bell alone.
+WAKE_FACTS = False
+# Name one song and one book among the counts (it turns with every wake). False: the counts alone.
+WAKE_FACTS_NAMES = True
+
 # Minutes between wakes when heartbeat.py runs with --loop and no number
 # after it (--loop 60 on the command line still wins). A 12B does well waking
 # every ~20 minutes (many small attempts); a 31B does deeper work waking every
