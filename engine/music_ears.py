@@ -87,7 +87,11 @@ def _load():
 
     _processor = _from(AutoProcessor)
     _device = device.pick(getattr(config, "MUSIC_EARS_DEVICE", "auto"), torch)
-    where = {"": 0 if _device == "cuda" else _device}  # the whole model on one device (0: the first card)
+    # the whole model on one device (0: the first card). On a Mac's GPU it loads on the processor and moves over whole
+    # (10-28, issue #6: transformers 5 loads in worker threads that stall pushing tensors to MPS — 0/830 for ten
+    # minutes; the processor and one move took seconds)
+    mps = _device == "mps"
+    where = {"": "cpu"} if mps else {"": 0 if _device == "cuda" else _device}
     dt = device.dtype(_device, torch)
     # whole model on the GPU, on purpose: if it doesn't fit we want to KNOW,
     # not silently run half of it from system memory. And FUSED attention
@@ -100,6 +104,9 @@ def _load():
     except (ValueError, TypeError):
         attn = "default"
         _model = _from(Cls, device_map=where, dtype=dt)
+    if mps:
+        _model = _model.to("mps")
+        _mps_mends()
     _model.eval()
     # a 20-minute song is far more audio tokens than the default generation
     # length allows for; lift it so long pieces don't trip a warning each time
@@ -110,6 +117,30 @@ def _load():
     held = device.allocated_gb(_device, torch)
     print(f"  music ear open ({time.time() - t0:.0f}s, on {_device}"
           + (f", {held:.1f} GB" if held is not None else "") + f", attention: {attn})", flush=True)
+
+
+def _mps_mends() -> bool:
+    """A Mac's GPU has no float64 (10-28, issue #6): Music Flamingo turns its audio-time rotation in float64, so that
+    one function runs on the processor and its result goes back to the device. A transformers that renames it is left
+    as it is. True when the mend is in place."""
+    try:
+        import importlib
+        mod = importlib.import_module("transformers.models.musicflamingo.modeling_musicflamingo")
+        orig = mod.apply_rotary_time_emb
+    except Exception:  # noqa: BLE001 — another transformers: nothing to mend, nothing broken by trying
+        return False
+    if getattr(orig, "_anima_cpu", False):
+        return True
+
+    def on_cpu(hidden_states, cos, sin):
+        where = hidden_states.device
+        if getattr(where, "type", "") != "mps":
+            return orig(hidden_states, cos, sin)
+        return orig(hidden_states.cpu(), cos.cpu(), sin.cpu()).to(where)
+
+    on_cpu._anima_cpu = True
+    mod.apply_rotary_time_emb = on_cpu
+    return True
 
 
 def _unload():

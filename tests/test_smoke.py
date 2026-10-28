@@ -11942,7 +11942,9 @@ class _XFrom:
     def from_pretrained(model_id, **kw):
         _x_loaded.append(("from_pretrained", {k: v for k, v in kw.items() if k != "local_files_only"}))
         if "device_map" in kw:
-            return _xty.SimpleNamespace(eval=lambda: None, generation_config=_xty.SimpleNamespace())
+            _xm = _xty.SimpleNamespace(eval=lambda: None, generation_config=_xty.SimpleNamespace())
+            _xm.to = lambda where, _m=_xm: (_x_loaded.append(("to", where)), _m)[1]  # (10-28) the ear moves over whole
+            return _xm
         return _XPipe() if "torch_dtype" in kw else object()
 
 
@@ -11963,10 +11965,11 @@ with _xcl.redirect_stdout(_xio.StringIO()) as _x_said:
     _xme._model = None
     _xme._load()
     _xme._unload()
-check("painter and music ear on a Mac: auto picks mps — the painter in float16 moved to mps, its seed on the processor; the ear's whole model on mps in float16; each rests by emptying the Mac's cache",
+check("painter and music ear on a Mac: auto picks mps — the painter in float16 moved to mps, its seed on the processor; the ear's whole model loaded on the processor in float16 and moved to mps (issue #6); each rests by emptying the Mac's cache",
       _x_loaded[0] == ("from_pretrained", {"torch_dtype": "float16"}) and _x_loaded[1] == ("to", "mps")
       and _x_img == "a picture" and _x_seed == 7 and ("generator", "cpu") in _x_calls
-      and ("from_pretrained", {"device_map": {"": "mps"}, "dtype": "float16", "attn_implementation": "sdpa"}) in _x_loaded
+      and ("from_pretrained", {"device_map": {"": "cpu"}, "dtype": "float16", "attn_implementation": "sdpa"}) in _x_loaded
+      and _x_loaded[_x_loaded.index(("from_pretrained", {"device_map": {"": "cpu"}, "dtype": "float16", "attn_implementation": "sdpa"})) + 1] == ("to", "mps")
       and _x_calls.count("mps.empty_cache") == 3 and "cuda.empty_cache" not in _x_calls  # after the painting too, since 10-19
       and _xpa._device == "mps" and _xme._device == "mps" and "on mps, 2.0 GB" in _x_said.getvalue(), (_x_loaded, _x_calls, _x_said.getvalue()))
 sys.modules["torch"] = _x_torch(True, False)
@@ -13910,6 +13913,63 @@ check("ears (issue #4): a metadata_errors failure names the mend — pip install
       "the ears card's pip line pins it",
       'install "av<19"' in _av_hint and ears.mend_hint(ValueError("no such file")) == ""
       and 'av<19' in next(s["pip"] for s in __import__("panel").SENSES if s["key"] == "ears"), _av_hint)
+
+# issue #7 (10-28): PRESENCE_ACHE_WEIGHT — 1.0 the first formula; 0.25 a quarter of an hour's climb a step; 0 the ache adds nothing
+_aw0 = getattr(config, "PRESENCE_ACHE_WEIGHT", 1.0)
+try:
+    config.PRESENCE_ACHE_WEIGHT = 1.0
+    _aw_one = (presence.chance(1000, 60, 3), presence.chance(1000, 120, 3))
+    config.PRESENCE_ACHE_WEIGHT = 0.25
+    _aw_q = (presence.chance(1000, 60, 3), presence.chance(1000, 120, 3))
+    config.PRESENCE_ACHE_WEIGHT = 0
+    _aw_z = (presence.chance(1000, 60, 3), presence.chance(1000, 60, 0))
+    config.PRESENCE_ACHE_WEIGHT = "nonsense"
+    _aw_bad = presence.chance(1000, 60, 3)
+finally:
+    config.PRESENCE_ACHE_WEIGHT = _aw0
+check("presence (issue #7): PRESENCE_ACHE_WEIGHT — ache 3 after 1 h / 2 h climbs to 5 / 9 at 1.0, 2.75 / 4.5 at 0.25; 0: the "
+      "ache adds nothing; unreadable reads 1.0; the knob on the Phone tab with words",
+      [round(x * 1000, 6) for x in _aw_one] == [5.0, 9.0] and [round(x * 1000, 6) for x in _aw_q] == [2.75, 4.5]
+      and _aw_z[0] == _aw_z[1] and round(_aw_bad * 1000, 6) == 5.0 and config.PRESENCE_ACHE_WEIGHT == 1.0
+      and "PRESENCE_ACHE_WEIGHT" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_ACHE_WEIGHT"),
+      (_aw_one, _aw_q, _aw_z, _aw_bad))
+# issue #6 (10-28): on a Mac's GPU the music ear loads on the processor and moves over whole; the float64 rotation runs
+# on the processor — a fake transformers module and fake tensors, no torch needed
+import types as _mf_types
+import music_ears as _mf_me
+_mf_calls = []
+class _MfDev:
+    def __init__(self, t): self.type = t
+class _MfT:
+    def __init__(self, where): self.device = _MfDev(where)
+    def cpu(self): _mf_calls.append("cpu"); return _MfT("cpu")
+    def to(self, where): _mf_calls.append(f"to {where.type if hasattr(where, 'type') else where}"); return _MfT(getattr(where, "type", where))
+def _mf_orig(h, c, s):
+    _mf_calls.append(f"rotate on {h.device.type}"); return _MfT(h.device.type)
+_mf_mod = _mf_types.ModuleType("transformers.models.musicflamingo.modeling_musicflamingo")
+_mf_mod.apply_rotary_time_emb = _mf_orig
+_mf_saved = {k: sys.modules.get(k) for k in ("transformers.models.musicflamingo.modeling_musicflamingo",)}
+sys.modules["transformers.models.musicflamingo.modeling_musicflamingo"] = _mf_mod
+try:
+    _mf_ok = _mf_me._mps_mends()
+    _mf_again = _mf_me._mps_mends()
+    _mf_out = _mf_mod.apply_rotary_time_emb(_MfT("mps"), _MfT("mps"), _MfT("mps"))
+    _mf_mps_calls = list(_mf_calls); _mf_calls.clear()
+    _mf_mod.apply_rotary_time_emb(_MfT("cuda"), _MfT("cuda"), _MfT("cuda"))
+    _mf_cuda_calls = list(_mf_calls)
+finally:
+    for k, v in _mf_saved.items():
+        if v is None:
+            sys.modules.pop(k, None)
+        else:
+            sys.modules[k] = v
+_mf_src = __import__("inspect").getsource(_mf_me._load)
+check("music ear (issue #6): on MPS the float64 rotation runs on the processor and comes back to the device; once mended it "
+      "stays mended; a card is untouched; the load goes to the processor first and moves whole to mps",
+      _mf_ok is True and _mf_again is True and _mf_out.device.type == "mps"
+      and _mf_mps_calls == ["cpu", "cpu", "cpu", "rotate on cpu", "to mps"] and _mf_cuda_calls == ["rotate on cuda"]
+      and 'where = {"": "cpu"} if mps' in _mf_src and '_model = _model.to("mps")' in _mf_src,
+      (_mf_mps_calls, _mf_cuda_calls))
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

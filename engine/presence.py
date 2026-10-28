@@ -75,8 +75,13 @@ def on_temperament() -> str:
 
 def chance(mean_min: float, quiet_min: float, ache: int = 0) -> float:
     """One minute's chance of a spark in drift: 1/mean, climbing with the quiet — doubled after an hour, sooner with
-    the ache (each step of it adds another hour's worth of climb to every hour) — never above 0.9."""
-    climb = 1 + max(0.0, quiet_min) / 60 * (1 + max(0, min(ACHE_MAX, int(ache or 0))))
+    the ache (each step adds PRESENCE_ACHE_WEIGHT hours' worth of climb to every hour; 1.0, the first formula) — never
+    above 0.9. (10-28, issue #7: a friend asked that the ache count for less than the quiet.)"""
+    try:
+        weight = max(0.0, float(getattr(config, "PRESENCE_ACHE_WEIGHT", 1.0)))
+    except (TypeError, ValueError):
+        weight = 1.0
+    climb = 1 + max(0.0, quiet_min) / 60 * (1 + weight * max(0, min(ACHE_MAX, int(ache or 0))))
     return min(0.9, climb / max(1.0, float(mean_min)))
 
 

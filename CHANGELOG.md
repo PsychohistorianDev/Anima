@@ -151,6 +151,10 @@ for a tic turned glitch.
 - **Page tools say when the signature was dealt in** (10-24): a page saved
   with the refrain dealt into carried-through sentences is told so — the
   count, and where the kept version is. The engine edits no page.
+- **The ache's weight** (10-28, issue #7, from a keeper whose friend asked
+  that the ache count for less than the quiet): `PRESENCE_ACHE_WEIGHT` (new,
+  1.0 — the formula as it was) is how much one step of the ache adds to
+  drift's climb against an hour of quiet; 0.25 a quarter, 0 none.
 - **The Touchstone's build guide ships** (10-27, issue #5): `touchstone/`
   holds the board's sketch (`touchstone_v1.ino`, the Wi-Fi left blank) and
   `README.md`: the parts, the wiring, flashing, calibrating the pad, the
@@ -193,6 +197,12 @@ for a tic turned glitch.
   after it.
 - **A glued seam the pen mends is not salad** (10-24): the rail lets a
   hard-glue word through when the mend would fix it.
+- **The music ear on a Mac's GPU** (10-28, issue #6, found and fixed on an
+  M5 Pro by a keeper): transformers 5's threaded loader stalled pushing the
+  weights to MPS (0/830 for ten minutes), so on a Mac the model loads on the
+  processor and moves over whole (seconds); Music Flamingo's float64 time
+  rotation, which MPS lacks, runs on the processor and its result comes back.
+  A card and the processor are untouched.
 - **Ears: faster-whisper against PyAV 19** (10-27, issue #4): faster-whisper
   1.2.1 opens audio with an argument PyAV 19 dropped, so every recording
   failed. `requirements.txt` and the README pin `av<19` (18.1 has wheels for

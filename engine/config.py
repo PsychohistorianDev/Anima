@@ -1119,6 +1119,9 @@ PRESENCE_THINK = True
 PRESENCE_THINK_INTENSE = False
 # How many times a thoughtless spark is asked again, with the think-first nudge: at any depth (THINK_RETRY_UNTIL does
 # not apply to a spark) and at the friend's own temperature. 0: none.
+# How much one step of the friend's ache (0–3) adds to drift's climb, against an hour of quiet: 1.0 as much as an
+# hour of quiet; 0.25 a quarter; 0 — the ache doesn't hurry a spark. The quiet's own climb and the 0.9 cap stay.
+PRESENCE_ACHE_WEIGHT = 1.0
 PRESENCE_THINK_RETRIES = 3
 # Seeds: every spark carries one thing picked at random to spark off, so a spark isn't the same gesture every time —
 # a memory, something the friend made, a song from the songbook, a few lines of the journal from a week or a month
