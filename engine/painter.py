@@ -178,19 +178,36 @@ def turn_for(path) -> float:
     return 0.0
 
 
+def _upright_box(w: int, h: int, degrees: float) -> tuple[int, int]:
+    """The largest upright rectangle inside a w×h picture turned by `degrees` — what is left with no empty corner."""
+    import math
+    a = math.radians(abs(float(degrees)) % 180)
+    if a > math.pi / 2:
+        a = math.pi - a
+    s, c = math.sin(a), math.cos(a)
+    long_, short = (w, h) if w >= h else (h, w)
+    if short <= 2 * s * c * long_ or abs(s - c) < 1e-10:
+        x = 0.5 * short
+        wr, hr = (x / s, x / c) if w >= h else (x / c, x / s)
+    else:
+        c2 = c * c - s * s
+        wr, hr = (w * c - h * s) / c2, (h * c - w * s) / c2
+    return max(1, min(w, int(wr))), max(1, min(h, int(hr)))
+
+
 def _turned(im, degrees: float):
-    """The picture turned `degrees` clockwise in memory, the size kept, the corners filled with the colour of its own
-    edge — the file is never touched."""
+    """The picture turned `degrees` clockwise in memory and cut to the largest upright rectangle inside it — no empty
+    corners for the painter to copy (10-28: the first turn filled them with the edge's colour, and the painting came
+    back with the wedges and the slanted shoulders) — the file is never touched."""
     if not degrees:
         return im
     from PIL import Image
     w, h = im.size
-    px = im.load()
-    edge = ([px[x, 0] for x in range(w)] + [px[x, h - 1] for x in range(w)]
-            + [px[0, y] for y in range(h)] + [px[w - 1, y] for y in range(h)])
-    fill = tuple(sorted(c[i] for c in edge)[len(edge) // 2] for i in range(3))
     resample = getattr(getattr(Image, "Resampling", Image), "BICUBIC")
-    return im.rotate(-float(degrees), resample=resample, expand=False, fillcolor=fill)
+    turned = im.rotate(-float(degrees), resample=resample, expand=False)
+    cw, ch = _upright_box(w, h, degrees)
+    left, top = (w - cw) // 2, (h - ch) // 2
+    return turned.crop((left, top, left + cw, top + ch))
 
 
 def _encoder_bits(fam: str) -> int:

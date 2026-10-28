@@ -14087,7 +14087,10 @@ try:
     _rt_t = _rt_p._turned(_rt_im, 90)
     _rt_v = max(sum(_rt_t.getpixel((_x, 8))) for _x in range(18, 23))   # the line stands upright now…
     _rt_h = max(sum(_rt_t.getpixel((8, _y))) for _y in range(18, 23))   # …and no longer lies across
-    _rt_pil = _rt_t.size == (40, 40) and _rt_v > 600 and _rt_h < 300 and _rt_p._turned(_rt_im, 0) is _rt_im
+    _rt_15 = _rt_p._turned(_rt_I.new("RGB", (187, 179), (10, 10, 60)), 15)  # (10-28) cut to its upright box, no wedges
+    _rt_pil = (_rt_t.size == (40, 40) and _rt_v > 600 and _rt_h < 300 and _rt_p._turned(_rt_im, 0) is _rt_im
+               and _rt_15.size == _rt_p._upright_box(187, 179, 15) == (155, 143)
+               and all(_rt_15.getpixel(xy) == (10, 10, 60) for xy in ((0, 0), (154, 0), (0, 142), (154, 142))))
 except ImportError:  # the CI has no Pillow: the turn itself is the painter's, tried where it paints
     _rt_pil = True
 check("painter (10-28): PAINTER_REFERENCE_TURN — a reference turned by its path, or its folder, clockwise; others not; a value "

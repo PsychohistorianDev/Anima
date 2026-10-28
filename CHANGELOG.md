@@ -161,8 +161,9 @@ for a tic turned glitch.
   off, one block as before. A voice note from the phone stays plain.
 - **A reference picture turned level** (10-28): `PAINTER_REFERENCE_TURN`
   (new, `{}`) — a path under `creations/` or a folder → degrees clockwise;
-  the picture is turned in memory before the painter sees it, the corners
-  filled with its own edge's colour, the file untouched. For a face that
+  the picture is turned in memory before the painter sees it and cut to the
+  largest upright rectangle inside it, so no empty corners ride along; the
+  file untouched. For a face that
   leans in its picture, which the painter copied into every painting.
 - **Feedback** (10-28): a tab on the panel that opens a filled-in GitHub
   issue form (version, system, brain; the engine report copied on request),
