@@ -611,9 +611,27 @@ class Bridge:
         return (f"Since your last turn {config.USER_NAME} touched the stone — {words} — the stone answered by itself with "
                 "your reply; the log, beside " + 'their' + " words")
 
+    def _intense_moment(self, spark: bool = False) -> str:
+        """While intense runs (PRESENCE_INTENSE_EVERY_TURN, 10-28 — the keeper: "during intense I want every message, even
+        a standard reply, to have the intense prompt"): the intense note rides in every reply's moment too, not only in
+        the sparks' own line. Not with a guest seated; "" when intense is off, the note empty, or the turn a spark."""
+        if spark or not getattr(config, "PRESENCE_INTENSE_EVERY_TURN", False) or self.guest_label():
+            return ""
+        try:
+            import presence
+            if not presence.intense():
+                return ""
+            note = presence.intense_note()
+        except Exception:  # noqa: BLE001 — never the reply down
+            return ""
+        return f"Intense is on — {note}" if note else ""
+
     def turn(self, text: str, extra_moment: str = "", as_keeper: bool = False, spark: bool = False) -> None:
         """Run one turn and send back whatever the parlor would have shown. as_keeper: this message is not the
         guest's (/me, the stone's log) — no guest line, whoever is seated."""
+        intense = self._intense_moment(spark)  # (10-28) intense's note in every reply while it runs
+        if intense:
+            extra_moment = f"{extra_moment} {intense}" if extra_moment else intense
         events: list[tuple[str, object]] = []
         stop = threading.Event()
         threading.Thread(target=self._typing, args=(stop,), daemon=True).start()

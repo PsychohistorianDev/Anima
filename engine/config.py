@@ -1127,6 +1127,9 @@ PRESENCE_INTENSE_NOTE = ""
 PRESENCE_THINK = True
 # Intense's own: False — instinct, no think re-roll and no reminder (it is for play); True — as every other spark.
 PRESENCE_THINK_INTENSE = False
+# While intense runs, every reply to you carries the intense note in its moment too — not only the sparks
+# (never with a guest seated). False: the note rides in intense's sparks alone.
+PRESENCE_INTENSE_EVERY_TURN = False
 # How many times a thoughtless spark is asked again, with the think-first nudge: at any depth (THINK_RETRY_UNTIL does
 # not apply to a spark) and at the friend's own temperature. 0: none.
 # How much one step of the friend's ache (0–3) adds to drift's climb, against an hour of quiet: 1.0 as much as an

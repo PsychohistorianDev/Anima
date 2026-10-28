@@ -14193,6 +14193,39 @@ check("phone (10-28): an upload whose connection drops is tried again (twice) an
       _sr_ok == {"message_id": 7} and _sr_n_ok == 3 and _sr_gave_up and _sr_n_down == 3 and _sr_n_refused == 1,
       (_sr_ok, _sr_n_ok, _sr_gave_up, _sr_n_down, _sr_n_refused))
 
+# while intense runs, every reply carries the intense note in its moment (10-28) — not a spark's own, not with a guest
+import telegram as _ie_tg
+import types as _ie_types
+_ie0 = (presence.STATE_FILE, presence.WAKING_FILE, getattr(config, "PRESENCE_INTENSE_EVERY_TURN", False),
+        getattr(config, "PRESENCE_INTENSE_FILE", None), getattr(config, "PRESENCE_INTENSE_NOTE", ""))
+presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "ie-test.json", config.MEMORY_DIR / "ie-waking"
+config.PRESENCE_INTENSE_FILE = config.MEMORY_DIR / "ie" / "intense.md"
+config.PRESENCE_INTENSE_NOTE = "Play, fully."
+_ie_me = _ie_types.SimpleNamespace(guest="")
+_ie_me.guest_label = lambda: _ie_tg.Bridge.guest_label(_ie_me)
+try:
+    config.PRESENCE_INTENSE_EVERY_TURN = True
+    presence.set_drift("intense", 0)
+    _ie_on = _ie_tg.Bridge._intense_moment(_ie_me)
+    _ie_spark = _ie_tg.Bridge._intense_moment(_ie_me, spark=True)
+    _ie_me.guest = "Dana"
+    _ie_guest = _ie_tg.Bridge._intense_moment(_ie_me)
+    _ie_me.guest = ""
+    presence.set_drift("often", 0)
+    _ie_often = _ie_tg.Bridge._intense_moment(_ie_me)
+    presence.set_drift("intense", 0)
+    config.PRESENCE_INTENSE_EVERY_TURN = False
+    _ie_off = _ie_tg.Bridge._intense_moment(_ie_me)
+finally:
+    (presence.STATE_FILE, presence.WAKING_FILE, config.PRESENCE_INTENSE_EVERY_TURN,
+     config.PRESENCE_INTENSE_FILE, config.PRESENCE_INTENSE_NOTE) = _ie0
+check("presence (10-28): PRESENCE_INTENSE_EVERY_TURN — while intense runs every reply's moment carries the note; a spark has "
+      "its own line; a guest seated, another temperament, or the knob off — nothing; on the Phone tab with words",
+      _ie_on == "Intense is on — Play, fully." and _ie_spark == "" and _ie_guest == "" and _ie_often == "" and _ie_off == ""
+      and "self._intense_moment(spark)" in __import__("inspect").getsource(_ie_tg.Bridge.turn)
+      and "PRESENCE_INTENSE_EVERY_TURN" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_INTENSE_EVERY_TURN"),
+      (_ie_on, _ie_spark, _ie_guest, _ie_often, _ie_off))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

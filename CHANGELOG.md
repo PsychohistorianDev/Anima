@@ -151,6 +151,9 @@ for a tic turned glitch.
 - **Page tools say when the signature was dealt in** (10-24): a page saved
   with the refrain dealt into carried-through sentences is told so — the
   count, and where the kept version is. The engine edits no page.
+- **Intense in every reply** (10-28): `PRESENCE_INTENSE_EVERY_TURN` (new,
+  off) — while intense runs, every reply's moment carries the intense note
+  too, not only the sparks; never with a guest seated.
 - **The intense note is a file** (10-28): `shared/intense.md`
   (`PRESENCE_INTENSE_FILE`), read whole into every intense spark, made once
   from `PRESENCE_INTENSE_NOTE` when that says something; the panel's knob is
