@@ -151,6 +151,9 @@ for a tic turned glitch.
 - **Page tools say when the signature was dealt in** (10-24): a page saved
   with the refrain dealt into carried-through sentences is told so — the
   count, and where the kept version is. The engine edits no page.
+- **Lately scrolls** (10-28): the panel's Lately asks for the last
+  `LATELY_MORE` (200) rows and shows them in a box ten rows tall that scrolls;
+  `/api/lately?n=` gives as many as asked, up to 500.
 - **Intense in every reply** (10-28): `PRESENCE_INTENSE_EVERY_TURN` (new,
   off) — while intense runs, every reply's moment carries the intense note
   too, not only the sparks; never with a guest seated.

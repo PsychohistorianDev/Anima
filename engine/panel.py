@@ -1483,6 +1483,7 @@ SKILL_TEXT_CHARS = 20000  # of a SKILL.md shown on the page — the keeper reads
 # line is the one the act itself left behind.
 _LATELY_STAMP = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}")
 LATELY_N = 10
+LATELY_MORE = 200  # what the page asks for (10-28): the list scrolls, ten rows tall
 
 
 def _under_root(rel: str) -> str:
@@ -1564,7 +1565,7 @@ def lately(n: int = LATELY_N) -> list[dict]:
         memory = None
     if memory is not None:
         try:
-            for m in memory.recent(kind="creation", n=60):
+            for m in memory.recent(kind="creation", n=max(60, LATELY_MORE)):  # (10-28) the pool the scroll can reach, the same for any n
                 stamps = _LATELY_STAMP.findall(m["text"])
                 when = max(stamps) if stamps else m["created"][:16].replace("T", " ")
                 line = re.sub(r"^\[(\w+) \d{4}-\d{2}-\d{2} \d{2}:\d{2}\]\s*", r"\1 ", m["text"].strip())  # the stamp is the when column
@@ -1573,7 +1574,7 @@ def lately(n: int = LATELY_N) -> list[dict]:
         except Exception:  # noqa: BLE001
             pass
         try:
-            for r in memory.songs("recent")[:20]:
+            for r in memory.songs("recent")[:max(20, LATELY_MORE)]:
                 hist = r.get("history") or []
                 again = f" again · {r['score']}/10" + (f" (was {hist[-1].get('score')})" if hist and hist[-1].get("score") != r["score"] else "") if hist else f" · {r['score']}/10"
                 items.append({"when": str(r.get("updated") or r.get("created") or "")[:16].replace("T", " "), "kind": "song",
@@ -1582,7 +1583,7 @@ def lately(n: int = LATELY_N) -> list[dict]:
         except Exception:  # noqa: BLE001
             pass
         try:
-            for m in memory.recent(kind="summary", n=6):
+            for m in memory.recent(kind="summary", n=max(6, LATELY_MORE // 10)):
                 t = m["text"].strip()
                 mm = re.match(r"\[consolidated (\d{4}-\d{2}-\d{2})\]\s*(.*)", t, re.S)
                 day, rest = (mm.group(1), mm.group(2)) if mm else ("", t)
@@ -1594,7 +1595,7 @@ def lately(n: int = LATELY_N) -> list[dict]:
     try:
         led = getattr(config, "PAGE_LEDGER", config.MEMORY_DIR / "page_history.jsonl")
         if led.exists():
-            for ln in led.read_text(encoding="utf-8").splitlines()[-20:]:
+            for ln in led.read_text(encoding="utf-8").splitlines()[-max(20, LATELY_MORE):]:
                 try:
                     rec = json.loads(ln)
                 except ValueError:
@@ -1825,10 +1826,16 @@ def route(method: str, path: str, body: bytes = b"", headers: dict | None = None
             from urllib.parse import parse_qs
             return _json_reply(skill_text((parse_qs(query).get("name") or [""])[0]))
         if path in ("/", "/index.html", "/settings", "/welcome", "/feedback"):
-            return 200, "text/html; charset=utf-8", PAGE.replace("__TABS__", json.dumps([*TABS, ADVANCED])).encode("utf-8")
+            return 200, "text/html; charset=utf-8", (PAGE.replace("__TABS__", json.dumps([*TABS, ADVANCED]))
+                                                     .replace("__LATELY_MORE__", str(LATELY_MORE))).encode("utf-8")
         if path == "/api/lately":
             try:
-                return _json_reply({"items": lately()})
+                from urllib.parse import parse_qs
+                try:  # ?n= — the page asks for LATELY_MORE (10-28); none: LATELY_N
+                    n = max(1, min(500, int((parse_qs(query).get("n") or [LATELY_N])[0])))
+                except ValueError:
+                    n = LATELY_N
+                return _json_reply({"items": lately(n)})
             except Exception as e:  # noqa: BLE001
                 return _json_reply({"items": [], "error": f"{type(e).__name__}: {e}"}, 500)
         if path == "/api/state":
@@ -1940,7 +1947,7 @@ a{color:var(--accent)}
 .light.on{background:var(--on);box-shadow:0 0 6px var(--on)}
 .bar{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-bottom:16px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
-#lately{margin-top:22px}#lately h3{margin:0 0 6px;font-size:15px}#lately ul{list-style:none;margin:0;padding:0}
+#lately{margin-top:22px}#lately h3{margin:0 0 6px;font-size:15px}#lately ul{list-style:none;margin:0;padding:0;max-height:34em;overflow-y:auto;overscroll-behavior:contain}
 #lately li{padding:6px 0;border-top:1px solid var(--line);font-size:14px;display:flex;gap:12px}#lately li:last-child{border-bottom:1px solid var(--line)}
 #lately .when{color:var(--muted);white-space:nowrap;min-width:9em;font-size:13px}#lately .kind{color:var(--accent);min-width:4.5em;font-size:13px}
 #lately li.open{cursor:pointer}#lately li.open:hover{background:var(--chip)}
@@ -2048,10 +2055,10 @@ function whenWords(w){const d=w.slice(0,10),t=w.slice(11,16),now=new Date(),td=n
   const y=new Date(now.getTime()-86400000);const yd=new Date(y.getTime()-y.getTimezoneOffset()*60000).toISOString().slice(0,10);
   const tl=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,10);
   return (d===tl?'today':d===yd?'yesterday':d)+(t?' '+t:'')}
-async function lately(){let r;try{r=await (await fetch('/api/lately')).json()}catch(e){return}
+async function lately(){let r;try{r=await (await fetch('/api/lately?n=__LATELY_MORE__')).json()}catch(e){return}
   const box=$('lately');if(!r.items||!r.items.length){box.hidden=true;return}
   box.replaceChildren(el('h3',{},'Lately'),el('ul',{},r.items.map(i=>el('li',i.path?{class:'open',title:'open '+i.path,onclick:async()=>{const o=await post('/api/open',{path:i.path});say(o.note,o.ok?'':'warn')}}:{},el('span',{class:'when'},whenWords(i.when)),el('span',{class:'kind'},KINDS[i.kind]||i.kind),el('span',{},i.line)))),
-    el('p',{class:'muted'},'what they did, newest first — pieces, songs, pages, nights; the journal as a count, never a line of it. A line with a file behind it opens it when clicked.'));
+    el('p',{class:'muted'},'what they did, newest first — pieces, songs, pages, nights; the journal as a count, never a line of it. A line with a file behind it opens it when clicked; scroll for more.'));
   box.hidden=false}
 setInterval(()=>{if(view==='home'&&!document.hidden&&built)lately()},60000);
 function lights(){for(const[d]of TILES){const st=S.doors[d],t=$('t-'+d);if(!t||!st)continue;

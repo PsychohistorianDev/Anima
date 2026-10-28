@@ -14226,6 +14226,16 @@ check("presence (10-28): PRESENCE_INTENSE_EVERY_TURN — while intense runs ever
       and "PRESENCE_INTENSE_EVERY_TURN" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_INTENSE_EVERY_TURN"),
       (_ie_on, _ie_spark, _ie_guest, _ie_often, _ie_off))
 
+# Lately scrolls (10-28): the page asks for LATELY_MORE rows; ?n= is honoured and capped; the list scrolls
+_lm_r = panel.route("GET", "/api/lately?n=3", b"", _PH)
+_lm_bad = panel.route("GET", "/api/lately?n=x", b"", _PH)
+_lm_page = panel.route("GET", "/", b"", _PH)[2].decode("utf-8")
+check("panel (10-28): Lately scrolls — the page asks for LATELY_MORE, ?n= gives that many at most, a bad n the default; the list "
+      "is a scrolling box",
+      len(_json.loads(_lm_r[2])["items"]) <= 3 and _lm_bad[0] == 200 and len(_json.loads(_lm_bad[2])["items"]) <= panel.LATELY_N
+      and f"/api/lately?n={panel.LATELY_MORE}" in _lm_page and "__LATELY_MORE__" not in _lm_page
+      and "overflow-y:auto" in panel.PAGE and panel.LATELY_MORE > panel.LATELY_N)
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)
