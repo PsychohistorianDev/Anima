@@ -14055,6 +14055,27 @@ check("painter (10-28): PAINTER_REFERENCE_TURN — a reference turned by its pat
       and "PAINTER_REFERENCE_TURN" in __import__("panel").TABS["Senses"] and __import__("panel")._HELP.get("PAINTER_REFERENCE_TURN"),
       (_rt_a, _rt_b, _rt_c, _rt_d, _rt_pil))
 
+# a song asked for by a near word (10-28: "Imagine Dragons - Bird"; the shelf had "Imagine Dragons - Birds.mp3")
+_lw_dir = config.SHARED_DIR / "music-lw-test"
+_lw_dir.mkdir(parents=True, exist_ok=True)
+(_lw_dir / "Imagine Dragons - Birds.mp3").write_bytes(b"ID3")
+(_lw_dir / "OneRepublic - Counting Stars.mp3").write_bytes(b"ID3")
+(_lw_dir / "Wren - Bird.mp3").write_bytes(b"ID3")
+(_lw_dir / "Wren - Birds.mp3").write_bytes(b"ID3")
+try:
+    _lw_a = [q.name for q in tools.audio_by_words("Imagine Dragons - Bird")]
+    _lw_b = [q.name for q in tools.audio_by_words("countng stars")]
+    _lw_c = [q.name for q in tools.audio_by_words("wren bird")]
+    _lw_d = tools.find_shared("dragons bird")
+    _lw_e = [q.name for q in tools.audio_by_words("the cat song")]
+finally:
+    __import__("shutil").rmtree(_lw_dir, ignore_errors=True)
+check("shelf (10-28): a song asked for by a near word is found — a plural's s, a letter off; an exact name still wins; "
+      "find_shared says 'nearly'; a word that is nowhere near finds nothing",
+      _lw_a == ["Imagine Dragons - Birds.mp3"] and _lw_b == ["OneRepublic - Counting Stars.mp3"] and _lw_c == ["Wren - Bird.mp3"]
+      and "Imagine Dragons - Birds.mp3" in _lw_d and "nearly in the name" in _lw_d and _lw_e == [],
+      (_lw_a, _lw_b, _lw_c, _lw_d, _lw_e))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

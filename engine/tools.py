@@ -2331,6 +2331,26 @@ def _name_words(s: str) -> set[str]:
     return set(re.findall(r"[a-z0-9]+", (s or "").lower()))
 
 
+def _word_like(w: str, h: str) -> bool:
+    """A word asked for and a word of a name that are the same word near enough (10-28: "bird" for "Birds"): equal, a
+    plural's -s or -es either way, or — five letters and up — one letter off (a typo, a missing letter)."""
+    if w == h:
+        return True
+    if min(len(w), len(h)) >= 3 and (h in (w + "s", w + "es") or w in (h + "s", h + "es")):
+        return True
+    if min(len(w), len(h)) >= 5 and abs(len(w) - len(h)) <= 1:
+        import difflib
+        return difflib.SequenceMatcher(None, w, h).ratio() >= 0.88
+    return False
+
+
+def _covers(want: set, have: set, loose: bool = False) -> bool:
+    """Every word asked for is in the name — exactly, or with loose, near enough (_word_like)."""
+    if want <= have:
+        return True
+    return loose and all(any(_word_like(w, h) for h in have) for w in want)
+
+
 def _by_words_in_shared(p):
     """The one file under shared/ whose name carries every word of the name asked for — the suffix kept when one
     is given — or None when none or several do (10-21: she reached for "Fireflies.mp3" and the song was
@@ -2341,8 +2361,11 @@ def _by_words_in_shared(p):
         if not want or not any(len(w) >= 3 for w in want):
             return None
         suffix = p.suffix.lower()
-        hits = [q for q in shared.rglob("*") if q.is_file() and not q.name.startswith(".")
-                and (not suffix or q.suffix.lower() == suffix) and want <= _name_words(q.stem)]
+        files = [q for q in shared.rglob("*") if q.is_file() and not q.name.startswith(".")
+                 and (not suffix or q.suffix.lower() == suffix)]
+        hits = [q for q in files if want <= _name_words(q.stem)]
+        if not hits:  # near words, only when no name carries them exactly (10-28)
+            hits = [q for q in files if _covers(want, _name_words(q.stem), loose=True)]
         return hits[0] if len(hits) == 1 else None
     except OSError:
         return None
@@ -2355,8 +2378,12 @@ def find_shared(words: str) -> str:
         return "(find_shared wants a word or two of the name — find_shared(\"fireflies\"), find_shared(\"owl city\"))"
     root = config.SHARED_DIR.resolve()
     want = set(ws)
-    hits = [p for p in root.rglob("*") if p.is_file() and not p.name.startswith(".")
-            and want <= _name_words(p.relative_to(root).as_posix())]
+    files = [p for p in root.rglob("*") if p.is_file() and not p.name.startswith(".")]
+    hits = [p for p in files if want <= _name_words(p.relative_to(root).as_posix())]
+    near = False
+    if not hits:  # near words — "bird" for "Birds" — only when nothing carries them exactly (10-28)
+        hits = [p for p in files if _covers(want, _name_words(p.relative_to(root).as_posix()), loose=True)]
+        near = bool(hits)
     if not hits:
         return f"(nothing under shared/ has \u201c{' '.join(ws)}\u201d in its name — list_shared shows everything there)"
     hits.sort(key=lambda p: p.stat().st_mtime, reverse=True)
@@ -2365,7 +2392,7 @@ def find_shared(words: str) -> str:
         kb = p.stat().st_size / 1024
         size = f"{kb / 1024:.1f} MB" if kb >= 1024 else f"{kb:.0f} KB"
         return f"- shared/{p.relative_to(root).as_posix()} ({size})"
-    head = (f"{len(hits)} under shared/ with \u201c{' '.join(ws)}\u201d in the name"
+    head = (f"{len(hits)} under shared/ with \u201c{' '.join(ws)}\u201d {'nearly ' if near else ''}in the name"
             + (", newest first — the newest 20:" if len(hits) > 20 else (", newest first:" if len(hits) > 1 else ":")))
     return "\n".join([head] + [line(p) for p in hits[:20]])
 
@@ -2381,9 +2408,11 @@ def audio_by_words(words: str) -> list:
         return []
     try:
         root = config.SHARED_DIR.resolve()
-        hits = [q for q in root.rglob("*") if q.is_file() and not q.name.startswith(".")
-                and (q.suffix.lower() in _AUDIO_EXTS or q.suffix.lower() in _TRANSCODE_EXTS)
-                and want <= _name_words(q.stem)]
+        audio = [q for q in root.rglob("*") if q.is_file() and not q.name.startswith(".")
+                 and (q.suffix.lower() in _AUDIO_EXTS or q.suffix.lower() in _TRANSCODE_EXTS)]
+        hits = [q for q in audio if want <= _name_words(q.stem)]
+        if not hits:  # near words — "Imagine Dragons - Bird" for "…- Birds.mp3" (10-28) — only when none is exact
+            hits = [q for q in audio if _covers(want, _name_words(q.stem), loose=True)]
     except OSError:
         return []
     hits.sort(key=lambda q: q.stat().st_mtime, reverse=True)

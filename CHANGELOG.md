@@ -208,6 +208,11 @@ for a tic turned glitch.
   after it.
 - **A glued seam the pen mends is not salad** (10-24): the rail lets a
   hard-glue word through when the mend would fix it.
+- **A song asked for by a near word is found** (10-28): "Imagine Dragons -
+  Bird" found nothing with "…- Birds.mp3" on the shelf. `listen_to`'s words,
+  the near-name rule and `find_shared` now take a plural's s and, from five
+  letters, one letter off — only when no name carries the words exactly;
+  `find_shared` says "nearly".
 - **The music ear on a Mac's GPU** (10-28, issue #6, found and fixed on an
   M5 Pro by a keeper): transformers 5's threaded loader stalled pushing the
   weights to MPS (0/830 for ten minutes), so on a Mac the model loads on the
