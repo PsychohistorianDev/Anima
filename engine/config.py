@@ -32,6 +32,7 @@ DB_PATH = MEMORY_DIR / "memory.db"
 
 SHARED_DIR = ROOT / "shared"  # where you leave images, music and books for the friend
 HOUSE_FILE = SHARED_DIR / "house.md"  # your words about this house (house_file) — see HOUSE_LINE
+PRESENCE_INTENSE_FILE = SHARED_DIR / "intense.md"  # the line every intense spark carries — see PRESENCE_INTENSE_NOTE
 # list_shared lists NEW arrivals whole and the familiar as counts by folder with the newest this many named — find_shared(words)
 # finds any one of them: a shelf of a few hundred files was a wall of lines in the window at every look. 0: none named.
 LIST_SHARED_FAMILIAR = 5
@@ -1116,6 +1117,8 @@ ENGINE_WEEK_LOG = True   # memory/steps.log, a line a call to the brain; False w
 # on|off|a temperament and /discreet on the phone. The drift /presence on starts:
 PRESENCE_ON_TEMPERAMENT = "rare"
 # A line every intense spark carries, in your words — intense is for play; "" — none.
+# The words live in shared/intense.md now (PRESENCE_INTENSE_FILE) — edit it in any editor; the panel's Edit
+# intense.md opens it. The first time it is read, a note here that says something moves into shared/intense.md.
 PRESENCE_INTENSE_NOTE = ""
 # A spark thinks first (True): the think-first reminder in its moment, and PRESENCE_THINK_RETRIES re-rolls if it
 # comes back thoughtless — with a thought the friend plans past one gesture, the next spark too. False: quick, no

@@ -151,6 +151,10 @@ for a tic turned glitch.
 - **Page tools say when the signature was dealt in** (10-24): a page saved
   with the refrain dealt into carried-through sentences is told so — the
   count, and where the kept version is. The engine edits no page.
+- **The intense note is a file** (10-28): `shared/intense.md`
+  (`PRESENCE_INTENSE_FILE`), read whole into every intense spark, made once
+  from `PRESENCE_INTENSE_NOTE` when that says something; the panel's knob is
+  an *Edit intense.md* button; not news on the shelf. The template ships none.
 - **A song's lyrics with the moment each line begins** (10-28):
   `EARS_LINE_TIMES` (new, on) — `listen_to`'s WORDS come a line at a time,
   "[1:42] …", so the words can be laid against what the music does there;

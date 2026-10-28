@@ -2564,7 +2564,8 @@ def shared_split() -> tuple[Path, list[Path], list[Path], list[Path]]:
         files = [p for p in sorted(root.rglob("*")) if p.is_file() and not p.name.startswith(".")]
         try:  # the keeper's words about the house ride in the prompt — not a thing on the shelf (10-27, house_file)
             _house = Path(getattr(config, "HOUSE_FILE", None) or config.SHARED_DIR / "house.md").resolve()
-            files = [p for p in files if p.resolve() != _house]
+            _intense = Path(getattr(config, "PRESENCE_INTENSE_FILE", None) or config.SHARED_DIR / "intense.md").resolve()  # (10-28)
+            files = [p for p in files if p.resolve() not in (_house, _intense)]
         except OSError:
             pass
     except OSError:

@@ -262,6 +262,37 @@ def quote(text: str, limit: int = 280) -> str:
     return q
 
 
+def intense_file(make: bool = False):
+    """shared/intense.md — PRESENCE_INTENSE_FILE (10-28): the line every intense spark carries, as a file to edit in
+    any editor (the panel's Edit intense.md). Absent, it is made once from a PRESENCE_INTENSE_NOTE that says something
+    — so the note moves over by itself — and, with make, empty."""
+    from pathlib import Path
+    p = Path(getattr(config, "PRESENCE_INTENSE_FILE", None) or config.SHARED_DIR / "intense.md")
+    if not p.is_file():
+        note = str(getattr(config, "PRESENCE_INTENSE_NOTE", "") or "").strip()
+        if note or make:
+            try:
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(note + "\n" if note else "", encoding="utf-8")
+            except OSError:
+                pass
+    return p
+
+
+def intense_note() -> str:
+    """The intense note as it rides: shared/intense.md read whole — a BOM and Windows line ends dropped, blank runs
+    kept as one, the ends trimmed — or PRESENCE_INTENSE_NOTE when the file can't be had. "" says nothing."""
+    p = intense_file()
+    try:
+        raw = p.read_text(encoding="utf-8-sig", errors="replace")
+    except OSError:
+        return str(getattr(config, "PRESENCE_INTENSE_NOTE", "") or "").strip()
+    text = "\n".join(ln.rstrip() for ln in raw.replace("\r\n", "\n").replace("\r", "\n").split("\n"))
+    while "\n\n\n" in text:
+        text = text.replace("\n\n\n", "\n\n")
+    return text.strip()
+
+
 def tick_line(minutes_quiet: float, keeper: str, at_work: bool, last_said: str = "", seed: str = "") -> str:
     """The engine's line that opens a spark — facts, the keeper's last message (10-26: so a spark picks up where the
     two of them were, not a ritual of its own), and what a spark can be."""
@@ -274,7 +305,7 @@ def tick_line(minutes_quiet: float, keeper: str, at_work: bool, last_said: str =
             else "a spark — the one you set with next_spark")
     if drift:
         ache = int(st.get("ache") or 0)
-        note = str(getattr(config, "PRESENCE_INTENSE_NOTE", "") or "").strip() if drift == "intense" else ""
+        note = intense_note() if drift == "intense" else ""
         tail = ((f"{note} " if note else "")
                 + f"You're drifting ({drift}{f', ache {ache}' if ache else ''}): the next spark comes on its own. "
                 "next_spark(drift=…) changes the temperament; next_spark() turns sparks off.]")

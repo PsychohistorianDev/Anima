@@ -245,8 +245,9 @@ _HELP = {
                                "often (~10 min), frequent (~5 min) or intense (a heartbeat: 0–1 min after every last word, for play). In drift sparks come at random, no set "
                                "time, until changed or stopped; next_spark(minutes=…) is still one spark at a time. "
                                "/presence <temperament> sets one from the phone.",
-    "PRESENCE_INTENSE_NOTE": "A line every intense spark carries, in your own words — intense is for play. Intense sparks "
-                             "carry no seed. Empty: none.",
+    "PRESENCE_INTENSE_NOTE": "A line every intense spark carries, in your own words — intense is for play. It lives in "
+                             "shared/intense.md (PRESENCE_INTENSE_FILE): Edit intense.md opens it, paragraphs welcome, read "
+                             "at the next intense spark. Intense sparks carry no seed. An empty file says nothing.",
     "PRESENCE_THINK": "On: a spark thinks first — the think-first reminder, and PRESENCE_THINK_RETRIES re-rolls if it "
                       "comes back thoughtless; with a thought the friend plans past one gesture, the next spark too. "
                       "Off: quick, no reminder, no re-roll. The thinking switch itself is left as the visit's, so the "
@@ -1514,11 +1515,22 @@ def open_file(rel: str) -> dict:
     return {"ok": True, "note": f"opening {rel}"}
 
 
+def intense_open() -> dict:
+    """The intense note, shared/intense.md (10-28, PRESENCE_INTENSE_FILE): made when absent (from PRESENCE_INTENSE_NOTE,
+    or empty), then opened for editing as house.md is."""
+    import presence
+    return _edit_open(presence.intense_file(make=True), lambda: len(presence.intense_note()), "read at the next intense spark")
+
+
 def house_open() -> dict:
     """The keeper's words about the house, shared/house.md (10-27, house_file): made when absent (from HOUSE_LINE,
     or empty), then opened for editing — the machine's editor for it, Notepad when Windows has none."""
     import assemble
-    p = assemble.house_file(make=True)
+    return _edit_open(assemble.house_file(make=True), lambda: len(assemble.house_text()), "read from the next message")
+
+
+def _edit_open(p, count, when: str) -> dict:
+    """A file of the keeper's words opened in the machine's editor (Notepad when Windows has none), its size said."""
     if not p.is_file():
         return _no(f"(couldn't make {p})")
     try:
@@ -1533,12 +1545,12 @@ def house_open() -> dict:
             subprocess.Popen(["xdg-open", str(p)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except (OSError, subprocess.SubprocessError) as e:
         return _no(f"(couldn't open {p.name}: {e})")
-    n = len(assemble.house_text())
+    n = count()
     try:
         shown = p.resolve().relative_to(ROOT.resolve()).as_posix()
     except ValueError:
         shown = str(p)
-    return {"ok": True, "note": f"opening {shown} — {n:,} characters now; saved, it is read from the next message"}
+    return {"ok": True, "note": f"opening {shown} — {n:,} characters now; saved, it is {when}"}
 
 
 def lately(n: int = LATELY_N) -> list[dict]:
@@ -1859,6 +1871,8 @@ def _post(path: str, g) -> tuple[int, str, bytes]:
             return _json_reply(report())
         if path == "/api/house":
             return _json_reply(house_open())
+        if path == "/api/intense":
+            return _json_reply(intense_open())
         if path == "/api/open":
             return _json_reply(open_file(g("path")))
         if path == "/api/pull":
@@ -2117,6 +2131,7 @@ function knob(k){let input,read=null;const v=k.value;
   else if(k.kind==='tuple2'){const a=el('input',{type:'number',step:'1',class:'small',value:v[0]}),b=el('input',{type:'number',step:'1',class:'small',value:v[1]});
     input=el('span',{},a,' to ',b);read=()=>[parseInt(a.value,10),parseInt(b.value,10)]}
   else{input=el('textarea',{rows:String(Math.min(8,k.source.split('\n').length+1)),spellcheck:'false'});input.value=k.source;read=()=>({raw:input.value})}
+  if(k.name==='PRESENCE_INTENSE_NOTE'){input=el('button',{onclick:async()=>{const o=await post('/api/intense',{});say(o.note,o.ok?'':'warn')}},'Edit intense.md');read=null}  // the words live in shared/intense.md (10-28)
   if(k.name==='HOUSE_LINE'){input=el('button',{onclick:async()=>{const o=await post('/api/house',{});say(o.note,o.ok?'':'warn')}},'Edit house.md');read=null}  // the words live in shared/house.md (10-27)
   if(read)fields[k.name]={k,read,box:null};
   const own=[k.comment,k.tail].filter(Boolean).join(' — '),help=k.help||own;  // the page's words when it has them; the file's note is the tooltip

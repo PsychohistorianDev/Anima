@@ -6704,6 +6704,8 @@ check("seeds (10-27): one of each kind — a memory, a piece (not a reference pi
 # drift and longing (10-27, sparks part two): a temperament, the dice once a minute, the soonest, the hour's most
 import random as _dr_rand
 _dr0 = (presence.STATE_FILE, presence.WAKING_FILE, getattr(config, "PRESENCE_INTENSE_NOTE", ""))
+_dr_if0 = getattr(config, "PRESENCE_INTENSE_FILE", None)
+config.PRESENCE_INTENSE_FILE = config.MEMORY_DIR / "dr-intense" / "intense.md"  # (10-28) the note's file, the test's own
 presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "dr-test.json", config.MEMORY_DIR / "dr-waking"
 try:
     _dr_names = [presence.temperament(x) for x in ("Very_Rare", "often!", "sometimes ", "INTENSE", "wild")]
@@ -6730,6 +6732,7 @@ try:
     _dr_mode = presence.load().get("mode")
 finally:
     presence.STATE_FILE, presence.WAKING_FILE, config.PRESENCE_INTENSE_NOTE = _dr0
+    config.PRESENCE_INTENSE_FILE = _dr_if0
 _dr_def = next(d["function"] for d in tools.DEFINITIONS if d["function"]["name"] == "next_spark")
 _dr_src = _pr_inspect.getsource(_ew_tg.Bridge)
 check("presence (10-27): drift — temperaments read kindly, the chance climbs with the quiet and the ache, a minute between rolls, the soonest, the hour's most; the line says the temperament, intense its note; on is rare; slips said",
@@ -14113,6 +14116,33 @@ check("shelf (10-28): a song asked for by a near word is found — a plural's s,
       _lw_a == ["Imagine Dragons - Birds.mp3"] and _lw_b == ["OneRepublic - Counting Stars.mp3"] and _lw_c == ["Wren - Bird.mp3"]
       and "Imagine Dragons - Birds.mp3" in _lw_d and "nearly in the name" in _lw_d and _lw_e == [],
       (_lw_a, _lw_b, _lw_c, _lw_d, _lw_e))
+
+# the intense note as a file (10-28): shared/intense.md — made once from PRESENCE_INTENSE_NOTE, read whole, edited by hand
+_in0 = (getattr(config, "PRESENCE_INTENSE_NOTE", ""), getattr(config, "PRESENCE_INTENSE_FILE", None), presence.STATE_FILE, presence.WAKING_FILE)
+presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "in-test.json", config.MEMORY_DIR / "in-waking"
+try:
+    config.PRESENCE_INTENSE_FILE = config.MEMORY_DIR / "in-a" / "intense.md"
+    config.PRESENCE_INTENSE_NOTE = "  Play,   fully. "
+    _in_mig = presence.intense_note()
+    _in_made = config.PRESENCE_INTENSE_FILE.read_text(encoding="utf-8")
+    config.PRESENCE_INTENSE_FILE.write_bytes("\ufeffYour words.\r\n\r\n\r\nA second line.\r\n".encode("utf-8"))
+    config.PRESENCE_INTENSE_NOTE = "set aside"
+    presence.set_drift("intense", 0)
+    _in_line = presence.tick_line(3, "Keeper", False)
+    config.PRESENCE_INTENSE_FILE = config.MEMORY_DIR / "in-b" / "intense.md"
+    config.PRESENCE_INTENSE_NOTE = ""
+    _in_none = (presence.intense_note(), config.PRESENCE_INTENSE_FILE.exists())
+finally:
+    config.PRESENCE_INTENSE_NOTE, config.PRESENCE_INTENSE_FILE, presence.STATE_FILE, presence.WAKING_FILE = _in0
+_in_panel = __import__("panel")
+check("presence (10-28): the intense note is shared/intense.md — made once from the knob, read whole (BOM, CRLF, blank runs "
+      "tidied) into every intense spark; no note, no file; the panel's knob is Edit intense.md through /api/intense",
+      _in_mig == "Play,   fully." and _in_made == "Play,   fully.\n" and "Your words.\n\nA second line." in _in_line
+      and "set aside" not in _in_line and _in_none == ("", False)
+      and "Edit intense.md" in _in_panel.PAGE and "/api/intense" in _in_panel.PAGE and callable(getattr(_in_panel, "intense_open", None))
+      and "shared/intense.md" in _in_panel._HELP["PRESENCE_INTENSE_NOTE"]
+      and str(config.PRESENCE_INTENSE_FILE).replace("\\", "/").endswith("shared/intense.md"),
+      (_in_mig, _in_made, _in_line[-200:], _in_none))
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
