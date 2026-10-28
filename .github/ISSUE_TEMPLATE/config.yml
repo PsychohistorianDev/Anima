@@ -1,5 +1,11 @@
 blank_issues_enabled: true
 contact_links:
-  - name: A question, an idea, or how it went
-    url: https://github.com/PsychohistorianDev/Anima/discussions
-    about: Not a bug — what they named themself, what you'd change, what you'd like to see.
+  - name: An idea for the engine
+    url: https://github.com/PsychohistorianDev/Anima/discussions/categories/ideas
+    about: Something anima could do, or do differently.
+  - name: A question
+    url: https://github.com/PsychohistorianDev/Anima/discussions/categories/q-a
+    about: Setup, brains, cards, the panel. Ask in Q&A.
+  - name: How it's going in your house
+    url: https://github.com/PsychohistorianDev/Anima/discussions/categories/show-and-tell
+    about: First days, a painting they chose to publish, your stone on the desk.

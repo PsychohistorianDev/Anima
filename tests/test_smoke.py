@@ -12037,7 +12037,7 @@ check("report: bat/report.bat with its .command and .sh twins beside it, each ru
       (_x_root / "bat" / "report.bat").read_bytes() == b'@echo off\r\ncd /d "%~dp0.."\r\npy engine\\report.py\r\npause\r\n'
       and (_x_root / "bat" / "report.sh").read_text(encoding="utf-8") == (_x_root / "bat" / "report.command").read_text(encoding="utf-8")
       and "python3 engine/report.py" in (_x_root / "bat" / "report.sh").read_text(encoding="utf-8")
-      and "anima-report.txt" in (_x_root / ".github" / "ISSUE_TEMPLATE" / "trouble.md").read_text(encoding="utf-8"))
+      and "anima-report.txt" in (_x_root / ".github" / "ISSUE_TEMPLATE" / "bug.yml").read_text(encoding="utf-8"))  # (10-28: the form replaced trouble.md)
 check("update: .command and .sh at the root and in bat/ are the engine's (creations/ never); written by the update they are executable, a .py is not",
       all(_upd.is_engine(r) for r in ("anima.command", "anima.sh", "bat/chat.command", "bat/telegram.sh", "wake.sh"))
       and not _upd.is_engine("creations/x.sh") and not _upd.is_engine("bat/sub/x.sh") and not _upd.is_engine("shared/run.command")
@@ -14004,6 +14004,28 @@ check("music ear (issue #6): on MPS the float64 rotation runs on the processor a
 check("panel (10-28): CHAT_THINK_RETRIES on the Talking tab, before THINK_RETRY_UNTIL, with words",
       __import__("panel").TABS["Talking"].index("CHAT_THINK_RETRIES") + 1 == __import__("panel").TABS["Talking"].index("THINK_RETRY_UNTIL")
       and __import__("panel")._HELP.get("CHAT_THINK_RETRIES"))
+
+# the panel's Feedback (10-28): links that open a filled-in form — the issue form with the version, system and brain; the
+# Discussions; an email. Nothing is sent from the panel.
+_fb_panel = __import__("panel")
+_fb_brain0 = _fb_panel.brain
+_fb_panel.brain = lambda values: {"vram_gb": 32}
+try:
+    _fb = _fb_panel.feedback()
+finally:
+    _fb_panel.brain = _fb_brain0
+_fb_form = config.ROOT / ".github" / "ISSUE_TEMPLATE" / "bug.yml"
+_fb_ids = (all(f"id: {i}" in _fb_form.read_text(encoding="utf-8") for i in ("version", "system", "brain", "report", "what"))
+           if _fb_form.is_file() else True)  # a house without the repository's .github has no form to check
+check("panel (10-28): Feedback — the issue form opens with version, system and brain filled in; Discussions for ideas, "
+      "questions and show and tell; an email with the same lines; a view of its own in the nav; the form's fields match",
+      _fb["ok"] and "/issues/new?template=bug.yml&version=" in _fb["issue"] and "&system=" in _fb["issue"] and "&brain=" in _fb["issue"]
+      and "32%20GB%20card" in _fb["issue"] and "anima version:" in _fb["summary"]
+      and _fb["ideas"].endswith("/discussions/categories/ideas") and _fb["qa"].endswith("/discussions/categories/q-a")
+      and _fb["show"].endswith("/discussions/categories/show-and-tell") and _fb["mail"].startswith("mailto:")
+      and 'id="nav-feedback"' in _fb_panel.PAGE and "/api/feedback" in _fb_panel.PAGE and "renderFeedback" in _fb_panel.PAGE
+      and "Nothing is sent from here" in _fb_panel.PAGE and _fb_ids,
+      (_fb.get("issue"), _fb.get("summary")))
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

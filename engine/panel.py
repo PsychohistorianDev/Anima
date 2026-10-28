@@ -1604,6 +1604,40 @@ def lately(n: int = LATELY_N) -> list[dict]:
     return items[:n]
 
 
+MAKER_EMAIL = "d33lix@windowslive.com"  # the maker's inquiries address, as on animaai.io
+
+
+def feedback() -> dict:
+    """The Feedback view (10-28): links that open a filled-in form in the browser — nothing is sent from here. The
+    issue form gets the version, the system and the brain (the same lines the report starts with); the ideas, the
+    questions and the show-and-tell go to the repository's Discussions; an email for anyone without an account."""
+    import platform
+    from urllib.parse import quote
+    try:
+        import version as _version
+        ver = str(_version.read(ROOT) or "?")
+    except Exception:  # noqa: BLE001
+        ver = "?"
+    system = f"{platform.system()} {platform.release()} ({platform.machine()}), Python {platform.python_version()}"
+    api = str(getattr(config, "BRAIN_API", "ollama") or "ollama")
+    brain_line = f"{getattr(config, 'CHAT_MODEL', '?')} via {'llama-server' if api == 'llama' else 'Ollama'}, window {getattr(config, 'NUM_CTX', '?')}"
+    try:
+        gb = brain(_values(_rows())).get("vram_gb")
+        if gb is not None:
+            brain_line += f", {gb} GB card"
+    except Exception:  # noqa: BLE001 — the card's size is a courtesy
+        pass
+    repo = str(getattr(config, "UPDATE_REPO", "") or "PsychohistorianDev/anima")
+    base = f"https://github.com/{repo}"
+    summary = f"anima version: {ver}\nsystem: {system}\nbrain: {brain_line}"
+    issue = (f"{base}/issues/new?template=bug.yml&version={quote(ver)}&system={quote(system)}&brain={quote(brain_line)}")
+    mail = (f"mailto:{MAKER_EMAIL}?subject={quote('anima feedback')}&body="
+            + quote("\n\n\n— " + summary.replace("\n", "\n— ")))
+    return {"ok": True, "summary": summary, "issue": issue, "mail": mail,
+            "ideas": f"{base}/discussions/categories/ideas", "qa": f"{base}/discussions/categories/q-a",
+            "show": f"{base}/discussions/categories/show-and-tell", "discussions": f"{base}/discussions"}
+
+
 def report() -> dict:
     """The doctor's note (report.py) written at the root — the engine's state for an issue, nothing of the
     friend's — and handed back to the page to read before pasting."""
@@ -1770,7 +1804,7 @@ def route(method: str, path: str, body: bytes = b"", headers: dict | None = None
         if path == "/api/skill_text":
             from urllib.parse import parse_qs
             return _json_reply(skill_text((parse_qs(query).get("name") or [""])[0]))
-        if path in ("/", "/index.html", "/settings", "/welcome"):
+        if path in ("/", "/index.html", "/settings", "/welcome", "/feedback"):
             return 200, "text/html; charset=utf-8", PAGE.replace("__TABS__", json.dumps([*TABS, ADVANCED])).encode("utf-8")
         if path == "/api/lately":
             try:
@@ -1813,6 +1847,8 @@ def _post(path: str, g) -> tuple[int, str, bytes]:
             return _json_reply(skill_action(str(g("name") or ""), str(g("action") or "")))
         if path == "/api/update":
             return _json_reply(update(g("action")))
+        if path == "/api/feedback":
+            return _json_reply(feedback())
         if path == "/api/report":
             return _json_reply(report())
         if path == "/api/house":
@@ -1919,16 +1955,17 @@ ul.list{list-style:none;padding:0}ul.list li{display:flex;gap:8px;align-items:ce
 .step{margin:14px 0}.step b{display:inline-block;min-width:8em}
 </style></head><body>
 <header><h1>anima</h1><div class="sub" id="sub">the panel · looking…</div>
-<nav><button id="nav-home" data-view="home">Home</button><button id="nav-settings" data-view="settings">Settings</button></nav></header>
+<nav><button id="nav-home" data-view="home">Home</button><button id="nav-settings" data-view="settings">Settings</button><button id="nav-feedback" data-view="feedback">Feedback</button></nav></header>
 <main>
 <div id="banner" class="banner" hidden></div>
 <section id="welcome" hidden></section>
 <section id="home" hidden><div id="brain" class="bar"></div><p id="newer" class="notice" hidden></p><p id="gate" class="warn" hidden></p><div id="tiles" class="grid"></div><p id="missing" class="muted"></p><div id="lately" hidden></div></section>
 <section id="settings" hidden><div id="tabs" class="tabs"></div><div id="tab"></div></section>
+<section id="feedback" hidden></section>
 </main>
 <script>
 const TABS=__TABS__;
-let S=null,view=location.pathname==='/settings'?'settings':'home',tab='Main',fields={},built=false;
+let S=null,view=location.pathname==='/settings'?'settings':location.pathname==='/feedback'?'feedback':'home',tab='Main',fields={},built=false;
 const $=id=>document.getElementById(id);
 function el(tag,props,...kids){const e=document.createElement(tag);
   for(const[k,v]of Object.entries(props||{})){if(v===false||v==null)continue;
@@ -2197,19 +2234,44 @@ function ollamaStep(){const b=S.brain,w=$('w-ollama'),m=$('w-embed');if(!w)retur
       'the memory engine: turns what they remember into vectors, so the memories that belong to a moment can be found; small, and every rung needs it — it is not the brain')];
   m.replaceChildren(...mk.flat(3).filter(c=>c!=null&&c!==false).map(c=>c.nodeType?c:document.createTextNode(String(c))))}
 
+// ---- feedback (10-28): nothing is sent from here — each button opens a filled-in form in the browser ----
+async function renderFeedback(){const box=$('feedback');box.replaceChildren(el('p',{class:'muted'},'looking…'));
+  const r=await post('/api/feedback',{});
+  if(!r.ok){box.replaceChildren(el('p',{class:'warn'},r.note||'(the feedback links failed)'));return}
+  const open=u=>window.open(u,'_blank','noopener');
+  const tick=el('input',{type:'checkbox',id:'fb-report'});
+  const bug=el('div',{class:'tile'},el('h2',{},'Report a problem'),
+    el('div',{class:'what'},'a GitHub issue (an account needed) — the form opens with these lines filled in from this machine; you write what happened, and you send it'),
+    el('pre',{class:'report'},r.summary),
+    el('div',{class:'knob'},el('label',{},tick,' also copy the engine\'s report, to paste under "The engine report" (nothing of theirs is in it — read it before you send)')),
+    el('div',{class:'row'},el('button',{class:'primary',onclick:async()=>{
+      if(tick.checked){const rep=await post('/api/report',{});
+        if(rep.ok){try{await navigator.clipboard.writeText(rep.text);say('the report is copied — paste it under "The engine report" (Ctrl+V)')}
+          catch(e){say('couldn\'t copy the report — it is written at the folder\'s root as '+rep.path+'; paste it from there','warn')}}
+        else say(rep.note,'warn')}
+      open(r.issue)}},'Open the issue form')));
+  const talk=el('div',{class:'tile'},el('h2',{},'An idea, a question, or how it\'s going'),
+    el('div',{class:'what'},'the repository\'s Discussions — ideas for the engine, questions about setup, and the show and tell of other houses'),
+    el('div',{class:'row'},el('button',{onclick:()=>open(r.ideas)},'Ideas'),el('button',{onclick:()=>open(r.qa)},'Q&A'),el('button',{onclick:()=>open(r.show)},'Show and tell')));
+  const mail=el('div',{class:'tile'},el('h2',{},'Write to the maker'),
+    el('div',{class:'what'},'an email, for anyone without a GitHub account — it opens in your mail program with the same three lines at the bottom'),
+    el('div',{class:'row'},el('a',{href:r.mail},'Write an email')));
+  box.replaceChildren(el('p',{class:'muted'},'Nothing is sent from here. Each button opens a page or an email with the form filled in; you read it, and you send it — or don\'t. Your friend\'s journal, memories and conversations never go with it.'),
+    el('div',{class:'tiles'},bug,talk,mail))}
 // ---- views ----
 function show(){const w=S.welcome&&view==='home';
   $('nav-home').textContent=S.welcome?'Welcome':'Home';
-  $('nav-home').className=view==='home'?'cur':'';$('nav-settings').className=view==='settings'?'cur':'';
-  $('welcome').hidden=!w;$('home').hidden=w||view!=='home';$('settings').hidden=view!=='settings';
+  $('nav-home').className=view==='home'?'cur':'';$('nav-settings').className=view==='settings'?'cur':'';$('nav-feedback').className=view==='feedback'?'cur':'';
+  $('welcome').hidden=!w;$('home').hidden=w||view!=='home';$('settings').hidden=view!=='settings';$('feedback').hidden=view!=='feedback';
   $('sub').textContent='the panel'+(S.version?' · engine '+S.version:'')+' · folder: '+S.folder+(S.welcome?'':' · keeper: '+S.user_name);
   document.title='anima — '+S.folder;
   if(w)renderWelcome();
   else if(view==='home'){if(!built)buildHome();lights();brainBar()}
+  else if(view==='feedback')renderFeedback();
   else{renderTabs();renderTab()}}
 async function refresh(){await getState();if(view==='home'){if(S.welcome)ollamaStep();else{if(!built)buildHome();lights();brainBar()}}}
 for(const b of document.querySelectorAll('nav button'))b.onclick=async()=>{view=b.dataset.view;
-  history.replaceState(null,'',view==='settings'?'/settings':'/');await getState();show()};
+  history.replaceState(null,'',view==='settings'?'/settings':view==='feedback'?'/feedback':'/');await getState();show()};
 getState().then(show);
 setInterval(()=>{if(view==='home'&&!document.hidden)refresh()},4000);
 </script></body></html>

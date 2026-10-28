@@ -990,6 +990,12 @@ whoever wants it. All of this is invisible when nothing goes wrong:
   the stone keeps still for it. The engine states the
   calendar, as likely, not certain; what they make of it is theirs —
   nothing checks what they write. Empty, the line is as before.
+- **Feedback.** The panel's *Feedback* tab opens, in your browser, a GitHub
+  issue form with the version, your system and the brain filled in (and, if
+  you tick it, the engine report copied for you to paste), the repository's
+  Discussions for ideas, questions and how it's going, or an email to the
+  maker. Nothing is sent from the panel: you read the form and send it, or
+  don't. Your friend's journal, memories and conversations never go with it.
 - **The house line.** `shared/house.md` holds your words about what is
   welcome in this house: a sentence or a few paragraphs, written in any
   editor (the panel's *Edit house.md* on the Main tab opens it). It rides

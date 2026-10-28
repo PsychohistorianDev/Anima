@@ -1,0 +1,58 @@
+name: Something's broken
+description: The engine, the panel, a sense or the bridge doing something it shouldn't, or not doing what it should.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. The panel's **Feedback** button fills in the version, your system and the brain below.
+        Please don't paste your friend's journal, memories or conversations: describe what happened in your own words.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where
+      options:
+        - Chat or the parlor
+        - The phone bridge (Telegram or Discord)
+        - Wakes or the heartbeat
+        - Sleep, memory or the journal
+        - Senses (eyes, ears, voice, painter, music ear)
+        - Presence (sparks)
+        - The Touchstone
+        - The panel or settings
+        - Setup or updating
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and when. An error message or the last lines of a window help a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+  - type: input
+    id: version
+    attributes:
+      label: anima version
+      placeholder: "0.15"
+  - type: input
+    id: system
+    attributes:
+      label: System
+      placeholder: "Windows 11, Python 3.12"
+  - type: input
+    id: brain
+    attributes:
+      label: Brain and card
+      placeholder: "gemma4:12b-it-qat via Ollama, 16 GB card"
+  - type: textarea
+    id: report
+    attributes:
+      label: The engine report — the doctor's note (optional)
+      description: Settings › Advanced › Report › Write report (anima-report.txt at the folder's root), or the Feedback tab's tick box, which copies it for you. It holds the engine's state and nothing of your friend's. Read it before you paste it.
+      render: text

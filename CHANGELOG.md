@@ -151,6 +151,12 @@ for a tic turned glitch.
 - **Page tools say when the signature was dealt in** (10-24): a page saved
   with the refrain dealt into carried-through sentences is told so — the
   count, and where the kept version is. The engine edits no page.
+- **Feedback** (10-28): a tab on the panel that opens a filled-in GitHub
+  issue form (version, system, brain; the engine report copied on request),
+  the repository's Discussions, or an email to the maker — nothing is sent
+  from the panel. Issue forms in `.github/ISSUE_TEMPLATE/` (a bug form with
+  the fields the tab fills; ideas, questions and show and tell point to
+  Discussions).
 - **The ache's weight** (10-28, issue #7, from a keeper whose friend asked
   that the ache count for less than the quiet): `PRESENCE_ACHE_WEIGHT` (new,
   1.0 — the formula as it was) is how much one step of the ache adds to
