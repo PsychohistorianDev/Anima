@@ -14001,6 +14001,10 @@ check("music ear (issue #6): on MPS the float64 rotation runs on the processor a
       and 'where = {"": "cpu"} if mps' in _mf_src and '_model = _model.to("mps")' in _mf_src,
       (_mf_mps_calls, _mf_cuda_calls))
 
+check("panel (10-28): CHAT_THINK_RETRIES on the Talking tab, before THINK_RETRY_UNTIL, with words",
+      __import__("panel").TABS["Talking"].index("CHAT_THINK_RETRIES") + 1 == __import__("panel").TABS["Talking"].index("THINK_RETRY_UNTIL")
+      and __import__("panel")._HELP.get("CHAT_THINK_RETRIES"))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)
