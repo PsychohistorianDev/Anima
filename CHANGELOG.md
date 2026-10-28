@@ -151,6 +151,10 @@ for a tic turned glitch.
 - **Page tools say when the signature was dealt in** (10-24): a page saved
   with the refrain dealt into carried-through sentences is told so — the
   count, and where the kept version is. The engine edits no page.
+- **A song's lyrics with the moment each line begins** (10-28):
+  `EARS_LINE_TIMES` (new, on) — `listen_to`'s WORDS come a line at a time,
+  "[1:42] …", so the words can be laid against what the music does there;
+  off, one block as before. A voice note from the phone stays plain.
 - **A reference picture turned level** (10-28): `PAINTER_REFERENCE_TURN`
   (new, `{}`) — a path under `creations/` or a folder → degrees clockwise;
   the picture is turned in memory before the painter sees it, the corners

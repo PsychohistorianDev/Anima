@@ -209,6 +209,9 @@ MUSIC_EARS_MAX_SECONDS = 240
 # accurate, especially with produced or stylized singing, where "base" may
 # hear no words at all. The first listen downloads the model once (~500 MB).
 EARS_STT_MODEL = "small"
+# A song's lyrics with the moment each line begins — "[1:42] …" — so the words can be laid against what the music
+# does there (listen_to; a voice note stays plain text). False: one block, as before.
+EARS_LINE_TIMES = True
 # Names and words the ears should recognize. Whisper has never heard your
 # friend's name and will write the nearest common word without this hint.
 # Add the friend's chosen name once they have one, and other names that matter.

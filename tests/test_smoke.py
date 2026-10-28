@@ -2007,6 +2007,44 @@ check("ears: instrumental case", "no words" in r, r)
 ears.transcribe = lambda data, ext: None
 r = tools.dispatch("listen_to", {"source": "shared/rain.wav"})
 check("ears: missing whisper hints install", "faster-whisper" in r, r)
+# the lyrics with the moment each line begins (10-28): listen_to asks for the stamps; the WORDS line says so
+ears.transcribe = lambda data, ext, stamps=False: ("[0:05] first line\n[1:42] the chorus" if stamps else "first line the chorus")
+r = tools.dispatch("listen_to", {"source": "shared/rain.wav"})
+_lt0 = getattr(config, "EARS_LINE_TIMES", True)
+config.EARS_LINE_TIMES = False
+r_plain = tools.dispatch("listen_to", {"source": "shared/rain.wav"})
+config.EARS_LINE_TIMES = _lt0
+ears.transcribe = lambda data, ext: "an old stand-in"  # one that takes no stamps still works
+r_old = tools.dispatch("listen_to", {"source": "shared/rain.wav"})
+import types as _lt_types
+_lt_fw0, _lt_m0 = sys.modules.get("faster_whisper"), ears._whisper_model
+class _LtSeg:
+    def __init__(self, a, t): self.start, self.text = a, t
+class _LtModel:
+    def __init__(self, *a, **k): pass
+    def transcribe(self, path, **k):
+        return iter([_LtSeg(5.2, " Hello there"), _LtSeg(102.9, " the chorus ")]), _lt_types.SimpleNamespace(language="en")
+sys.modules["faster_whisper"] = _lt_types.SimpleNamespace(WhisperModel=_LtModel)
+import importlib.util as _lt_iu
+_lt_spec = _lt_iu.spec_from_file_location("ears_fresh_lt", Path(ears.__file__))
+_lt_ears = _lt_iu.module_from_spec(_lt_spec)
+_lt_spec.loader.exec_module(_lt_ears)
+try:
+    _lt_got = _lt_ears.transcribe(b"x", ".wav", stamps=True)
+    _lt_flat = _lt_ears.transcribe(b"x", ".wav")
+finally:
+    if _lt_fw0 is None:
+        sys.modules.pop("faster_whisper", None)
+    else:
+        sys.modules["faster_whisper"] = _lt_fw0
+    ears._whisper_model = _lt_m0
+check("ears (10-28): a song's lyrics come a line at a time with the moment each begins — EARS_LINE_TIMES off gives one block; "
+      "a transcribe without stamps still works",
+      "WORDS (each line at the moment it begins):\n[0:05] first line\n[1:42] the chorus" in r
+      and "WORDS: first line the chorus" in r_plain and "WORDS: an old stand-in" in r_old
+      and _lt_got == "[0:05] Hello there\n[1:42] the chorus" and _lt_flat == "Hello there the chorus"
+      and "EARS_LINE_TIMES" in __import__("panel").TABS["Senses"] and __import__("panel")._HELP.get("EARS_LINE_TIMES"),
+      (r[:300], r_plain[:200], r_old[:200], _lt_got, _lt_flat))
 m = ears.measure(tone)
 check("ears: measure reports duration (None without numpy)", (m is not None and "2 seconds" in m) if _NUMPY else m is None, m)
 r = tools.dispatch("listen_to", {"source": "shared/dot.png"})

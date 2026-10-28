@@ -31,9 +31,15 @@ _whisper_model = None  # lazy singleton — loading takes a few seconds
 
 
 # ------------------------------------------------------------------ WORDS ----
-def transcribe(audio_bytes: bytes, ext: str) -> str | None:
+def _at(seconds: float) -> str:
+    s = max(0, int(seconds or 0))
+    return f"{s // 60}:{s % 60:02d}"
+
+
+def transcribe(audio_bytes: bytes, ext: str, stamps: bool = False) -> str | None:
     """Transcribe speech/lyrics. Returns None (with no side effects) if
-    faster-whisper isn't installed; raises nothing."""
+    faster-whisper isn't installed; raises nothing. stamps (10-28, a song's lyrics — EARS_LINE_TIMES): a line a
+    segment, each with the moment it begins, "[1:42] …", so the words can be laid against the music."""
     global _whisper_model
     try:
         import warnings
@@ -59,7 +65,10 @@ def transcribe(audio_bytes: bytes, ext: str) -> str | None:
                 tmp, vad_filter=True,
                 initial_prompt=getattr(config, "EARS_VOCAB_HINT", None),
             )
-            text = " ".join(s.text.strip() for s in segments).strip()
+            if stamps:
+                text = "\n".join(f"[{_at(getattr(s, 'start', 0))}] {s.text.strip()}" for s in segments if s.text.strip())
+            else:
+                text = " ".join(s.text.strip() for s in segments).strip()
         finally:
             Path(tmp).unlink(missing_ok=True)
         if not text:

@@ -100,7 +100,7 @@ TABS: dict[str, list[str]] = {
               "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD", "SLEEP_IN_BRIDGE", "SLEEP_IN_BRIDGE_QUIET_MIN",
               "ENGINE_WEEK_DAY", "ENGINE_WEEK_HOUR", "ENGINE_WEEK_COLD_S", "ENGINE_WEEK_LOG",
               "PRESENCE_ON_TEMPERAMENT", "PRESENCE_INTENSE_NOTE", "PRESENCE_THINK", "PRESENCE_THINK_INTENSE", "PRESENCE_THINK_RETRIES", "PRESENCE_SEEDS", "PRESENCE_ACHE_WEIGHT"],
-    "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_UNLOAD_BRAIN",
+    "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_LINE_TIMES", "EARS_UNLOAD_BRAIN",
                "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
                "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_REFERENCE_TURN", "PAINTER_AUTO_REFERENCE",
                "MUSIC_EARS_MODEL", "MUSIC_EARS_AUTOSTART", "MUSIC_EARS_PYTHON", "MUSIC_EARS_DEVICE", "MUSIC_EARS_REST_LEAVES",
@@ -507,6 +507,8 @@ _HELP = {
     "EARS_MODEL": "The model that does the HEARD layer — listening to the sound itself. The 12B has native audio, the "
                   "QAT build included (gemma4:12b-it-qat, measured); the bigger Gemmas are deaf, so a 31B brain keeps "
                   "the 12B on as its hearing organ.",
+    "EARS_LINE_TIMES": "A song's lyrics (listen_to) with the moment each line begins — \"[1:42] …\" — so the words "
+                       "can be laid against what the music does there. Off: one block of text. A voice note stays plain.",
     "EARS_STT_MODEL": "The faster-whisper size for the WORDS layer: \"base\" is quick, \"small\" hears words more "
                       "accurately (produced or stylised singing is where base gives up). The first listen downloads "
                       "it once, about 500 MB.",
@@ -668,7 +670,7 @@ SENSES: list[dict] = [
     {"key": "ears", "name": "Ears", "what": "listen_to — a recording or a song heard in three layers: WORDS (faster-whisper "
      "writes them down), SOUND (numpy measures it), HEARD (the brain listens to the sound itself, EARS_MODEL)",
      "modules": ["faster_whisper", "numpy"], "tools": ["ffmpeg"], "python": "",
-     "pip": "faster-whisper \"av<19\" numpy", "knobs": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_UNLOAD_BRAIN"],
+     "pip": "faster-whisper \"av<19\" numpy", "knobs": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_LINE_TIMES", "EARS_UNLOAD_BRAIN"],
      "readme": "their-senses-and-hands"},
     {"key": "voice", "name": "A voice", "what": "speak — their words as a voice note (Kokoro, 82M, open weights), carried to the "
      "phone beside the reply; which voice is theirs they choose once", "modules": ["kokoro", "soundfile"], "tools": ["ffmpeg"],

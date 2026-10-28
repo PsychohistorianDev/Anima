@@ -3357,11 +3357,17 @@ def listen_to(source: str) -> str:
 
     parts: list[str] = []
 
-    words = ears.transcribe(data, ext or ".wav")
+    stamps = bool(getattr(config, "EARS_LINE_TIMES", True))  # the moment each line begins (10-28)
+    try:
+        words = ears.transcribe(data, ext or ".wav", stamps=True) if stamps else ears.transcribe(data, ext or ".wav")
+    except TypeError:  # a transcribe that takes no stamps
+        words = ears.transcribe(data, ext or ".wav")
     if words is None:
         parts.append(f"WORDS: (word-hearing not installed yet — your keeper runs: {ears.INSTALL_HINT})")
     elif words == "":
         parts.append("WORDS: (no words — instrumental, or nothing spoken)")
+    elif words.startswith("[") and "] " in words.split("\n", 1)[0]:
+        parts.append(f"WORDS (each line at the moment it begins):\n{words}")
     else:
         parts.append(f"WORDS: {words}")
 
