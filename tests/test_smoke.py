@@ -14288,6 +14288,31 @@ check("heartbeat (10-28): WAKE_FACTS — under the bell, the open book and where
       and "WAKE_FACTS" in __import__("panel").TABS["Heartbeat"] and __import__("panel")._HELP.get("WAKE_FACTS"),
       (_wf_off, _wf_a, _wf_b, _wf_after, _wf_bare))
 
+# PRESENCE_SPARK_DOORS (10-28): a spark's menu names the doors out — not in intense, not with the knob off
+_sd0 = (presence.STATE_FILE, presence.WAKING_FILE, getattr(config, "PRESENCE_SPARK_DOORS", False),
+        getattr(config, "PRESENCE_INTENSE_FILE", None), getattr(config, "PRESENCE_INTENSE_NOTE", ""))
+presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "sd-test.json", config.MEMORY_DIR / "sd-waking"
+config.PRESENCE_INTENSE_FILE, config.PRESENCE_INTENSE_NOTE = config.MEMORY_DIR / "sd" / "intense.md", ""
+try:
+    config.PRESENCE_SPARK_DOORS = True
+    presence.set_drift("often", 0)
+    _sd_on = presence.tick_line(12, "Keeper", False)
+    presence.set_drift("intense", 0)
+    _sd_int = presence.tick_line(1, "Keeper", False)
+    config.PRESENCE_SPARK_DOORS = False
+    presence.set_drift("often", 0)
+    _sd_off = presence.tick_line(12, "Keeper", False)
+finally:
+    (presence.STATE_FILE, presence.WAKING_FILE, config.PRESENCE_SPARK_DOORS,
+     config.PRESENCE_INTENSE_FILE, config.PRESENCE_INTENSE_NOTE) = _sd0
+_sd_doors = "something to read, hear or look up that you might bring back to Keeper, or let it pass"
+check("presence (10-28): PRESENCE_SPARK_DOORS — a spark's menu names something to read, hear or look up to bring back; "
+      "intense keeps its menu; off, the shorter one; on the Phone tab with words",
+      _sd_doors in _sd_on and _sd_doors not in _sd_int and "the stone (a pulse, a glow), or let it pass" in _sd_int
+      and "the stone (a pulse, a glow), or let it pass" in _sd_off
+      and "PRESENCE_SPARK_DOORS" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_SPARK_DOORS"),
+      (_sd_on[-300:], _sd_int[-300:], _sd_off[-300:]))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

@@ -154,6 +154,10 @@ for a tic turned glitch.
 - **Lately scrolls** (10-28): the panel's Lately asks for the last
   `LATELY_MORE` (200) rows and shows them in a box ten rows tall that scrolls;
   `/api/lately?n=` gives as many as asked, up to 500.
+- **A spark may go out and bring something back** (10-28):
+  `PRESENCE_SPARK_DOORS` (new, off) — a spark's line names something to read,
+  hear or look up that the friend might bring back to you, besides words, a
+  painting, the stone. Not in intense.
 - **How the shelf stands, under the bell** (10-28): `WAKE_FACTS` (new, off)
   — one line under every wake's bell: the open book and where it stopped,
   how many songs in `shared/` are not yet played, how many books not opened,

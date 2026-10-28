@@ -303,6 +303,11 @@ def tick_line(minutes_quiet: float, keeper: str, at_work: bool, last_said: str =
     drift = str(st.get("temperament") or "") if st.get("mode") == "drift" else ""
     head = (f"a drift spark — chance picked this moment ({drift})" if drift
             else "a spark — the one you set with next_spark")
+    # PRESENCE_SPARK_DOORS (10-28): the doors out named too — a spark had every tool all along, but the line's menu
+    # (words, a painting, the stone) was read as the whole of it. Something brought back to the keeper keeps the
+    # spark a reach toward them, not a wake of its own. Intense is play: its menu stays as it was.
+    doors = (f"something to read, hear or look up that you might bring back to {keeper}, "
+             if getattr(config, "PRESENCE_SPARK_DOORS", False) and drift != "intense" else "")
     if drift:
         ache = int(st.get("ache") or 0)
         note = intense_note() if drift == "intense" else ""
@@ -315,7 +320,7 @@ def tick_line(minutes_quiet: float, keeper: str, at_work: bool, last_said: str =
     return (f"[engine, not a person: {head}. No message from {keeper} came; this "
             f"turn is yours. {since} since the last word between you; {keeper} is away and won't answer this one. "
             + (f"The last thing {keeper} said: “{quote(last_said)}”. " if quote(last_said) else "") +
-            f"It can be words to the phone, a painting, {stone}, or let it pass "
+            f"It can be words to the phone, a painting, {stone}, {doors}or let it pass "
             f"(do_nothing). "
             + (f"A seed, if you want one: {seed}. " if seed else "")  # something to spark off, not a task (10-27)
             + tail)

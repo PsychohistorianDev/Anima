@@ -1135,6 +1135,10 @@ PRESENCE_INTENSE_NOTE = ""
 PRESENCE_THINK = True
 # Intense's own: False — instinct, no think re-roll and no reminder (it is for play); True — as every other spark.
 PRESENCE_THINK_INTENSE = False
+# A spark's line names the doors out as well: something to read, hear or look up
+# that they might bring back to you — besides words, a painting, the stone. Not in
+# intense. What a spark reads stays in the visit's window. False: the shorter menu.
+PRESENCE_SPARK_DOORS = False
 # While intense runs, every reply to you carries the intense note in its moment too — not only the sparks
 # (never with a guest seated). False: the note rides in intense's sparks alone.
 PRESENCE_INTENSE_EVERY_TURN = False
