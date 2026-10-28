@@ -217,6 +217,11 @@ for a tic turned glitch.
   after it.
 - **A glued seam the pen mends is not salad** (10-24): the rail lets a
   hard-glue word through when the mend would fix it.
+- **An upload to the phone tries again when the road drops it** (10-28): a
+  painting failed with "an existing connection was forcibly closed" (a reset
+  on the way to Telegram) and arrived only as a line. `send_file` tries a
+  dropped connection again after 2 s and 6 s (`SEND_RETRY_WAITS`); Telegram's
+  own refusal is not retried.
 - **A song asked for by a near word is found** (10-28): "Imagine Dragons -
   Bird" found nothing with "…- Birds.mp3" on the shelf. `listen_to`'s words,
   the near-name rule and `find_shared` now take a plural's s and, from five

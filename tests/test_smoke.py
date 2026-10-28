@@ -14147,6 +14147,52 @@ check("presence (10-28): the intense note is shared/intense.md — made once fro
       and str(config.PRESENCE_INTENSE_FILE).replace("\\", "/").endswith("shared/intense.md"),
       (_in_mig, _in_made, _in_line[-200:], _in_none))
 
+# an upload to the phone tried again when the road drops it (10-28: WinError 10054 on a painting); a refusal is not
+import telegram as _sr_tg
+import types as _sr_types
+import urllib.request as _sr_ur
+import urllib.error as _sr_ue
+_sr_open0, _sr_waits0 = _sr_ur.urlopen, _sr_tg.SEND_RETRY_WAITS
+_sr_tries = []
+class _SrResp:
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+    def read(self): return b'{"ok": true, "result": {"message_id": 7}}'
+def _sr_flaky(req, timeout=None):
+    _sr_tries.append(1)
+    if len(_sr_tries) < 3:
+        raise _sr_ue.URLError(ConnectionResetError(10054, "An existing connection was forcibly closed by the remote host"))
+    return _SrResp()
+_sr_tg.SEND_RETRY_WAITS = (0, 0)
+_sr_ur.urlopen = _sr_flaky
+try:
+    _sr_ok = _sr_tg.Bridge.send_file(_sr_types.SimpleNamespace(token="t"), "sendPhoto", "photo", "p.png", b"x", chat_id=1)
+    _sr_n_ok = len(_sr_tries)
+    _sr_tries.clear()
+    _sr_ur.urlopen = lambda req, timeout=None: (_sr_tries.append(1), (_ for _ in ()).throw(_sr_ue.URLError(TimeoutError("timed out"))))[1]
+    try:
+        _sr_tg.Bridge.send_file(_sr_types.SimpleNamespace(token="t"), "sendPhoto", "photo", "p.png", b"x", chat_id=1)
+        _sr_gave_up = False
+    except _sr_ue.URLError:
+        _sr_gave_up = True
+    _sr_n_down = len(_sr_tries)
+    _sr_tries.clear()
+    def _sr_refuse(req, timeout=None):
+        _sr_tries.append(1)
+        raise _sr_ue.HTTPError("u", 400, "Bad Request", {}, None)
+    _sr_ur.urlopen = _sr_refuse
+    try:
+        _sr_tg.Bridge.send_file(_sr_types.SimpleNamespace(token="t"), "sendPhoto", "photo", "p.png", b"x", chat_id=1)
+    except _sr_ue.HTTPError:
+        pass
+    _sr_n_refused = len(_sr_tries)
+finally:
+    _sr_ur.urlopen, _sr_tg.SEND_RETRY_WAITS = _sr_open0, _sr_waits0
+check("phone (10-28): an upload whose connection drops is tried again (twice) and gets through; a road down for good gives "
+      "up after three; Telegram's own refusal is not tried again",
+      _sr_ok == {"message_id": 7} and _sr_n_ok == 3 and _sr_gave_up and _sr_n_down == 3 and _sr_n_refused == 1,
+      (_sr_ok, _sr_n_ok, _sr_gave_up, _sr_n_down, _sr_n_refused))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

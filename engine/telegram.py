@@ -120,6 +120,7 @@ POLL_S = 50           # long-poll patience; the server answers sooner when there
 SPLIT_CHARS = 3800    # a text bubble this long is Telegram's own cut of a longer paste (its cap is 4,096): the rest follows
 SPLIT_WAIT_S = 2      # how long the bridge waits for the rest of a cut message when the cut bubble ends a poll (TELEGRAM_SPLIT_WAIT_S overrides)
 TYPING_S = 4          # "typing…" lasts ~5s on the phone; renew a little sooner
+SEND_RETRY_WAITS = (2, 6)  # an upload whose connection drops (a reset, a timeout) is tried again after these seconds (10-28)
 
 # the newer commands, on the phone's /help (10-27) — the Discord bridge takes them out of its own: its pairing
 # message, built from HELP, is at Discord's 2,000-character cap (and sparks are Telegram's)
@@ -454,8 +455,19 @@ class Bridge:
         body.write(f"\r\n--{boundary}--\r\n".encode("utf-8"))
         req = urllib.request.Request(f"{API}/bot{self.token}/{method}", data=body.getvalue(),
                                      headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
-        with urllib.request.urlopen(req, timeout=120) as r:
-            out = json.loads(r.read().decode("utf-8"))
+        waits = tuple(SEND_RETRY_WAITS)
+        for i in range(len(waits) + 1):
+            try:
+                with urllib.request.urlopen(req, timeout=120) as r:
+                    out = json.loads(r.read().decode("utf-8"))
+                break
+            except urllib.error.HTTPError:
+                raise  # Telegram answered — a refusal, not the road
+            except (urllib.error.URLError, OSError) as e:  # a reset (10-28: WinError 10054 on a painting), a timeout
+                if i >= len(waits):
+                    raise
+                _say(f"(the upload's connection dropped — {e}; trying again in {waits[i]} s)")
+                time.sleep(waits[i])
         if not out.get("ok"):
             raise RuntimeError(f"telegram said: {out.get('description', out)}")
         return out.get("result")
