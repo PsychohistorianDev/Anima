@@ -320,6 +320,10 @@ PAINTER_REFERENCE_NOTE = ""
 # goes to the painter ahead of the friend's prompt, saying what each picture is for: name → (the references, one
 # line), e.g. a pair's lineup first for their sizes, then each face. {} — none.
 PAINTER_REFERENCE_SETS = {}
+# A reference picture turned level before it goes to the painter: path under creations/ (or its folder) → degrees,
+# clockwise positive — for a face that leans in its picture, which the painter otherwise copies into every painting.
+# Turned in memory only; the picture's file is never touched. {} — none.
+PAINTER_REFERENCE_TURN = {}
 # Words that bring the painter a plain line: word → line; when a prompt has the word (any ending), the line goes to
 # the painter ahead of it, after a set's. For a pose the painter keeps getting wrong in the friend's own language.
 # {} — none.

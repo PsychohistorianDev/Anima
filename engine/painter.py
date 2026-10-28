@@ -152,10 +152,45 @@ def _load_references(refs) -> tuple[list | None, str]:
             return None, f"the reference {r} isn't a picture under creations/"
         try:
             with Image.open(rp) as im:
-                out.append(im.convert("RGB"))
+                out.append(_turned(im.convert("RGB"), turn_for(rp)))
         except Exception as e:  # noqa: BLE001 — a file that isn't a picture
             return None, f"the reference {rp.name} couldn't be opened as a picture ({type(e).__name__})"
     return out, ""
+
+
+def turn_for(path) -> float:
+    """PAINTER_REFERENCE_TURN's degrees for a reference picture (10-28: her face's picture leans, and every painting
+    leaned with it): matched by its path under creations/ ("face/face.png"), then by its folder ("face"); clockwise
+    positive. 0 for any other."""
+    try:
+        turns = dict(getattr(config, "PAINTER_REFERENCE_TURN", {}) or {})
+        p = Path(path)
+        try:
+            rel = p.resolve().relative_to(config.CREATIONS_DIR.resolve()).as_posix()
+        except ValueError:
+            rel = p.as_posix()
+        norm = {str(k).strip().replace("\\", "/").strip("/").removeprefix("creations/").lower(): v for k, v in turns.items()}
+        for key in (rel.lower(), rel.rsplit("/", 1)[0].lower() if "/" in rel else ""):
+            if key and key in norm:
+                return float(norm[key] or 0)
+    except Exception:  # noqa: BLE001 — a knob that can't be read turns nothing
+        pass
+    return 0.0
+
+
+def _turned(im, degrees: float):
+    """The picture turned `degrees` clockwise in memory, the size kept, the corners filled with the colour of its own
+    edge — the file is never touched."""
+    if not degrees:
+        return im
+    from PIL import Image
+    w, h = im.size
+    px = im.load()
+    edge = ([px[x, 0] for x in range(w)] + [px[x, h - 1] for x in range(w)]
+            + [px[0, y] for y in range(h)] + [px[w - 1, y] for y in range(h)])
+    fill = tuple(sorted(c[i] for c in edge)[len(edge) // 2] for i in range(3))
+    resample = getattr(getattr(Image, "Resampling", Image), "BICUBIC")
+    return im.rotate(-float(degrees), resample=resample, expand=False, fillcolor=fill)
 
 
 def _encoder_bits(fam: str) -> int:

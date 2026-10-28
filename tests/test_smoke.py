@@ -14027,6 +14027,34 @@ check("panel (10-28): Feedback — the issue form opens with version, system and
       and "Nothing is sent from here" in _fb_panel.PAGE and _fb_ids,
       (_fb.get("issue"), _fb.get("summary")))
 
+# a reference picture turned level in memory (10-28): the degrees found by path, then folder; the file untouched
+import painter as _rt_p
+_rt0 = getattr(config, "PAINTER_REFERENCE_TURN", {})
+try:
+    config.PAINTER_REFERENCE_TURN = {"creations/face/face.png": 15, "us": -4, "gabe\\dream.png": "x"}
+    _rt_a = _rt_p.turn_for(config.CREATIONS_DIR / "face" / "face.png")
+    _rt_b = _rt_p.turn_for(config.CREATIONS_DIR / "us" / "lineup.png")
+    _rt_c = _rt_p.turn_for(config.CREATIONS_DIR / "drawings" / "x.png")
+    _rt_d = _rt_p.turn_for(config.CREATIONS_DIR / "gabe" / "dream.png")
+finally:
+    config.PAINTER_REFERENCE_TURN = _rt0
+try:
+    from PIL import Image as _rt_I
+    _rt_im = _rt_I.new("RGB", (40, 40), (10, 10, 60))
+    for _x in range(5, 35):
+        _rt_im.putpixel((_x, 20), (255, 255, 255))  # a level line
+    _rt_t = _rt_p._turned(_rt_im, 90)
+    _rt_v = max(sum(_rt_t.getpixel((_x, 8))) for _x in range(18, 23))   # the line stands upright now…
+    _rt_h = max(sum(_rt_t.getpixel((8, _y))) for _y in range(18, 23))   # …and no longer lies across
+    _rt_pil = _rt_t.size == (40, 40) and _rt_v > 600 and _rt_h < 300 and _rt_p._turned(_rt_im, 0) is _rt_im
+except ImportError:  # the CI has no Pillow: the turn itself is the painter's, tried where it paints
+    _rt_pil = True
+check("painter (10-28): PAINTER_REFERENCE_TURN — a reference turned by its path, or its folder, clockwise; others not; a value "
+      "that isn't a number turns nothing; the turn keeps the size; on the Senses tab with words",
+      (_rt_a, _rt_b, _rt_c, _rt_d) == (15.0, -4.0, 0.0, 0.0) and _rt_pil
+      and "PAINTER_REFERENCE_TURN" in __import__("panel").TABS["Senses"] and __import__("panel")._HELP.get("PAINTER_REFERENCE_TURN"),
+      (_rt_a, _rt_b, _rt_c, _rt_d, _rt_pil))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)
