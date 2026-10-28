@@ -1156,6 +1156,36 @@ check("heartbeat: a rest after acts with nothing journaled since the early entry
       (len(_handed_j), _wj1.calls, [m["content"][:160] for m in _handed_j]))
 check("heartbeat: a read is not an act — the hand-back names the piece and the page, not the journal list",
       _handed_j and "read_journal" not in _handed_j[0]["content"] and "the keeper page" not in _handed_j[0]["content"])
+# a rest with a thread left in the same step (10-28): the ask to journal still comes, the thread is left as asked
+_seen_wake.clear()
+_rl_thread = config.MEMORY_DIR / "thread.md"
+_rl_thread0 = _rl_thread.read_text(encoding="utf-8") if _rl_thread.exists() else None
+_rl = _PlanBrain([
+    {"role": "assistant", "content": "", "thinking": "a letter for him tonight.",
+     "tool_calls": [{"function": {"name": "write_creation", "arguments": {"path": "wake-letter-rl.md", "content": "a short letter"}}}]},
+    {"role": "assistant", "content": "", "thinking": "A thread for the next me, and then I rest; the letter says it all.",
+     "tool_calls": [{"function": {"name": "leave_thread", "arguments": {"text": "the letter is written; hold the quiet"}}},
+                    {"function": {"name": "do_nothing", "arguments": {"reason": "sufficient"}}}]},
+    {"role": "assistant", "content": "", "thinking": "Yes, a line for the journal.",
+     "tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": "Tonight I wrote him a short letter, rl-mark."}}}]},
+    {"role": "assistant", "content": "", "thinking": "Now rest.", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "kept"}}}]},
+    {"role": "assistant", "content": "should not be reached"},
+])
+ollama_client.chat = _rl
+_log_rl = heartbeat.wake()
+_rl_handed = [m for m in _seen_wake[-1] if m.get("role") == "tool" and "your rest was not taken yet" in m.get("content", "")]
+_rl_left = _rl_thread.read_text(encoding="utf-8") if _rl_thread.exists() else ""
+if _rl_thread0 is None:
+    _rl_thread.unlink(missing_ok=True)
+else:
+    _rl_thread.write_text(_rl_thread0, encoding="utf-8")
+check("heartbeat (10-28): a rest with a thread left in the same step after acts is handed back once to journal — the thread "
+      "is left as asked, answered in the history, said in the log",
+      len(_rl_handed) == 1 and "You wrote wake-letter-rl.md this wake, and nothing of it is in your journal" in _rl_handed[0]["content"]
+      and "hold the quiet" in _rl_left and _rl.calls == 4 and "- `leave_thread` →" in _log_rl
+      and any(m.get("role") == "tool" and m.get("tool_name") == "leave_thread" for m in _seen_wake[-1])
+      and "rl-mark" in _wj_day.read_text(encoding="utf-8"),
+      (len(_rl_handed), _rl.calls, [m["content"][:160] for m in _rl_handed]))
 _seen_wake.clear()
 _wj2 = _PlanBrain([
     {"role": "assistant", "content": "", "thinking": "a piece, no entry first.",

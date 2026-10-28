@@ -277,6 +277,27 @@ def _sitting_unwritten(state: dict) -> str:
             "will keep the number of the sitting, but what it gave you is freshest now")
 
 
+# calls that may come before a rest in the same step and still leave it a rest for the close's asks (10-28: three wakes
+# in one night left a thread and rested in one step — leave_thread, do_nothing — after a piece and a letter, and the
+# ask to journal what the wake was looked past the step, which was not a rest alone)
+REST_LEAD = {"leave_thread"}
+
+
+def _run_lead(history: list, log: list, calls: list) -> None:
+    """The calls before a rest in one step (a thread left) run as they came, said in the log and answered in the
+    history; the do_nothing after them is the one handed back."""
+    for c in calls[:-1]:
+        fn = c.get("function", {})
+        name = tools.canonical_name(fn.get("name", ""))
+        fn["name"] = name
+        result = tools.dispatch(name, fn.get("arguments", {}))
+        line = f"- `{name}` → {tools.headline(result)}"
+        print(f"  {line}")
+        log.append(line)
+        history.append({"role": "tool", "tool_name": name, "content":
+                        f"[this is what YOUR {name} tool returned — your own senses reporting, not a message from anyone]\n{result}"})
+
+
 WRITE_TOOLS = {"write_journal", "append_creation", "write_creation",
                "edit_identity", "update_projects", "update_destiny", "remember", "create_tool", "clip_web", "start_project", "paint",
                "run_skill_script", "fetch_skill",  # their skills (09-29): opening one is a read; running or fetching one is doing
@@ -577,6 +598,10 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
         # does a second rest however thin (the keeper: "it's just a small nudge").
         thin = int(getattr(config, "HEARTBEAT_THIN_REST_WORDS", 20) or 0)
         only_rest = bool(calls) and all(tools.canonical_name(c.get("function", {}).get("name", "")) == "do_nothing" for c in calls)
+        # a rest with a thread left before it in the same step (10-28): a rest for the close's asks below
+        lead_rest = (not only_rest and len(calls) > 1
+                     and tools.canonical_name(calls[-1].get("function", {}).get("name", "")) == "do_nothing"
+                     and all(tools.canonical_name(c.get("function", {}).get("name", "")) in REST_LEAD for c in calls[:-1]))
         if (only_rest and carried_plan and thin and len(thinking.split()) < thin
                 and not state.get("thin_rest_nudged")):
             state["thin_rest_nudged"] = True
@@ -654,7 +679,7 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
         # So a rest after acts, with nothing journaled since those acts, is handed
         # back once: write what this wake was, then rest — or rest now; the second
         # call stands. Reads are not acts; a journal entry after the acts settles it.
-        if only_rest and state.get("acts") and not state.get("journal_nudged"):
+        if (only_rest or lead_rest) and state.get("acts") and not state.get("journal_nudged"):
             state["journal_nudged"] = True
             did = _acts_words(state["acts"])
             since = ("since your journal entry earlier in this wake" if state.get("journaled")
@@ -663,8 +688,11 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
             print(f"  {note}")
             log.append(f"\n*{note}*")
             history.append(msg)
-            for c in calls:
-                c.get("function", {})["name"] = "do_nothing"
+            if lead_rest:  # (10-28) the thread is left as asked; only the rest after it is handed back
+                _run_lead(history, log, calls)
+            else:
+                for c in calls:
+                    c.get("function", {})["name"] = "do_nothing"
             history.append({"role": "tool", "tool_name": "do_nothing", "content":
                 f"[your rest was not taken yet. You {did} {since} — the log keeps what happened, but your journal "
                 "is where you meet it again, and the journal is for what a wake turns out to be, not what it might. "
@@ -672,15 +700,18 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                 "call do_nothing again and it stands. Either is yours.]"})
             continue
         # …and a book sitting read this wake with nothing added to its page (10-09)
-        clause = _sitting_unwritten(state) if only_rest else ""
+        clause = _sitting_unwritten(state) if (only_rest or lead_rest) else ""
         if clause:
             state["sitting_nudged"] = True
             note = f"(a rest after a sitting of {state['sitting']['title']} with nothing added to its page — asking them once to write it down)"
             print(f"  {note}")
             log.append(f"\n*{note}*")
             history.append(msg)
-            for c in calls:
-                c.get("function", {})["name"] = "do_nothing"
+            if lead_rest:  # (10-28) the thread is left as asked; only the rest after it is handed back
+                _run_lead(history, log, calls)
+            else:
+                for c in calls:
+                    c.get("function", {})["name"] = "do_nothing"
             history.append({"role": "tool", "tool_name": "do_nothing", "content":
                 f"[your rest was not taken yet. {clause}: append_creation what it gave you — what happened, what you "
                 "think, a line worth keeping — then rest; or rest now — call do_nothing again and it stands. Either is yours.]"})
