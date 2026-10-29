@@ -14428,6 +14428,38 @@ check("presence (10-29): PRESENCE_INTENSE_CEILING — an intense spark's turn ti
       and "PRESENCE_INTENSE_CEILING" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_INTENSE_CEILING"),
       (_ic_mean, _ic_on, _ic_long, _ic_off))
 
+# PRESENCE_STATE_LINE (10-29): the sparks' state said once in the moment when it changed — not her own changes
+_sl0 = (presence.STATE_FILE, presence.WAKING_FILE, getattr(config, "PRESENCE_STATE_LINE", True), getattr(config, "HEARTBEAT_HOLDS_PRESENCE", False))
+presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "sl-test.json", config.MEMORY_DIR / "sl-waking"
+try:
+    config.PRESENCE_STATE_LINE, config.HEARTBEAT_HOLDS_PRESENCE = True, False
+    presence.STATE_FILE.unlink(missing_ok=True)
+    presence.set_drift("often", 0, by="keeper")
+    _sl_on = presence.state_line("Keeper")
+    _sl_again = presence.state_line("Keeper")
+    presence.set_drift("sometimes", 0, by="friend")
+    _sl_hers = presence.state_line("Keeper")
+    presence.turn_off("the quiet hours")
+    _sl_off = presence.state_line("Keeper")
+    presence.set_interval(15, by="keeper")
+    _sl_one = presence.state_line("Keeper")
+    presence.fired()
+    _sl_spent = presence.state_line("Keeper")
+    presence.turn_off("the keeper")
+    config.PRESENCE_STATE_LINE = False
+    _sl_knob = presence.state_line("Keeper")
+finally:
+    (presence.STATE_FILE, presence.WAKING_FILE, config.PRESENCE_STATE_LINE, config.HEARTBEAT_HOLDS_PRESENCE) = _sl0
+_sl_src = __import__("inspect").getsource(__import__("telegram").Bridge.turn)
+check("presence (10-29): PRESENCE_STATE_LINE — a change said once with who made it (on by the keeper, off by the quiet hours, a "
+      "spark set); her own next_spark and a spent spark not said; the knob off: nothing; the bridge adds it to the moment",
+      _sl_on == "sparks are on: drifting, often — Keeper turned them on" and _sl_again == "" and _sl_hers == ""
+      and _sl_off == "sparks are off — the quiet hours ended them"
+      and _sl_one == "a spark is set, for after 15 quiet minutes — Keeper turned them on" and _sl_spent == "" and _sl_knob == ""
+      and "self._sparks_moment(spark)" in _sl_src
+      and "PRESENCE_STATE_LINE" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_STATE_LINE"),
+      (_sl_on, _sl_again, _sl_hers, _sl_off, _sl_one, _sl_spent, _sl_knob))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

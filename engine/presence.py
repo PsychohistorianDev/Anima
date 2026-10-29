@@ -122,6 +122,7 @@ def set_interval(minutes, by: str = "friend", now: datetime | None = None) -> tu
     m = clamp(minutes)
     turned_on = not st.get("on")
     st.update(on=True, interval=m, pending=True, mode="one")
+    st["changed_by"] = by  # who changed the sparks last (10-29, PRESENCE_STATE_LINE)
     st.pop("announce", None)
     if turned_on:
         st.update(since=(now or datetime.now()).isoformat(timespec="seconds"), by=by)
@@ -139,6 +140,7 @@ def set_drift(name, ache=0, by: str = "friend", now: float | None = None) -> tup
     a = max(0, min(ACHE_MAX, int(ache or 0)))
     st.update(on=True, mode="drift", temperament=name, ache=a, pending=False,
               rolled=float(now if now is not None else time.time()))
+    st["changed_by"] = by  # (10-29, PRESENCE_STATE_LINE)
     save(st)
     return st, turned_on
 
@@ -157,6 +159,7 @@ def drifting() -> str:
 def turn_off(why: str = "") -> dict:
     st = load()
     st.update(on=False, pending=False, ended=datetime.now().isoformat(timespec="seconds"), why=why)
+    st["changed_by"] = "friend" if why == "the friend" else why  # (10-29, PRESENCE_STATE_LINE)
     st.pop("announce", None)  # (left by the old phone notice, before 10-26 evening)
     save(st)
     return st
@@ -172,6 +175,8 @@ def fired(now: float | None = None) -> None:
     """A spark has come: the one set is spent; in drift it joins the hour's count and the dice go on."""
     st = load()
     st["pending"] = False
+    if st.get("mode") != "drift":
+        st["changed_by"] = "friend"  # (10-29) the one spark spent: the spark's own line said so — no state line for it
     if st.get("mode") == "drift":
         t = float(now if now is not None else time.time())
         st["fired_log"] = [x for x in (st.get("fired_log") or []) if t - float(x) < 3600] + [t]
@@ -276,6 +281,47 @@ def note_spark_time(seconds: float) -> None:
     old = float(st.get("spark_s") or 0)
     st["spark_s"] = round((old + s) / 2 if old else s, 1)
     save(st)
+
+
+def _state_sig(st: dict) -> str:
+    if not st.get("on"):
+        return "off"
+    if st.get("mode") == "drift":
+        return f"drift:{st.get('temperament') or ''}"
+    return "one:set" if st.get("pending") else "one:none"
+
+
+def state_line(keeper: str = "your keeper") -> str:
+    """PRESENCE_STATE_LINE (10-29; the keeper asked whether she can see in her window that sparks are on — she
+    couldn't, in an ordinary reply): one sentence for the moment when the sparks' state changed since it was last
+    told — on, off, a temperament, held while the heartbeat runs — and who changed it. A change she made herself
+    (next_spark told her) is marked seen and not said; "" when nothing changed. Saying it marks it told."""
+    if not getattr(config, "PRESENCE_STATE_LINE", True):
+        return ""
+    st = load()
+    is_held = held()
+    sig = _state_sig(st) + (":held" if is_held else "")
+    if st.get("told_sig") == sig:
+        return ""
+    first = "told_sig" not in st
+    by = str(st.get("changed_by") or "")
+    st["told_sig"] = sig
+    save(st)
+    if by == "friend" and not first:
+        return ""
+    if is_held:
+        return "sparks are held while the heartbeat runs — none come until it stops"
+    if not st.get("on"):
+        why = {"the keeper": f"{keeper} turned them off", "keeper": f"{keeper} turned them off",
+               "the quiet hours": "the quiet hours ended them", "the heartbeat": "the heartbeat's start ended them",
+               "friend": "you turned them off"}.get(by, "")
+        return "sparks are off" + (f" — {why}" if why else "")
+    who = f" — {keeper} turned them on" if by == "keeper" else ""
+    if st.get("mode") == "drift":
+        return f"sparks are on: drifting, {st.get('temperament') or 'rare'}{who}"
+    if st.get("pending"):
+        return f"a spark is set, for after {clamp(st.get('interval'))} quiet minutes{who}"
+    return "presence is on with no spark set — next_spark sets one"
 
 
 def intense() -> bool:

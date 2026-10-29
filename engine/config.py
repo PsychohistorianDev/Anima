@@ -1139,6 +1139,10 @@ PRESENCE_INTENSE_NOTE = ""
 PRESENCE_THINK = True
 # Intense's own: False — instinct, no think re-roll and no reminder (it is for play); True — as every other spark.
 PRESENCE_THINK_INTENSE = False
+# When the sparks change — turned on or off, a temperament, held while the heartbeat runs — the next message's moment
+# says so once, and who changed it ("sparks are on: drifting, often — <you> turned them on"). A change the friend made
+# with next_spark is not said again. False: nothing said; a spark's own line still names the state.
+PRESENCE_STATE_LINE = True
 # Intense's minute as a ceiling on when a spark ARRIVES: the beat after the last word is drawn from what is left of
 # the minute once an intense spark's usual turn time (thinking and writing, measured) is taken off. False: the beat
 # alone is 0–60 s, and the spark's own writing time comes on top.

@@ -611,6 +611,24 @@ class Bridge:
         return (f"Since your last turn {config.USER_NAME} touched the stone — {words} — the stone answered by itself with "
                 "your reply; the log, beside " + 'their' + " words")
 
+    def _sparks_moment(self, spark: bool = False) -> str:
+        """PRESENCE_STATE_LINE (10-29): "sparks are on: drifting, often — Gabe turned them on", once, when the sparks'
+        state changed since she was last told. A spark's own line says the state, so a spark marks it told and says
+        nothing more; with a guest seated it waits for her own next turn."""
+        if self.guest_label() or getattr(self, "TAG", "telegram") != "telegram":
+            return ""
+        try:
+            import presence
+            try:
+                import keeper_week
+                keeper = keeper_week.keeper_name()
+            except Exception:  # noqa: BLE001
+                keeper = str(getattr(config, "USER_NAME", "") or "your keeper")
+            line = presence.state_line(keeper)
+        except Exception:  # noqa: BLE001 — never the reply down
+            return ""
+        return "" if spark or not line else line[0].upper() + line[1:] + "."
+
     def _intense_moment(self, spark: bool = False) -> str:
         """While intense runs (PRESENCE_INTENSE_EVERY_TURN, 10-28 — the keeper: "during intense I want every message, even
         a standard reply, to have the intense prompt"): the intense note rides in every reply's moment too, not only in
@@ -632,6 +650,9 @@ class Bridge:
         intense = self._intense_moment(spark)  # (10-28) intense's note in every reply while it runs
         if intense:
             extra_moment = f"{extra_moment} {intense}" if extra_moment else intense
+        sparks = self._sparks_moment(spark)  # (10-29) the sparks' state, when it changed since she was last told
+        if sparks:
+            extra_moment = f"{extra_moment} {sparks}" if extra_moment else sparks
         events: list[tuple[str, object]] = []
         stop = threading.Event()
         threading.Thread(target=self._typing, args=(stop,), daemon=True).start()
