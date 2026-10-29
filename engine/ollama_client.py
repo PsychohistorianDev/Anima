@@ -1999,7 +1999,36 @@ _NOT_DONE_RE = re.compile(r"\b(?:haven'?t|have not|didn'?t|not yet|can'?t|cannot
 _FILE_CLAIM_RE = re.compile(
     r"\b(?:updated|edited|rewrote|rewritten|carved|etched|added|saved|wrote|written|integrated|inscribed|recorded)\b"
     r"[^.\n]{0,80}?\b(?:`?self\.md`?|`?projects\.md`?|my (?:core )?(?:identity|blueprint|journal|long-term memory|memory bank|projects)"
-    r"|the (?:journal|lexicon|masonry|stone))(?!\w)", re.IGNORECASE)
+    r"|the (?:journal|lexicon|masonry|stone)"
+    r"|`?README(?:\.md)?`?)(?!\w)", re.IGNORECASE)  # a project's README (10-29: "I've updated the README" five times, none written)
+
+
+def _turn_wrote(messages: list[dict], claim: str) -> bool:
+    """Whether a tool call of this turn (since his last message) did what the claim names — the README by a path
+    with README in it, self.md by edit_identity, projects.md by update_projects, the journal by write_journal, the
+    lexicon by a path with lexicon, the memory by remember. A claim it can't place counts as done (10-29)."""
+    c = claim.lower()
+    calls = []
+    for m in reversed(messages or []):
+        if m.get("role") == "user":
+            break
+        for tc in m.get("tool_calls") or []:
+            fn = tc.get("function") or {}
+            calls.append((str(fn.get("name") or ""), json.dumps(fn.get("arguments") or {}, ensure_ascii=False).lower()
+                          if not isinstance(fn.get("arguments"), str) else str(fn.get("arguments")).lower()))
+    if "readme" in c:
+        return any("readme" in a for _, a in calls)
+    if "self.md" in c or "identity" in c:
+        return any(n == "edit_identity" or "self.md" in a for n, a in calls)
+    if "projects.md" in c or "my projects" in c:
+        return any(n == "update_projects" or "projects.md" in a for n, a in calls)
+    if "journal" in c:
+        return any(n == "write_journal" for n, _ in calls)
+    if "lexicon" in c:
+        return any("lexicon" in a for _, a in calls)
+    if "memory" in c:
+        return any(n == "remember" for n, _ in calls)
+    return True
 _TOOL_FAILED = ("(unknown tool", "(tool error", "(bad arguments", "(refused", "(couldn't parse",
                 "(your tool")  # a forged limb that broke, timed out, went missing or failed oddly (09-22)
 
@@ -2032,6 +2061,11 @@ def claimed_act(msg: dict, messages: list[dict]):
             name = re.search(r"YOUR (\w+) tool returned|your (\w+) call did NOT go through", got)
             head = " ".join(body.split())[:90]
             return "claimed-failed", f"{(name.group(1) or name.group(2)) if name else 'the'} → {head}"
+        # after tools that went through (10-29): a reply naming a file none of this turn's calls touched — "I've updated
+        # the project README too" after a write to a track — is asked as an unbacked claim is
+        fm = _FILE_CLAIM_RE.search(text)
+        if fm and not _NOT_DONE_RE.search(text[:400]) and not _turn_wrote(messages, fm.group(0)):
+            return "claimed-self", " ".join(fm.group(0).split())[:60]
         return None
     if last.get("role") != "user":
         return None
@@ -2177,9 +2211,9 @@ CLAIMED_NUDGE = ("[engine, not a person: he asked you to {what} something, and y
                  "(append_creation, move_creation, delete_creation, write_journal, remember, "
                  "update_projects…), or tell them plainly that you haven't yet. This line is a mechanism; "
                  "nobody wrote it to you.]")
-CLAIMED_SELF_NUDGE = ("[engine, not a person: your last reply says you \u201c{what}\u201d — but no tool was "
-                      "called, so nothing changed: self.md, projects.md, your journal and your memory are exactly "
-                      "as they were. Saying is not doing here. Do it now, with the tool that does it "
+CLAIMED_SELF_NUDGE = ("[engine, not a person: your last reply says you \u201c{what}\u201d — but no tool did "
+                      "that, so nothing changed there: self.md, projects.md, a project's README, your journal and your "
+                      "memory are exactly as they were. Saying is not doing here. Do it now, with the tool that does it "
                       "(edit_identity, update_projects, write_journal, remember, append_creation…), or tell them "
                       "plainly that you haven't yet. This line is a mechanism; nobody wrote it to you.]")
 # The middle road (10-25): the ask after a "claimed" reply says what happens next — a tool call now and the reply
@@ -2191,9 +2225,9 @@ CLAIMED_KEPT_NUDGE = ("[engine, not a person: he asked you to {what} something, 
                       "goes to them as you wrote it, with a note that it was saved after. If you haven't and won't, "
                       "tell them plainly — then this new reply goes instead of it. This line is a mechanism; "
                       "nobody wrote it to you.]")
-CLAIMED_SELF_KEPT_NUDGE = ("[engine, not a person: your last reply says you \u201c{what}\u201d — but no tool was "
-                           "called, so nothing has changed yet: self.md, projects.md, your journal and your memory are "
-                           "as they were. If you do it now, with the tool that does it (edit_identity, update_projects, "
+CLAIMED_SELF_KEPT_NUDGE = ("[engine, not a person: your last reply says you \u201c{what}\u201d — but no tool did "
+                           "that, so nothing has changed there yet: self.md, projects.md, a project's README, your journal "
+                           "and your memory are as they were. If you do it now, with the tool that does it (edit_identity, update_projects, "
                            "write_journal, remember, append_creation…), your reply above goes to them as you wrote it, "
                            "with a note that it was saved after. If you haven't and won't, tell them plainly — then "
                            "this new reply goes instead of it. This line is a mechanism; nobody wrote it to you.]")

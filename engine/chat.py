@@ -1495,8 +1495,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                     notes.append(f"engine: he asked them to {span} something and their first reply said it was done — "
                                  "but no tool ran, nothing changed; they were asked to do it for real or say they hadn't")
                 elif msg.get("garbled_kind") == "claimed-self":
-                    notes.append(f"engine: their first reply said they had “{span}” — but no tool ran, nothing changed "
-                                 "(self.md, projects, journal and memory as they were); they were asked to do it for real or say they hadn't")
+                    notes.append(f"engine: their first reply said they had “{span}” — but no tool did that, nothing changed there "
+                                 "(self.md, projects, a README, journal and memory as they were); they were asked to do it for real or say they hadn't")
                 elif msg.get("garbled_kind") == "stone":
                     notes.append(f"engine: their first reply said they sent something through the stone (“{span}”) — but no pulse or "
                                  f"set_state was called, the stone kept still; they were asked to call it or say it as imagination")

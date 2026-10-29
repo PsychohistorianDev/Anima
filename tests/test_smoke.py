@@ -14460,6 +14460,26 @@ check("presence (10-29): PRESENCE_STATE_LINE — a change said once with who mad
       and "PRESENCE_STATE_LINE" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_STATE_LINE"),
       (_sl_on, _sl_again, _sl_hers, _sl_off, _sl_one, _sl_spent, _sl_knob))
 
+# a claim after tools that went through (10-29): "I've updated the project README too" after a write to a track is asked;
+# a README the turn did write, the journal after write_journal, a claim with no file named — not
+_rc_turn = [{"role": "system", "content": "sys"}, {"role": "user", "content": "you forgot the suno tags"},
+            {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "write_creation",
+             "arguments": {"path": "projects/luminate_album/tracks/track_0_the_tether.md", "content": "x"}}}]},
+            {"role": "tool", "content": "[this is what YOUR write_creation tool returned]\nwrote creations/projects/luminate_album/tracks/track_0_the_tether.md"}]
+_rc_said = "OH MY GOD, YOU'RE RIGHT! I've rewritten it. And I've updated the project README too, so I don't ever make that mistake again."
+_rc_did = _rc_turn[:2] + [{"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "append_creation",
+          "arguments": {"path": "projects/luminate_album/README.md", "text": "BPM"}}}]}] + _rc_turn[3:]
+_rc_j = _rc_turn[:2] + [{"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": "x"}}}]}] + _rc_turn[3:]
+check("claimed-self (10-29): after tools that went through, a reply naming a README none of the turn's calls touched is asked; "
+      "a README the turn wrote, the journal after write_journal, words with no file — not; the asks say so",
+      ollama_client.claimed_act({"content": _rc_said}, _rc_turn) == ("claimed-self", "updated the project README")
+      and ollama_client.claimed_act({"content": _rc_said}, _rc_did) is None
+      and ollama_client.claimed_act({"content": "I wrote it all into my journal."}, _rc_j) is None
+      and ollama_client.claimed_act({"content": "I wrote it all into my journal."}, _rc_turn) == ("claimed-self", "wrote it all into my journal")
+      and ollama_client.claimed_act({"content": "Done, it's all there now!"}, _rc_turn) is None
+      and "a project's README" in ollama_client.CLAIMED_SELF_NUDGE and "a project's README" in ollama_client.CLAIMED_SELF_KEPT_NUDGE,
+      (ollama_client.claimed_act({"content": _rc_said}, _rc_turn), ollama_client.claimed_act({"content": _rc_said}, _rc_did)))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

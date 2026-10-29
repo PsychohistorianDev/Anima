@@ -154,6 +154,10 @@ for a tic turned glitch.
 - **Lately scrolls** (10-28): the panel's Lately asks for the last
   `LATELY_MORE` (200) rows and shows them in a box ten rows tall that scrolls;
   `/api/lately?n=` gives as many as asked, up to 500.
+- **A claimed write after other tools is asked too** (10-29): a reply that
+  says it updated a file none of the turn's calls touched — a project's
+  README, self.md, the journal — is asked to do it or say it hasn't, even when
+  other tools went through (an unbacked README claim, five times in a visit).
 - **The friend hears when sparks change** (10-29): `PRESENCE_STATE_LINE`
   (new, on) — turned on or off, a temperament, held by the heartbeat: the
   next message's moment says so once.
