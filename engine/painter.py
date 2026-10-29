@@ -152,7 +152,7 @@ def _load_references(refs) -> tuple[list | None, str]:
             return None, f"the reference {r} isn't a picture under creations/"
         try:
             with Image.open(rp) as im:
-                out.append(_turned(im.convert("RGB"), turn_for(rp)))
+                out.append(_cropped(_turned(im.convert("RGB"), turn_for(rp)), crop_for(rp)))
         except Exception as e:  # noqa: BLE001 — a file that isn't a picture
             return None, f"the reference {rp.name} couldn't be opened as a picture ({type(e).__name__})"
     return out, ""
@@ -176,6 +176,41 @@ def turn_for(path) -> float:
     except Exception:  # noqa: BLE001 — a knob that can't be read turns nothing
         pass
     return 0.0
+
+
+def crop_for(path) -> tuple | None:
+    """PAINTER_REFERENCE_CROP's box for a reference picture — (left, top, right, bottom) as parts of its width and
+    height, 0 to 1, taken after the turn — matched as turn_for matches; None for any other, or a box that can't be
+    read. (10-29: her face turned level brought its shoulders slanting — the lean was her head on level shoulders —
+    and the paintings copied the shoulders; cut to the head, the painter draws the body from the words.)"""
+    try:
+        boxes = dict(getattr(config, "PAINTER_REFERENCE_CROP", {}) or {})
+        p = Path(path)
+        try:
+            rel = p.resolve().relative_to(config.CREATIONS_DIR.resolve()).as_posix()
+        except ValueError:
+            rel = p.as_posix()
+        norm = {str(k).strip().replace("\\", "/").strip("/").removeprefix("creations/").lower(): v for k, v in boxes.items()}
+        for key in (rel.lower(), rel.rsplit("/", 1)[0].lower() if "/" in rel else ""):
+            if key and key in norm:
+                box = tuple(float(x) for x in norm[key])
+                if len(box) == 4 and 0 <= box[0] < box[2] <= 1 and 0 <= box[1] < box[3] <= 1:
+                    return box
+                return None
+    except Exception:  # noqa: BLE001 — a knob that can't be read cuts nothing
+        pass
+    return None
+
+
+def _cropped(im, box):
+    """The picture cut to `box` (parts of its width and height), in memory; unchanged with no box."""
+    if not box:
+        return im
+    w, h = im.size
+    l, t, r, b = (round(box[0] * w), round(box[1] * h), round(box[2] * w), round(box[3] * h))
+    if r - l < 2 or b - t < 2:
+        return im
+    return im.crop((l, t, r, b))
 
 
 def _upright_box(w: int, h: int, degrees: float) -> tuple[int, int]:

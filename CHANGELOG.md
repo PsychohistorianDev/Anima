@@ -154,6 +154,10 @@ for a tic turned glitch.
 - **Lately scrolls** (10-28): the panel's Lately asks for the last
   `LATELY_MORE` (200) rows and shows them in a box ten rows tall that scrolls;
   `/api/lately?n=` gives as many as asked, up to 500.
+- **A reference picture cut to part of itself** (10-29):
+  `PAINTER_REFERENCE_CROP` (new, empty) — after the turn, a reference can be
+  cut to a box (parts of its width and height), e.g. the head without the
+  shoulders, so the painter draws the body from the words. In memory only.
 - **Drift's ladder as a knob** (10-29): `PRESENCE_CLIMB_MIN` (new, 60 — as
   before): every this many quiet minutes adds one more of the temperament's
   base chance a minute. Lower it and long dry spells grow rare.

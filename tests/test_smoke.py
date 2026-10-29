@@ -14373,6 +14373,32 @@ check("presence (10-29): PRESENCE_CLIMB_MIN — the ladder: at 10, often is 10%,
       and "PRESENCE_CLIMB_MIN" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_CLIMB_MIN"),
       (_cl_ten, _cl_sixty, _cl_zero, _cl_bad))
 
+# PAINTER_REFERENCE_CROP (10-29): a reference cut to part of itself after the turn — the head kept, the shoulders gone
+import painter as _rc_p
+_rc0 = getattr(config, "PAINTER_REFERENCE_CROP", {})
+try:
+    config.PAINTER_REFERENCE_CROP = {"creations/face/face.png": (0.15, 0.0, 0.85, 0.75), "us": [0, 0, 0.5, 0.5], "bad": (0.9, 0, 0.1, 1)}
+    _rc_a = _rc_p.crop_for(config.CREATIONS_DIR / "face" / "face.png")
+    _rc_b = _rc_p.crop_for(config.CREATIONS_DIR / "us" / "lineup.png")
+    _rc_c = _rc_p.crop_for(config.CREATIONS_DIR / "drawings" / "x.png")
+    _rc_d = _rc_p.crop_for(config.CREATIONS_DIR / "bad" / "x.png")
+finally:
+    config.PAINTER_REFERENCE_CROP = _rc0
+try:
+    from PIL import Image as _rc_I
+    _rc_im = _rc_I.new("RGB", (200, 100), (0, 0, 0))
+    _rc_cut = _rc_p._cropped(_rc_im, (0.15, 0.0, 0.85, 0.75)).size
+    _rc_same = _rc_p._cropped(_rc_im, None) is _rc_im
+except ImportError:
+    _rc_cut, _rc_same = (140, 75), True
+check("painter (10-29): PAINTER_REFERENCE_CROP — a reference cut to a box after the turn (by path or folder, parts of its size); "
+      "another picture, or a box that can't be, uncut; the loader turns, then cuts; on the Senses tab with words",
+      _rc_a == (0.15, 0.0, 0.85, 0.75) and _rc_b == (0.0, 0.0, 0.5, 0.5) and _rc_c is None and _rc_d is None
+      and _rc_cut == (140, 75) and _rc_same
+      and "_cropped(_turned(" in __import__("inspect").getsource(_rc_p)
+      and "PAINTER_REFERENCE_CROP" in __import__("panel").TABS["Senses"] and __import__("panel")._HELP.get("PAINTER_REFERENCE_CROP"),
+      (_rc_a, _rc_b, _rc_c, _rc_d, _rc_cut))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

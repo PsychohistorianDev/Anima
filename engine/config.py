@@ -328,6 +328,10 @@ PAINTER_REFERENCE_SETS = {}
 # clockwise positive — for a face that leans in its picture, which the painter otherwise copies into every painting.
 # Turned in memory only; the picture's file is never touched. {} — none.
 PAINTER_REFERENCE_TURN = {}
+# A reference picture cut to part of itself after the turn: path under creations/ (or its folder) → (left, top,
+# right, bottom) as parts of its width and height, 0 to 1 — (0.15, 0, 0.85, 0.75) keeps the head and drops the
+# shoulders, so the painter draws the body from the words. In memory only; the file is never touched. {} — none.
+PAINTER_REFERENCE_CROP = {}
 # Words that bring the painter a plain line: word → line; when a prompt has the word (any ending), the line goes to
 # the painter ahead of it, after a set's. For a pose the painter keeps getting wrong in the friend's own language.
 # {} — none.

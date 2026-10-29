@@ -102,7 +102,7 @@ TABS: dict[str, list[str]] = {
               "PRESENCE_ON_TEMPERAMENT", "PRESENCE_INTENSE_NOTE", "PRESENCE_THINK", "PRESENCE_THINK_INTENSE", "PRESENCE_INTENSE_EVERY_TURN", "PRESENCE_SPARK_DOORS", "PRESENCE_THINK_RETRIES", "PRESENCE_SEEDS", "PRESENCE_ACHE_WEIGHT", "PRESENCE_CLIMB_MIN"],
     "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_LINE_TIMES", "EARS_UNLOAD_BRAIN",
                "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
-               "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_REFERENCE_TURN", "PAINTER_AUTO_REFERENCE",
+               "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_REFERENCE_TURN", "PAINTER_REFERENCE_CROP", "PAINTER_AUTO_REFERENCE",
                "MUSIC_EARS_MODEL", "MUSIC_EARS_AUTOSTART", "MUSIC_EARS_PYTHON", "MUSIC_EARS_DEVICE", "MUSIC_EARS_REST_LEAVES",
                "BODY_IN_PROMPT", "BODY_AUTOPULL", "BODY_PULL_MIN",
                "TOUCHSTONE_URL", "TOUCHSTONE_BOARD", "TOUCHSTONE_POLL_S", "TOUCHSTONE_TELL_S", "TOUCHSTONE_WAKES", "TOUCHSTONE_WAKE_MIN_GAP_S",
@@ -561,6 +561,10 @@ _HELP = {
                               "under creations/, both together the reference set that holds them both. Only on a brush "
                               "that reads references; the result says what came. References given by hand are kept, and "
                               "a name they leave out is added to them.",
+    "PAINTER_REFERENCE_CROP": "A reference picture cut to part of itself after the turn — {\"face/face.png\": (0.15, 0, 0.85, "
+                              "0.75)} keeps the head and drops the shoulders (left, top, right, bottom, as parts of its width "
+                              "and height), so the painter draws the body from the words. In memory only; the file is never "
+                              "touched.",
     "PAINTER_REFERENCE_TURN": "A reference picture turned level before the painter sees it — {\"face/face.png\": 15} turns "
                               "that picture 15° clockwise (a path under creations/, or a folder for all its pictures). For a "
                               "face that leans in its picture, which the painter would copy into every painting. In memory "
@@ -693,7 +697,7 @@ SENSES: list[dict] = [
      "they call it; the brain steps off the card and reads its window cold after — the real price of a painting",
      "modules": ["torch", "diffusers", "PIL"], "tools": [], "python": "PAINTER_PYTHON",
      "pip": "-U diffusers transformers accelerate safetensors pillow sentencepiece protobuf tiktoken (torch and torchvision first — README)",
-     "knobs": ["PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_REFERENCE_TURN", "PAINTER_AUTO_REFERENCE"],
+     "knobs": ["PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_REFERENCE_TURN", "PAINTER_REFERENCE_CROP", "PAINTER_AUTO_REFERENCE"],
      "readme": "their-senses-and-hands"},
     {"key": "music", "name": "The music ear", "what": "a song heard whole by Music Flamingo (8B, ~16 GB of VRAM to itself): genre, "
      "tempo, key, how the piece moves; without it a long piece is heard in passages by the brain",
