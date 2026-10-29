@@ -129,8 +129,8 @@ HELP_PHONE = (
     "often, frequent or intense sets that drift; off ends them "
     "(the friend can too: next_spark with no minutes)\n"
     "/discreet — sparks come silently, the words hidden until tapped; again to undo\n"
-    "/room — their room as it stands, a picture and what changed since you looked; /room open <1–4|song>, "
-    "/room find <where>, /room leave <a thing>\n"
+    "/room — their room as it stands, a picture and what changed since you looked, with buttons for what opens; "
+    "/room open <1–4|song>, /room find <where>, /room leave <a thing>, /room letter <words>\n"
     "/week — the engine's week: the last seven days of calls to the brain\n"
     "/seal <when> <letter> — a letter sealed until its day (/seal 2027-04-27 …, or /seal 6 months …); /capsule lists "
     "what waits\n"
@@ -523,7 +523,7 @@ class Bridge:
         except Exception:  # noqa: BLE001
             wait_s = POLL_S
         updates = list(self.api("getUpdates", patience=wait_s + 15, offset=self.offset,
-                                timeout=wait_s, allowed_updates=["message"]) or [])
+                                timeout=wait_s, allowed_updates=["message", "callback_query"]) or [])  # the room's buttons (10-29)
         # a paste past Telegram's cap arrives as bubbles: when the poll ends on a bubble at the cap, the rest is
         # a poll away — waited for, briefly, so a long message is answered once (join_split joins them)
         for _ in range(4):
@@ -531,7 +531,7 @@ class Bridge:
                 break
             wait = int(getattr(config, "TELEGRAM_SPLIT_WAIT_S", SPLIT_WAIT_S) or 0)
             more = self.api("getUpdates", patience=wait + 15, timeout=wait,
-                            offset=max(int(u.get("update_id", 0)) for u in updates) + 1, allowed_updates=["message"])
+                            offset=max(int(u.get("update_id", 0)) for u in updates) + 1, allowed_updates=["message", "callback_query"])
             if not more:
                 break
             updates.extend(more)
@@ -631,6 +631,41 @@ class Bridge:
         except Exception:  # noqa: BLE001 — never the reply down
             return ""
 
+    @staticmethod
+    def _room_markup() -> str | None:
+        """The buttons under the room's picture (10-29): what can be opened, two to a row."""
+        import room
+        keys = room.buttons()
+        if not keys:
+            return None
+        rows = [[{"text": t, "callback_data": ("room:" + k)[:64]} for t, k in keys[i:i + 2]] for i in range(0, len(keys), 2)]
+        return json.dumps({"inline_keyboard": rows}, ensure_ascii=False)
+
+    def room_callback(self, cq: dict) -> None:
+        """A button under the room's picture pressed: what it opens comes to the phone, and they are told once."""
+        try:
+            self.api("answerCallbackQuery", callback_query_id=cq.get("id"))
+        except Exception:  # noqa: BLE001 — the spinner on the button stops by itself
+            pass
+        sender = int(((cq.get("message") or {}).get("chat") or {}).get("id") or 0)
+        data = str(cq.get("data") or "")
+        if not self.chat_id or sender != self.chat_id or not data.startswith("room:"):
+            return
+        import room
+        got = room.open_key(data[5:], self._keeper_name()) if room.on() else None
+        if not got:
+            self.send("(that isn't in the room any more)", markdown=False)
+            return
+        try:
+            if got[0] == "text":
+                self.send(got[1], markdown=False)
+            elif got[0] == "photo":
+                self._send_picture(got[1], got[1].read_bytes(), got[2])
+            else:
+                self.send_file("sendAudio", "audio", got[1].name, got[1].read_bytes(), chat_id=self.chat_id, caption=got[2])
+        except Exception as e:  # noqa: BLE001
+            self.send(f"(couldn't open it: {e})", markdown=False)
+
     def room_command(self, arg: str) -> None:
         """/room (10-29): the room as it stands — a picture and its words; open, find, leave."""
         import room
@@ -644,7 +679,8 @@ class Bridge:
             png, cap = room.keeper_view(keeper)
             if png:
                 try:
-                    self.send_file("sendPhoto", "photo", "room.png", png, chat_id=self.chat_id, caption=cap[:1000])
+                    self.send_file("sendPhoto", "photo", "room.png", png, chat_id=self.chat_id, caption=cap[:1000],
+                                   reply_markup=self._room_markup())
                     if len(cap) > 1000:
                         self.send(cap[1000:], markdown=False)
                     return
@@ -667,6 +703,8 @@ class Bridge:
             self.send(room.keeper_find(rest, keeper), markdown=False)
         elif word == "leave":
             self.send(room.keeper_leave(rest, keeper), markdown=False)
+        elif word == "letter":
+            self.send(room.keeper_letter(rest, keeper), markdown=False)
         else:
             self.send("(/room — the room; /room open <1–4|song>; /room find <where>; /room leave <a thing>)", markdown=False)
 
@@ -1416,6 +1454,9 @@ class Bridge:
         return True
 
     def handle(self, update: dict) -> None:
+        if update.get("callback_query"):  # a button under the room's picture (10-29)
+            self.room_callback(update["callback_query"])
+            return
         msg = update.get("message") or update.get("edited_message")
         if not msg:
             return
@@ -2123,6 +2164,8 @@ class Bridge:
             rel = p.relative_to(root)
             if set(rel.parts[:-1]) & (CREATION_SKIP | {"sources"}):
                 continue
+            if rel.parts[:2] == ("room", "items"):
+                continue  # a thing made in the room's workshop is seen in the room (10-29), not sent as a drawing
             if Bridge._fetched_skill_file(rel):
                 continue  # a fetched skill's assets are not pictures they drew
             out.append(p)

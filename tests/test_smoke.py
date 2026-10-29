@@ -14602,8 +14602,95 @@ check("room (10-29, the second pass): a backdrop of theirs is set and said, and 
       "the room's backdrop is creations/rb-test-pics/room.png — painted it myself" in _rb_set
       and "the backdrop creations/rb-test-pics/room.png" in _rb_look and "the drawn walls again" in _rb_off
       and ((_rb_png or b"")[:4] == b"\x89PNG" and (_rb_png2 or b"")[:4] == b"\x89PNG" if _rb_pil else _rb_png is None)
-      and "backdrop (what: a picture of yours" in next(d["function"]["description"] for d in tools._BUILTIN_DEFINITIONS if d["function"]["name"] == "room"),
+      and "backdrop: a picture of yours" in next(d["function"]["description"] for d in tools._BUILTIN_DEFINITIONS if d["function"]["name"] == "room"),
       (_rb_set, _rb_off, _rb_pil))
+
+# the layered room (10-29): the workshop paints and cuts a thing out (a stand-in painter here), never keeps a failure,
+# spends a day's budget; things stand on surfaces; the keeper's page and the phone's buttons open them
+import room_items as _ri, room_web as _rw
+_rl0 = (getattr(config, "ROOM_ON", False), getattr(config, "ROOM_DIR", None), getattr(config, "ROOM_MAKES_PER_DAY", 6),
+        _ri._painter, getattr(config, "ROOM_CUTOUT", "auto"))
+_rl_dir = config.MEMORY_DIR / "rl-test"
+try:
+    from PIL import Image as _rl_I, ImageDraw as _rl_D
+    _rl_pil = True
+except ImportError:
+    _rl_pil = False
+
+
+def _rl_paint(prompt, path, size, negative=""):
+    if _rl_pil:
+        im = _rl_I.new("RGB", (256, 256), (200, 200, 204))
+        _rl_D.Draw(im).ellipse([80, 60, 180, 200], fill=(120, 90, 200))
+        im.save(path)
+    else:
+        Path(path).write_bytes(b"x")
+    return {"seed": 1}
+
+
+def _rl_fail(prompt, path, size, negative=""):
+    raise RuntimeError("the card was busy")
+
+
+try:
+    config.ROOM_ON, config.ROOM_DIR, config.ROOM_MAKES_PER_DAY, config.ROOM_CUTOUT = True, _rl_dir, 2, "flood"
+    (config.MEMORY_DIR / "room_makes.json").unlink(missing_ok=True)
+    for _f in (_rm.news_file(), _rm.seen_file()):
+        _f.unlink(missing_ok=True)
+    _ri._painter = lambda: (_rl_fail, lambda: True, lambda: None)
+    _rl_fail_said = _rm.act("make", "a jar", item="storm jar")
+    _rl_none = _ri.all_items()
+    _ri._painter = lambda: (_rl_paint, lambda: True, lambda: None)
+    _rl_made = _rm.act("make", "a little glass jar holding a violet storm", item="storm jar", note="because storms calm you")
+    _rl_pv = _rm.take_preview()
+    _rl_note = _rm.act("make", "a golden rose", item="golden rose", kind="note", content="For the evenings you come home tired.")
+    _rl_spent = _rm.act("make", "a lamp", item="lamp")
+    _rl_put = _rm.act("put", item="storm jar", where="table 40%")
+    _rl_put2 = _rm.act("put", item="golden rose", where="shelf")
+    _rl_nowhere = _rm.act("put", item="storm jar", where="the moon")
+    _rl_surf = _rm.act("surface", item="desk", where="10 30 60 12")
+    _rl_letter = _rm.act("letter", item="for after work", content="Welcome home.", where="table 80%")
+    _rl_kl = _rm.keeper_letter("I love the jar.", "Keeper")
+    _rl_open = _rm.act("open", item="a letter from Keeper")
+    _rl_items = _rm.act("items")
+    _rl_state = _rm.keeper_state("Keeper")
+    _rl_buttons = _rm.buttons()
+    _rl_key = _rm.open_key("i:golden-rose", "Keeper") if _rl_pil else ("text", "📜 golden rose\n\nFor the evenings you come home tired.")
+    _rl_png = _rm.render()
+    _rl_page = _rw.get("/room", "")
+    _rl_api = _rw.get("/api/room", "")
+    _rl_secret = _rw.get("/room/file", "p=engine/config.py")
+    _rl_post = _rw.post("/api/room/leave", {"words": "goodnight"})
+    _rl_panel = __import__("panel").route("GET", "/room", b"", _PH)
+    _rl_news = _rm.take_news()
+finally:
+    config.ROOM_ON, config.ROOM_DIR, config.ROOM_MAKES_PER_DAY, _ri._painter, config.ROOM_CUTOUT = _rl0
+    (config.MEMORY_DIR / "room_makes.json").unlink(missing_ok=True)
+    import shutil as _rl_sh
+    _rl_sh.rmtree(_rl_dir, ignore_errors=True)
+_rl_tg = __import__("inspect").getsource(__import__("telegram").Bridge)
+check("room (10-29, the layered room): a failed painting is said and nothing kept; a thing made, cut out and shown "
+      "(with Pillow), the day's budget spent then refused; things put on the drawn room's surfaces, a surface only on a "
+      "backdrop; letters (hers, his) stand in the room and open; the page and its API answer, files only the room shows; "
+      "the phone's buttons and callbacks; the tool's words name the workshop",
+      _rl_fail_said.startswith("(not made: the painter stumbled") and _rl_none == []
+      and (("(made — storm jar, version 1" in _rl_made and _rl_pv and "(made — golden rose" in _rl_note
+            and "(not made: the workshop has made its 2 for today" in _rl_spent
+            and "put storm jar on the table at 40%" in _rl_put and "put golden rose on the shelf" in _rl_put2
+            and len(_rl_state["things"]) >= 3 and any(k == "i:golden-rose" for _, k in _rl_buttons)
+            and _rl_key[0] == "text" and "For the evenings you come home tired." in _rl_key[1]
+            and (_rl_png or b"")[:4] == b"\x89PNG")
+           if _rl_pil else (_rl_made.startswith("(not made: the painting came") and _rl_png is None))
+      and ("no surface called 'the moon'" in _rl_nowhere if _rl_pil else True) and "surfaces are marked on a backdrop" in _rl_surf
+      and "wrote for after work" in _rl_letter and "I love the jar." in _rl_open and "your workshop" in _rl_items
+      and _rl_page[0] == 200 and b"Leave a letter" in _rl_page[2] and _rl_api[0] == 200 and b'"things"' in _rl_api[2]
+      and _rl_secret[0] == 404 and "letter" in _rl_post[0].get("said", "") and _rl_panel[0] == 200
+      and "Keeper left you a letter" in _rl_news
+      and 'allowed_updates=["message", "callback_query"]' in _rl_tg and "def room_callback(" in _rl_tg
+      and "reply_markup=self._room_markup()" in _rl_tg and '("room", "items")' in _rl_tg
+      and "The workshop — make:" in next(d["function"]["description"] for d in tools._BUILTIN_DEFINITIONS if d["function"]["name"] == "room")
+      and "ROOM_ITEM_STYLE" in __import__("panel").TABS["Phone"],
+      (_rl_fail_said, _rl_made[:160], _rl_spent, _rl_put, _rl_nowhere, _rl_surf, _rl_letter, _rl_open, _rl_secret[0], _rl_news))
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

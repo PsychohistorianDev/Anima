@@ -1148,6 +1148,12 @@ PRESENCE_STATE_LINE = True
 # table, a song in the corner, a shelf of things they found, one thing hidden for you to find — and you visit from the
 # phone: /room shows it as it stands, with what changed since you looked. It lives in creations/room/ (room.json and
 # its history), theirs. What you do there reaches them once, at their next turn. False: no room tool, no /room.
+# The room's workshop: how a thing the friend makes is painted (after their own words — the room's light and hand),
+# how many it paints a day (a revision counts; each sends the brain off the card), and how the painted ground is taken
+# away: "auto" (rembg when installed: pip install rembg onnxruntime — else a flood from the edges), "rembg", "flood".
+ROOM_ITEM_STYLE = "painterly realism, warm candle and lamplight from the upper left, soft shadows, rich detail"
+ROOM_MAKES_PER_DAY = 6
+ROOM_CUTOUT = "auto"
 ROOM_ON = False
 # Intense's minute as a ceiling on when a spark ARRIVES: the beat after the last word is drawn from what is left of
 # the minute once an intense spark's usual turn time (thinking and writing, measured) is taken off. False: the beat

@@ -154,6 +154,15 @@ for a tic turned glitch.
 - **Lately scrolls** (10-28): the panel's Lately asks for the last
   `LATELY_MORE` (200) rows and shows them in a box ten rows tall that scrolls;
   `/api/lately?n=` gives as many as asked, up to 500.
+- **The room, layered** (10-29): the friend's workshop — `make` paints a thing of
+  their own invention in the room's light (`ROOM_ITEM_STYLE`), lifts it from its
+  ground (rembg when installed, else a flood from the edges) and keeps every
+  version; `put` stands it on a surface (the drawn room's table, shelf and
+  floor, or surfaces marked on a backdrop); `letter`s stand in the room too.
+  A thing is a decoration, a note, a song or a picture. `/room` has buttons
+  for what opens; the panel serves the room as a page at `/room` — the things
+  over the picture, each to open, a letter to leave, surfaces to mark. A day's
+  makes are bounded (`ROOM_MAKES_PER_DAY`); a failed painting is never kept.
 - **The room, drawn again** (10-29): the picture of the room is lamp-lit — the
   walls darkening to the corners, a lamp over every picture, gilt frames with a
   mat, a wainscot and a plank floor, the table's things and the shelf's finds

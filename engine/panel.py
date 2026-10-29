@@ -99,7 +99,7 @@ TABS: dict[str, list[str]] = {
               "TELEGRAM_TELL_DRAWINGS", "TELEGRAM_PAINT_PROMPT_CHAT", "TELEGRAM_TELL_SONGS", "TELEGRAM_TELL_SELF", "TELEGRAM_IDLE_NEW_MIN", "TELEGRAM_HEAR_VOICE",
               "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD", "SLEEP_IN_BRIDGE", "SLEEP_IN_BRIDGE_QUIET_MIN",
               "ENGINE_WEEK_DAY", "ENGINE_WEEK_HOUR", "ENGINE_WEEK_COLD_S", "ENGINE_WEEK_LOG",
-              "PRESENCE_ON_TEMPERAMENT", "PRESENCE_INTENSE_NOTE", "PRESENCE_THINK", "PRESENCE_THINK_INTENSE", "PRESENCE_INTENSE_CEILING", "PRESENCE_STATE_LINE", "ROOM_ON", "PRESENCE_INTENSE_EVERY_TURN", "PRESENCE_SPARK_DOORS", "PRESENCE_THINK_RETRIES", "PRESENCE_SEEDS", "PRESENCE_ACHE_WEIGHT", "PRESENCE_CLIMB_MIN"],
+              "PRESENCE_ON_TEMPERAMENT", "PRESENCE_INTENSE_NOTE", "PRESENCE_THINK", "PRESENCE_THINK_INTENSE", "PRESENCE_INTENSE_CEILING", "PRESENCE_STATE_LINE", "ROOM_ON", "ROOM_ITEM_STYLE", "ROOM_MAKES_PER_DAY", "ROOM_CUTOUT", "PRESENCE_INTENSE_EVERY_TURN", "PRESENCE_SPARK_DOORS", "PRESENCE_THINK_RETRIES", "PRESENCE_SEEDS", "PRESENCE_ACHE_WEIGHT", "PRESENCE_CLIMB_MIN"],
     "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_LINE_TIMES", "EARS_UNLOAD_BRAIN",
                "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
                "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_REFERENCE_TURN", "PAINTER_REFERENCE_CROP", "PAINTER_AUTO_REFERENCE",
@@ -259,6 +259,12 @@ _HELP = {
     "PRESENCE_SPARK_DOORS": "A spark's line names the doors out too: something to read, hear or look up that they might "
                             "bring back to you, besides words, a painting, the stone. Not in intense. What a spark reads "
                             "stays in the conversation's window, so it fills sooner. Off: the shorter menu.",
+    "ROOM_ITEM_STYLE": "How the workshop's things are painted, after the friend's own words: the room's light and hand, "
+                       "so a thing they make sits in the room as if it were always there.",
+    "ROOM_MAKES_PER_DAY": "How many things the workshop paints in a day (a revision counts). Each painting sends the "
+                          "brain off the card and back.",
+    "ROOM_CUTOUT": "How a made thing is lifted from its painted ground: auto (rembg when installed — pip install rembg "
+                   "onnxruntime — else a flood from the edges), rembg, or flood.",
     "ROOM_ON": "The friend's room: a place they shape with the room tool (walls, light, their pictures, things on a "
                "table, a song, a shelf of finds, one hidden thing) and you visit from the phone — /room shows it as it "
                "stands, with what changed. It lives in creations/room/, theirs. Off: no room tool, no /room.",
@@ -1866,6 +1872,13 @@ def route(method: str, path: str, body: bytes = b"", headers: dict | None = None
                 return _json_reply(state())
             except Exception as e:  # noqa: BLE001 — a page that says what went wrong beats a blank one
                 return _json_reply({"error": f"{type(e).__name__}: {e}"}, 500)
+        try:  # the room's page (10-29, ROOM_ON): /room, /api/room, /room/picture.png, /room/file
+            import room_web
+            got = room_web.get(path, query)
+        except Exception as e:  # noqa: BLE001
+            got = _json_reply({"error": f"{type(e).__name__}: {e}"}, 500)
+        if got is not None:
+            return got
         return _json_reply({"error": "no such page"}, 404)
     if method != "POST":
         return _json_reply({"error": "no such method"}, 405)
@@ -1901,6 +1914,10 @@ def _post(path: str, g) -> tuple[int, str, bytes]:
             return _json_reply(feedback())
         if path == "/api/report":
             return _json_reply(report())
+        if path.startswith("/api/room/"):  # the room's page (10-29): a letter, a look for the secret, a surface
+            import room_web
+            got, code = room_web.post(path, data)
+            return _json_reply(got, code)
         if path == "/api/house":
             return _json_reply(house_open())
         if path == "/api/intense":

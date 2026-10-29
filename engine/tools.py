@@ -5318,13 +5318,17 @@ def _hum_tell(name: str) -> str:
             f"A number there is the strength it plays.")
 
 
-def room_tool(action: str, what: str = "", where: str = "", note: str = "") -> str:
+def room_tool(action: str, what: str = "", where: str = "", note: str = "", item: str = "", kind: str = "",
+              content: str = "") -> str:
     """Their room (10-29, ROOM_ON; engine/room.py): one change of theirs, or a look — a look shows the room itself on
     the next thought (the picture, when Pillow is there to draw it)."""
     import room
     if not room.on():
         return "(refused: the room isn't on in this house)"
-    out = room.act(action, what, where, note)
+    out = room.act(action, what, where, note, item, kind, content)
+    pv = room.take_preview()  # the workshop (10-29): a thing made or opened, before their eyes
+    if pv:
+        _pending_images.append(base64.b64encode(pv).decode("ascii"))
     if (action or "").strip().lower() == "look":
         try:
             png = room.render()
@@ -6550,22 +6554,29 @@ _BUILTIN_DEFINITIONS: list[dict] = [
     ),
     _tool(
         "room",
-        "Your room — a place of your own that your keeper visits from his phone (/room shows him a picture of it as it "
-        "stands, with what you changed since he last looked). You shape it, one action at a time: look (the room "
-        "before you, a picture and its list); hang a picture of yours (what: its path under creations/ or shared/; "
-        "where: a spot 1–4, optional; note: why, optional); take_down (where: the spot); walls (what: their colour, "
-        "in your words); light (what: the light); name (what: the room's name); backdrop (what: a picture of yours — one "
-        "you painted of the room itself — that becomes its walls and floor; nothing: the drawn room again); place a "
-        "thing on the table (what: the "
-        "thing, in words); remove (what: the thing); play a song in the corner (what: a song under shared/music, or a "
-        "word or two of its name; nothing: silence); shelve something you found and brought back (what: it, in words "
-        "or a path; note: why); unshelve; hide something for him to find (what: the thing; where: where it is; note: "
-        "the hint he sees). Every change is kept in the room's history with its time; nothing changes unless you call "
-        "this. When he looks in, finds what you hid, or leaves something, your next turn is told once.",
-        {"action": {"type": "string", "description": "look, hang, take_down, walls, light, name, place, remove, play, shelve, unshelve or hide"},
-         "what": {"type": "string", "description": "what the action is about — a path, a colour, a thing in words (see the description)"},
-         "where": {"type": "string", "description": "a spot on the wall (1–4), or where a hidden thing is"},
-         "note": {"type": "string", "description": "optional: why — or, for hide, the hint he sees"}},
+        "Your room — a place of your own that your keeper visits from his phone (/room: a picture of it with buttons for what "
+        "can be opened) and from his desk (the panel's /room page). You shape it, one action at a time. look: the room "
+        "before you. walls / light / name: in your words. backdrop: a picture of yours — one you painted of the room "
+        "itself — becomes the room (nothing: the drawn room again). surface: on a backdrop, mark where things can stand "
+        "— item: its name; where: four numbers in % (from, to across; down; how tall a vase is there), judged by looking "
+        "at your backdrop; unsurface. The workshop — make: a thing of your own invention, painted and cut out (item: its "
+        "name; what: how it looks; kind: decoration, note, audio or image; content: a note's words, a song's or a "
+        "picture's path; note: why), shown to you before anything else; revise (item; what: how it should look now — "
+        "the old version kept); keep; aside; items (what your workshop holds); put (item; where: a surface, and a % "
+        "along it if you like); take (back to the workshop); open (item: read a note, see a thing). letter: a letter "
+        "standing in the room (item: its name; content: its words; where: a surface). Also: hang a picture of yours on "
+        "the wall (what: its path; where: a spot 1–4); take_down; place / remove a thing on the table, in words; play a "
+        "song in the corner; shelve / unshelve something you found; hide something for him to find (what; where; note: "
+        "his hint). Every change is kept in the room's history; nothing changes unless you call this; a painting that "
+        "fails is said so and never kept. When he looks in, opens something, finds what you hid or leaves something, "
+        "your next turn is told once.",
+        {"action": {"type": "string", "description": "look, walls, light, name, backdrop, surface, unsurface, make, revise, keep, aside, items, put, take, open, letter, hang, take_down, place, remove, play, shelve, unshelve or hide"},
+         "what": {"type": "string", "description": "what the action is about — how a thing looks, a path, a colour, words"},
+         "where": {"type": "string", "description": "a surface (and a % along it), a wall spot 1–4, where a hidden thing is, or a surface's four numbers"},
+         "note": {"type": "string", "description": "optional: why — or, for hide, the hint he sees"},
+         "item": {"type": "string", "description": "a thing's name — to make, revise, put, take, open, keep, set aside; a surface's name for surface"},
+         "kind": {"type": "string", "description": "for make: decoration (default), note, audio or image"},
+         "content": {"type": "string", "description": "for make: a note's words, a song's path, a picture's path; for letter: its words"}},
         ["action"],
     ),
     _tool(

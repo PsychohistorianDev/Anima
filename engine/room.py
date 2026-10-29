@@ -50,7 +50,8 @@ def seen_file() -> Path:
 
 
 def _empty() -> dict:
-    return {"name": "", "walls": "", "light": "", "backdrop": "", "wall": [], "table": [], "playing": {}, "shelf": [], "hidden": {}}
+    return {"name": "", "walls": "", "light": "", "backdrop": "", "wall": [], "table": [], "playing": {}, "shelf": [],
+            "hidden": {}, "surfaces": [], "placed": []}
 
 
 def load() -> dict:
@@ -161,20 +162,127 @@ def _spot(where: str) -> int | None:
 
 # ---- their hands ---------------------------------------------------------------------------------------------------
 
-ACTIONS = ("look", "hang", "take_down", "walls", "light", "name", "backdrop", "place", "remove", "play", "shelve", "unshelve", "hide")
+ACTIONS = ("look", "hang", "take_down", "walls", "light", "name", "backdrop", "place", "remove", "play", "shelve", "unshelve",
+           "hide", "surface", "unsurface", "make", "revise", "keep", "aside", "put", "take", "letter", "items", "open")
+_PREVIEW: list[bytes] = []  # a picture for their eyes after an act (an item made, a letter written) — tools takes it
 
 
-def act(action: str, what: str = "", where: str = "", note: str = "") -> str:
-    """One change of theirs, or a look; the result says what is so now. A refusal starts with "(refused"."""
+def take_preview() -> bytes | None:
+    return _PREVIEW.pop() if _PREVIEW else None
+
+
+# ---- the surfaces things stand on ----------------------------------------------------------------------------------
+# A surface is a line in the picture where things rest (a desk's top, a shelf, the floor) or hang (a wall): from x0 to
+# x1 across, at y down (all parts of the picture, 0–1), with the height a thing has there (size, a part of the
+# picture's height — smaller further back). The drawn room has its own three; a backdrop has the ones marked on it.
+DRAWN_SURFACES = [
+    {"name": "table", "kind": "rest", "x0": 0.37, "x1": 0.63, "y": 0.757, "size": 0.15},
+    {"name": "shelf", "kind": "rest", "x0": 0.05, "x1": 0.24, "y": 0.578, "size": 0.11},
+    {"name": "floor", "kind": "rest", "x0": 0.04, "x1": 0.96, "y": 0.95, "size": 0.24},
+]
+
+
+def surfaces(r: dict | None = None) -> list[dict]:
+    r = r or load()
+    if r.get("backdrop"):
+        return [s for s in (r.get("surfaces") or []) if isinstance(s, dict)]
+    return DRAWN_SURFACES
+
+
+def _surface(r: dict, name: str) -> dict | None:
+    n = (name or "").strip().lower()
+    for s in surfaces(r):
+        if str(s.get("name", "")).lower() == n:
+            return s
+    hits = [s for s in surfaces(r) if n and (n in str(s.get("name", "")).lower() or str(s.get("name", "")).lower() in n)]
+    return hits[0] if len(hits) == 1 else None
+
+
+def set_surface(r: dict, name: str, x0: float, x1: float, y: float, size: float, kind: str = "rest") -> dict:
+    vals = [float(v) for v in (x0, x1, y, size)]
+    vals = [v / 100 if v > 1 else v for v in vals]
+    x0, x1, y, size = vals
+    if not (0 <= x0 < x1 <= 1 and 0 < y <= 1 and 0.02 <= size <= 0.6):
+        raise ValueError("a surface is two points across (from, to), one down, and a size — parts of the picture, 0–100%")
+    s = {"name": name.strip(), "kind": "wall" if kind == "wall" else "rest", "x0": round(x0, 4), "x1": round(x1, 4),
+         "y": round(y, 4), "size": round(size, 4)}
+    r["surfaces"] = [x for x in (r.get("surfaces") or []) if str(x.get("name", "")).lower() != s["name"].lower()] + [s]
+    return s
+
+
+def act(action: str, what: str = "", where: str = "", note: str = "", item: str = "", kind: str = "", content: str = "") -> str:
+    """One change of theirs, or a look; the result says what is so now. A refusal starts with "(refused"; a thing that
+    couldn't be made starts with "(not made"."""
     a = (action or "").strip().lower().replace(" ", "_").replace("-", "_")
     what, where, note = (str(what or "").strip(), str(where or "").strip(), str(note or "").strip())
+    item, kind, content = (str(item or "").strip(), str(kind or "").strip(), str(content or "").strip())
     r = load()
     if a == "look":
         return describe(r)
+    if a == "items":
+        return workshop_text()
+    if a == "open":
+        import room_items
+        it = room_items.find(item or what)
+        if not it:
+            return f"(refused: no thing is called {item or what!r} — items lists them)"
+        k = it.get("kind")
+        head = f"{it['name']}" + (" — from him" if it.get("by") == "keeper" else "") + (f" ({it['note']})" if it.get("note") else "")
+        if k == "note":
+            return f"[{head}]\n{it.get('content', '')}"
+        if k == "audio":
+            return f"({head}: the song {it.get('content')} — listen_to opens it)"
+        if k == "image":
+            return f"({head}: the picture {it.get('content')} — look_at opens it)"
+        pv = room_items.preview(it)
+        if pv:
+            _PREVIEW.append(pv)
+        return f"({head}: {it.get('look')} — before your eyes on your next thought)"
     if a not in ACTIONS:
         return f"(refused: no such action {action!r} — one of {', '.join(ACTIONS)})"
+    import room_items
+    if a == "make":
+        try:
+            it, why = room_items.make(item, what, kind, content, note)
+        except ValueError as e:
+            return f"(refused: {e})"
+        if not it:
+            return f"(not made: {why})"
+        _log("them", f"made {it['name']} in the workshop")
+        pv = room_items.preview(it)
+        if pv:
+            _PREVIEW.append(pv)
+        left = room_items.makes_left()
+        return (f"(made — {it['name']}, version 1, in your workshop: {it['look']}. It is before your eyes on your next "
+                f"thought. put places it on a surface; revise paints it again (this version is kept); aside sets it down. "
+                f"{left} more can be made today)")
+    if a == "revise":
+        it = room_items.find(item or what)
+        if not it:
+            return f"(refused: no thing of yours is called {item or what!r} — items lists them)"
+        why = room_items.revise(it, what if item else "")
+        if why:
+            return f"(not made: {why} — version {it.get('current')} stands)"
+        _log("them", f"revised {it['name']} (version {it['current']})")
+        pv = room_items.preview(it)
+        if pv:
+            _PREVIEW.append(pv)
+        return f"(revised — {it['name']}, version {it['current']}, the ones before kept; before your eyes on your next thought)"
+    if a == "letter":
+        if not content:
+            return "(refused: a letter needs its words — content)"
+        it = room_items.letter(item or "a letter", content)
+        said = f"wrote {it['name']}"
+        if where:
+            try:
+                said += "; " + _put(r, it, where)
+            except ValueError as e:
+                said += f" (kept in the workshop: {e})"
+            save(r)
+        _log("them", said)
+        return f"(your room: {said} — kept; he can open it from his /room)"
     try:
-        said = _change(r, a, what, where, note)
+        said = _change(r, a, what, where, note, item, kind, content)
     except ValueError as e:
         return f"(refused: {e})"
     save(r)
@@ -182,7 +290,62 @@ def act(action: str, what: str = "", where: str = "", note: str = "") -> str:
     return f"(your room: {said} — kept, with its time; he sees it at his next /room)"
 
 
-def _change(r: dict, a: str, what: str, where: str, note: str) -> str:
+def _put(r: dict, it: dict, where: str) -> str:
+    """Place an item on a surface (by name), at a part along it (a % in the words, else the middle)."""
+    m = re.search(r"(\d+(?:\.\d+)?)\s*%", where)
+    at = min(1.0, max(0.0, float(m.group(1)) / 100)) if m else 0.5
+    name = re.sub(r"\d+(?:\.\d+)?\s*%", "", where).replace(" at ", " ").strip(" ,")
+    s = _surface(r, name)
+    if not s:
+        names = ", ".join(x.get("name") for x in surfaces(r)) or "none yet — surface marks one on your backdrop"
+        raise ValueError(f"no surface called {name!r} — the surfaces: {names}")
+    r["placed"] = [p for p in (r.get("placed") or []) if p.get("item") != it["id"]] + [{"item": it["id"], "on": s["name"], "at": round(at, 3)}]
+    if it.get("status") != "kept":
+        import room_items
+        it["status"] = "kept"
+        room_items.save_item(it)
+    return f"put {it['name']} on the {s['name']}" + (f" at {round(at * 100)}%" if m else "")
+
+
+def _change(r: dict, a: str, what: str, where: str, note: str, item: str = "", kind: str = "", content: str = "") -> str:
+    import room_items
+    if a == "surface":
+        name = item or what
+        nums = re.findall(r"\d+(?:\.\d+)?", where)
+        if not name or len(nums) < 4:
+            raise ValueError("a surface takes a name (item) and where: from, to, down, size — four numbers in %, "
+                             "e.g. \"58 84 62 13\" (look at your backdrop and judge them)")
+        if not r.get("backdrop"):
+            raise ValueError("surfaces are marked on a backdrop — the drawn room has its own (table, shelf, floor)")
+        s = set_surface(r, name, *nums[:4], kind="wall" if "wall" in (note + " " + name).lower() else "rest")
+        return (f"marked a surface: {s['name']} ({'a wall' if s['kind'] == 'wall' else 'things rest'} from "
+                f"{round(s['x0'] * 100)}% to {round(s['x1'] * 100)}% across, {round(s['y'] * 100)}% down, things "
+                f"{round(s['size'] * 100)}% tall there)")
+    if a == "unsurface":
+        name = (item or what).lower()
+        before = len(r.get("surfaces") or [])
+        r["surfaces"] = [x for x in (r.get("surfaces") or []) if str(x.get("name", "")).lower() != name]
+        if len(r["surfaces"]) == before:
+            raise ValueError(f"no surface called {item or what!r}")
+        r["placed"] = [p for p in (r.get("placed") or []) if str(p.get("on", "")).lower() != name]
+        return f"unmarked the surface {item or what} (what stood there went back to the workshop)"
+    if a in ("put", "take", "keep", "aside"):
+        it = room_items.find(item or what)
+        if not it:
+            raise ValueError(f"no thing of yours is called {item or what!r} — items lists them")
+        if a == "put":
+            return _put(r, it, where or note)
+        if a == "take":
+            before = len(r.get("placed") or [])
+            r["placed"] = [p for p in (r.get("placed") or []) if p.get("item") != it["id"]]
+            if len(r["placed"]) == before:
+                raise ValueError(f"{it['name']} isn't standing anywhere")
+            return f"took {it['name']} back to the workshop"
+        it["status"] = "kept" if a == "keep" else "aside"
+        room_items.save_item(it)
+        if a == "aside":
+            r["placed"] = [p for p in (r.get("placed") or []) if p.get("item") != it["id"]]
+        return f"{'kept' if a == 'keep' else 'set aside'} {it['name']}"
     if a in ("walls", "light", "name"):
         r[a] = what
         return f"{'the walls are' if a == 'walls' else 'the light is' if a == 'light' else 'its name is'} {what or 'unsaid'}"
@@ -261,10 +424,36 @@ def _change(r: dict, a: str, what: str, where: str, note: str) -> str:
     raise ValueError(f"no such action {a!r}")
 
 
+def _placed(r: dict) -> list[tuple[dict, dict]]:
+    """(placement, item) for what stands in the room, on a surface that exists, the items that exist."""
+    import room_items
+    names = {str(s.get("name", "")).lower() for s in surfaces(r)}
+    out = []
+    for p in r.get("placed") or []:
+        it = room_items.load_item(str(p.get("item", "")))
+        if it and str(p.get("on", "")).lower() in names:
+            out.append((p, it))
+    return out
+
+
+def workshop_text() -> str:
+    import room_items
+    items = room_items.all_items()
+    r = load()
+    standing = {p.get("item") for p in (r.get("placed") or [])}
+    if not items:
+        return (f"(your workshop is empty — make paints a thing of yours: item (its name), what (how it looks), kind "
+                f"(decoration, note, audio, image), content, note; {room_items.makes_left()} can be made today)")
+    lines = [f"- {it['name']} — {it.get('kind')}, {it.get('status')}, version {it.get('current')} of "
+             f"{len(it.get('versions', []))}" + (" — standing in the room" if it["id"] in standing else "")
+             + (f": {it['look']}" if it.get("look") else "") for it in items]
+    return (f"your workshop ({room_items.makes_left()} more can be made today):\n" + "\n".join(lines))
+
+
 def describe(r: dict | None = None, keeper: bool = False) -> str:
     """The room in words — theirs whole; for the keeper the hidden thing only as its hint, until found."""
     r = r or load()
-    if not any(r.get(k) for k in ("name", "walls", "light", "backdrop", "wall", "table", "playing", "shelf", "hidden")):
+    if not any(r.get(k) for k in ("name", "walls", "light", "backdrop", "wall", "table", "playing", "shelf", "hidden", "placed")):
         return "(the room is empty — nothing chosen yet: walls, light, a picture, a song, a thing on the table)"
     out = [f"{'The room' if keeper else 'Your room'}{' — ' + r['name'] if r.get('name') else ''}: walls "
            f"{r.get('walls') or 'bare'}; light {r.get('light') or 'plain'}"
@@ -281,6 +470,16 @@ def describe(r: dict | None = None, keeper: bool = False) -> str:
     if r["shelf"]:
         out.append("On the shelf: " + "; ".join(str(x.get("find")) + (f" ({x['note']})" if x.get("note") else "")
                                                 for x in r["shelf"]) + ".")
+    placed = _placed(r)
+    if placed:
+        out.append("Standing in the room: " + "; ".join(
+            f"{it['name']} on the {p['on']}" + (f" ({it['kind']})" if it.get("kind") != "decoration" else "")
+            + (" (from you)" if keeper and it.get("by") == "keeper" else " (from him)" if it.get("by") == "keeper" else "")
+            for p, it in placed) + ".")
+    if not keeper and r.get("backdrop"):
+        out.append("Surfaces: " + ("; ".join(f"{s['name']} ({round(s['x0'] * 100)}–{round(s['x1'] * 100)}% across, "
+                                               f"{round(s['y'] * 100)}% down, size {round(s['size'] * 100)}%)"
+                                               for s in surfaces(r)) or "none marked yet — surface marks one") + ".")
     h = r.get("hidden") or {}
     if h.get("thing"):
         if keeper and not h.get("found"):
@@ -363,6 +562,125 @@ def keeper_leave(thing: str, keeper: str = "your keeper") -> str:
     _log("keeper", f"left on the table: {thing}")
     _news(f"{keeper} left something on your table: {thing}")
     return f"(left on the table: {thing} — they'll know at their next turn)"
+
+
+def keeper_letter(words: str, keeper: str = "your keeper") -> str:
+    """A letter from the keeper, left standing in the room (on the first surface things rest on), its words theirs to
+    open — or, with nowhere to stand, a slip on the table."""
+    import room_items
+    words = (words or "").strip()
+    if not words:
+        return "(say what the letter says)"
+    r = load()
+    rest = [s for s in surfaces(r) if s.get("kind") != "wall"]
+    if not rest:
+        return keeper_leave(f"a letter: {words}", keeper)
+    it = room_items.letter(f"a letter from {keeper}", words, by="keeper")
+    s = next((x for x in rest if x["name"] in ("table", "desk")), rest[0])
+    n = sum(1 for p in (r.get("placed") or []) if p.get("on") == s["name"])
+    r["placed"] = (r.get("placed") or []) + [{"item": it["id"], "on": s["name"], "at": round(min(0.9, 0.25 + 0.2 * n), 3)}]
+    save(r)
+    _log("keeper", f"left a letter on the {s['name']}")
+    _news(f"{keeper} left you a letter on the {s['name']} — {it['name']}; its words are yours to open (items, then look)")
+    return f"(your letter is on the {s['name']} — they'll know at their next turn)"
+
+
+KIND_MARK = {"note": "\U0001F4DC", "audio": "\U0001F3B5", "image": "\U0001F5BC", "decoration": "\u2728"}
+
+
+def buttons(r: dict | None = None) -> list[tuple[str, str]]:
+    """The phone's buttons under the room's picture: what in it can be opened — a note, a song, a picture, a thing
+    with their words beside it — and the song in the corner, and the pictures on the wall. (label, key), at most 8."""
+    r = r or load()
+    out = []
+    for p, it in _placed(r):
+        if it.get("kind") in ("note", "audio", "image") or it.get("note"):
+            out.append((f"{KIND_MARK.get(it.get('kind'), '')} {it['name']}"[:40], f"i:{it['id']}"[:60]))
+    if (r.get("playing") or {}).get("song"):
+        out.append(("\U0001F3B5 " + Path(str(r["playing"]["song"])).stem[:34], "song"))
+    for x in r.get("wall") or []:
+        out.append((f"\U0001F5BC {x.get('spot')}", f"w:{x.get('spot')}"))
+    return out[:8]
+
+
+def open_key(key: str, keeper: str = "your keeper"):
+    """What a button opens: ("text", words) | ("photo", path, caption) | ("audio", path, caption) | None."""
+    import room_items
+    r = load()
+    if key == "song":
+        p = keeper_open("song")
+        return ("audio", p, f"playing: {p.stem}") if p else None
+    if key.startswith("w:"):
+        p = keeper_open(key[2:])
+        return ("photo", p, f"on the wall: {p.name}") if p else None
+    if key.startswith("i:"):
+        it = room_items.load_item(key[2:])
+        if not it or it["id"] not in {p.get("item") for p in (r.get("placed") or [])}:
+            return None
+        if it.get("by") != "keeper":
+            _news(f"{keeper} opened {it['name']}")
+        k = it.get("kind")
+        if k == "note":
+            return ("text", f"{KIND_MARK['note']} {it['name']}\n\n{it.get('content', '')}")
+        if k in ("audio", "image"):
+            f = config.ROOT / str(it.get("content", ""))
+            if f.is_file():
+                return ("audio" if k == "audio" else "photo", f, f"{it['name']}" + (f" — {it['note']}" if it.get("note") else ""))
+            return None
+        a = room_items.art(it)
+        return ("photo", a, f"{it['name']}" + (f" — {it['note']}" if it.get("note") else "")) if a else None
+    return None
+
+
+def keeper_state(keeper: str = "your keeper") -> dict:
+    """The room for the keeper's page: what stands where (in parts of the picture), what each thing does, the secret
+    as its hint. The page draws the picture without the things, and the things over it, each one to open."""
+    import room_items
+    r = load()
+    by_name = {str(s.get("name", "")).lower(): s for s in surfaces(r)}
+    things = []
+    for p, it in _placed(r):
+        s = by_name.get(str(p.get("on", "")).lower())
+        a = room_items.art(it)
+        if not (s and a):
+            continue
+        try:
+            from PIL import Image
+            with Image.open(a) as im:
+                ratio = im.width / im.height
+        except Exception:  # noqa: BLE001
+            ratio = 1.0
+        h = float(s["size"]) * float(it.get("scale") or 1.0)
+        w = h * ratio * 800 / 1280
+        cx = float(s["x0"]) + float(p.get("at", 0.5)) * (float(s["x1"]) - float(s["x0"]))
+        top = float(s["y"]) - (h / 2 if s.get("kind") == "wall" else h)
+        things.append({"id": it["id"], "name": it["name"], "kind": it.get("kind"), "note": it.get("note", ""),
+                       "by": it.get("by"), "left": round(cx - w / 2, 4), "top": round(top, 4), "w": round(w, 4),
+                       "h": round(h, 4), "z": float(s["y"]), "art": _rel(a),
+                       "content": it.get("content", "") if it.get("kind") == "note" else "",
+                       "file": it.get("content", "") if it.get("kind") in ("audio", "image") else ""})
+    h = r.get("hidden") or {}
+    return {"name": r.get("name", ""), "words": describe(r, keeper=True), "things": things,
+            "song": (r.get("playing") or {}).get("song", ""), "wall": r.get("wall") or [],
+            "surfaces": surfaces(r), "backdrop": r.get("backdrop", ""),
+            "hint": (h.get("hint") or "") if h.get("thing") and not h.get("found") else "",
+            "hidden": bool(h.get("thing")) and not h.get("found")}
+
+
+def files_shown(r: dict | None = None) -> set[str]:
+    """The files the keeper's page may fetch: what the room shows, nothing else."""
+    import room_items
+    r = r or load()
+    out = {str(x.get("picture", "")) for x in r.get("wall") or []}
+    out.add(str((r.get("playing") or {}).get("song", "")))
+    out.add(str(r.get("backdrop", "")))
+    for _, it in _placed(r):
+        a = room_items.art(it)
+        if a:
+            out.add(_rel(a))
+        if it.get("kind") in ("audio", "image"):
+            out.add(str(it.get("content", "")))
+    return {x for x in out if x}
 
 
 # ---- the picture ---------------------------------------------------------------------------------------------------
@@ -475,7 +793,63 @@ def _slip(text: str, font, width: int, mine: bool = False, tilt: float = 0.0):
     return s.rotate(tilt, resample=Image.BICUBIC, expand=True)
 
 
-def _render_backdrop(r: dict, back, lamp: tuple) -> bytes:
+def _lit_like(sprite, canvas, box: tuple, lamp: tuple):
+    """A thing painted in its own light, brought into the room's: as bright as the place it stands (a little brighter,
+    it is what the eye is on), warmed a touch toward the room's lamp."""
+    from PIL import Image, ImageStat
+    W, H = canvas.size
+    x0, y0, x1, y1 = max(0, box[0] - 40), max(0, box[1] - 40), min(W, box[2] + 40), min(H, box[3] + 20)
+    if x1 - x0 < 4 or y1 - y0 < 4:
+        return sprite
+    place = ImageStat.Stat(canvas.crop((x0, y0, x1, y1)).convert("L")).mean[0]
+    rgb = sprite.convert("RGB")
+    own = ImageStat.Stat(rgb.convert("L"), mask=sprite.getchannel("A").point(lambda v: 255 if v > 64 else 0)).mean[0] or 1
+    k = max(0.35, min(1.05, (place / own) ** 0.6 * 1.25))
+    rgb = rgb.point(lambda v: min(255, int(v * k)))
+    rgb = Image.blend(rgb, Image.new("RGB", rgb.size, lamp), 0.08)
+    out = rgb.convert("RGBA")
+    out.putalpha(sprite.getchannel("A"))
+    return out
+
+
+def _draw_placed(canvas, r: dict, lamp: tuple) -> None:
+    """What stands in the room, each on its surface: sized for its depth, a soft shadow where it meets the surface
+    (a wall's things cast theirs a little down and right), the furthest back first."""
+    from PIL import Image, ImageDraw, ImageFilter
+    import room_items
+    W, H = canvas.size
+    by_name = {str(s.get("name", "")).lower(): s for s in surfaces(r)}
+    rows = []
+    for p, it in _placed(r):
+        s = by_name.get(str(p.get("on", "")).lower())
+        a = room_items.art(it)
+        if s and a:
+            rows.append((float(s["y"]), p, it, s, a))
+    for _, p, it, s, a in sorted(rows, key=lambda x: x[0]):
+        try:
+            with Image.open(a) as im:
+                sprite = im.convert("RGBA")
+        except Exception:  # noqa: BLE001
+            continue
+        h = max(8, int(float(s["size"]) * float(it.get("scale") or 1.0) * H))
+        w = max(8, int(sprite.width * h / sprite.height))
+        sprite = sprite.resize((w, h), Image.LANCZOS)
+        cx = int((float(s["x0"]) + float(p.get("at", 0.5)) * (float(s["x1"]) - float(s["x0"]))) * W)
+        sprite = _lit_like(sprite, canvas, (cx - w // 2, int(float(s["y"]) * H) - h, cx + w // 2, int(float(s["y"]) * H)), lamp)
+        if s.get("kind") == "wall":
+            x, y = cx - w // 2, int(float(s["y"]) * H) - h // 2
+            sh = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+            sh.paste(Image.new("RGBA", (w, h), (0, 0, 0, 110)), (x + 6, y + 10), sprite.getchannel("A"))
+            canvas.alpha_composite(sh.filter(ImageFilter.GaussianBlur(8)))
+        else:
+            x, y = cx - w // 2, int(float(s["y"]) * H) - h
+            sh = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+            ImageDraw.Draw(sh).ellipse([x + w * 0.08, y + h - h * 0.06, x + w * 0.96, y + h + h * 0.07], fill=(0, 0, 0, 130))
+            canvas.alpha_composite(sh.filter(ImageFilter.GaussianBlur(max(3, h // 18))))
+        canvas.alpha_composite(sprite, (x, y))
+
+
+def _render_backdrop(r: dict, back, lamp: tuple, items: bool = True) -> bytes:
     """A backdrop they painted is the room itself, whole: nothing drawn over the scene but its name; the pictures on
     the wall, the table's things, the shelf's finds and the song sit in a dark band along the bottom, like a caption
     on a photograph — small gilt frames, slips, the record's name."""
@@ -483,6 +857,8 @@ def _render_backdrop(r: dict, back, lamp: tuple) -> bytes:
     W, H = back.size
     band = 190
     canvas = back.convert("RGBA")
+    if items:
+        _draw_placed(canvas, r, lamp)
     shade = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     sd = ImageDraw.Draw(shade)
     for y in range(H - band - 60, H):  # the scene fading into the band
@@ -534,8 +910,9 @@ def _render_backdrop(r: dict, back, lamp: tuple) -> bytes:
     return out.getvalue()
 
 
-def render(r: dict | None = None) -> bytes | None:
-    """The room as a picture (PNG bytes). None without Pillow."""
+def render(r: dict | None = None, items: bool = True) -> bytes | None:
+    """The room as a picture (PNG bytes). None without Pillow. items False: without what stands in it (the keeper's
+    page lays those over the picture, each one to open)."""
     try:
         from PIL import Image, ImageDraw, ImageFilter, ImageOps
     except ImportError:
@@ -558,7 +935,7 @@ def render(r: dict | None = None) -> bytes | None:
         except Exception:  # noqa: BLE001 — a backdrop that moved: the drawn room instead
             back = None
     if back is not None:
-        return _render_backdrop(r, back, lamp)
+        return _render_backdrop(r, back, lamp, items)
     if True:
         img = Image.new("RGB", (W, H), wall)
         d = ImageDraw.Draw(img)
@@ -652,6 +1029,8 @@ def render(r: dict | None = None) -> bytes | None:
     for i, it in enumerate(table[-4:]):
         s = _slip(str(it.get("thing", "")), f_slip, 300, mine=it.get("by") == "keeper", tilt=(1.6, -2.2, 2.6, -1.4)[i % 4])
         _shadowed(canvas, s, (tx0 + 30 + (i % 2) * 20, ty - 10 - (len(table[-4:]) - i) * (s.height - 10)), blur=6, offset=(3, 6), alpha=120)
+    if items:
+        _draw_placed(canvas, r, lamp)  # what stands in the room, over the table and the shelf
     # the song: a record turning on a little stand, its name beside it
     pl = r.get("playing") or {}
     if pl.get("song"):
