@@ -154,6 +154,10 @@ for a tic turned glitch.
 - **Lately scrolls** (10-28): the panel's Lately asks for the last
   `LATELY_MORE` (200) rows and shows them in a box ten rows tall that scrolls;
   `/api/lately?n=` gives as many as asked, up to 500.
+- **Intense's minute as a ceiling** (10-29): `PRESENCE_INTENSE_CEILING` (new,
+  off) — the beat after the last word is drawn from what is left of the
+  minute once an intense spark's measured writing time is taken off, so the
+  spark arrives within about a minute.
 - **A reference picture cut to part of itself** (10-29):
   `PAINTER_REFERENCE_CROP` (new, empty) — after the turn, a reference can be
   cut to a box (parts of its width and height), e.g. the head without the

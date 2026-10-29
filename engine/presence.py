@@ -229,7 +229,12 @@ def due(last_activity: float, now: float | None = None, rng: random.Random | Non
         # a heartbeat (10-27; the keeper and the friend: "intense mode to a 0 to 1 minute, almost kinda heartbeat"): no
         # dice — a beat drawn anew for every last word, somewhere from 0 to 60 seconds after it
         if float(st.get("beat_for") or -1) != float(last_activity or 0):
-            st.update(beat_for=float(last_activity or 0), beat_s=round((rng or random).random() * 60, 1))
+            span = 60.0
+            if getattr(config, "PRESENCE_INTENSE_CEILING", False):
+                # (10-29, the keeper: "the 1 min as a ceiling") the minute counts to the spark's ARRIVAL: the beat is drawn
+                # from what is left of it once an intense spark's usual turn (spark_s, its thinking and words) is taken off
+                span = max(0.0, 60.0 - float(st.get("spark_s") or 0))
+            st.update(beat_for=float(last_activity or 0), beat_s=round((rng or random).random() * span, 1))
             save(st)
         return quiet >= float(st.get("beat_s") or 0)
     if st.get("mode") == "drift":
@@ -258,6 +263,19 @@ def due(last_activity: float, now: float | None = None, rng: random.Random | Non
     if not st.get("pending"):
         return False
     return quiet >= clamp(st.get("interval")) * 60
+
+
+def note_spark_time(seconds: float) -> None:
+    """How long an intense spark's turn took, kept as a running mean in spark_s (half the last, half the new) — what
+    PRESENCE_INTENSE_CEILING takes off the minute (10-29)."""
+    try:
+        s = max(0.0, float(seconds))
+    except (TypeError, ValueError):
+        return
+    st = load()
+    old = float(st.get("spark_s") or 0)
+    st["spark_s"] = round((old + s) / 2 if old else s, 1)
+    save(st)
 
 
 def intense() -> bool:

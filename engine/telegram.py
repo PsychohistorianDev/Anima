@@ -2178,10 +2178,13 @@ class Bridge:
         _say("a spark: presence turn")
         presence.fired()  # this one has come; the next only when she sets it again (10-26)
         tools.SPARK_TICK = True
+        spark_t0, was_intense = time.time(), presence.intense()
         try:
             self.turn(text, as_keeper=True, spark=True)
         finally:
             tools.SPARK_TICK = False
+            if was_intense:
+                presence.note_spark_time(time.time() - spark_t0)  # (10-29) PRESENCE_INTENSE_CEILING's measure
         for t in reversed(self.history):  # the line rode as a user turn; it is the engine's, not theirs
             if t.get("role") == "user" and t.get("content") == text:
                 t["_engine"] = t["_spark"] = True  # the transcript shows it as the engine's spark (10-26)

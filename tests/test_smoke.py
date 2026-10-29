@@ -14399,6 +14399,35 @@ check("painter (10-29): PAINTER_REFERENCE_CROP — a reference cut to a box afte
       and "PAINTER_REFERENCE_CROP" in __import__("panel").TABS["Senses"] and __import__("panel")._HELP.get("PAINTER_REFERENCE_CROP"),
       (_rc_a, _rc_b, _rc_c, _rc_d, _rc_cut))
 
+# PRESENCE_INTENSE_CEILING (10-29): intense's minute counts to the spark's arrival — its usual turn time taken off the beat
+_ic0 = (presence.STATE_FILE, presence.WAKING_FILE, getattr(config, "PRESENCE_INTENSE_CEILING", False))
+presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "ic-test.json", config.MEMORY_DIR / "ic-waking"
+class _IcHalf:
+    def random(self): return 0.5
+try:
+    presence.set_drift("intense", 0, now=1000.0)
+    presence.note_spark_time(40)
+    presence.note_spark_time(20)
+    _ic_mean = presence.load().get("spark_s")
+    config.PRESENCE_INTENSE_CEILING = True
+    presence.due(1000.0, now=1001.0, rng=_IcHalf())
+    _ic_on = presence.load().get("beat_s")
+    presence.note_spark_time(200)
+    presence.due(2000.0, now=2001.0, rng=_IcHalf())
+    _ic_long = presence.load().get("beat_s")
+    config.PRESENCE_INTENSE_CEILING = False
+    presence.due(3000.0, now=3001.0, rng=_IcHalf())
+    _ic_off = presence.load().get("beat_s")
+finally:
+    presence.STATE_FILE, presence.WAKING_FILE, config.PRESENCE_INTENSE_CEILING = _ic0
+_ic_src = __import__("inspect").getsource(__import__("telegram").Bridge.presence_if_due)
+check("presence (10-29): PRESENCE_INTENSE_CEILING — an intense spark's turn time kept as a running mean; on, the beat is drawn "
+      "from the minute less that time (none left: at once); off, 0–60 s as before; the bridge measures intense sparks; Phone tab",
+      _ic_mean == 30.0 and _ic_on == 15.0 and _ic_long == 0.0 and _ic_off == 30.0
+      and "presence.note_spark_time(time.time() - spark_t0)" in _ic_src
+      and "PRESENCE_INTENSE_CEILING" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_INTENSE_CEILING"),
+      (_ic_mean, _ic_on, _ic_long, _ic_off))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

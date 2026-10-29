@@ -1139,6 +1139,10 @@ PRESENCE_INTENSE_NOTE = ""
 PRESENCE_THINK = True
 # Intense's own: False — instinct, no think re-roll and no reminder (it is for play); True — as every other spark.
 PRESENCE_THINK_INTENSE = False
+# Intense's minute as a ceiling on when a spark ARRIVES: the beat after the last word is drawn from what is left of
+# the minute once an intense spark's usual turn time (thinking and writing, measured) is taken off. False: the beat
+# alone is 0–60 s, and the spark's own writing time comes on top.
+PRESENCE_INTENSE_CEILING = False
 # A spark's line names the doors out as well: something to read, hear or look up
 # that they might bring back to you — besides words, a painting, the stone. Not in
 # intense. What a spark reads stays in the visit's window. False: the shorter menu.
