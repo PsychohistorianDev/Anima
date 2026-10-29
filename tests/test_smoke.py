@@ -14480,6 +14480,23 @@ check("claimed-self (10-29): after tools that went through, a reply naming a REA
       and "a project's README" in ollama_client.CLAIMED_SELF_NUDGE and "a project's README" in ollama_client.CLAIMED_SELF_KEPT_NUDGE,
       (ollama_client.claimed_act({"content": _rc_said}, _rc_turn), ollama_client.claimed_act({"content": _rc_said}, _rc_did)))
 
+# issue #9 (10-29): Qwen-Image-2.1-Turbo paints at its own 8 steps, the full model at 40; PAINTER_STEPS overrides both
+import painter as _ts_p
+_ts0 = getattr(config, "PAINTER_STEPS", 0)
+try:
+    config.PAINTER_STEPS = 0
+    _ts_turbo, _ts_full = _ts_p._defaults("Qwen/Qwen-Image-2.1-Turbo"), _ts_p._defaults("Qwen/Qwen-Image-2.1")
+    _ts_z = _ts_p._defaults("Tongyi-MAI/Z-Image-Turbo")
+    config.PAINTER_STEPS = 12
+    _ts_knob = _ts_p._defaults("Qwen/Qwen-Image-2.1-Turbo")
+finally:
+    config.PAINTER_STEPS = _ts0
+check("painter (10-29, issue #9): Qwen-Image-2.1-Turbo at 8 steps, the full Qwen-Image-2.1 at 40, Z-Image-Turbo still 9; "
+      "PAINTER_STEPS overrides; the words no longer say the knob can't move it",
+      _ts_turbo[0] == 8 and _ts_full[0] == 40 and _ts_z[0] == 9 and _ts_knob[0] == 12 and _ts_turbo[1] == _ts_full[1]
+      and "doesn't move it" not in __import__("panel")._HELP.get("PAINTER_MODEL", "") and "does not move it" not in _ts_p.__doc__,
+      (_ts_turbo, _ts_full, _ts_z, _ts_knob))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

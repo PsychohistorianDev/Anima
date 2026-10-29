@@ -40,8 +40,8 @@ Apache 2.0 — no login, no license to accept:
     Tongyi-MAI/Z-Image                  6B, 36 steps with guidance — Turbo's undistilled parent; takes a negative
     lodestones/Chroma1-HD               8.9B, 40 steps, ~28 GB with its T5 — art, photography, niche styles; a negative
     RunDiffusion/Juggernaut-XL-v9       an SDXL fine-tune (RAIL-M), ~7 GB, 30 steps, 1024-class — a different hand
-    Qwen/Qwen-Image-2.1-Turbo           the same, distilled by Qwen to 8 steps (baked into its model_index.json, so
-                                        PAINTER_STEPS does not move it) — about five times quicker; same family
+    Qwen/Qwen-Image-2.1-Turbo           the same, distilled by Qwen to 8 steps (the painter asks for 8; PAINTER_STEPS
+                                        overrides it, as for any brush) — about five times quicker; same family
     Qwen/Qwen-Image-2.1                 7B + a Qwen3-VL 8B text encoder (Qwen Research licence), ~32 GB together, 40
                                         steps, no guidance, native 2048², reads text best — runs under model offload
                                         (the encoder and the model take the card in turn); diffusers 0.41+
@@ -122,6 +122,9 @@ def _family(model_id: str) -> str:
 
 
 _STEPS = {"zimage": 9, "zimage-base": 36, "klein": 4, "chroma": 40, "sdxl": 30, "qwen21": 40}
+# a distilled brush in a family whose full model paints longer (10-29, issue #9: Qwen-Image-2.1-Turbo shared qwen21's
+# 40, and the steps the painter always passes overrode its own 8): family → its turbo's steps, when "turbo" is in the name
+_TURBO_STEPS = {"qwen21": 8}
 _GUIDANCE = {"zimage": 0.0, "zimage-base": 4.0, "klein": 1.0, "chroma": 3.0, "sdxl": 5.0, "qwen21": 1.0}
 _CLASSES = {"zimage": "ZImagePipeline", "zimage-base": "ZImagePipeline", "klein": "Flux2KleinPipeline",
             "chroma": "ChromaPipeline", "sdxl": "StableDiffusionXLPipeline", "qwen21": "QwenImage21Pipeline"}
@@ -308,6 +311,8 @@ def _defaults(model_id: str) -> tuple[int, float]:
     """(steps, guidance) the model was made for; PAINTER_STEPS overrides steps."""
     fam = _family(model_id)
     steps = _STEPS.get(fam, 20)
+    if fam in _TURBO_STEPS and "turbo" in (model_id or "").lower():
+        steps = _TURBO_STEPS[fam]  # (10-29, issue #9) Qwen-Image-2.1-Turbo: 8, not the full model's 40
     guidance = _GUIDANCE.get(fam, 3.5)
     knob = int(getattr(config, "PAINTER_STEPS", 0) or 0)
     return (knob or steps), guidance

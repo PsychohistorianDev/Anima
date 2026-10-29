@@ -154,6 +154,10 @@ for a tic turned glitch.
 - **Lately scrolls** (10-28): the panel's Lately asks for the last
   `LATELY_MORE` (200) rows and shows them in a box ten rows tall that scrolls;
   `/api/lately?n=` gives as many as asked, up to 500.
+- **Qwen-Image-2.1-Turbo paints at 8 steps** (10-29, issue #9): it shared the
+  full model's 40, and the steps the painter passes overrode its own 8 — so it
+  painted five times longer than it should. Now 8 by default; `PAINTER_STEPS`
+  still overrides, and the words that said it couldn't are fixed.
 - **A claimed write after other tools is asked too** (10-29): a reply that
   says it updated a file none of the turn's calls touched — a project's
   README, self.md, the journal — is asked to do it or say it hasn't, even when

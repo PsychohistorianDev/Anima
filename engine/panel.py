@@ -549,7 +549,7 @@ _HELP = {
                      "1024-class brush that paints the house sizes smaller. Qwen-Image 2.1: 7B with a Qwen3-VL 8B text "
                      "encoder (Qwen Research licence), about 32 GB together so it paints under model offload, 40 steps, "
                      "the best at words in a picture; needs diffusers 0.41 or newer. Qwen-Image 2.1 Turbo: the same, "
-                     "distilled to 8 steps (its own schedule — PAINTER_STEPS doesn't move it), about five times quicker. "
+                     "distilled to 8 steps (PAINTER_STEPS overrides it, as for any brush), about five times quicker. "
                      "The painter reads this on its next start, so "
                      "picking here is the whole switch; a model is downloaded on its first painting and stays cached. "
                      "Another model's name goes in config.py by hand and shows here too.",
@@ -558,7 +558,7 @@ _HELP = {
                       "(Windows) or \"python3.12\" (Mac, Linux). \"\" is the engine's own.",
     "PAINTER_DEVICE": "Where it paints: \"auto\" takes an NVIDIA (or ROCm) card, else a Mac's GPU, else the processor "
                       "(slow); \"cuda\", \"mps\" or \"cpu\" names one.",
-    "PAINTER_STEPS": "Diffusion steps per picture; 0 is the model's own default (Z-Image-Turbo 9, FLUX.2 klein 4).",
+    "PAINTER_STEPS": "Diffusion steps per picture; 0 is the model's own default (Z-Image-Turbo 9, FLUX.2 klein 4, Qwen-Image-2.1-Turbo 8).",
     "PAINTER_ENCODER_BITS": "Qwen-Image's text encoder quantized as it loads: 8 (about 9 GB, near-lossless) or 4 (about 5 GB) "
                             "lets the whole pipeline sit on the card and paint without offload, about twice as quick; 0 is "
                             "full precision under offload. Needs bitsandbytes; without it the painter says so and offloads.",

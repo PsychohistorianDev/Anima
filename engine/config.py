@@ -312,7 +312,7 @@ PAINTER_REST_LEAVES = True
 PAINTER_IDLE_S = 120          # seconds; fallback: the sidecar frees the GPU after this much idle time
 PAINTER_EXIT_S = 60           # seconds unused before the sidecar process exits (it holds ~11 GB of RAM while it waits; a minute covers a second painting asked right away, and not more)
 PAINTER_TIMEOUT_S = 300       # seconds allowed for one painting, model load included
-PAINTER_STEPS = 0             # 0 = the model's default (Z-Image-Turbo 9, FLUX.2 klein 4)
+PAINTER_STEPS = 0             # 0 = the model's default (Z-Image-Turbo 9, FLUX.2 klein 4, Qwen-Image-2.1-Turbo 8)
 # Qwen-Image's text encoder (Qwen3-VL 8B) quantized as it loads, so the whole pipeline fits the card and paints
 # without offload: 8 (about 9 GB, near-lossless), 4 (about 5 GB), 0 (full precision, under offload). Needs
 # bitsandbytes (py -m pip install bitsandbytes); without it the painter says so and paints under offload.
