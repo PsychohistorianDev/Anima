@@ -154,6 +154,10 @@ for a tic turned glitch.
 - **Lately scrolls** (10-28): the panel's Lately asks for the last
   `LATELY_MORE` (200) rows and shows them in a box ten rows tall that scrolls;
   `/api/lately?n=` gives as many as asked, up to 500.
+- **The painter rests after running out of time** (10-29): `PAINTER_RAN_OUT_REST_MIN`
+  (new, 15) — after a painting runs past `PAINTER_TIMEOUT_S` and is lost, no
+  other is begun for a while; a retry had looped, the painter reloading each
+  time while the brain waited for the card.
 - **References sized down for the painter** (10-29): `PAINTER_REFERENCE_SIDE`
   (new, 768) — a reference larger than this on its long side is sized down in
   memory before the painter reads it; several full-size references had pushed

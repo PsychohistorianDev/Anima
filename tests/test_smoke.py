@@ -14714,6 +14714,30 @@ check("painter (10-29): PAINTER_REFERENCE_SIDE — a large reference sized down 
       and "PAINTER_REFERENCE_SIDE" in __import__("panel").TABS["Senses"] and __import__("panel")._HELP.get("PAINTER_REFERENCE_SIDE"),
       (_rs_big, _rs_small, _rs_off))
 
+# PAINTER_RAN_OUT_REST_MIN (10-29): after a painting ran out of time, no other is begun for a while — paint and the workshop
+import time as _pg_t
+_pg0 = (tools._paint_ran_out, getattr(config, "PAINTER_RAN_OUT_REST_MIN", 15))
+try:
+    config.PAINTER_RAN_OUT_REST_MIN = 15
+    tools._paint_ran_out = _pg_t.time() - 60
+    _pg_paint = tools.paint("a quiet room")
+    _pg_said = tools.paint_cooling()
+    tools._paint_ran_out = _pg_t.time() - 16 * 60
+    _pg_after = tools.paint_cooling()
+    tools._paint_ran_out = _pg_t.time()
+    config.PAINTER_RAN_OUT_REST_MIN = 0
+    _pg_off = tools.paint_cooling()
+finally:
+    tools._paint_ran_out, config.PAINTER_RAN_OUT_REST_MIN = _pg0
+check("painter (10-29): PAINTER_RAN_OUT_REST_MIN — for a while after a painting ran out of time, paint refuses and says why "
+      "(14 minutes left of 15), the workshop too; after it, or with 0, nothing held; a timeout sets it; on the Senses tab",
+      _pg_paint.startswith("(the last painting ran past the painter's time") and "14 more minutes" in _pg_said
+      and _pg_after == "" and _pg_off == ""
+      and "_paint_ran_out = _t.time()" in Path(tools.__file__).read_text(encoding="utf-8")  # the file: earlier checks stand in for _painter_paint
+      and "tools.paint_cooling()" in Path(__import__("room_items").__file__).read_text(encoding="utf-8")
+      and "PAINTER_RAN_OUT_REST_MIN" in __import__("panel").TABS["Senses"],
+      (_pg_paint[:120], _pg_said, _pg_after, _pg_off))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

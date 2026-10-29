@@ -224,6 +224,9 @@ def _paint_version(it: dict, look: str) -> str:
 
 def _paint_version_inner(it: dict, look: str) -> str:
     import tools
+    cooling = tools.paint_cooling()  # (10-29) the painter rests after a painting that ran out of time
+    if cooling:
+        return cooling.strip("()")
     if makes_left() <= 0:
         return (f"the workshop has made its {getattr(config, 'ROOM_MAKES_PER_DAY', 6)} for today — it opens again "
                 "tomorrow; what you wanted to make can wait in words")

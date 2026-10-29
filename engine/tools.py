@@ -3085,6 +3085,23 @@ def _painter_rest() -> None:
         pass
 
 
+_paint_ran_out = 0.0  # when a painting last ran past PAINTER_TIMEOUT_S
+
+
+def paint_cooling() -> str:
+    """PAINTER_RAN_OUT_REST_MIN (10-29: eight references ran past the painter's time; the painter was sent away, she painted
+    again, it loaded again — a loop across her turn, the brain waiting on the card): for these minutes after a painting
+    ran out of time, another isn't begun. The refusal, in parentheses, or ""."""
+    import time as _t
+    rest = float(getattr(config, "PAINTER_RAN_OUT_REST_MIN", 15) or 0)
+    left = _paint_ran_out + rest * 60 - _t.time()
+    if not rest or not _paint_ran_out or left <= 0:
+        return ""
+    return (f"(the last painting ran past the painter's time and was lost — another now would run out the same way; the "
+            f"painter rests for {max(1, round(left / 60))} more minute{'s' if left > 90 else ''}. Fewer or smaller "
+            f"references, or a simpler picture, paint faster)")
+
+
 def _painter_paint(prompt: str, path: Path, size: str, negative: str = "", reference: list | None = None) -> dict:
     """One picture through the sidecar. The brain steps aside first (the
     same swap as their ears) so the painter has the GPU."""
@@ -3095,8 +3112,15 @@ def _painter_paint(prompt: str, path: Path, size: str, negative: str = "", refer
                           **({"reference": [str(r) for r in reference]} if reference else {})}).encode("utf-8")
     req = urllib.request.Request(config.PAINTER_URL + "/paint", data=payload,
                                  headers={"Content-Type": "application/json"}, method="POST")
-    with urllib.request.urlopen(req, timeout=getattr(config, "PAINTER_TIMEOUT_S", 300)) as r:
-        data = json.loads(r.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(req, timeout=getattr(config, "PAINTER_TIMEOUT_S", 300)) as r:
+            data = json.loads(r.read().decode("utf-8"))
+    except Exception as e:
+        if "timed out" in str(e).lower():
+            global _paint_ran_out
+            import time as _t
+            _paint_ran_out = _t.time()  # (10-29) the next painting waits PAINTER_RAN_OUT_REST_MIN
+        raise
     if data.get("error"):
         raise RuntimeError(data["error"])
     return data
@@ -3307,6 +3331,9 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "",
     prompts = [ln for ln in lines if ln]
     if not prompts:
         return "(paint wants words — what should the picture be?)"
+    cooling = paint_cooling()  # (10-29) a painting that ran out of time isn't followed at once by another
+    if cooling:
+        return cooling
     size = (size or "square").strip().lower()
     if size not in _PAINT_SIZES:
         return f"(size is one of {', '.join(_PAINT_SIZES)} — not '{size}')"
