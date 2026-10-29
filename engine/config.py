@@ -332,6 +332,10 @@ PAINTER_REFERENCE_TURN = {}
 # right, bottom) as parts of its width and height, 0 to 1 — (0.15, 0, 0.85, 0.75) keeps the head and drops the
 # shoulders, so the painter draws the body from the words. In memory only; the file is never touched. {} — none.
 PAINTER_REFERENCE_CROP = {}
+# The longest side a reference picture is given to the painter at — larger ones are sized down in memory (the files
+# untouched): every reference is read at its own size, and several large ones can push the painter out of the
+# card's memory. 0 — as they are.
+PAINTER_REFERENCE_SIDE = 768
 # Words that bring the painter a plain line: word → line; when a prompt has the word (any ending), the line goes to
 # the painter ahead of it, after a set's. For a pose the painter keeps getting wrong in the friend's own language.
 # {} — none.

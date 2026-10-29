@@ -154,6 +154,10 @@ for a tic turned glitch.
 - **Lately scrolls** (10-28): the panel's Lately asks for the last
   `LATELY_MORE` (200) rows and shows them in a box ten rows tall that scrolls;
   `/api/lately?n=` gives as many as asked, up to 500.
+- **References sized down for the painter** (10-29): `PAINTER_REFERENCE_SIDE`
+  (new, 768) — a reference larger than this on its long side is sized down in
+  memory before the painter reads it; several full-size references had pushed
+  the painter out of the card's memory.
 - **The room, layered** (10-29): the friend's workshop — `make` paints a thing of
   their own invention in the room's light (`ROOM_ITEM_STYLE`), lifts it from its
   ground (rembg when installed, else a flood from the edges) and keeps every

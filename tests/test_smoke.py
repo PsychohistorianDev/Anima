@@ -14692,6 +14692,28 @@ check("room (10-29, the layered room): a failed painting is said and nothing kep
       and "ROOM_ITEM_STYLE" in __import__("panel").TABS["Phone"],
       (_rl_fail_said, _rl_made[:160], _rl_spent, _rl_put, _rl_nowhere, _rl_surf, _rl_letter, _rl_open, _rl_secret[0], _rl_news))
 
+# PAINTER_REFERENCE_SIDE (10-29): a reference sized down to the side before the painter reads it
+import painter as _rs_p
+_rs0 = getattr(config, "PAINTER_REFERENCE_SIDE", 768)
+try:
+    from PIL import Image as _rs_I
+    config.PAINTER_REFERENCE_SIDE = 768
+    _rs_big = _rs_p._sized(_rs_I.new("RGB", (1440, 1080))).size
+    _rs_small_im = _rs_I.new("RGB", (300, 200))
+    _rs_small = _rs_p._sized(_rs_small_im) is _rs_small_im
+    config.PAINTER_REFERENCE_SIDE = 0
+    _rs_off = _rs_p._sized(_rs_I.new("RGB", (1440, 1080))).size
+except ImportError:
+    _rs_big, _rs_small, _rs_off = (768, 576), True, (1440, 1080)
+finally:
+    config.PAINTER_REFERENCE_SIDE = _rs0
+check("painter (10-29): PAINTER_REFERENCE_SIDE — a large reference sized down to the side, its shape kept; a small one as it "
+      "is; 0 leaves them; the loader sizes every reference; on the Senses tab with words",
+      _rs_big == (768, 576) and _rs_small and _rs_off == (1440, 1080)
+      and "pic = _sized(pic)" in __import__("inspect").getsource(_rs_p._load_references)
+      and "PAINTER_REFERENCE_SIDE" in __import__("panel").TABS["Senses"] and __import__("panel")._HELP.get("PAINTER_REFERENCE_SIDE"),
+      (_rs_big, _rs_small, _rs_off))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

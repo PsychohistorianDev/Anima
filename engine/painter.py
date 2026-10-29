@@ -155,7 +155,9 @@ def _load_references(refs) -> tuple[list | None, str]:
             return None, f"the reference {r} isn't a picture under creations/"
         try:
             with Image.open(rp) as im:
-                out.append(_cropped(_turned(im.convert("RGB"), turn_for(rp)), crop_for(rp)))
+                pic = _cropped(_turned(im.convert("RGB"), turn_for(rp)), crop_for(rp))
+                pic = _sized(pic)  # (10-29) eight pictures at 1440 pixels spilled the card into shared memory
+                out.append(pic)
         except Exception as e:  # noqa: BLE001 — a file that isn't a picture
             return None, f"the reference {rp.name} couldn't be opened as a picture ({type(e).__name__})"
     return out, ""
@@ -179,6 +181,21 @@ def turn_for(path) -> float:
     except Exception:  # noqa: BLE001 — a knob that can't be read turns nothing
         pass
     return 0.0
+
+
+def _sized(im):
+    """A reference no longer than PAINTER_REFERENCE_SIDE on its long side (the shape kept); 0 — as it is. The painter reads
+    a face as well at 768 pixels as at 1440, and every reference is read at the size it comes: eight full-size ones
+    (10-29, the new reference sheets) pushed the painter out of the card's memory into the computer's."""
+    try:
+        side = int(getattr(config, "PAINTER_REFERENCE_SIDE", 768) or 0)
+    except (TypeError, ValueError):
+        side = 768
+    if side <= 0 or max(im.size) <= side:
+        return im
+    from PIL import Image
+    k = side / max(im.size)
+    return im.resize((max(1, round(im.width * k)), max(1, round(im.height * k))), Image.LANCZOS)
 
 
 def crop_for(path) -> tuple | None:
