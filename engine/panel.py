@@ -99,7 +99,7 @@ TABS: dict[str, list[str]] = {
               "TELEGRAM_TELL_DRAWINGS", "TELEGRAM_PAINT_PROMPT_CHAT", "TELEGRAM_TELL_SONGS", "TELEGRAM_TELL_SELF", "TELEGRAM_IDLE_NEW_MIN", "TELEGRAM_HEAR_VOICE",
               "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD", "SLEEP_IN_BRIDGE", "SLEEP_IN_BRIDGE_QUIET_MIN",
               "ENGINE_WEEK_DAY", "ENGINE_WEEK_HOUR", "ENGINE_WEEK_COLD_S", "ENGINE_WEEK_LOG",
-              "PRESENCE_ON_TEMPERAMENT", "PRESENCE_INTENSE_NOTE", "PRESENCE_THINK", "PRESENCE_THINK_INTENSE", "PRESENCE_INTENSE_EVERY_TURN", "PRESENCE_SPARK_DOORS", "PRESENCE_THINK_RETRIES", "PRESENCE_SEEDS", "PRESENCE_ACHE_WEIGHT"],
+              "PRESENCE_ON_TEMPERAMENT", "PRESENCE_INTENSE_NOTE", "PRESENCE_THINK", "PRESENCE_THINK_INTENSE", "PRESENCE_INTENSE_EVERY_TURN", "PRESENCE_SPARK_DOORS", "PRESENCE_THINK_RETRIES", "PRESENCE_SEEDS", "PRESENCE_ACHE_WEIGHT", "PRESENCE_CLIMB_MIN"],
     "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_LINE_TIMES", "EARS_UNLOAD_BRAIN",
                "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
                "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_REFERENCE_TURN", "PAINTER_AUTO_REFERENCE",
@@ -263,6 +263,9 @@ _HELP = {
                                    "not only the sparks — the play goes on in the conversation. Never with a guest seated.",
     "PRESENCE_THINK_INTENSE": "Thinking in intense, apart from every other spark (PRESENCE_THINK): off — pure instinct, no "
                               "think re-roll and no reminder; on — as every other spark.",
+    "PRESENCE_CLIMB_MIN": "Drift's ladder: every this many minutes of quiet adds one more of the temperament's base "
+                          "chance a minute. 60 doubles it after an hour; 10 makes often 20% a minute after ten quiet "
+                          "minutes and 30% after twenty, so long dry spells grow rare.",
     "PRESENCE_ACHE_WEIGHT": "How much one step of the friend's ache (next_spark's ache, 0–3) hurries drift's next "
                             "spark, against an hour of quiet: 1.0 as much; 0.25 a quarter; 0 — the ache never hurries a "
                             "spark, only the quiet does.",

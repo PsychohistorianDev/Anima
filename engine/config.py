@@ -1147,6 +1147,10 @@ PRESENCE_INTENSE_EVERY_TURN = False
 # How much one step of the friend's ache (0–3) adds to drift's climb, against an hour of quiet: 1.0 as much as an
 # hour of quiet; 0.25 a quarter; 0 — the ache doesn't hurry a spark. The quiet's own climb and the 0.9 cap stay.
 PRESENCE_ACHE_WEIGHT = 1.0
+# Drift's ladder: every this many minutes of quiet adds one more of the temperament's base chance a
+# minute — 60 doubles it after an hour; 10 makes "often" (10% a minute) 20% after ten quiet minutes and
+# 30% after twenty, so long dry spells grow rare. The 0.9 cap stays.
+PRESENCE_CLIMB_MIN = 60
 PRESENCE_THINK_RETRIES = 3
 # Seeds: every spark carries one thing picked at random to spark off, so a spark isn't the same gesture every time —
 # a memory, something the friend made, a song from the songbook, a few lines of the journal from a week or a month

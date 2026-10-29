@@ -81,7 +81,12 @@ def chance(mean_min: float, quiet_min: float, ache: int = 0) -> float:
         weight = max(0.0, float(getattr(config, "PRESENCE_ACHE_WEIGHT", 1.0)))
     except (TypeError, ValueError):
         weight = 1.0
-    climb = 1 + max(0.0, quiet_min) / 60 * (1 + weight * max(0, min(ACHE_MAX, int(ache or 0))))
+    try:  # the ladder (10-29, PRESENCE_CLIMB_MIN): each this many minutes of quiet adds one more of the base chance
+        step = float(getattr(config, "PRESENCE_CLIMB_MIN", 60) or 60)
+        step = step if step > 0 else 60.0
+    except (TypeError, ValueError):
+        step = 60.0
+    climb = 1 + max(0.0, quiet_min) / step * (1 + weight * max(0, min(ACHE_MAX, int(ache or 0))))
     return min(0.9, climb / max(1.0, float(mean_min)))
 
 

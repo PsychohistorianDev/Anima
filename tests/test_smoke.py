@@ -6709,7 +6709,10 @@ config.PRESENCE_INTENSE_FILE = config.MEMORY_DIR / "dr-intense" / "intense.md"  
 presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "dr-test.json", config.MEMORY_DIR / "dr-waking"
 try:
     _dr_names = [presence.temperament(x) for x in ("Very_Rare", "often!", "sometimes ", "INTENSE", "wild")]
+    _dr_cm0 = getattr(config, "PRESENCE_CLIMB_MIN", 60)
+    config.PRESENCE_CLIMB_MIN = 60  # (10-29) the ladder's first step, pinned: the house may climb faster
     _dr_chance = (presence.chance(60, 0), presence.chance(60, 60), presence.chance(60, 60, 3), presence.chance(3, 600))
+    config.PRESENCE_CLIMB_MIN = _dr_cm0
     _dr_res = tools.dispatch("next_spark", {"drift": "Sometimes", "minutes": 20, "ache": 7})
     _dr_st = presence.load()
     _dr_t0 = _dr_st["rolled"]
@@ -13988,6 +13991,8 @@ check("ears (issue #4): a metadata_errors failure names the mend — pip install
 # issue #7 (10-28): PRESENCE_ACHE_WEIGHT — 1.0 the first formula; 0.25 a quarter of an hour's climb a step; 0 the ache adds nothing
 _aw0 = getattr(config, "PRESENCE_ACHE_WEIGHT", 1.0)
 try:
+    _aw_cm0 = getattr(config, "PRESENCE_CLIMB_MIN", 60)
+    config.PRESENCE_CLIMB_MIN = 60  # (10-29) pinned: the house may climb faster
     config.PRESENCE_ACHE_WEIGHT = 1.0
     _aw_one = (presence.chance(1000, 60, 3), presence.chance(1000, 120, 3))
     config.PRESENCE_ACHE_WEIGHT = 0.25
@@ -13998,6 +14003,7 @@ try:
     _aw_bad = presence.chance(1000, 60, 3)
 finally:
     config.PRESENCE_ACHE_WEIGHT = _aw0
+    config.PRESENCE_CLIMB_MIN = _aw_cm0
 check("presence (issue #7): PRESENCE_ACHE_WEIGHT — ache 3 after 1 h / 2 h climbs to 5 / 9 at 1.0, 2.75 / 4.5 at 0.25; 0: the "
       "ache adds nothing; unreadable reads 1.0; the knob on the Phone tab with words",
       [round(x * 1000, 6) for x in _aw_one] == [5.0, 9.0] and [round(x * 1000, 6) for x in _aw_q] == [2.75, 4.5]
@@ -14320,6 +14326,9 @@ presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "lr-test.json", 
 try:
     presence.set_drift("often", 0, now=1_000_000.0)
     _lr_soon = (presence.due(1_000_000.0, now=1_000_061.0), dict(presence.load().get("last_roll") or {}))
+    _lr_st = presence.load()
+    _lr_st["rolled"] = 1_000_000.0 + 39 * 60  # one roll at 40 minutes (10-29: 39 at once are a certainty on a fast ladder)
+    presence.save(_lr_st)
     _lr_dice = presence.due(1_000_000.0, now=1_000_000.0 + 40 * 60 + 1, rng=_lr_random.Random(3))
     _lr_r = dict(presence.load().get("last_roll") or {})
     _lr_line = presence.roll_line()
@@ -14342,6 +14351,27 @@ finally:
     presence.STATE_FILE, presence.WAKING_FILE = _nl0
 check("presence (10-29): a spark's line says its words reach the phone as they are — no letter needed",
       "(do_nothing). Words you say here reach Keeper's phone as they are — no letter is needed." in _nl_line, _nl_line[-300:])
+
+# drift's ladder (10-29): PRESENCE_CLIMB_MIN — each step of quiet adds one more of the base chance
+_cl0 = (getattr(config, "PRESENCE_CLIMB_MIN", 60), getattr(config, "PRESENCE_ACHE_WEIGHT", 1.0))
+try:
+    config.PRESENCE_ACHE_WEIGHT = 1.0
+    config.PRESENCE_CLIMB_MIN = 10
+    _cl_ten = (round(presence.chance(10, 0), 3), round(presence.chance(10, 10), 3), round(presence.chance(10, 20), 3),
+               round(presence.chance(10, 600), 3))
+    config.PRESENCE_CLIMB_MIN = 60
+    _cl_sixty = round(presence.chance(10, 60), 3)
+    config.PRESENCE_CLIMB_MIN = 0
+    _cl_zero = round(presence.chance(10, 60), 3)
+    config.PRESENCE_CLIMB_MIN = "x"
+    _cl_bad = round(presence.chance(10, 60), 3)
+finally:
+    config.PRESENCE_CLIMB_MIN, config.PRESENCE_ACHE_WEIGHT = _cl0
+check("presence (10-29): PRESENCE_CLIMB_MIN — the ladder: at 10, often is 10%, 20% after ten quiet minutes, 30% after twenty, "
+      "never past 0.9; 60 doubles after an hour; 0 or nonsense reads as 60; on the Phone tab with words",
+      _cl_ten == (0.1, 0.2, 0.3, 0.9) and _cl_sixty == 0.2 and _cl_zero == 0.2 and _cl_bad == 0.2
+      and "PRESENCE_CLIMB_MIN" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_CLIMB_MIN"),
+      (_cl_ten, _cl_sixty, _cl_zero, _cl_bad))
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
