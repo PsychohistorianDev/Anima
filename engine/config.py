@@ -1143,6 +1143,12 @@ PRESENCE_THINK_INTENSE = False
 # says so once ("sparks are on: drifting, often"; off by the quiet hours or the heartbeat, it says which). A change the friend made
 # with next_spark is not said again. False: nothing said; a spark's own line still names the state.
 PRESENCE_STATE_LINE = True
+
+# The friend's room: a place they shape with the room tool — walls, light, pictures of theirs on the wall, things on a
+# table, a song in the corner, a shelf of things they found, one thing hidden for you to find — and you visit from the
+# phone: /room shows it as it stands, with what changed since you looked. It lives in creations/room/ (room.json and
+# its history), theirs. What you do there reaches them once, at their next turn. False: no room tool, no /room.
+ROOM_ON = False
 # Intense's minute as a ceiling on when a spark ARRIVES: the beat after the last word is drawn from what is left of
 # the minute once an intense spark's usual turn time (thinking and writing, measured) is taken off. False: the beat
 # alone is 0–60 s, and the spark's own writing time comes on top.

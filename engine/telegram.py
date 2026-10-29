@@ -129,6 +129,8 @@ HELP_PHONE = (
     "often, frequent or intense sets that drift; off ends them "
     "(the friend can too: next_spark with no minutes)\n"
     "/discreet — sparks come silently, the words hidden until tapped; again to undo\n"
+    "/room — their room as it stands, a picture and what changed since you looked; /room open <1–4|song>, "
+    "/room find <where>, /room leave <a thing>\n"
     "/week — the engine's week: the last seven days of calls to the brain\n"
     "/seal <when> <letter> — a letter sealed until its day (/seal 2027-04-27 …, or /seal 6 months …); /capsule lists "
     "what waits\n"
@@ -611,6 +613,63 @@ class Bridge:
         return (f"Since your last turn {config.USER_NAME} touched the stone — {words} — the stone answered by itself with "
                 "your reply; the log, beside " + 'their' + " words")
 
+    def _keeper_name(self) -> str:
+        try:
+            import keeper_week
+            return keeper_week.keeper_name()
+        except Exception:  # noqa: BLE001
+            return str(getattr(config, "USER_NAME", "") or "your keeper")
+
+    def _room_moment(self) -> str:
+        """ROOM_ON (10-29): what the keeper did in their room since their last turn — looked in, found what they hid,
+        left a thing — said once in the moment. Not with a guest seated: it waits for their own next turn."""
+        if self.guest_label() or not getattr(config, "ROOM_ON", False):
+            return ""
+        try:
+            import room
+            return room.take_news()
+        except Exception:  # noqa: BLE001 — never the reply down
+            return ""
+
+    def room_command(self, arg: str) -> None:
+        """/room (10-29): the room as it stands — a picture and its words; open, find, leave."""
+        import room
+        if not room.on():
+            self.send("(there's no room in this house — ROOM_ON in Settings › Phone)", markdown=False)
+            return
+        keeper = self._keeper_name()
+        word, _, rest = (arg or "").strip().partition(" ")
+        word, rest = word.lower(), rest.strip()
+        if not word:
+            png, cap = room.keeper_view(keeper)
+            if png:
+                try:
+                    self.send_file("sendPhoto", "photo", "room.png", png, chat_id=self.chat_id, caption=cap[:1000])
+                    if len(cap) > 1000:
+                        self.send(cap[1000:], markdown=False)
+                    return
+                except Exception:  # noqa: BLE001 — the words, then
+                    pass
+            self.send(cap, markdown=False)
+        elif word == "open":
+            p = room.keeper_open(rest)
+            if p is None:
+                self.send("(nothing there — /room open 1–4 for a picture on the wall, /room open song for what plays)",
+                          markdown=False)
+            elif p.suffix.lower() in room.IMAGE_EXTS:
+                self._send_picture(p, p.read_bytes(), f"on the wall: {p.name}")
+            else:
+                try:
+                    self.send_file("sendAudio", "audio", p.name, p.read_bytes(), chat_id=self.chat_id, caption=f"playing: {p.stem}")
+                except Exception as e:  # noqa: BLE001
+                    self.send(f"(couldn't send the song: {e})", markdown=False)
+        elif word in ("find", "look"):
+            self.send(room.keeper_find(rest, keeper), markdown=False)
+        elif word == "leave":
+            self.send(room.keeper_leave(rest, keeper), markdown=False)
+        else:
+            self.send("(/room — the room; /room open <1–4|song>; /room find <where>; /room leave <a thing>)", markdown=False)
+
     def _sparks_moment(self, spark: bool = False) -> str:
         """PRESENCE_STATE_LINE (10-29): "sparks are on: drifting, often — Gabe turned them on", once, when the sparks'
         state changed since she was last told. A spark's own line says the state, so a spark marks it told and says
@@ -653,6 +712,9 @@ class Bridge:
         sparks = self._sparks_moment(spark)  # (10-29) the sparks' state, when it changed since she was last told
         if sparks:
             extra_moment = f"{extra_moment} {sparks}" if extra_moment else sparks
+        roomed = self._room_moment()  # (10-29, ROOM_ON) what he did in their room since their last turn, once
+        if roomed:
+            extra_moment = f"{extra_moment} {roomed}" if extra_moment else roomed
         events: list[tuple[str, object]] = []
         stop = threading.Event()
         threading.Thread(target=self._typing, args=(stop,), daemon=True).start()
@@ -1280,6 +1342,8 @@ class Bridge:
         elif cmd == "/week":
             import engine_week
             self.send(engine_week.summary(), markdown=False)  # the engine's week, now (10-25)
+        elif cmd == "/room":
+            self.room_command(" ".join(text.split()[1:]))  # their room (10-29, ROOM_ON)
         elif cmd == "/presence":
             import presence  # sparks (10-26): on or off, or how it stands
             arg = " ".join(text.split()[1:]).strip().lower()

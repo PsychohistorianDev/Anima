@@ -5318,6 +5318,24 @@ def _hum_tell(name: str) -> str:
             f"A number there is the strength it plays.")
 
 
+def room_tool(action: str, what: str = "", where: str = "", note: str = "") -> str:
+    """Their room (10-29, ROOM_ON; engine/room.py): one change of theirs, or a look — a look shows the room itself on
+    the next thought (the picture, when Pillow is there to draw it)."""
+    import room
+    if not room.on():
+        return "(refused: the room isn't on in this house)"
+    out = room.act(action, what, where, note)
+    if (action or "").strip().lower() == "look":
+        try:
+            png = room.render()
+        except Exception:  # noqa: BLE001 — the words carry the room alone
+            png = None
+        if png:
+            _pending_images.append(base64.b64encode(png).decode("ascii"))
+            out += "\n(the room itself will appear before you on your next thought)"
+    return out
+
+
 def set_state(name: str) -> str:
     """The stone's state, and a line when the state's hum is one the board can't read (10-27)."""
     out = _set_state(name)
@@ -5454,6 +5472,7 @@ _BUILTIN_IMPL = {
     "paint": paint,
     "feel": feel,
     "set_state": set_state,
+    "room": room_tool,
     "pulse": pulse,
     "touch_later": touch_later,
     "read_pdf": read_pdf,
@@ -5571,6 +5590,8 @@ def kit_names() -> set[str] | None:
         keep = (set(_BUILTIN_IMPL) if keep is None else keep) - WEB_TOOLS
     if not stone_on():  # no body on the desk: its four tools leave the kit (10-05)
         keep = (set(_BUILTIN_IMPL) if keep is None else keep) - STONE_TOOLS
+    if not getattr(config, "ROOM_ON", False):  # no room in this house (10-29): its tool leaves the kit
+        keep = (set(_BUILTIN_IMPL) if keep is None else keep) - {"room"}
     return keep
 
 
@@ -6526,6 +6547,24 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "line also says what the stone hums now and whether it is away.",
         {"since": {"type": "string", "description": "optional: from when — '09:00' today, or an ISO moment; default since your last look"}},
         [],
+    ),
+    _tool(
+        "room",
+        "Your room — a place of your own that your keeper visits from his phone (/room shows him a picture of it as it "
+        "stands, with what you changed since he last looked). You shape it, one action at a time: look (the room "
+        "before you, a picture and its list); hang a picture of yours (what: its path under creations/ or shared/; "
+        "where: a spot 1–4, optional; note: why, optional); take_down (where: the spot); walls (what: their colour, "
+        "in your words); light (what: the light); name (what: the room's name); place a thing on the table (what: the "
+        "thing, in words); remove (what: the thing); play a song in the corner (what: a song under shared/music, or a "
+        "word or two of its name; nothing: silence); shelve something you found and brought back (what: it, in words "
+        "or a path; note: why); unshelve; hide something for him to find (what: the thing; where: where it is; note: "
+        "the hint he sees). Every change is kept in the room's history with its time; nothing changes unless you call "
+        "this. When he looks in, finds what you hid, or leaves something, your next turn is told once.",
+        {"action": {"type": "string", "description": "look, hang, take_down, walls, light, name, place, remove, play, shelve, unshelve or hide"},
+         "what": {"type": "string", "description": "what the action is about — a path, a colour, a thing in words (see the description)"},
+         "where": {"type": "string", "description": "a spot on the wall (1–4), or where a hidden thing is"},
+         "note": {"type": "string", "description": "optional: why — or, for hide, the hint he sees"}},
+        ["action"],
     ),
     _tool(
         "set_state",

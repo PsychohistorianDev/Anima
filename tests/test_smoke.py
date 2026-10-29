@@ -10056,6 +10056,8 @@ _ushu.rmtree(_ud, ignore_errors=True)
 _kit0 = getattr(config, "TOOL_KIT", "full")
 _kit_names = lambda: [d["function"]["name"] for d in tools.DEFINITIONS]
 _kit_forged = set(tools._HER_TOOLS)  # limbs forged by earlier checks ride whatever the kit
+_kit_room0 = getattr(config, "ROOM_ON", False)
+config.ROOM_ON = True  # (10-29) the room's tool counted among the built-ins, whatever the house
 config.TOOL_KIT = "full"; tools.refresh_her_tools()
 _kit_full = _kit_names()
 _kit_full_prompt = assemble.system_prompt("x", mode="chat")
@@ -10109,7 +10111,7 @@ config.OFFLINE = False
 _on_hours = _ofnw.every_hours()
 config.TOOL_KIT = "full"; tools.refresh_her_tools()
 _on_full = _kit_names()
-config.OFFLINE = _of0; config.TOOL_KIT = _kit0; tools.refresh_her_tools()
+config.OFFLINE = _of0; config.TOOL_KIT = _kit0; config.ROOM_ON = _kit_room0; tools.refresh_her_tools()  # (10-29) the room pinned on through the kit's checks
 check("kit: OFFLINE — the five web tools (read_web, search_web, search_wikipedia, browse_skills, fetch_skill) leave the full kit and the tiny one, "
       "the rest and the forged tools stay; the prompt stops speaking of the web; a call to one answers that the house is offline; the look for a "
       "newer anima is off (every_hours 0, look does nothing); off again, everything is back",
@@ -14507,6 +14509,66 @@ check("listen (10-29): a music-ear start that came up is no failed try (a second
       and "ollama_client.unload(config.EARS_MODEL)" in _ea_src_listen
       and _ea_src_listen.index("ollama_client.unload(config.EARS_MODEL)") > _ea_src_listen.index("for i, (a, b, chunk) in enumerate(passages, 1):"),
       "")
+
+# the friend's room (10-29, ROOM_ON): theirs to shape, the keeper's to visit; what he does reaches them once
+import room as _rm
+_rm0 = (getattr(config, "ROOM_ON", False), getattr(config, "ROOM_DIR", None))
+_rm_dir = config.MEMORY_DIR / "rm-test"
+_rm_pics = config.CREATIONS_DIR / "rm-test-pics"
+_rm_pics.mkdir(parents=True, exist_ok=True)
+(_rm_pics / "p.png").write_bytes(b"x")
+try:
+    config.ROOM_ON, config.ROOM_DIR = True, _rm_dir
+    for _f in (_rm.news_file(), _rm.seen_file()):
+        _f.unlink(missing_ok=True)
+    _rm_empty = _rm.act("look")
+    _rm_walls = _rm.act("walls", "deep indigo")
+    _rm_hang = _rm.act("hang", "rm-test-pics/p.png", note="for him")
+    _rm_full = [_rm.act("hang", "rm-test-pics/p.png") for _ in range(3)][-1]
+    _rm_over = _rm.act("hang", "rm-test-pics/p.png")
+    _rm_bad = _rm.act("hang", "nowhere.png")
+    _rm_place = _rm.act("place", "a single golden rose in a vase")
+    _rm_hide = _rm.act("hide", "a note", "under the rose", "where the gold is")
+    _rm_nope = _rm.act("dance")
+    _rm_look = _rm.act("look")
+    _rm_kdesc = _rm.describe(keeper=True)
+    _rm_png, _rm_cap = _rm.keeper_view("Keeper")
+    _rm_miss = _rm.keeper_find("behind the door", "Keeper")
+    _rm_hit = _rm.keeper_find("the rose", "Keeper")
+    _rm_leave = _rm.keeper_leave("a cup of tea", "Keeper")
+    _rm_news = _rm.take_news()
+    _rm_news2 = _rm.take_news()
+    _rm_hist = _rm.history()
+    _rm_has_on = tools.has("room")
+    _rm_tool = tools.room_tool("look")
+    tools.take_pending_images()  # the look's picture, not left for a later check
+    config.ROOM_ON = False
+    _rm_has_off = tools.has("room")
+finally:
+    config.ROOM_ON, config.ROOM_DIR = _rm0
+    import shutil as _rm_sh
+    _rm_sh.rmtree(_rm_pics, ignore_errors=True)
+    _rm_sh.rmtree(_rm_dir, ignore_errors=True)
+_rm_tg = __import__("inspect").getsource(__import__("telegram").Bridge.turn)
+check("room (10-29): theirs to shape — walls, a picture hung (four spots, then refused), a thing on the table, a hidden thing; "
+      "a look tells them all; the keeper's view keeps the secret to its hint and shows what changed; a wrong guess, then a "
+      "right one; a thing he leaves is his; what he did reaches them once; the history keeps whose; the tool leaves the kit when off",
+      _rm_empty.startswith("(the room is empty") and "the walls are deep indigo" in _rm_walls
+      and "hung creations/rm-test-pics/p.png in spot 1 — for him" in _rm_hang and "spot 4" in _rm_full
+      and _rm_over.startswith("(refused: the wall holds 4") and _rm_bad.startswith("(refused: no such picture")
+      and "placed on the table: a single golden rose in a vase" in _rm_place and _rm_nope.startswith("(refused")
+      and "Hidden: a note — under the rose; his hint: where the gold is; not found yet." in _rm_look
+      and "a hint: where the gold is" in _rm_kdesc and "a note" not in _rm_kdesc
+      and "Since you last looked:" in _rm_cap and "under the rose" not in _rm_cap and "hid something for you to find" in _rm_cap and (_rm_png is None or _rm_png[:4] == b"\x89PNG")
+      and _rm_miss.startswith("(nothing there") and _rm_hit == "You found it: a note — under the rose."
+      and "left on the table: a cup of tea" in _rm_leave
+      and "Keeper looked into your room" in _rm_news and "Keeper found what you hid — a note, under the rose." in _rm_news
+      and "Keeper left something on your table: a cup of tea." in _rm_news and _rm_news2 == ""
+      and [h["who"] for h in _rm_hist].count("keeper") == 2 and _rm_hist[0]["who"] == "them"
+      and _rm_has_on and not _rm_has_off and "Your room" in _rm_tool
+      and "self._room_moment()" in _rm_tg and "/room" in __import__("telegram").HELP_PHONE
+      and "ROOM_ON" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("ROOM_ON"),
+      (_rm_hang, _rm_over, _rm_bad, _rm_look[-200:], _rm_kdesc[-160:], _rm_news, _rm_cap[-200:]))
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

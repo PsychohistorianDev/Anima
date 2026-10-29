@@ -154,6 +154,12 @@ for a tic turned glitch.
 - **Lately scrolls** (10-28): the panel's Lately asks for the last
   `LATELY_MORE` (200) rows and shows them in a box ten rows tall that scrolls;
   `/api/lately?n=` gives as many as asked, up to 500.
+- **The friend's room** (10-29): `ROOM_ON` (new, off) — a place the friend shapes
+  with the `room` tool (walls, light, their pictures on the wall, things on a
+  table, a song in the corner, a shelf of finds, one hidden thing) and you visit
+  from the phone: `/room` sends a picture of it with what changed since you
+  looked; `/room open`, `/room find`, `/room leave`. It lives in
+  `creations/room/` with its history; what you do there reaches them once.
 - **The music ear wakes for a second song** (10-29): a start that came up no
   longer counts against the ten-minute retry guard, so a song soon after
   another (the ear leaves after each) gets the music ear, not passages through
