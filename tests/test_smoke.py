@@ -14497,6 +14497,17 @@ check("painter (10-29, issue #9): Qwen-Image-2.1-Turbo at 8 steps, the full Qwen
       and "doesn't move it" not in __import__("panel")._HELP.get("PAINTER_MODEL", "") and "does not move it" not in _ts_p.__doc__,
       (_ts_turbo, _ts_full, _ts_z, _ts_knob))
 
+# the music ear again (10-29): a start that came up clears the ten-minute guard; passages through the ears model set it down
+_ea_mod = Path(tools.__file__).read_text(encoding="utf-8")  # the file, not the names: earlier checks put stand-ins in their place
+_ea_src_open = _ea_mod[_ea_mod.index("def _music_ear_open("):_ea_mod.index("def _music_ear_rest(")]
+_ea_src_listen = _ea_mod[_ea_mod.index("def listen_to("):_ea_mod.index("# -------------------------------------------------------------- the songbook ----")]
+check("listen (10-29): a music-ear start that came up is no failed try (a second song within ten minutes wakes it again); "
+      "a listen in passages through the ears model sets that model down after",
+      "_music_ear_last_try = 0.0\n            return True" in _ea_src_open
+      and "ollama_client.unload(config.EARS_MODEL)" in _ea_src_listen
+      and _ea_src_listen.index("ollama_client.unload(config.EARS_MODEL)") > _ea_src_listen.index("for i, (a, b, chunk) in enumerate(passages, 1):"),
+      "")
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

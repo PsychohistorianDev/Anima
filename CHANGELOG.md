@@ -154,6 +154,11 @@ for a tic turned glitch.
 - **Lately scrolls** (10-28): the panel's Lately asks for the last
   `LATELY_MORE` (200) rows and shows them in a box ten rows tall that scrolls;
   `/api/lately?n=` gives as many as asked, up to 500.
+- **The music ear wakes for a second song** (10-29): a start that came up no
+  longer counts against the ten-minute retry guard, so a song soon after
+  another (the ear leaves after each) gets the music ear, not passages through
+  the ears model; and passages set the ears model down after, so the brain is
+  not left waiting for the card.
 - **Qwen-Image-2.1-Turbo paints at 8 steps** (10-29, issue #9): it shared the
   full model's 40, and the steps the painter passes overrode its own 8 — so it
   painted five times longer than it should. Now 8 by default; `PAINTER_STEPS`

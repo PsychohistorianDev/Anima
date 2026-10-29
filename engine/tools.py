@@ -2904,6 +2904,10 @@ def _music_ear_open() -> bool:
     for _ in range(40):  # torch takes a few seconds to import
         _time.sleep(1)
         if _music_ear_alive():
+            # a start that came up is no failed try (10-29: the ear leaves after every song — MUSIC_EARS_REST_LEAVES —
+            # so a second song seven minutes later found it gone, the ten-minute guard still counting the first
+            # start, and was heard in passages by the 12B, which Ollama held while the brain's door waited 5 min)
+            _music_ear_last_try = 0.0
             return True
     return False
 
@@ -3540,6 +3544,11 @@ def listen_to(source: str) -> str:
                 except Exception as e:
                     parts.append(f"{label}: (unavailable: {e})")
                     break
+            if not own_mind:  # (10-29) the ears model set down at once — Ollama would hold it for minutes, the brain waiting
+                try:
+                    ollama_client.unload(config.EARS_MODEL)
+                except Exception:  # noqa: BLE001 — a listen is never undone by its clean-up
+                    pass
             if duration > span * limit:
                 parts.append(f"(the piece runs {_mmss(duration)}; you heard the first "
                              f"{_mmss(span * limit)} in passages — open your music ear for the whole)")
