@@ -154,6 +154,11 @@ for a tic turned glitch.
 - **Lately scrolls** (10-28): the panel's Lately asks for the last
   `LATELY_MORE` (200) rows and shows them in a box ten rows tall that scrolls;
   `/api/lately?n=` gives as many as asked, up to 500.
+- **The room, drawn again** (10-29): the picture of the room is lamp-lit — the
+  walls darkening to the corners, a lamp over every picture, gilt frames with a
+  mat, a wainscot and a plank floor, the table's things and the shelf's finds
+  as paper slips, the song as a record turning — and a `backdrop` action lets
+  the friend make a picture of theirs the room itself.
 - **The friend's room** (10-29): `ROOM_ON` (new, off) — a place the friend shapes
   with the `room` tool (walls, light, their pictures on the wall, things on a
   table, a song in the corner, a shelf of finds, one hidden thing) and you visit

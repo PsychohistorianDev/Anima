@@ -50,7 +50,7 @@ def seen_file() -> Path:
 
 
 def _empty() -> dict:
-    return {"name": "", "walls": "", "light": "", "wall": [], "table": [], "playing": {}, "shelf": [], "hidden": {}}
+    return {"name": "", "walls": "", "light": "", "backdrop": "", "wall": [], "table": [], "playing": {}, "shelf": [], "hidden": {}}
 
 
 def load() -> dict:
@@ -161,7 +161,7 @@ def _spot(where: str) -> int | None:
 
 # ---- their hands ---------------------------------------------------------------------------------------------------
 
-ACTIONS = ("look", "hang", "take_down", "walls", "light", "name", "place", "remove", "play", "shelve", "unshelve", "hide")
+ACTIONS = ("look", "hang", "take_down", "walls", "light", "name", "backdrop", "place", "remove", "play", "shelve", "unshelve", "hide")
 
 
 def act(action: str, what: str = "", where: str = "", note: str = "") -> str:
@@ -186,6 +186,13 @@ def _change(r: dict, a: str, what: str, where: str, note: str) -> str:
     if a in ("walls", "light", "name"):
         r[a] = what
         return f"{'the walls are' if a == 'walls' else 'the light is' if a == 'light' else 'its name is'} {what or 'unsaid'}"
+    if a == "backdrop":  # a picture of theirs as the room itself — walls, floor, light (10-29, the second pass)
+        if not what:
+            r["backdrop"] = ""
+            return "the backdrop is gone — the drawn walls again"
+        rel = _rel(_file(what, IMAGE_EXTS, "picture"))
+        r["backdrop"] = rel
+        return f"the room's backdrop is {rel}" + (f" — {note}" if note else "")
     if a == "hang":
         p = _file(what, IMAGE_EXTS, "picture")
         rel = _rel(p)
@@ -257,10 +264,11 @@ def _change(r: dict, a: str, what: str, where: str, note: str) -> str:
 def describe(r: dict | None = None, keeper: bool = False) -> str:
     """The room in words — theirs whole; for the keeper the hidden thing only as its hint, until found."""
     r = r or load()
-    if not any(r.get(k) for k in ("name", "walls", "light", "wall", "table", "playing", "shelf", "hidden")):
+    if not any(r.get(k) for k in ("name", "walls", "light", "backdrop", "wall", "table", "playing", "shelf", "hidden")):
         return "(the room is empty — nothing chosen yet: walls, light, a picture, a song, a thing on the table)"
     out = [f"{'The room' if keeper else 'Your room'}{' — ' + r['name'] if r.get('name') else ''}: walls "
-           f"{r.get('walls') or 'bare'}; light {r.get('light') or 'plain'}."]
+           f"{r.get('walls') or 'bare'}; light {r.get('light') or 'plain'}"
+           + (f"; the backdrop {r['backdrop']}" if r.get("backdrop") else "") + "."]
     if r["wall"]:
         out.append("On the wall: " + "; ".join(f"{x.get('spot')}. {x.get('picture')}" + (f" ({x['note']})" if x.get("note") else "")
                                                  for x in r["wall"]) + ".")
@@ -358,6 +366,12 @@ def keeper_leave(thing: str, keeper: str = "your keeper") -> str:
 
 
 # ---- the picture ---------------------------------------------------------------------------------------------------
+# The room seen from its doorway in the evening (10-29, the second pass): the walls in their colour, darkening toward
+# the corners; the light they chose pooled over the wall; a little brass lamp above every picture, each painting lit
+# by its own glow — the one bright thing; gilt frames with a mat and a shadow; a dado rail, a plank floor; the table's
+# things and the shelf's finds as paper slips, a little askew, never cards in a grid; the song as a record turning in
+# the corner. A backdrop they painted (backdrop) replaces the drawn walls and floor; the frames, slips and record ride
+# on it. Georgia where Windows has it, DejaVu Serif elsewhere.
 
 def _colour(words: str, default: tuple) -> tuple:
     try:
@@ -376,15 +390,17 @@ def _colour(words: str, default: tuple) -> tuple:
             break
     if found is None:
         return default
-    k = 0.6 if re.search(r"\b(deep|dark|dusky|night)\b", s) else 1.0
     if re.search(r"\b(pale|light|soft|pastel)\b", s):
         return tuple(int(c + (255 - c) * 0.45) for c in found)
+    k = 0.55 if re.search(r"\b(deep|dark|dusky|night|midnight)\b", s) else 0.8
     return tuple(int(c * k) for c in found)
 
 
-def _font(size: int):
+def _font(size: int, italic: bool = False):
     from PIL import ImageFont
-    for name in ("DejaVuSans.ttf", "segoeui.ttf", "arial.ttf", "Arial.ttf", "Helvetica.ttc"):
+    names = (("georgiai.ttf", "Georgia Italic.ttf", "DejaVuSerif-Italic.ttf", "DejaVuSerifCondensed-Italic.ttf")
+             if italic else ("georgia.ttf", "Georgia.ttf", "DejaVuSerif.ttf", "DejaVuSerifCondensed.ttf"))
+    for name in names + ("DejaVuSans.ttf", "segoeui.ttf", "arial.ttf"):
         try:
             return ImageFont.truetype(name, size)
         except OSError:
@@ -412,84 +428,245 @@ def _wrap(d, text: str, font, width: int, lines: int = 3) -> list[str]:
     return out
 
 
+def _mix(a: tuple, b: tuple, t: float) -> tuple:
+    return tuple(int(x + (y - x) * t) for x, y in zip(a, b))
+
+
+def _glow(img, centre: tuple, radius: int, colour: tuple, strength: float):
+    """A soft pool of light added over the picture (screen-like): brightest at the centre, gone at the radius."""
+    from PIL import Image, ImageDraw, ImageFilter, ImageChops
+    W, H = img.size
+    mask = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(mask).ellipse([centre[0] - radius, centre[1] - radius, centre[0] + radius, centre[1] + radius],
+                                 fill=int(255 * strength))
+    mask = mask.filter(ImageFilter.GaussianBlur(radius / 2.2))
+    layer = Image.new("RGB", (W, H), colour)
+    lit = ImageChops.screen(img, layer)
+    return Image.composite(lit, img, mask)
+
+
+def _shadowed(img, piece, at: tuple, blur: int = 10, offset: tuple = (6, 10), alpha: int = 150) -> None:
+    """Paste an RGBA piece with a soft shadow under it."""
+    from PIL import Image, ImageFilter
+    pad = blur * 3
+    sh = Image.new("RGBA", (piece.width + pad * 2, piece.height + pad * 2), (0, 0, 0, 0))
+    a = piece.getchannel("A").point(lambda v: alpha if v > 0 else 0)
+    sh.paste(Image.new("RGBA", piece.size, (0, 0, 0, 255)), (pad, pad), a)
+    sh = sh.filter(ImageFilter.GaussianBlur(blur))
+    img.paste(sh, (at[0] - pad + offset[0], at[1] - pad + offset[1]), sh)
+    img.paste(piece, at, piece)
+
+
+def _slip(text: str, font, width: int, mine: bool = False, tilt: float = 0.0):
+    """A paper slip with words on it, a little askew — the table's things and the shelf's finds."""
+    from PIL import Image, ImageDraw
+    probe = ImageDraw.Draw(Image.new("RGB", (4, 4)))
+    lines = _wrap(probe, text, font, width - 28, 3) or [""]
+    lh = int(font.size * 1.35) if hasattr(font, "size") else 22
+    h = lh * len(lines) + 20
+    paper = (239, 228, 204) if not mine else (246, 222, 214)
+    s = Image.new("RGBA", (width, h), paper + (255,))
+    d = ImageDraw.Draw(s)
+    d.rectangle([0, 0, width - 1, h - 1], outline=(196, 178, 146, 255))
+    if mine:
+        d.text((width - 22, 6), "♥", font=font, fill=(150, 52, 60, 255))
+    for i, ln in enumerate(lines):
+        d.text((14, 10 + lh * i), ln, font=font, fill=(52, 40, 32, 255))
+    return s.rotate(tilt, resample=Image.BICUBIC, expand=True)
+
+
+def _render_backdrop(r: dict, back, lamp: tuple) -> bytes:
+    """A backdrop they painted is the room itself, whole: nothing drawn over the scene but its name; the pictures on
+    the wall, the table's things, the shelf's finds and the song sit in a dark band along the bottom, like a caption
+    on a photograph — small gilt frames, slips, the record's name."""
+    from PIL import Image, ImageDraw, ImageOps
+    W, H = back.size
+    band = 190
+    canvas = back.convert("RGBA")
+    shade = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    sd = ImageDraw.Draw(shade)
+    for y in range(H - band - 60, H):  # the scene fading into the band
+        t = min(1.0, (y - (H - band - 60)) / 90)
+        sd.line([0, y, W, y], fill=(10, 8, 14, int(215 * t)))
+    canvas.alpha_composite(shade)
+    d = ImageDraw.Draw(canvas)
+    ink = (236, 222, 196)
+    if r.get("name"):
+        f = _font(30, italic=True)
+        d.text((46, 32), str(r["name"])[:60], font=f, fill=(0, 0, 0, 160))
+        d.text((44, 30), str(r["name"])[:60], font=f, fill=ink + (240,))
+    x, y0 = 40, H - band + 30
+    for it in sorted([w for w in (r.get("wall") or []) if 1 <= int(w.get("spot") or 0) <= WALL_MAX], key=lambda w: int(w["spot"])):
+        fw, fh = 104, 124
+        frame = Image.new("RGBA", (fw + 16, fh + 16), (0, 0, 0, 0))
+        fd = ImageDraw.Draw(frame)
+        fd.rectangle([0, 0, fw + 15, fh + 15], fill=(120, 86, 34, 255))
+        fd.rectangle([3, 3, fw + 12, fh + 12], fill=(184, 140, 62, 255))
+        fd.line([3, 3, fw + 12, 3], fill=(228, 196, 122, 255), width=2)
+        try:
+            with Image.open(config.ROOT / str(it.get("picture"))) as pic:
+                frame.paste(ImageOps.fit(pic.convert("RGB"), (fw - 4, fh - 4), method=Image.LANCZOS), (10, 10))
+        except Exception:  # noqa: BLE001
+            fd.rectangle([10, 10, fw + 5, fh + 5], fill=(30, 26, 34, 255))
+        _shadowed(canvas, frame, (x, y0 - 10), blur=6, offset=(3, 5), alpha=150)
+        x += fw + 34
+    f_slip = _font(15)
+    things = [(str(t.get("thing", "")), t.get("by") == "keeper") for t in (r.get("table") or [])[-3:]]
+    finds = [(str(t.get("find", "")), False) for t in (r.get("shelf") or [])[-3:]]
+    col = max(x + 10, 420)
+    for c, group in enumerate((things, finds)):  # the table's things in one column, the shelf's finds in the next
+        cx, cy = col + c * 305, y0 - 26
+        for n, (text, mine) in enumerate(group):
+            sl = _slip(text, f_slip, 290, mine=mine, tilt=(1.2, -1.6, 1.8)[n % 3])
+            if cx + sl.width > W - 220 or cy + sl.height > H - 4:
+                break
+            _shadowed(canvas, sl, (cx, cy), blur=5, offset=(2, 4), alpha=120)
+            cy += sl.height - 4
+    pl = r.get("playing") or {}
+    if pl.get("song"):
+        d = ImageDraw.Draw(canvas)
+        f = _font(18, italic=True)
+        d.text((W - 210, y0 + 6), "\u266a", font=_font(26), fill=lamp + (230,))
+        for i, ln in enumerate(_wrap(d, Path(str(pl["song"])).stem, f, 170, 3)):
+            d.text((W - 180, y0 + 10 + 24 * i), ln, font=f, fill=ink + (230,))
+    out = io.BytesIO()
+    canvas.convert("RGB").save(out, "PNG")
+    return out.getvalue()
+
+
 def render(r: dict | None = None) -> bytes | None:
-    """The room as a picture (PNG bytes): the walls in their colour, the light over them, the pictures in frames, the
-    table with its things, the shelf of finds, the song in the corner. None without Pillow."""
+    """The room as a picture (PNG bytes). None without Pillow."""
     try:
-        from PIL import Image, ImageDraw
+        from PIL import Image, ImageDraw, ImageFilter, ImageOps
     except ImportError:
         return None
     r = r or load()
     W, H = 1280, 800
-    wall = _colour(r.get("walls", ""), (52, 40, 96))
-    img = Image.new("RGB", (W, H), wall)
-    d = ImageDraw.Draw(img)
-    floor_y = int(H * 0.8)
-    d.rectangle([0, floor_y, W, H], fill=tuple(int(c * 0.45) for c in wall))
-    d.line([0, floor_y, W, floor_y], fill=tuple(int(c * 0.3) for c in wall), width=4)
+    floor_y, rail_y = int(H * 0.8), int(H * 0.6)
+    wall = _colour(r.get("walls", ""), (46, 37, 82))
     light = (r.get("light") or "").lower()
-    tint = ((255, 170, 80), 0.18) if re.search(r"warm|amber|gold|candle|sunset|fire", light) else \
-           ((120, 150, 255), 0.15) if re.search(r"cool|moon|blue|silver|cold", light) else None
-    if tint:
-        img = Image.blend(img, Image.new("RGB", (W, H), tint[0]), tint[1])
-    if re.search(r"\b(dim|low|dark|night|candle)\b", light):
-        img = Image.blend(img, Image.new("RGB", (W, H), (0, 0, 0)), 0.3)
-    elif re.search(r"\b(bright|sun|morning|daylight)\b", light):
-        img = Image.blend(img, Image.new("RGB", (W, H), (255, 255, 255)), 0.15)
-    d = ImageDraw.Draw(img)
-    ink, soft = (240, 232, 214), (200, 190, 170)
-    f_title, f_text, f_small = _font(34), _font(22), _font(18)
-    if r.get("name"):
-        d.text((40, 24), str(r["name"])[:60], font=f_title, fill=ink)
-    # the wall: four frames
-    fw, fh, top = 240, 280, 90
-    gap = (W - WALL_MAX * fw) // (WALL_MAX + 1)
-    for x in r.get("wall") or []:
-        spot = int(x.get("spot") or 0)
-        if not 1 <= spot <= WALL_MAX:
-            continue
-        x0 = gap + (spot - 1) * (fw + gap)
-        d.rectangle([x0 - 10, top - 10, x0 + fw + 10, top + fh + 10], fill=(150, 116, 52))
-        d.rectangle([x0, top, x0 + fw, top + fh], fill=(20, 18, 24))
+    warm = (255, 196, 128)
+    lamp = ((178, 196, 255) if re.search(r"cool|moon|blue|silver|cold", light) else
+            (255, 176, 96) if re.search(r"warm|amber|gold|candle|sunset|fire", light) else warm)
+    dim = 0.55 if re.search(r"\b(dim|low|dark|night|candle)\b", light) else 0.85 if re.search(r"\b(bright|sun|morning|daylight)\b", light) else 0.7
+
+    back = None
+    if r.get("backdrop"):
+        try:
+            with Image.open(config.ROOT / str(r["backdrop"])) as b:
+                back = ImageOps.fit(b.convert("RGB"), (W, H), method=Image.LANCZOS)
+        except Exception:  # noqa: BLE001 — a backdrop that moved: the drawn room instead
+            back = None
+    if back is not None:
+        return _render_backdrop(r, back, lamp)
+    if True:
+        img = Image.new("RGB", (W, H), wall)
+        d = ImageDraw.Draw(img)
+        top, low = _mix(wall, (255, 255, 255), 0.06), _mix(wall, (0, 0, 0), 0.35)
+        for y in range(rail_y):  # the upper wall, lighter under the ceiling's bounce, darker toward the rail
+            d.line([0, y, W, y], fill=_mix(top, wall, y / rail_y))
+        for x in range(0, W, 46):  # a faint stripe in the paper
+            d.line([x, 0, x, rail_y], fill=_mix(wall, (255, 255, 255), 0.025), width=18)
+        panel = _mix(wall, (0, 0, 0), 0.28)
+        d.rectangle([0, rail_y, W, floor_y], fill=panel)
+        for x0 in range(30, W, 250):  # the wainscot's panels
+            d.rectangle([x0, rail_y + 22, x0 + 210, floor_y - 18], outline=_mix(panel, (0, 0, 0), 0.25), width=2)
+        d.rectangle([0, rail_y - 6, W, rail_y + 6], fill=_mix(wall, (0, 0, 0), 0.45))
+        d.line([0, rail_y - 6, W, rail_y - 6], fill=_mix(wall, (255, 255, 255), 0.12), width=1)
+        wood, wood2 = (58, 38, 26), (34, 22, 16)
+        for y in range(floor_y, H):
+            d.line([0, y, W, y], fill=_mix(wood, wood2, (y - floor_y) / (H - floor_y)))
+        for i, y in enumerate(range(floor_y + 14, H, 18)):  # planks, narrowing toward the wall
+            d.line([0, y, W, y], fill=_mix(wood2, (0, 0, 0), 0.3), width=1)
+        d.rectangle([0, floor_y - 4, W, floor_y + 2], fill=(28, 18, 12))
+        img = _glow(img, (W // 2, 40), 760, _mix(lamp, wall, 0.45), 0.12 * dim + 0.04)  # the room's own light, from above
+    # corners into shadow
+    vig = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(vig).ellipse([-W * 0.15, -H * 0.25, W * 1.15, H * 1.2], fill=255)
+    vig = vig.filter(ImageFilter.GaussianBlur(140))
+    img = Image.composite(img, Image.blend(img, Image.new("RGB", (W, H), (0, 0, 0)), 0.55 + (0.7 - dim) * 0.5), vig)
+
+    ink = (236, 222, 196)
+    # the wall: four spots, each painting under a little brass lamp of its own
+    fw, fh, ftop = 210, 250, 96
+    gap = (W - 4 * (fw + 48)) // 5
+    hung = [x for x in (r.get("wall") or []) if 1 <= int(x.get("spot") or 0) <= WALL_MAX]
+    for x in hung:
+        spot = int(x["spot"])
+        fx = gap + (spot - 1) * (fw + 48 + gap)
+        img = _glow(img, (fx + fw // 2 + 24, ftop + 40), 230, _mix(lamp, (255, 255, 255), 0.25), 0.26 * dim + 0.1)
+    canvas = img.convert("RGBA")
+    for x in hung:
+        spot = int(x["spot"])
+        fx = gap + (spot - 1) * (fw + 48 + gap)
+        frame = Image.new("RGBA", (fw + 48, fh + 48), (0, 0, 0, 0))
+        fd = ImageDraw.Draw(frame)
+        fd.rectangle([0, 0, fw + 47, fh + 47], fill=(120, 86, 34, 255))           # the gilt
+        fd.rectangle([4, 4, fw + 43, fh + 43], fill=(184, 140, 62, 255))
+        fd.line([4, 4, fw + 43, 4], fill=(228, 196, 122, 255), width=3)            # light from above on the top edge
+        fd.rectangle([12, 12, fw + 35, fh + 35], fill=(96, 68, 28, 255))
+        fd.rectangle([16, 16, fw + 31, fh + 31], fill=(226, 214, 190, 255))          # the mat
         try:
             with Image.open(config.ROOT / str(x.get("picture"))) as pic:
-                pic = pic.convert("RGB")
-                k = min(fw / pic.width, fh / pic.height)  # fitted to the frame, a small picture made larger too
-                pic = pic.resize((max(1, int(pic.width * k)), max(1, int(pic.height * k))))
-                img.paste(pic, (x0 + (fw - pic.width) // 2, top + (fh - pic.height) // 2))
+                pic = ImageOps.fit(pic.convert("RGB"), (fw - 12, fh - 12), method=Image.LANCZOS)
+                frame.paste(pic, (30, 30))
+                fd.rectangle([29, 29, 30 + fw - 12, 30 + fh - 12], outline=(80, 60, 40, 255))
         except Exception:  # noqa: BLE001 — a picture that moved leaves its frame empty
-            pass
-        d.text((x0, top + fh + 16), str(spot), font=f_small, fill=soft)
-    # the shelf (left) and the table (middle)
+            fd.rectangle([30, 30, 30 + fw - 12, 30 + fh - 12], fill=(30, 26, 34, 255))
+        _shadowed(canvas, frame, (fx, ftop), blur=12, offset=(8, 14), alpha=170)
+        ld = ImageDraw.Draw(canvas)  # the picture lamp: a brass bar on a short arm
+        cx = fx + (fw + 48) // 2
+        ld.line([cx, ftop - 30, cx, ftop - 6], fill=(150, 116, 52, 255), width=3)
+        ld.rounded_rectangle([cx - 52, ftop - 40, cx + 52, ftop - 28], radius=6, fill=(176, 138, 62, 255))
+        ld.line([cx - 48, ftop - 28, cx + 48, ftop - 28], fill=(255, 226, 160, 255), width=2)
+    d = ImageDraw.Draw(canvas)
+    if r.get("name"):
+        f = _font(30, italic=True)
+        d.text((44, 30), str(r["name"])[:60], font=f, fill=ink + (235,))
+
+    f_slip = _font(17)
+    # the shelf, on the left wall below the rail line's height
     shelf = r.get("shelf") or []
     if shelf:
-        sx, sy = 40, floor_y - 40
-        d.rectangle([sx, sy, sx + 330, sy + 12], fill=(96, 70, 44))
-        y = sy - 10
-        for it in reversed(shelf[-4:]):
-            lines = _wrap(d, it.get("find", ""), f_small, 300, 2)
-            y -= 28 * len(lines) + 10
-            d.rounded_rectangle([sx, y, sx + 330, y + 28 * len(lines) + 4], radius=6, fill=(236, 226, 204))
-            for i, ln in enumerate(lines):
-                d.text((sx + 10, y + 4 + 28 * i), ln, font=f_small, fill=(40, 34, 30))
+        sx, sy = 52, rail_y - 26
+        for i, it in enumerate(shelf[-4:]):
+            s = _slip(str(it.get("find", "")), f_slip, 250, tilt=(-2.5, 1.8, -1.2, 2.4)[i % 4])
+            _shadowed(canvas, s, (sx + (i % 2) * 14, sy - 6 - (len(shelf[-4:]) - i) * (s.height - 8)), blur=6, offset=(3, 5), alpha=120)
+        d.rectangle([sx - 10, sy + 4, sx + 300, sy + 16], fill=(70, 46, 28, 255))
+        d.line([sx - 10, sy + 4, sx + 300, sy + 4], fill=(120, 86, 54, 255), width=2)
+        for bx in (sx + 20, sx + 260):
+            d.polygon([(bx, sy + 16), (bx + 18, sy + 16), (bx, sy + 40)], fill=(60, 40, 24, 255))
+    # the table, in the middle, on the floor
     table = r.get("table") or []
-    tx0, tx1, ty = 430, 850, floor_y - 30
-    d.rectangle([tx0, ty, tx1, ty + 24], fill=(110, 76, 46))
-    d.rectangle([tx0 + 20, ty + 24, tx0 + 36, H - 20], fill=(90, 62, 38))
-    d.rectangle([tx1 - 36, ty + 24, tx1 - 20, H - 20], fill=(90, 62, 38))
-    y = ty - 8
-    for it in table[-4:]:
-        lines = _wrap(d, ("♥ " if it.get("by") == "keeper" else "") + str(it.get("thing", "")), f_small, tx1 - tx0 - 20, 2)
-        y -= 26 * len(lines) + 8
-        d.rounded_rectangle([tx0 + 10, y, tx1 - 10, y + 26 * len(lines) + 2], radius=6, fill=(244, 234, 214))
-        for i, ln in enumerate(lines):
-            d.text((tx0 + 20, y + 2 + 26 * i), ln, font=f_small, fill=(40, 34, 30))
+    tx0, tx1, ty = 450, 830, floor_y - 34
+    top_poly = [(tx0, ty), (tx1, ty), (tx1 + 26, ty + 22), (tx0 - 26, ty + 22)]
+    shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(shadow).ellipse([tx0 - 40, floor_y + 30, tx1 + 40, floor_y + 70], fill=(0, 0, 0, 140))
+    canvas.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(14)))
+    d = ImageDraw.Draw(canvas)
+    for lx in (tx0 - 6, tx1 - 10):
+        d.rectangle([lx, ty + 22, lx + 16, floor_y + 54], fill=(52, 34, 22, 255))
+    d.polygon(top_poly, fill=(104, 70, 44, 255))
+    d.line([(tx0, ty), (tx1, ty)], fill=(150, 108, 70, 255), width=2)
+    d.rectangle([tx0 - 26, ty + 22, tx1 + 26, ty + 34], fill=(72, 48, 30, 255))
+    for i, it in enumerate(table[-4:]):
+        s = _slip(str(it.get("thing", "")), f_slip, 300, mine=it.get("by") == "keeper", tilt=(1.6, -2.2, 2.6, -1.4)[i % 4])
+        _shadowed(canvas, s, (tx0 + 30 + (i % 2) * 20, ty - 10 - (len(table[-4:]) - i) * (s.height - 10)), blur=6, offset=(3, 6), alpha=120)
+    # the song: a record turning on a little stand, its name beside it
     pl = r.get("playing") or {}
     if pl.get("song"):
+        rx, ry = W - 190, floor_y - 54
+        d = ImageDraw.Draw(canvas)
+        d.rectangle([rx - 70, ry + 34, rx + 70, ry + 60], fill=(64, 42, 28, 255))
+        d.ellipse([rx - 62, ry - 4, rx + 62, ry + 40], fill=(16, 14, 18, 255))
+        for k in range(1, 5):
+            d.ellipse([rx - 62 + k * 9, ry - 4 + k * 3, rx + 62 - k * 9, ry + 40 - k * 3], outline=(46, 42, 50, 255))
+        d.ellipse([rx - 14, ry + 12, rx + 14, ry + 24], fill=(176, 64, 72, 255))
         name = Path(str(pl["song"])).stem
-        lines = _wrap(d, "playing: " + name, f_text, 330, 2)
-        for i, ln in enumerate(lines):
-            d.text((W - 370, floor_y - 70 + 28 * i), ln, font=f_text, fill=ink)
+        f = _font(19, italic=True)
+        for i, ln in enumerate(_wrap(d, name, f, 260, 2)):
+            d.text((rx - 130, ry - 64 + 24 * i), ln, font=f, fill=ink + (230,))
+        d.text((rx + 76, ry - 30), "♪", font=_font(26), fill=lamp + (220,))
     out = io.BytesIO()
-    img.save(out, "PNG")
+    canvas.convert("RGB").save(out, "PNG")
     return out.getvalue()

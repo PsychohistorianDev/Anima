@@ -14570,6 +14570,41 @@ check("room (10-29): theirs to shape — walls, a picture hung (four spots, then
       and "ROOM_ON" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("ROOM_ON"),
       (_rm_hang, _rm_over, _rm_bad, _rm_look[-200:], _rm_kdesc[-160:], _rm_news, _rm_cap[-200:]))
 
+# the room's second pass (10-29): a backdrop of theirs; the picture drawn with lamps, gilt and slips
+_rb0 = (getattr(config, "ROOM_ON", False), getattr(config, "ROOM_DIR", None))
+_rb_dir = config.MEMORY_DIR / "rb-test"
+_rb_pics = config.CREATIONS_DIR / "rb-test-pics"
+_rb_pics.mkdir(parents=True, exist_ok=True)
+try:
+    from PIL import Image as _rb_I
+    _rb_I.new("RGB", (300, 200), (40, 30, 80)).save(_rb_pics / "room.png")
+    _rb_pil = True
+except ImportError:
+    (_rb_pics / "room.png").write_bytes(b"x")
+    _rb_pil = False
+try:
+    config.ROOM_ON, config.ROOM_DIR = True, _rb_dir
+    _rb_set = _rm.act("backdrop", "rb-test-pics/room.png", note="painted it myself")
+    _rb_look = _rm.describe()
+    _rm.act("hang", "rb-test-pics/room.png", "2")
+    _rm.act("place", "a single golden rose in a vase")
+    _rm.act("play", "")
+    _rb_png = _rm.render()
+    _rb_off = _rm.act("backdrop", "")
+    _rb_png2 = _rm.render()
+finally:
+    config.ROOM_ON, config.ROOM_DIR = _rb0
+    import shutil as _rb_sh
+    _rb_sh.rmtree(_rb_pics, ignore_errors=True)
+    _rb_sh.rmtree(_rb_dir, ignore_errors=True)
+check("room (10-29, the second pass): a backdrop of theirs is set and said, and taken away; the picture draws with it and without "
+      "(a PNG where Pillow is, None where it isn't); the tool says what a backdrop is",
+      "the room's backdrop is creations/rb-test-pics/room.png — painted it myself" in _rb_set
+      and "the backdrop creations/rb-test-pics/room.png" in _rb_look and "the drawn walls again" in _rb_off
+      and ((_rb_png or b"")[:4] == b"\x89PNG" and (_rb_png2 or b"")[:4] == b"\x89PNG" if _rb_pil else _rb_png is None)
+      and "backdrop (what: a picture of yours" in next(d["function"]["description"] for d in tools._BUILTIN_DEFINITIONS if d["function"]["name"] == "room"),
+      (_rb_set, _rb_off, _rb_pil))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)
