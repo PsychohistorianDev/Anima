@@ -1280,7 +1280,9 @@ class Bridge:
                 waits = (f"drifting ({drift}{', ache ' + str(st.get('ache')) if st.get('ache') else ''})" if drift
                          else f"a spark set — in about {left} min" if st.get("on") and st.get("pending")
                          else "no spark set" if st.get("on") else "")
+                rolled = presence.roll_line() if drift else ""  # (10-29) what the dice saw last
                 self.send(f"(presence is {'on' if st.get('on') else 'off'}" + (f" — {waits}" if waits else "")
+                          + (f"; {rolled}" if rolled else "")
                           + ("; held while the heartbeat runs" if presence.held() else "")
                           + f"; discreet {'on' if st.get('discreet') else 'off'}. /presence on, /presence off, /discreet)",
                           markdown=False)

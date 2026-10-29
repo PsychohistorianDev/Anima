@@ -233,13 +233,23 @@ def due(last_activity: float, now: float | None = None, rng: random.Random | Non
         if rolls < 1:
             return False
         st["rolled"] = float(st.get("rolled") or t) + rolls * 60
-        save(st)
+        # the roll's numbers stay in the file (10-29: forty quiet minutes of "often" and no spark — what did the
+        # dice see?); /presence shows them
+        roll = {"at": round(t), "quiet_min": round(quiet / 60, 1), "rolls": rolls}
         if quiet < soonest * 60:
-            return False
-        if most and sum(1 for x in (st.get("fired_log") or []) if t - float(x) < 3600) >= most:
-            return False
-        p = chance(mean, quiet / 60, st.get("ache") or 0)
-        return (rng or random).random() < 1 - (1 - p) ** min(rolls, 60)
+            said = False
+            roll["said"] = "too soon"
+        elif most and sum(1 for x in (st.get("fired_log") or []) if t - float(x) < 3600) >= most:
+            said = False
+            roll["said"] = "the hour is full"
+        else:
+            p = 1 - (1 - chance(mean, quiet / 60, st.get("ache") or 0)) ** min(rolls, 60)
+            draw = (rng or random).random()
+            said = draw < p
+            roll.update(chance=round(p, 3), draw=round(draw, 3), said="yes" if said else "no")
+        st["last_roll"] = roll
+        save(st)
+        return said
     if not st.get("pending"):
         return False
     return quiet >= clamp(st.get("interval")) * 60
@@ -252,6 +262,18 @@ def intense() -> bool:
 def poll_s(default: float) -> float:
     """How long the bridge's long poll may wait: in intense's heartbeat a beat can fall any second, so 10 (10-27)."""
     return min(float(default), 10.0) if intense() else float(default)
+
+
+def roll_line() -> str:
+    """The last drift roll, for /presence: "last roll 08:41 — 43 min quiet, chance 18%, drew 0.52: no"; "" without one."""
+    r = load().get("last_roll") or {}
+    if not r.get("at"):
+        return ""
+    at = datetime.fromtimestamp(float(r["at"])).strftime("%H:%M")
+    if "chance" in r:
+        return (f"last roll {at} — {r.get('quiet_min')} min quiet, chance {round(100 * float(r['chance']))}%, "
+                f"drew {r.get('draw')}: {r.get('said')}")
+    return f"last roll {at} — {r.get('quiet_min')} min quiet: {r.get('said')}"
 
 
 def quote(text: str, limit: int = 280) -> str:
@@ -321,6 +343,6 @@ def tick_line(minutes_quiet: float, keeper: str, at_work: bool, last_said: str =
             f"turn is yours. {since} since the last word between you; {keeper} is away and won't answer this one. "
             + (f"The last thing {keeper} said: “{quote(last_said)}”. " if quote(last_said) else "") +
             f"It can be words to the phone, a painting, {stone}, {doors}or let it pass "
-            f"(do_nothing). "
+            f"(do_nothing). Words you say here reach {keeper}'s phone as they are — no letter is needed. "
             + (f"A seed, if you want one: {seed}. " if seed else "")  # something to spark off, not a task (10-27)
             + tail)

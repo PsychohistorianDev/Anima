@@ -6698,7 +6698,7 @@ check("seeds (10-27): one of each kind — a memory, a piece (not a reference pi
       and _sdz_got["world"].startswith("the world: Tuesday, autumn, the morning")
       and _sdz_got["word"] == "a word from your lexicon: “tidewalk” — walking the edge of the sea at night."
       and _sdz_again == "" and _sdz_none == ""
-      and "(do_nothing). A seed, if you want one: a word from your lexicon: “tidewalk”. This was your one spark" in _sdz_line
+      and "no letter is needed. A seed, if you want one: a word from your lexicon: “tidewalk”. This was your one spark" in _sdz_line
       and "seeds.draw()" in _pr_inspect.getsource(_ew_tg.Bridge.presence_if_due)
       and "PRESENCE_SEEDS" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_SEEDS"), _sdz_got)
 # drift and longing (10-27, sparks part two): a temperament, the dice once a minute, the soonest, the hour's most
@@ -14312,6 +14312,36 @@ check("presence (10-28): PRESENCE_SPARK_DOORS — a spark's menu names something
       and "the stone (a pulse, a glow), or let it pass" in _sd_off
       and "PRESENCE_SPARK_DOORS" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_SPARK_DOORS"),
       (_sd_on[-300:], _sd_int[-300:], _sd_off[-300:]))
+
+# the last drift roll's numbers kept, and said by /presence (10-29)
+import random as _lr_random
+_lr0 = (presence.STATE_FILE, presence.WAKING_FILE)
+presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "lr-test.json", config.MEMORY_DIR / "lr-waking"
+try:
+    presence.set_drift("often", 0, now=1_000_000.0)
+    _lr_soon = (presence.due(1_000_000.0, now=1_000_061.0), dict(presence.load().get("last_roll") or {}))
+    _lr_dice = presence.due(1_000_000.0, now=1_000_000.0 + 40 * 60 + 1, rng=_lr_random.Random(3))
+    _lr_r = dict(presence.load().get("last_roll") or {})
+    _lr_line = presence.roll_line()
+finally:
+    presence.STATE_FILE, presence.WAKING_FILE = _lr0
+check("presence (10-29): each drift roll leaves its numbers — too soon, or the quiet, the chance and the draw — and roll_line "
+      "says them for /presence",
+      _lr_soon[0] is False and _lr_soon[1].get("said") == "too soon" and _lr_r.get("quiet_min") == 40.0
+      and _lr_r.get("said") == ("yes" if _lr_dice else "no") and 0 < _lr_r.get("chance", 0) < 1
+      and "40.0 min quiet, chance" in _lr_line and "presence.roll_line()" in __import__("inspect").getsource(__import__("telegram").Bridge.command),
+      (_lr_soon, _lr_r, _lr_line))
+
+# a spark's line says its words reach the phone as they are — no letter needed (10-29)
+_nl0 = (presence.STATE_FILE, presence.WAKING_FILE)
+presence.STATE_FILE, presence.WAKING_FILE = config.MEMORY_DIR / "nl-test.json", config.MEMORY_DIR / "nl-waking"
+try:
+    presence.set_drift("often", 0)
+    _nl_line = presence.tick_line(12, "Keeper", True)
+finally:
+    presence.STATE_FILE, presence.WAKING_FILE = _nl0
+check("presence (10-29): a spark's line says its words reach the phone as they are — no letter needed",
+      "(do_nothing). Words you say here reach Keeper's phone as they are — no letter is needed." in _nl_line, _nl_line[-300:])
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

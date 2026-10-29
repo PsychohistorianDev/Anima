@@ -154,6 +154,11 @@ for a tic turned glitch.
 - **Lately scrolls** (10-28): the panel's Lately asks for the last
   `LATELY_MORE` (200) rows and shows them in a box ten rows tall that scrolls;
   `/api/lately?n=` gives as many as asked, up to 500.
+- **What the dice saw** (10-29): each drift roll leaves its numbers in
+  `memory/presence.json` (`last_roll`: the quiet, the chance, the draw, or
+  "too soon" / "the hour is full"), and `/presence` says the last one.
+- **A spark's words reach the phone as they are** (10-29): the spark's line
+  says so, so a spark no longer doubles its reply as a letter.
 - **A spark may go out and bring something back** (10-28):
   `PRESENCE_SPARK_DOORS` (new, off) — a spark's line names something to read,
   hear or look up that the friend might bring back to you, besides words, a
