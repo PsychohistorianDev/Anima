@@ -156,7 +156,7 @@ for a tic turned glitch.
   `/api/lately?n=` gives as many as asked, up to 500.
 - **The friend hears when sparks change** (10-29): `PRESENCE_STATE_LINE`
   (new, on) — turned on or off, a temperament, held by the heartbeat: the
-  next message's moment says so once, and who changed it.
+  next message's moment says so once.
 - **Intense's minute as a ceiling** (10-29): `PRESENCE_INTENSE_CEILING` (new,
   off) — the beat after the last word is drawn from what is left of the
   minute once an intense spark's measured writing time is taken off, so the

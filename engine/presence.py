@@ -312,11 +312,10 @@ def state_line(keeper: str = "your keeper") -> str:
     if is_held:
         return "sparks are held while the heartbeat runs — none come until it stops"
     if not st.get("on"):
-        why = {"the keeper": f"{keeper} turned them off", "keeper": f"{keeper} turned them off",
-               "the quiet hours": "the quiet hours ended them", "the heartbeat": "the heartbeat's start ended them",
-               "friend": "you turned them off"}.get(by, "")
+        # the line names no one (10-29, the keeper: "I don't want the Gabe set it on") — only what ended them by itself
+        why = {"the quiet hours": "the quiet hours ended them", "the heartbeat": "the heartbeat's start ended them"}.get(by, "")
         return "sparks are off" + (f" — {why}" if why else "")
-    who = f" — {keeper} turned them on" if by == "keeper" else ""
+    who = ""
     if st.get("mode") == "drift":
         return f"sparks are on: drifting, {st.get('temperament') or 'rare'}{who}"
     if st.get("pending"):

@@ -260,7 +260,7 @@ _HELP = {
                             "bring back to you, besides words, a painting, the stone. Not in intense. What a spark reads "
                             "stays in the conversation's window, so it fills sooner. Off: the shorter menu.",
     "PRESENCE_STATE_LINE": "When the sparks change — on, off, a temperament, held while the heartbeat runs — the next "
-                           "message tells the friend once, and who changed it. A change they made themselves isn't said "
+                           "message tells the friend once (no one named). A change they made themselves isn't said "
                            "again. Off: only a spark's own line names the state.",
     "PRESENCE_INTENSE_CEILING": "Intense's minute as a ceiling on when a spark arrives: the beat is drawn from what is left "
                                 "of the minute once a spark's usual writing time is taken off. Off: the beat alone is "

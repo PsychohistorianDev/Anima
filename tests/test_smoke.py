@@ -14453,9 +14453,9 @@ finally:
 _sl_src = __import__("inspect").getsource(__import__("telegram").Bridge.turn)
 check("presence (10-29): PRESENCE_STATE_LINE — a change said once with who made it (on by the keeper, off by the quiet hours, a "
       "spark set); her own next_spark and a spent spark not said; the knob off: nothing; the bridge adds it to the moment",
-      _sl_on == "sparks are on: drifting, often — Keeper turned them on" and _sl_again == "" and _sl_hers == ""
+      _sl_on == "sparks are on: drifting, often" and _sl_again == "" and _sl_hers == ""  # names no one (10-29)
       and _sl_off == "sparks are off — the quiet hours ended them"
-      and _sl_one == "a spark is set, for after 15 quiet minutes — Keeper turned them on" and _sl_spent == "" and _sl_knob == ""
+      and _sl_one == "a spark is set, for after 15 quiet minutes" and _sl_spent == "" and _sl_knob == ""
       and "self._sparks_moment(spark)" in _sl_src
       and "PRESENCE_STATE_LINE" in __import__("panel").TABS["Phone"] and __import__("panel")._HELP.get("PRESENCE_STATE_LINE"),
       (_sl_on, _sl_again, _sl_hers, _sl_off, _sl_one, _sl_spent, _sl_knob))
