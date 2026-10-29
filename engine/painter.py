@@ -183,6 +183,20 @@ def turn_for(path) -> float:
     return 0.0
 
 
+def _ref_fit(w: int, h: int) -> tuple[int, int]:
+    """A painting with references no larger than PAINTER_REFERENCE_PIXELS (its shape kept, sides multiples of 16); 0 — the
+    size asked. Each reference rides beside the painting at about the painting's own size, so three references at 1440
+    are four paintings' worth for the card (10-29: they spilled past it and ran out of time, again and again)."""
+    try:
+        cap = int(getattr(config, "PAINTER_REFERENCE_PIXELS", 1_050_000) or 0)
+    except (TypeError, ValueError):
+        cap = 1_050_000
+    if cap <= 0 or w * h <= cap:
+        return int(w), int(h)
+    s = (cap / (w * h)) ** 0.5
+    return _snap(w * s), _snap(h * s)
+
+
 def _sized(im):
     """A reference no longer than PAINTER_REFERENCE_SIDE on its long side (the shape kept); 0 — as it is. The painter reads
     a face as well at 768 pixels as at 1440, and every reference is read at the size it comes: eight full-size ones
@@ -364,12 +378,18 @@ class _Spilled(RuntimeError):
     """A painting ran past the card into system memory (10-25)."""
 
 
-def _spill_watch(torch) -> dict:
+class _Stopped(RuntimeError):
+    """A painting the painter stopped itself (10-29 night): past the card while already under offload — it would crawl
+    for many minutes in borrowed memory — or past its time (PAINTER_TIMEOUT_S, less a margin), so the painter never
+    outlives the engine's patience and never paints on for a bridge that has gone."""
+
+
+def _spill_watch(torch, deadline: float | None = None) -> dict:
     """{"callback_on_step_end": …} for a brush that also paints under offload, loaded whole on the card: after each
     step the high-water mark against the card; past it, Windows has begun lending system memory and the painting
     crawls (10-25: one with two references ran ten minutes past the card, the brain's door shut behind it) — stopped,
     to be painted again under offload. {} anywhere else, or for a pipeline that takes no step callback."""
-    if not _whole or _pipe is None or not str(_device).startswith("cuda") or _family(MODEL_ID) not in _OFFLOAD_FAMILIES:
+    if _pipe is None or not str(_device).startswith("cuda") or _family(MODEL_ID) not in _OFFLOAD_FAMILIES:
         return {}
     try:
         import inspect
@@ -378,13 +398,17 @@ def _spill_watch(torch) -> dict:
     except (TypeError, ValueError):
         return {}
     total = device.total_gb(_device, torch)
-    if not total:
-        return {}
+    whole = _whole
 
     def _cb(pipe, i, t, kw):
         pk = device.peak_gb(_device, torch)
-        if pk and pk > total:
-            raise _Spilled(f"ran past the card into system memory at step {int(i) + 1} (peak {pk:.1f} of {total:.1f} GB)")
+        if total and pk and pk > total:
+            said = f"ran past the card into system memory at step {int(i) + 1} (peak {pk:.1f} of {total:.1f} GB)"
+            if whole:
+                raise _Spilled(said)
+            raise _Stopped(said + " — already under offload, so stopped: it would crawl for many minutes")
+        if deadline and time.time() > deadline:
+            raise _Stopped(f"ran past its time at step {int(i) + 1} — stopped, the card handed back")
         return kw
     return {"callback_on_step_end": _cb}
 
@@ -500,7 +524,8 @@ def _leave():
     os._exit(0)
 
 
-def paint(prompt: str, width: int, height: int, seed: int | None = None, negative: str = "", images=None):
+def paint(prompt: str, width: int, height: int, seed: int | None = None, negative: str = "", images=None,
+          deadline: float | None = None):
     """One picture. Returns (PIL image, seed). `negative` — what to keep out — reaches the brushes whose guidance
     honours one (_NEGATIVE_FAMILIES); Turbo and klein paint without it."""
     global _last_used, _peak
@@ -520,10 +545,14 @@ def paint(prompt: str, width: int, height: int, seed: int | None = None, negativ
             try:
                 out = _pipe(prompt=prompt, width=int(width), height=int(height), generator=gen,
                             **_call_kwargs(MODEL_ID, steps, guidance, negative), **extra,
-                            **_spill_watch(torch))  # the keywords follow the family (10-24); the card watched (10-25)
+                            **_spill_watch(torch, deadline))  # the keywords follow the family (10-24); the card watched (10-25)
                 spilled = None
             except _Spilled as e:
                 spilled = str(e)
+            except _Stopped:
+                _unload()  # (10-29 night) the card handed back at once, nothing left painting
+                device.empty_cache(_device, torch)
+                raise
         if spilled is not None:
             # past the card (10-25): the same painting again under offload, the same seed — not a ten-minute crawl
             print(f"  ({spilled} — painting it again under offload)", flush=True)
@@ -532,8 +561,14 @@ def paint(prompt: str, width: int, height: int, seed: int | None = None, negativ
             device.reset_peak(_device, torch)
             gen = torch.Generator(device=device.generator_device(_device)).manual_seed(int(seed))
             with torch.inference_mode():
-                out = _pipe(prompt=prompt, width=int(width), height=int(height), generator=gen,
-                            **_call_kwargs(MODEL_ID, steps, guidance, negative), **extra)
+                try:
+                    out = _pipe(prompt=prompt, width=int(width), height=int(height), generator=gen,
+                                **_call_kwargs(MODEL_ID, steps, guidance, negative), **extra,
+                                **_spill_watch(torch, deadline))  # (10-29 night) watched under offload too
+                except _Stopped:
+                    _unload()
+                    device.empty_cache(_device, torch)
+                    raise
         _last_used = time.time()
         # the high-water mark of this painting, then the cache handed back before the next one: a set of
         # three painted at 45 s, 196 s, 205 s with nothing else on the card — one painting's reserved blocks
@@ -622,6 +657,8 @@ class Handler(BaseHTTPRequestHandler):
         if _leaving:
             return self._json({"error": "the painter is leaving — paint again in a moment and it is woken afresh"})
         n = int(self.headers.get("Content-Length") or 0)
+        # the painter's own deadline (10-29 night): a little before the engine stops waiting
+        deadline = time.time() + max(30.0, float(getattr(config, "PAINTER_TIMEOUT_S", 300) or 300) - 20)
         try:
             data = json.loads(self.rfile.read(n) or b"{}")
             prompt = (data.get("prompt") or "").strip()
@@ -636,13 +673,16 @@ class Handler(BaseHTTPRequestHandler):
             w = int(data.get("width") or w)
             h = int(data.get("height") or h)
             w, h = _fit(MODEL_ID, w, h)  # a 1024-class brush paints the shape smaller (10-24)
+            if data.get("reference"):
+                w, h = _ref_fit(w, h)  # (10-29) a painting with references, at most PAINTER_REFERENCE_PIXELS
             seed = data.get("seed")
             negative = str(data.get("negative") or "").strip()
             images, why = _load_references(data.get("reference"))
             if why:
                 return self._json({"error": why})
             t0 = time.time()
-            img, seed = paint(prompt, w, h, None if seed in (None, "") else int(seed), negative=negative, images=images)
+            img, seed = paint(prompt, w, h, None if seed in (None, "") else int(seed), negative=negative, images=images,
+                              deadline=deadline)
             p.parent.mkdir(parents=True, exist_ok=True)
             img.save(str(p))
             secs = time.time() - t0

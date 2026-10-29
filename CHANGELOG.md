@@ -154,6 +154,19 @@ for a tic turned glitch.
 - **Lately scrolls** (10-28): the panel's Lately asks for the last
   `LATELY_MORE` (200) rows and shows them in a box ten rows tall that scrolls;
   `/api/lately?n=` gives as many as asked, up to 500.
+- **A painting with references, about a megapixel** (10-29): `PAINTER_REFERENCE_PIXELS`
+  (new, 1,050,000) — each reference rides beside the painting at about its
+  size, so a painting that looks at references is painted no larger than this
+  (its shape kept); three references beside a 1440 painting had spilled the card.
+- **A recent visit is picked back up** (10-29): `ORPHAN_RESUME_H` (new, 6) — a
+  visit the bridge closed without (the window shut, the process killed) within
+  these hours is the open visit again at the next start: no afterglow over it,
+  one cold read instead of two.
+- **The painter stops itself** (10-29): a painting past the card while already
+  under offload (it would crawl in borrowed memory) or past its time is stopped
+  by the painter at the next step and the card handed back, so it never paints
+  on for a bridge that has gone; the rest after a lost painting is kept in a
+  file, so a restarted bridge keeps it too.
 - **The painter rests after running out of time** (10-29): `PAINTER_RAN_OUT_REST_MIN`
   (new, 15) — after a painting runs past `PAINTER_TIMEOUT_S` and is lost, no
   other is begun for a while; a retry had looped, the painter reloading each

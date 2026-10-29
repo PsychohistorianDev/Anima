@@ -6049,8 +6049,8 @@ _pr_load = _pr_inspect.getsource(_pr_painter._load)
 _pr_door = _pr_inspect.getsource(_pr_painter.Handler.do_POST)
 _pr_main = _pr_inspect.getsource(_pr_painter.main)
 _pr_tool = _pr_inspect.getsource(tools.paint)
-check("painter (10-25): a step past the card stops the painting (said with its peak), under it goes on; under offload nothing is watched",
-      "at step 3 (peak 40.0 of 34.2 GB)" in _pr_raised and _pr_ok == {"a": 1} and _pr_off == {}, (_pr_raised, _pr_ok, _pr_off))
+check("painter (10-25): a step past the card stops the painting (said with its peak), under it goes on; under offload it is watched too (10-29 night)",
+      "at step 3 (peak 40.0 of 34.2 GB)" in _pr_raised and _pr_ok == {"a": 1} and "callback_on_step_end" in _pr_off, (_pr_raised, _pr_ok, _pr_off))
 check("painter (10-25): references take the offload road, a spill is painted again under offload, /rest is heard mid-painting, a timeout ends the call",
       "_load(offload=bool(images))" in _pr_paint and "except _Spilled" in _pr_paint and "_load(offload=True)" in _pr_paint
       and "if offload and qkw and fam in _OFFLOAD_FAMILIES:" in _pr_load and "_whole = whole" in _pr_load
@@ -14737,6 +14737,80 @@ check("painter (10-29): PAINTER_RAN_OUT_REST_MIN — for a while after a paintin
       and "tools.paint_cooling()" in Path(__import__("room_items").__file__).read_text(encoding="utf-8")
       and "PAINTER_RAN_OUT_REST_MIN" in __import__("panel").TABS["Senses"],
       (_pg_paint[:120], _pg_said, _pg_after, _pg_off))
+
+# PAINTER_REFERENCE_PIXELS (10-29): a painting with references painted at about a megapixel at most
+import painter as _rp_p
+_rp0 = getattr(config, "PAINTER_REFERENCE_PIXELS", 1_050_000)
+try:
+    config.PAINTER_REFERENCE_PIXELS = 1_050_000
+    _rp_sq, _rp_wide, _rp_small = _rp_p._ref_fit(1440, 1440), _rp_p._ref_fit(1920, 1088), _rp_p._ref_fit(800, 800)
+    config.PAINTER_REFERENCE_PIXELS = 0
+    _rp_off = _rp_p._ref_fit(1440, 1440)
+finally:
+    config.PAINTER_REFERENCE_PIXELS = _rp0
+check("painter (10-29): PAINTER_REFERENCE_PIXELS — a painting with references at most about a megapixel, its shape kept and "
+      "its sides multiples of 16; a small one as asked; 0 leaves it; only a painting with references; on the Senses tab",
+      _rp_sq == (1024, 1024) and _rp_wide[0] % 16 == 0 and _rp_wide[1] % 16 == 0 and _rp_wide[0] * _rp_wide[1] <= 1_050_000
+      and abs(_rp_wide[0] / _rp_wide[1] - 1920 / 1088) < 0.05 and _rp_small == (800, 800) and _rp_off == (1440, 1440)
+      and 'if data.get("reference"):' in Path(_rp_p.__file__).read_text(encoding="utf-8")
+      and "PAINTER_REFERENCE_PIXELS" in __import__("panel").TABS["Senses"],
+      (_rp_sq, _rp_wide, _rp_small, _rp_off))
+
+# the painter stops itself (10-29 night): past the card under offload, or past its time — the card handed back; the rest
+# after it is kept in a file, so a restarted bridge keeps it; a stop said by the painter starts the rest too
+import time as _ps_t
+_ps_src = Path(__import__("painter").__file__).read_text(encoding="utf-8")
+_ps_tools = Path(tools.__file__).read_text(encoding="utf-8")
+_ps0 = (tools._paint_ran_out, getattr(config, "PAINTER_RAN_OUT_REST_MIN", 15))
+try:
+    config.PAINTER_RAN_OUT_REST_MIN = 15
+    tools._paint_ran_out = 0.0
+    tools._ran_out_file().write_text(_json.dumps({"at": _ps_t.time() - 120}), encoding="utf-8")
+    _ps_file = tools.paint_cooling()  # a fresh process (no memory of it) still rests, from the file
+    tools._ran_out_file().unlink()
+    _ps_none = tools.paint_cooling()
+finally:
+    tools._paint_ran_out, config.PAINTER_RAN_OUT_REST_MIN = _ps0
+    tools._ran_out_file().unlink(missing_ok=True)
+check("painter (10-29 night): the painter stops a painting itself — past the card under offload, past its time — and hands "
+      "the card back; its deadline is a little before the engine's; the rest is kept in a file and read by a fresh process",
+      "class _Stopped(" in _ps_src and "raise _Stopped(said" in _ps_src and "ran past its time at step" in _ps_src
+      and "deadline=deadline)" in _ps_src and _ps_src.count("except _Stopped:") == 2
+      and '"ran past" in str(data["error"])' in _ps_tools and "13 more minutes" in _ps_file and _ps_none == "",
+      (_ps_file, _ps_none))
+
+# ORPHAN_RESUME_H (10-29 night): a recent visit closed without its bridge is picked back up, no afterglow; an old one isn't
+import telegram as _or_tg
+import types as _or_types
+_or_dir = config.MEMORY_DIR / "or-test"
+_or_dir.mkdir(parents=True, exist_ok=True)
+_or_f = _or_dir / "chat-telegram-20261029-220000.md"
+_or_f.write_text("x", encoding="utf-8")
+_or0 = (_or_tg.chat.orphaned_visit, _or_tg.chat.load_transcript, getattr(config, "ORPHAN_RESUME_H", 6))
+try:
+    _or_tg.chat.orphaned_visit = lambda tag, exclude=None: _or_f
+    _or_tg.chat.load_transcript = lambda f: [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}]
+    config.ORPHAN_RESUME_H = 6
+    _or_me = _or_types.SimpleNamespace(history=[], file=None, last_activity=0.0, reflected_upto=0)
+    _or_said = _or_tg.Bridge.resume_orphan(_or_me)
+    _or_old_me = _or_types.SimpleNamespace(history=[], file=None, last_activity=0.0, reflected_upto=0)
+    import os as _or_os
+    _or_os.utime(_or_f, (1_000_000, 1_000_000))
+    _or_old = _or_tg.Bridge.resume_orphan(_or_old_me)
+    config.ORPHAN_RESUME_H = 0
+    _or_off = _or_tg.Bridge.resume_orphan(_or_types.SimpleNamespace(history=[], file=None, last_activity=0.0, reflected_upto=0))
+finally:
+    _or_tg.chat.orphaned_visit, _or_tg.chat.load_transcript, config.ORPHAN_RESUME_H = _or0
+    import shutil as _or_sh
+    _or_sh.rmtree(_or_dir, ignore_errors=True)
+_or_src = Path(_or_tg.__file__).read_text(encoding="utf-8")
+check("telegram (10-29 night): ORPHAN_RESUME_H — a visit closed without its bridge, recent, is picked back up as the open "
+      "visit (its turns, its file, nothing to sit with again); an old one, or 0, isn't; the start skips the afterglow then",
+      "picked the last visit back up" in _or_said and len(_or_me.history) == 2 and _or_me.file == _or_f
+      and _or_me.reflected_upto == 2 and _or_old == "" and _or_old_me.history == [] and _or_off == ""
+      and 'resumed = "" if self.history else self.resume_orphan()' in _or_src
+      and __import__("panel")._HELP.get("ORPHAN_RESUME_H"),
+      (_or_said, _or_old, _or_off))
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

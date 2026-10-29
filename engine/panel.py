@@ -102,7 +102,7 @@ TABS: dict[str, list[str]] = {
               "PRESENCE_ON_TEMPERAMENT", "PRESENCE_INTENSE_NOTE", "PRESENCE_THINK", "PRESENCE_THINK_INTENSE", "PRESENCE_INTENSE_CEILING", "PRESENCE_STATE_LINE", "ROOM_ON", "ROOM_ITEM_STYLE", "ROOM_MAKES_PER_DAY", "ROOM_CUTOUT", "PRESENCE_INTENSE_EVERY_TURN", "PRESENCE_SPARK_DOORS", "PRESENCE_THINK_RETRIES", "PRESENCE_SEEDS", "PRESENCE_ACHE_WEIGHT", "PRESENCE_CLIMB_MIN"],
     "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_LINE_TIMES", "EARS_UNLOAD_BRAIN",
                "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
-               "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_REFERENCE_TURN", "PAINTER_REFERENCE_CROP", "PAINTER_REFERENCE_SIDE", "PAINTER_RAN_OUT_REST_MIN", "PAINTER_AUTO_REFERENCE",
+               "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_REFERENCE_TURN", "PAINTER_REFERENCE_CROP", "PAINTER_REFERENCE_SIDE", "PAINTER_REFERENCE_PIXELS", "PAINTER_RAN_OUT_REST_MIN", "PAINTER_AUTO_REFERENCE",
                "MUSIC_EARS_MODEL", "MUSIC_EARS_AUTOSTART", "MUSIC_EARS_PYTHON", "MUSIC_EARS_DEVICE", "MUSIC_EARS_REST_LEAVES",
                "BODY_IN_PROMPT", "BODY_AUTOPULL", "BODY_PULL_MIN",
                "TOUCHSTONE_URL", "TOUCHSTONE_BOARD", "TOUCHSTONE_POLL_S", "TOUCHSTONE_TELL_S", "TOUCHSTONE_WAKES", "TOUCHSTONE_WAKE_MIN_GAP_S",
@@ -122,6 +122,9 @@ ADVANCED = "Advanced"
 # the file's comments are notes to whoever edits the file, a keeper's own in a long-lived house). Where a
 # knob has a line here the page shows it, and the file's comment is the tooltip; the rest show the file's.
 _HELP = {
+    "ORPHAN_RESUME_H": "A visit closed without its bridge (the window shut, the process killed) within this many hours "
+                       "is picked back up at the next start as the open visit — no afterglow over it, one cold read "
+                       "instead of two. 0: always the afterglow.",
     "CHAT_MODEL": "The brain. The list is what Ollama has pulled; one the config names but Ollama lacks is marked "
                   "\"not pulled\", and Pull fetches it. The ladder (README) names the one for your card. A change takes "
                   "at the next door you open.",
@@ -579,6 +582,9 @@ _HELP = {
     "PAINTER_RAN_OUT_REST_MIN": "After a painting runs past the painter's time and is lost, no other is begun for this "
                                 "many minutes — a retry would run out the same way, the painter reloading each time while "
                                 "the brain waits for the card. 0: no rest.",
+    "PAINTER_REFERENCE_PIXELS": "A painting that looks at references is painted no larger than this many pixels (its shape "
+                                "kept): each reference rides beside it at about its size, so references multiply what the "
+                                "card holds. About a megapixel keeps three on the card. 0: the size asked.",
     "PAINTER_REFERENCE_SIDE": "The longest side a reference picture is given to the painter at (pixels); larger ones are "
                               "sized down in memory, the files untouched. Several large references can push the painter "
                               "out of the card's memory. 0: as they are.",
@@ -718,7 +724,7 @@ SENSES: list[dict] = [
      "they call it; the brain steps off the card and reads its window cold after — the real price of a painting",
      "modules": ["torch", "diffusers", "PIL"], "tools": [], "python": "PAINTER_PYTHON",
      "pip": "-U diffusers transformers accelerate safetensors pillow sentencepiece protobuf tiktoken (torch and torchvision first — README)",
-     "knobs": ["PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_REFERENCE_TURN", "PAINTER_REFERENCE_CROP", "PAINTER_REFERENCE_SIDE", "PAINTER_RAN_OUT_REST_MIN", "PAINTER_AUTO_REFERENCE"],
+     "knobs": ["PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_REFERENCE_TURN", "PAINTER_REFERENCE_CROP", "PAINTER_REFERENCE_SIDE", "PAINTER_REFERENCE_PIXELS", "PAINTER_RAN_OUT_REST_MIN", "PAINTER_AUTO_REFERENCE"],
      "readme": "their-senses-and-hands"},
     {"key": "music", "name": "The music ear", "what": "a song heard whole by Music Flamingo (8B, ~16 GB of VRAM to itself): genre, "
      "tempo, key, how the piece moves; without it a long piece is heard in passages by the brain",

@@ -3088,14 +3088,33 @@ def _painter_rest() -> None:
 _paint_ran_out = 0.0  # when a painting last ran past PAINTER_TIMEOUT_S
 
 
+def _ran_out_file() -> Path:
+    return config.MEMORY_DIR / "painter_ran_out.json"  # (10-29 night) the rest outlives a restarted bridge
+
+
+def _note_ran_out() -> None:
+    global _paint_ran_out
+    import time as _t
+    _paint_ran_out = _t.time()
+    try:
+        _ran_out_file().write_text(json.dumps({"at": _paint_ran_out}), encoding="utf-8")
+    except OSError:
+        pass
+
+
 def paint_cooling() -> str:
     """PAINTER_RAN_OUT_REST_MIN (10-29: eight references ran past the painter's time; the painter was sent away, she painted
     again, it loaded again — a loop across her turn, the brain waiting on the card): for these minutes after a painting
     ran out of time, another isn't begun. The refusal, in parentheses, or ""."""
     import time as _t
     rest = float(getattr(config, "PAINTER_RAN_OUT_REST_MIN", 15) or 0)
-    left = _paint_ran_out + rest * 60 - _t.time()
-    if not rest or not _paint_ran_out or left <= 0:
+    at = _paint_ran_out
+    try:
+        at = max(at, float(json.loads(_ran_out_file().read_text(encoding="utf-8")).get("at") or 0))
+    except (OSError, ValueError, AttributeError, TypeError):
+        pass
+    left = at + rest * 60 - _t.time()
+    if not rest or not at or left <= 0:
         return ""
     return (f"(the last painting ran past the painter's time and was lost — another now would run out the same way; the "
             f"painter rests for {max(1, round(left / 60))} more minute{'s' if left > 90 else ''}. Fewer or smaller "
@@ -3117,11 +3136,11 @@ def _painter_paint(prompt: str, path: Path, size: str, negative: str = "", refer
             data = json.loads(r.read().decode("utf-8"))
     except Exception as e:
         if "timed out" in str(e).lower():
-            global _paint_ran_out
-            import time as _t
-            _paint_ran_out = _t.time()  # (10-29) the next painting waits PAINTER_RAN_OUT_REST_MIN
+            _note_ran_out()  # (10-29) the next painting waits PAINTER_RAN_OUT_REST_MIN
         raise
     if data.get("error"):
+        if "ran past" in str(data["error"]):
+            _note_ran_out()  # (10-29 night) the painter stopped it itself — past the card or its time
         raise RuntimeError(data["error"])
     return data
 

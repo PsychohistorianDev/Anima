@@ -340,6 +340,10 @@ PAINTER_REFERENCE_CROP = {}
 # untouched): every reference is read at its own size, and several large ones can push the painter out of the
 # card's memory. 0 — as they are.
 PAINTER_REFERENCE_SIDE = 768
+# A painting that looks at references is painted no larger than this many pixels (its shape kept): each reference
+# rides beside the painting at about the painting's own size, so references multiply what the card holds.
+# About a megapixel (1024×1024) keeps three on the card. 0 — the size asked.
+PAINTER_REFERENCE_PIXELS = 1050000
 # Words that bring the painter a plain line: word → line; when a prompt has the word (any ending), the line goes to
 # the painter ahead of it, after a set's. For a pose the painter keeps getting wrong in the friend's own language.
 # {} — none.
@@ -1223,6 +1227,10 @@ TELEGRAM_TELL_REFLECTIONS = True
 # visit, the newest unsigned transcript whose day has not yet been slept on
 # gets it, in the background, once.
 AFTERGLOW_ORPHANS = True
+# A visit closed without its bridge (the window shut, the process killed) within this many hours is picked back
+# up at the next start as the open visit — no afterglow over it, one cold read instead of two. Older ones
+# get their afterglow as above. 0 — always the afterglow.
+ORPHAN_RESUME_H = 6
 # Quiet hours: between these hours the engine's own notices (afterglow and
 # pause accounts, announcements of new pieces, a change to who the friend is)
 # are held in memory/telegram_held.json, so a restart keeps them, and delivered

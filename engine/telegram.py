@@ -2528,6 +2528,31 @@ class Bridge:
             self.notice(f"(quiet for {mins:g} minutes — the brain is set down, the card is free; the next message opens the door again)")
         return True
 
+    def resume_orphan(self) -> str:
+        """ORPHAN_RESUME_H (10-29 night, the keeper: "every time I open the bridge the afterglow is kicking in too, so it's
+        2 cold reads"): a visit the last bridge closed without — the window shut, the process killed — written within
+        these hours is picked back up as the open visit, as /restart's stash is: no afterglow over it, and the next
+        message reads one prompt, not two. Older, it gets its afterglow as before. "" when there is none to pick up."""
+        hours = float(getattr(config, "ORPHAN_RESUME_H", 6) or 0)
+        if not hours or self.history:
+            return ""
+        try:
+            f = chat.orphaned_visit("telegram", exclude=self.file)
+            if not f or time.time() - f.stat().st_mtime > hours * 3600:
+                return ""
+            hist = chat.load_transcript(f)
+        except Exception:  # noqa: BLE001 — the old road then
+            return ""
+        if not hist:
+            return ""
+        self.history = hist
+        self.file = f
+        self.last_activity = f.stat().st_mtime
+        self.reflected_upto = len(hist)  # what was said before the close isn't sat with again at the next pause
+        turns = sum(1 for t in hist if t.get("role") == "user" and t.get("content"))
+        return (f"picked the last visit back up ({f.name}, {turns} turns of his) — the bridge had closed without it; it "
+                f"carries on, no afterglow over it")
+
     def afterglow_orphan(self) -> str:
         """A visit the last bridge died with — a power cut (09-24), the
         window killed — was saved after every reply but never got its
@@ -2713,10 +2738,19 @@ class Bridge:
                     self.notice(f"({picked})")
                 except Exception:
                     pass
-        _co = chat.carry_orphan("telegram", exclude=self.file)  # ...and its last turns ride at the next message (10-24)
-        if _co:
-            _say(_co)
-        self.afterglow_orphan()  # a visit the last bridge died with, if any; the open one is left alone
+        resumed = "" if self.history else self.resume_orphan()  # (10-29 night) a recent visit closed without its bridge
+        if resumed:
+            _say(resumed)
+            if self.chat_id:
+                try:
+                    self.notice(f"({resumed})")
+                except Exception:
+                    pass
+        else:
+            _co = chat.carry_orphan("telegram", exclude=self.file)  # ...and its last turns ride at the next message (10-24)
+            if _co:
+                _say(_co)
+            self.afterglow_orphan()  # a visit the last bridge died with, if any; the open one is left alone
         self.watch_touches()  # a press reaches the phone within seconds, not a poll (10-21)
         if not self.chat_id:
             _say(self._pair_hint())
