@@ -14812,6 +14812,42 @@ check("telegram (10-29 night): ORPHAN_RESUME_H — a visit closed without its br
       and __import__("panel")._HELP.get("ORPHAN_RESUME_H"),
       (_or_said, _or_old, _or_off))
 
+# edit_creation (10-30): one passage of a page changed in place — found once, replaced; zero or twice, nothing changes
+_ec_dir = config.CREATIONS_DIR / "ec-test"
+_ec_dir.mkdir(parents=True, exist_ok=True)
+_ec_f = _ec_dir / "README.md"
+_ec_f.write_text("# Album\n\n## Tracklist\n1. Dawn\n2. Dusk\n\nDawn opens it.\n", encoding="utf-8")
+_ec_notes = getattr(config, "CREATION_NOTES", True)
+try:
+    config.CREATION_NOTES = False
+    _ec_ins = tools.edit_creation("ec-test/README.md", "1. Dawn\n", "1. Dawn\n2. Noon\n")
+    _ec_after = _ec_f.read_text(encoding="utf-8")
+    _ec_none = tools.edit_creation("ec-test/README.md", "3. Midnight", "x")
+    _ec_twice = tools.edit_creation("ec-test/README.md", "Dawn", "Sunrise")
+    _ec_kept = _ec_f.read_text(encoding="utf-8")
+    _ec_out = tools.edit_creation("ec-test/README.md", "\nDawn opens it.\n", "")
+    _ec_gone = _ec_f.read_text(encoding="utf-8")
+    _ec_empty = tools.edit_creation("ec-test/README.md", "", "x")
+    _ec_missing = tools.edit_creation("ec-test/nope.md", "a", "b")
+finally:
+    config.CREATION_NOTES = _ec_notes
+    import shutil as _ec_sh
+    _ec_sh.rmtree(_ec_dir, ignore_errors=True)
+_ec_hb = Path(__import__("heartbeat").__file__).read_text(encoding="utf-8")
+check("tools (10-30): edit_creation — a passage found once is changed in place (a track put in the middle, the rest as "
+      "it was); found nowhere (the nearest line named) or twice, nothing changes; empty new_text takes it out; an "
+      "empty old_text or a missing file refused; a tool, an act, in both small kits; the heartbeat counts it a making",
+      _ec_after == "# Album\n\n## Tracklist\n1. Dawn\n2. Noon\n2. Dusk\n\nDawn opens it.\n"
+      and "changed one passage" in _ec_ins and "isn't in creations/ec-test/README.md" in _ec_none
+      and "Nothing was changed" in _ec_none and "2 times" in _ec_twice and _ec_kept == _ec_after
+      and "taken out" in _ec_out and "Dawn opens it" not in _ec_gone and "old_text is empty" in _ec_empty
+      and "no such file" in _ec_missing
+      and "edit_creation" in tools._BUILTIN_IMPL and "edit_creation" in tools.ACT_TOOLS
+      and "edit_creation" in tools.KITS["small"] and "edit_creation" in tools.KITS["tiny"]
+      and any((t.get("function") or {}).get("name") == "edit_creation" for t in tools._BUILTIN_DEFINITIONS)
+      and '"edit_creation": "changed"' in _ec_hb,
+      (_ec_ins, _ec_none, _ec_twice, _ec_out, _ec_empty, _ec_missing))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

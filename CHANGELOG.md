@@ -158,6 +158,10 @@ for a tic turned glitch.
   (new, 1,050,000) — each reference rides beside the painting at about its
   size, so a painting that looks at references is painted no larger than this
   (its shape kept); three references beside a 1440 painting had spilled the card.
+- **One passage changed in place** (10-30): `edit_creation` (new tool) — the
+  exact text found once on a page is replaced, so a line can be fixed, a section
+  rewritten or something put in the middle without rewriting the whole page;
+  found nowhere (the nearest lines named) or more than once, nothing changes.
 - **A recent visit is picked back up** (10-29): `ORPHAN_RESUME_H` (new, 6) — a
   visit the bridge closed without (the window shut, the process killed) within
   these hours is the open visit again at the next start: no afterglow over it,

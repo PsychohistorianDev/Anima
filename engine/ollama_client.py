@@ -1039,7 +1039,7 @@ def call_loop(text: str) -> str:
 # the way a reply is — the broken call never reaches the tool, the history or the phone; cooler from the third try.
 CALL_SALAD_ARGS = {"write_journal": "text", "edit_identity": "new_content", "update_projects": "new_content",
                    "update_destiny": "new_content", "update_keeper": "new_content", "write_creation": "content",
-                   "append_creation": "content", "condense_day": "text", "fold_visit": "text", "condense_period": "text"}
+                   "append_creation": "content", "edit_creation": "new_text", "condense_day": "text", "fold_visit": "text", "condense_period": "text"}
 
 
 def call_salad(msg: dict) -> str:
@@ -1065,7 +1065,7 @@ def call_salad(msg: dict) -> str:
                 continue  # not a finished object: repair_raw's, not this rail's
         if not isinstance(args, dict):
             continue
-        if bare in ("write_creation", "append_creation"):
+        if bare in ("write_creation", "append_creation", "edit_creation"):
             name = str(args.get("path") or "").replace("\\", "/").rsplit("/", 1)[-1]
             ext = ("." + name.rsplit(".", 1)[1].lower()) if "." in name else ""
             if ext not in _PROSE_EXTS:

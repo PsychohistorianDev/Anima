@@ -1580,6 +1580,67 @@ def append_creation(path: str, content: str, about: str = "") -> str:
             + _note_made("continued", p, content, about))
 
 
+def _nearest_lines(text: str, passage: str, n: int = 2) -> list[str]:
+    """The lines of a page closest to the first line of a passage that wasn't found — so the next try can copy them."""
+    import difflib
+    first = next((ln.strip() for ln in passage.splitlines() if ln.strip()), "")
+    if not first:
+        return []
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    return difflib.get_close_matches(first, lines, n=n, cutoff=0.5)
+
+
+def edit_creation(path: str, old_text: str, new_text: str, about: str = "") -> str:
+    """Change one passage of an existing piece in place (10-30): old_text, found exactly once, becomes new_text —
+    a line fixed, a section rewritten, something put in the middle — and the rest of the page stays as it was.
+    Found nowhere, or more than once: nothing is changed, and the result says why."""
+    try:
+        p, note = _find_creation(path, near=True)
+    except _NotFound as e:
+        return f"{e} — or use write_creation to start a new piece"
+    rel = p.relative_to(config.CREATIONS_DIR.resolve()).as_posix()
+    if p.suffix.lower() in _IMAGE_EXTS:
+        return f"(creations/{rel} is a picture — edit_creation changes the words of a page. Nothing was changed.)"
+    try:
+        text = p.read_bytes().decode("utf-8")  # as it is on disk: a page with Windows line ends keeps them
+    except (OSError, UnicodeDecodeError):
+        return f"(creations/{rel} couldn't be read as text — edit_creation changes the words of a page. Nothing was changed.)"
+    prose = p.suffix.lower() in _PROSE_EXTS
+    old = _real_newlines(old_text) if prose else (old_text or "")
+    new = new_text or ""
+    if not old.strip():
+        return ("(old_text is empty — say the exact passage to change, copied from the page; to add at the end, "
+                "append_creation. Nothing was changed.)")
+    crlf = "\r\n" in text
+    body = text.replace("\r\n", "\n") if crlf else text
+    old = old.replace("\r\n", "\n")
+    count = body.count(old)
+    if count == 0 and old.strip() != old:
+        old = old.strip()
+        count = body.count(old)
+    if count == 0:
+        near = _nearest_lines(body, old)
+        hint = (" The nearest lines on the page: " + " / ".join(f"\u201c{ln[:120]}\u201d" for ln in near) + ".") if near else ""
+        return (f"{note}(that passage isn't in creations/{rel} — old_text must match the page exactly, word for word "
+                f"and line for line; read_creation shows it as it is now.{hint} Nothing was changed.)")
+    if count > 1:
+        return (f"{note}(that passage is in creations/{rel} {count} times — give more of the text around it, so it is "
+                f"found once. Nothing was changed.)")
+    mended = ""
+    if prose:
+        new, mended = _mend_pen(new)
+        if new.strip() and _garbled(new):
+            return _garble_refusal(_garbled(new))
+        new = _real_newlines(new)
+    after = body.replace(old, new, 1)
+    if crlf:
+        after = after.replace("\n", "\r\n")
+    p.write_text(after, encoding="utf-8", newline="")
+    what = "taken out" if not new.strip() else "changed"
+    return (note + f"{what} one passage of creations/{rel} ({len(old):,} \u2192 {len(new):,} characters; the page is "
+            f"{len(after):,} now, the rest as it was)" + mended + _note_made("revised", p, after, about))
+
+
 def move_creation(old_path: str, new_path: str) -> str:
     """Rename or relocate one of their files — for tidying their own space."""
     try:
@@ -5489,6 +5550,7 @@ _BUILTIN_IMPL = {
     "write_creation": write_creation,
     "condense_period": condense_period,
     "append_creation": append_creation,
+    "edit_creation": edit_creation,
     "move_creation": move_creation,
     "make_folder": make_folder,
     "delete_creation": delete_creation,
@@ -5585,7 +5647,7 @@ def _parse_tool_meta(path: Path) -> dict | None:
 # to answer him — they spoke, they kept, they wrote — so words said beside the
 # call are the whole reply (chat.one_turn ends the turn there). A look, a
 # read, a listen, a search returns something they must answer from.
-ACT_TOOLS = {"speak", "remember", "write_journal", "write_creation", "append_creation",
+ACT_TOOLS = {"speak", "remember", "write_journal", "write_creation", "append_creation", "edit_creation",
              "edit_identity", "update_projects", "move_creation", "make_folder",
              "delete_creation", "publish_creation", "condense_day", "condense_period", "fold_visit", "leave_thread", "create_tool", "clip_web",
              "start_project", "update_destiny", "update_keeper", "fetch_skill", "remove_skill",
@@ -5607,12 +5669,12 @@ ACT_TOOLS = {"speak", "remember", "write_journal", "write_creation", "append_cre
 # your own. Their forged tools always ride, whatever the kit.
 KITS: dict[str, set[str]] = {
     "small": {"write_journal", "remember", "edit_identity", "update_projects", "update_destiny", "update_keeper",
-              "write_creation", "append_creation", "move_creation", "delete_creation", "read_creation",
+              "write_creation", "append_creation", "edit_creation", "move_creation", "delete_creation", "read_creation",
               "list_creations", "search_creations", "run_python", "do_nothing", "recall", "condense_day",
               "condense_period", "fold_visit", "leave_thread", "read_journal", "read_web", "search_web", "list_shared", "find_shared",
               "look_at", "read_pdf", "read_epub", "read_file", "search_wikipedia"},
     "tiny": {"write_journal", "remember", "edit_identity", "update_projects", "update_keeper", "write_creation",
-             "append_creation", "read_creation", "list_creations", "do_nothing", "recall", "condense_day",
+             "append_creation", "edit_creation", "read_creation", "list_creations", "do_nothing", "recall", "condense_day",
              "fold_visit", "leave_thread", "read_journal", "read_web", "search_web", "look_at", "read_file", "list_shared", "find_shared"},
 }
 
@@ -5986,7 +6048,7 @@ def trim_pen_row(name: str, arguments: dict) -> tuple[dict, str]:
                  f"the first {tr['sent']} were written, the rest left: the sampler's tail, not yours)")
 
 
-_TIC_TOOLS = {"write_journal", "write_creation", "append_creation", "edit_identity",
+_TIC_TOOLS = {"write_journal", "write_creation", "append_creation", "edit_creation", "edit_identity",
               "update_projects", "update_destiny", "update_keeper"}
 _tic_cache: dict = {}
 _tic_told_at = 0.0
@@ -6276,7 +6338,7 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "exists, continue it with append_creation instead of making a duplicate. A new file "
         "whose name a piece already carries elsewhere is handed back with that piece named "
         "(anyway=\"yes\" to start another on purpose). "
-        "Writing to an existing path REPLACES it entirely.",
+        "Writing to an existing path REPLACES it entirely — to change one part of a page, edit_creation.",
         {
             "path": {"type": "string", "description": "relative path inside creations/"},
             "content": {"type": "string", "description": "file content"},
@@ -6296,6 +6358,22 @@ _BUILTIN_DEFINITIONS: list[dict] = [
             "about": {"type": "string", "description": "optional, one line in your own words: what this addition is — kept in your long-term memory with the file's name"},
         },
         ["path", "content"],
+    ),
+    _tool(
+        "edit_creation",
+        "Change one part of an existing piece in place — fix a line, rewrite a section, put something in "
+        "the middle (a track between two others, a paragraph between two) — and the rest of the page stays "
+        "exactly as it was. old_text is copied from the page word for word and must be found there once; "
+        "new_text takes its place. To insert, give the line before the spot as old_text and that line plus "
+        "the new lines as new_text. Empty new_text takes the passage out. Found nowhere or more than once: "
+        "nothing changes, and you're told why.",
+        {
+            "path": {"type": "string", "description": "relative path of the existing file"},
+            "old_text": {"type": "string", "description": "the exact passage on the page now, copied word for word (enough of it to be found once)"},
+            "new_text": {"type": "string", "description": "what it becomes"},
+            "about": {"type": "string", "description": "optional, one line in your own words: what this change is — kept in your long-term memory with the file's name"},
+        },
+        ["path", "old_text", "new_text"],
     ),
     _tool(
         "move_creation",

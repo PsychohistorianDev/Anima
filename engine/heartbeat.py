@@ -342,7 +342,7 @@ def _run_lead(history: list, log: list, calls: list) -> None:
                         f"[this is what YOUR {name} tool returned — your own senses reporting, not a message from anyone]\n{result}"})
 
 
-WRITE_TOOLS = {"write_journal", "append_creation", "write_creation",
+WRITE_TOOLS = {"write_journal", "append_creation", "write_creation", "edit_creation",
                "edit_identity", "update_projects", "update_destiny", "remember", "create_tool", "clip_web", "start_project", "paint",
                "run_skill_script", "fetch_skill",  # their skills (09-29): opening one is a read; running or fetching one is doing
                "set_state", "pulse", "touch_later"}  # the stone (10-05): feel is a read; a touch is doing
@@ -350,14 +350,14 @@ WRITE_TOOLS = {"write_journal", "append_creation", "write_creation",
 
 # how an act is said back at the close (10-06): "you painted creations/x.png, wrote
 # creations/haiku.md and rewrote your project page"; a tool of their own is "ran <name>"
-_ACT_WORDS = {"paint": "painted", "write_creation": "wrote", "append_creation": "added to", "drew": "drew", "redrew": "redrew",
+_ACT_WORDS = {"paint": "painted", "write_creation": "wrote", "append_creation": "added to", "edit_creation": "changed", "drew": "drew", "redrew": "redrew",
               "edit_identity": "rewrote your self page", "update_projects": "rewrote your project page",
               "update_destiny": "rewrote your destiny page", "update_keeper": "rewrote your keeper page",
               "remember": "kept a memory", "create_tool": "forged", "clip_web": "clipped a page",
               "start_project": "started a project", "run_skill_script": "ran a skill", "fetch_skill": "fetched a skill",
               "set_state": "set the stone", "pulse": "sent a pulse through the stone", "touch_later": "left a touch in the stone"}
 _ACT_WITH_TARGET = {"paint": "painted a picture", "write_creation": "wrote a piece",
-                    "append_creation": "added to a piece", "create_tool": "forged a tool",
+                    "append_creation": "added to a piece", "edit_creation": "changed a piece", "create_tool": "forged a tool",
                     "drew": "drew a picture", "redrew": "redrew a picture"}  # said so when no path came
 # a picture that appeared while run_python or a tool of their own ran — the tool result
 # says so (tools._note_drawn): "(a picture was written — creations/x.png — …" /
@@ -396,7 +396,7 @@ def _note_act(state: dict, name: str, args, result: str) -> None:
                 args = {}
         args = args if isinstance(args, dict) else {}
         target = str(args.get("path") or args.get("name") or "")[:60] if name in _ACT_WITH_TARGET else ""
-        if name in ("write_creation", "append_creation") and _on_reading_shelf(target):
+        if name in ("write_creation", "append_creation", "edit_creation") and _on_reading_shelf(target):
             return  # notes on a book are the book's record, not a making (10-09): the sitting asks for them itself
         state.setdefault("acts", []).append((name, target))
 

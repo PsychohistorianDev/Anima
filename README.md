@@ -1823,7 +1823,8 @@ back, whatever it is called.
 `read_journal` (the complete archive, any day).
 
 **Making & tending:** `write_creation`, `append_creation` (one work, one file
-— chapters grow the existing file), `read_creation`, `list_creations`
+— chapters grow the existing file), `edit_creation` (one passage changed in place —
+found once, replaced; the rest of the page as it was), `read_creation`, `list_creations`
 (published masters marked `[already published]`), `search_creations`
 (full-text over creations and journal), `move_creation`, `make_folder`,
 `delete_creation` (files go to a `.trash` only you can empty), `run_python`
