@@ -158,6 +158,11 @@ for a tic turned glitch.
   (new, 1,050,000) — each reference rides beside the painting at about its
   size, so a painting that looks at references is painted no larger than this
   (its shape kept); three references beside a 1440 painting had spilled the card.
+- **Pictures hang on a backdrop's own walls** (10-30): the sidecar may be
+  `{"surfaces": [...], "spots": [...]}` — each spot a level box (x0, x1, y0, y1)
+  or four corners (`quad`, a side wall's slant); a picture hung in that spot is
+  framed and drawn into it in perspective, lit like the wall, with a shadow. A
+  spot the backdrop lacks keeps the small frame along the bottom.
 - **A backdrop that comes with its surfaces** (10-30): a picture with a
   `<name>.surfaces.json` beside it (a list of name, x0, x1, y, size — parts of
   the picture) brings those surfaces along when it becomes the room's backdrop,

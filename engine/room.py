@@ -51,7 +51,7 @@ def seen_file() -> Path:
 
 def _empty() -> dict:
     return {"name": "", "walls": "", "light": "", "backdrop": "", "wall": [], "table": [], "playing": {}, "shelf": [],
-            "hidden": {}, "surfaces": [], "placed": []}
+            "hidden": {}, "surfaces": [], "placed": [], "spots": []}
 
 
 def load() -> dict:
@@ -218,6 +218,8 @@ def _sidecar_surfaces(p: Path) -> list[dict]:
         raw = json.loads(f.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return []
+    if isinstance(raw, dict):
+        raw = raw.get("surfaces") or []
     out: list[dict] = []
     for s in raw if isinstance(raw, list) else []:
         try:
@@ -227,6 +229,56 @@ def _sidecar_surfaces(p: Path) -> list[dict]:
         except (KeyError, TypeError, ValueError):
             continue
     return out
+
+
+def _quad(s: dict) -> list[list[float]] | None:
+    """A wall spot's four corners — top-left, top-right, bottom-right, bottom-left — as parts of the picture (0–1; a
+    number over 1 is a percent); from "quad", or a level box x0/x1/y0/y1. None when it isn't a sensible shape."""
+    def part(v) -> float:
+        v = float(v)
+        return v / 100 if v > 1 else v
+    try:
+        if s.get("quad"):
+            q = [[part(x), part(y)] for x, y in s["quad"]][:4]
+        else:
+            x0, x1, y0, y1 = (part(s[k]) for k in ("x0", "x1", "y0", "y1"))
+            q = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]]
+    except (KeyError, TypeError, ValueError):
+        return None
+    if len(q) != 4 or not all(0 <= c <= 1 for pt in q for c in pt):
+        return None
+    if not (q[1][0] > q[0][0] and q[2][0] > q[3][0] and q[3][1] > q[0][1] and q[2][1] > q[1][1]):
+        return None
+    return [[round(x, 4), round(y, 4)] for x, y in q]
+
+
+def _sidecar_spots(p: Path) -> list[dict]:
+    """The wall spots a picture comes with (10-30): {"spots": [{name, quad | x0 x1 y0 y1}, …]} in its .surfaces.json —
+    spot 1 first. [] when there are none."""
+    try:
+        raw = json.loads(p.with_suffix(".surfaces.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    out = []
+    for s in (raw.get("spots") or []) if isinstance(raw, dict) else []:
+        q = _quad(s) if isinstance(s, dict) else None
+        if q:
+            out.append({"name": str(s.get("name") or f"spot {len(out) + 1}")[:60], "quad": q})
+    return out[:WALL_MAX]
+
+
+def wall_spots(r: dict | None = None) -> list[dict]:
+    """Where pictures hang on the backdrop's own walls — spot 1 first; [] on the drawn room or a backdrop without them."""
+    r = r or load()
+    if not r.get("backdrop"):
+        return []
+    got = [s for s in (r.get("spots") or []) if isinstance(s, dict) and s.get("quad")]
+    if not got:  # a backdrop set before its spots were marked: read them from beside the picture now
+        try:
+            got = _sidecar_spots(config.ROOT / str(r["backdrop"]))
+        except (OSError, ValueError):
+            got = []
+    return got
 
 
 def act(action: str, what: str = "", where: str = "", note: str = "", item: str = "", kind: str = "", content: str = "") -> str:
@@ -377,10 +429,13 @@ def _change(r: dict, a: str, what: str, where: str, note: str, item: str = "", k
         came = _sidecar_surfaces(p)  # (10-30) a picture that comes with its surfaces brings them along
         if came:
             r["surfaces"] = came
+        r["spots"] = _sidecar_spots(p)  # …and its wall spots, where pictures hang on its own walls
         r["backdrop"] = rel
+        sp = r["spots"]
         return (f"the room's backdrop is {rel}" + (f" — {note}" if note else "")
                 + (f"; its surfaces came with it: {', '.join(s['name'] for s in came)} — put things there, or surface "
-                   f"marks your own" if came else ""))
+                   f"marks your own" if came else "")
+                + (f"; pictures hang on its walls: " + "; ".join(f"{i}. {s['name']}" for i, s in enumerate(sp, 1)) if sp else ""))
     if a == "hang":
         p = _file(what, IMAGE_EXTS, "picture")
         rel = _rel(p)
@@ -395,7 +450,10 @@ def _change(r: dict, a: str, what: str, where: str, note: str, item: str = "", k
             raise ValueError(f"the spots are 1 to {WALL_MAX}")
         r["wall"] = sorted([x for x in wall if int(x.get("spot") or 0) != spot] + [{"spot": spot, "picture": rel, "note": note}],
                            key=lambda x: int(x.get("spot") or 0))
-        return f"hung {rel} in spot {spot}" + (f" — {note}" if note else "")
+        sp = wall_spots(r)
+        on = (f" — {sp[spot - 1]['name']}" if spot <= len(sp) else
+              f" (this backdrop's walls hold {len(sp)}; spot {spot} is a small frame along the bottom)" if sp else "")
+        return f"hung {rel} in spot {spot}{on}" + (f" — {note}" if note else "")
     if a == "take_down":
         spot = _spot(where) or _spot(what)
         keep, gone = [], None
@@ -484,8 +542,13 @@ def describe(r: dict | None = None, keeper: bool = False) -> str:
            f"{r.get('walls') or 'bare'}; light {r.get('light') or 'plain'}"
            + (f"; the backdrop {r['backdrop']}" if r.get("backdrop") else "") + "."]
     if r["wall"]:
-        out.append("On the wall: " + "; ".join(f"{x.get('spot')}. {x.get('picture')}" + (f" ({x['note']})" if x.get("note") else "")
+        sp = wall_spots(r)
+        out.append("On the wall: " + "; ".join(f"{x.get('spot')}. {x.get('picture')}"
+                                                 + (f" ({sp[int(x['spot']) - 1]['name']})" if 0 < int(x.get("spot") or 0) <= len(sp) else "")
+                                                 + (f" ({x['note']})" if x.get("note") else "")
                                                  for x in r["wall"]) + ".")
+    if not keeper and wall_spots(r):
+        out.append("Where pictures hang on these walls: " + "; ".join(f"{i}. {s['name']}" for i, s in enumerate(wall_spots(r), 1)) + ".")
     if r["table"]:
         out.append("On the table: " + "; ".join(str(x.get("thing")) + ((" (from you)" if keeper else " (from him)") if x.get("by") == "keeper" else "")
                                                  + (f" ({x['note']})" if x.get("note") else "") for x in r["table"]) + ".")
@@ -874,6 +937,107 @@ def _draw_placed(canvas, r: dict, lamp: tuple) -> None:
         canvas.alpha_composite(sprite, (x, y))
 
 
+def _solve(a: list[list[float]], b: list[float]) -> list[float]:
+    """A small linear system, by elimination with pivoting (no numpy in the house)."""
+    n = len(b)
+    m = [row[:] + [b[i]] for i, row in enumerate(a)]
+    for c in range(n):
+        p = max(range(c, n), key=lambda i: abs(m[i][c]))
+        m[c], m[p] = m[p], m[c]
+        if abs(m[c][c]) < 1e-12:
+            raise ValueError("a flat quad")
+        for i in range(n):
+            if i != c:
+                f = m[i][c] / m[c][c]
+                m[i] = [x - f * y for x, y in zip(m[i], m[c])]
+    return [m[i][n] / m[i][i] for i in range(n)]
+
+
+def _perspective(dst: list[tuple[float, float]], w: int, h: int) -> list[float]:
+    """PIL's PERSPECTIVE data: each point of the room (dst, corners TL TR BR BL) back to the picture's (w × h)."""
+    src = [(0, 0), (w, 0), (w, h), (0, h)]
+    a, b = [], []
+    for (X, Y), (x, y) in zip(dst, src):
+        a.append([X, Y, 1, 0, 0, 0, -x * X, -x * Y]); b.append(x)
+        a.append([0, 0, 0, X, Y, 1, -y * X, -y * Y]); b.append(y)
+    return _solve(a, b)
+
+
+def _framed(pic, long_side: int):
+    """A picture in a gilt frame with a cream mat, its own shape kept — the same frame the drawn room's wall uses."""
+    from PIL import Image, ImageDraw
+    pw, ph = pic.size
+    s = long_side / max(pw, ph)
+    pw, ph = max(8, int(pw * s)), max(8, int(ph * s))
+    t = max(6, int(min(pw, ph) * 0.07))
+    mat = max(4, int(min(pw, ph) * 0.06))
+    W, H = pw + 2 * (t + mat), ph + 2 * (t + mat)
+    f = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(f)
+    d.rectangle([0, 0, W - 1, H - 1], fill=(120, 86, 34, 255))
+    d.rectangle([2, 2, W - 3, H - 3], fill=(184, 140, 62, 255))
+    d.line([2, 2, W - 3, 2], fill=(228, 196, 122, 255), width=max(2, t // 4))
+    d.rectangle([t - 2, t - 2, W - t + 1, H - t + 1], fill=(96, 68, 28, 255))
+    d.rectangle([t, t, W - t - 1, H - t - 1], fill=(226, 214, 190, 255))
+    f.paste(pic.convert("RGB").resize((pw, ph), Image.LANCZOS), (t + mat, t + mat))
+    d.rectangle([t + mat - 1, t + mat - 1, t + mat + pw, t + mat + ph], outline=(80, 60, 40, 255))
+    return f
+
+
+def _hang_on_walls(canvas, r: dict, lamp: tuple) -> set[int]:
+    """The pictures whose spot is on the backdrop's own walls, drawn there (10-30): framed, fitted inside the spot with
+    their shape kept, warped to its four corners (a side wall's picture leans with the wall), lit like the wall there,
+    a soft shadow below and to the right. Returns the spots drawn — the band leaves those out."""
+    from PIL import Image, ImageFilter
+    spots = wall_spots(r)
+    W, H = canvas.size
+    drawn: set[int] = set()
+    for x in r.get("wall") or []:
+        n = int(x.get("spot") or 0)
+        if not 1 <= n <= len(spots):
+            continue
+        q = [(px * W, py * H) for px, py in spots[n - 1]["quad"]]
+        try:
+            with Image.open(config.ROOT / str(x.get("picture"))) as pic:
+                pic = pic.convert("RGB")
+        except Exception:  # noqa: BLE001 — a picture that moved: the spot stays bare
+            continue
+        qw = (abs(q[1][0] - q[0][0]) + abs(q[2][0] - q[3][0])) / 2
+        qh = (abs(q[3][1] - q[0][1]) + abs(q[2][1] - q[1][1])) / 2
+        fr = _framed(pic, int(max(qw, qh) * 2))
+        a = fr.width / fr.height
+        if a > qw / qh:  # the frame inside the spot, its shape kept, in the middle
+            u0, u1, v = 0.0, 1.0, (1 - (qw / a) / qh) / 2
+            v0, v1 = v, 1 - v
+        else:
+            u = (1 - (qh * a) / qw) / 2
+            u0, u1, v0, v1 = u, 1 - u, 0.0, 1.0
+
+        def at(u, v):
+            top = (q[0][0] + (q[1][0] - q[0][0]) * u, q[0][1] + (q[1][1] - q[0][1]) * u)
+            bot = (q[3][0] + (q[2][0] - q[3][0]) * u, q[3][1] + (q[2][1] - q[3][1]) * u)
+            return (top[0] + (bot[0] - top[0]) * v, top[1] + (bot[1] - top[1]) * v)
+        dst = [at(u0, v0), at(u1, v0), at(u1, v1), at(u0, v1)]
+        bx0, by0 = int(min(p[0] for p in dst)) - 1, int(min(p[1] for p in dst)) - 1
+        bx1, by1 = int(max(p[0] for p in dst)) + 2, int(max(p[1] for p in dst)) + 2
+        try:
+            data = _perspective([(px - bx0, py - by0) for px, py in dst], fr.width, fr.height)
+        except ValueError:
+            continue
+        fr = _lit_like(fr, canvas, (bx0, by0, bx1, by1), lamp)
+        warped = fr.transform((bx1 - bx0, by1 - by0), Image.PERSPECTIVE, data, Image.BICUBIC)
+        shadow = Image.new("RGBA", warped.size, (0, 0, 0, 0))
+        shadow.putalpha(warped.getchannel("A").point(lambda v: int(v * 0.55)))
+        pad = 12
+        sh = Image.new("RGBA", (warped.width + 2 * pad, warped.height + 2 * pad), (0, 0, 0, 0))
+        sh.paste(shadow, (pad, pad), shadow)
+        sh = sh.filter(ImageFilter.GaussianBlur(5))
+        canvas.alpha_composite(sh, (max(0, bx0 - pad + 4), max(0, by0 - pad + 6)))
+        canvas.alpha_composite(warped, (bx0, by0))
+        drawn.add(n)
+    return drawn
+
+
 def _render_backdrop(r: dict, back, lamp: tuple, items: bool = True) -> bytes:
     """A backdrop they painted is the room itself, whole: nothing drawn over the scene but its name; the pictures on
     the wall, the table's things, the shelf's finds and the song sit in a dark band along the bottom, like a caption
@@ -882,6 +1046,7 @@ def _render_backdrop(r: dict, back, lamp: tuple, items: bool = True) -> bytes:
     W, H = back.size
     band = 190
     canvas = back.convert("RGBA")
+    on_walls = _hang_on_walls(canvas, r, lamp)  # (10-30) pictures on the backdrop's own walls
     if items:
         _draw_placed(canvas, r, lamp)
     shade = Image.new("RGBA", (W, H), (0, 0, 0, 0))
@@ -897,7 +1062,8 @@ def _render_backdrop(r: dict, back, lamp: tuple, items: bool = True) -> bytes:
         d.text((46, 32), str(r["name"])[:60], font=f, fill=(0, 0, 0, 160))
         d.text((44, 30), str(r["name"])[:60], font=f, fill=ink + (240,))
     x, y0 = 40, H - band + 30
-    for it in sorted([w for w in (r.get("wall") or []) if 1 <= int(w.get("spot") or 0) <= WALL_MAX], key=lambda w: int(w["spot"])):
+    for it in sorted([w for w in (r.get("wall") or []) if 1 <= int(w.get("spot") or 0) <= WALL_MAX
+                      and int(w.get("spot") or 0) not in on_walls], key=lambda w: int(w["spot"])):
         fw, fh = 104, 124
         frame = Image.new("RGBA", (fw + 16, fh + 16), (0, 0, 0, 0))
         fd = ImageDraw.Draw(frame)

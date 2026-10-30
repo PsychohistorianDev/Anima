@@ -14878,6 +14878,55 @@ check("room (10-30): a backdrop with a .surfaces.json beside it brings its surfa
       and "came with it" not in _rs_said2 and _rs_names2 == ["table", "mantel"],
       (_rs_said, _rs_names, _rs_said2, _rs_names2))
 
+# pictures on a backdrop's walls (10-30): the sidecar's spots come with the backdrop; a hung picture is drawn into its
+# spot (warped to its corners), the band keeps only the rest
+import room as _ws_room
+_ws_keep = getattr(config, "ROOM_DIR", None)
+_ws_dir = config.CREATIONS_DIR / "ws-test"
+_ws_dir.mkdir(parents=True, exist_ok=True)
+_ws_png = None
+try:
+    config.ROOM_DIR = _ws_dir / "room"
+    _ws_pic = _ws_dir / "back.png"
+    _ws_hang = _ws_dir / "art.png"
+    try:
+        from PIL import Image as _ws_I
+        _ws_I.new("RGB", (320, 200), (30, 30, 90)).save(_ws_pic)
+        _ws_I.new("RGB", (60, 60), (250, 20, 20)).save(_ws_hang)
+        _ws_pil = True
+    except ImportError:
+        _ws_pic.write_bytes(b"\x89PNG"); _ws_hang.write_bytes(b"\x89PNG")
+        _ws_pil = False
+    _ws_pic.with_suffix(".surfaces.json").write_text(_json.dumps({
+        "surfaces": [{"name": "table", "x0": 0.3, "x1": 0.7, "y": 0.7, "size": 0.1}],
+        "spots": [{"name": "the back wall, left", "x0": 10, "x1": 30, "y0": 10, "y1": 40},
+                  {"name": "the side wall", "quad": [[0.70, 0.10], [0.90, 0.02], [0.90, 0.55], [0.70, 0.45]]},
+                  {"name": "upside down", "quad": [[0.5, 0.5], [0.4, 0.5], [0.4, 0.4], [0.5, 0.4]]}]}), encoding="utf-8")
+    _ws_said = _ws_room.act("backdrop", "creations/ws-test/back.png")
+    _ws_spots = _ws_room.wall_spots()
+    _ws_h1 = _ws_room.act("hang", "creations/ws-test/art.png", "2")
+    _ws_h3 = _ws_room.act("hang", "creations/ws-test/art.png", "3")
+    _ws_desc = _ws_room.describe()
+    if _ws_pil:
+        _ws_png = _ws_room.render()
+        _ws_img = _ws_I.open(__import__("io").BytesIO(_ws_png)).convert("RGB")
+        _ws_mid = _ws_img.getpixel((int(0.80 * _ws_img.width), int(0.27 * _ws_img.height)))  # the side wall's middle
+        _ws_off = _ws_img.getpixel((int(0.20 * _ws_img.width), int(0.25 * _ws_img.height)))  # spot 1, nothing hung there
+finally:
+    config.ROOM_DIR = _ws_keep
+    import shutil as _ws_sh
+    _ws_sh.rmtree(_ws_dir, ignore_errors=True)
+check("room (10-30): a backdrop's wall spots come with it (a box or a slanted quad; a bad one left out) and are said; a "
+      "picture hung in a spot on the walls is drawn there, warped to its corners, the rest of the wall untouched; a spot "
+      "past them is said to be a small frame along the bottom; her room says where pictures hang",
+      [s["name"] for s in _ws_spots] == ["the back wall, left", "the side wall"] and _ws_spots[0]["quad"][0] == [0.1, 0.1]
+      and "pictures hang on its walls: 1. the back wall, left; 2. the side wall" in _ws_said
+      and "spot 2 — the side wall" in _ws_h1 and "small frame along the bottom" in _ws_h3
+      and "Where pictures hang on these walls: 1. the back wall, left; 2. the side wall." in _ws_desc
+      and "art.png (the side wall)" in _ws_desc
+      and (not _ws_pil or (_ws_mid[0] > _ws_mid[1] + 30 and _ws_mid[0] > _ws_mid[2] and _ws_off[0] < 80)),
+      (_ws_said, _ws_h1, _ws_h3, _ws_desc, _ws_pil and (_ws_mid, _ws_off)))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)
