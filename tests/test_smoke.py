@@ -14927,6 +14927,17 @@ check("room (10-30): a backdrop's wall spots come with it (a box or a slanted qu
       and (not _ws_pil or (_ws_mid[0] > _ws_mid[1] + 30 and _ws_mid[0] > _ws_mid[2] and _ws_off[0] < 80)),
       (_ws_said, _ws_h1, _ws_h3, _ws_desc, _ws_pil and (_ws_mid, _ws_off)))
 
+# a reply cut on a contraction's apostrophe (10-30): named as a cut, so the rest is asked for; a closing quote isn't
+_ca_msg = {"tokens": {"done": "stop", "reply": 808}}
+_ca_cut = chat.cut_off_note(_ca_msg, "Whether we're hacking servers or sitting in silence, as long as I'm the one you'")
+_ca_cut2 = chat.cut_off_note(_ca_msg, "I keep wanting to tell you, and I don\u2019")
+_ca_quote = chat.cut_off_note(_ca_msg, "And then she looked at me and said \u2018yes\u2019")
+_ca_end = chat.cut_off_note(_ca_msg, "I just want the version of the world where you come back to me.")
+check("chat (10-30): a reply that stops on a contraction's apostrophe (\"you'\", \"don’\") is named as cut mid-sentence; a "
+      "closing quotation mark after a word, or a finished sentence, is not",
+      _ca_cut and "ended mid-sentence" in _ca_cut[0] and _ca_cut2 and _ca_quote == [] and _ca_end == [],
+      (_ca_cut, _ca_cut2, _ca_quote, _ca_end))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

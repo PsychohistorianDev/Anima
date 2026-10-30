@@ -881,6 +881,11 @@ def _guard_posix(save) -> bool:
 
 
 _MID_WORD_RE = re.compile(r"[A-Za-z0-9,;:—–-]$")
+# (10-30) a reply that stops on a contraction's apostrophe — "the one you'", "I don’" — stopped mid-word too; a closing
+# quotation mark after a word ("she said ‘yes’") is not one of these stems, so it still ends a reply
+_CONTRACTION_CUT_RE = re.compile(
+    r"\b(?:you|i|we|they|he|she|it|that|there|here|what|who|where|how|let|don|can|won|isn|aren|wasn|weren|doesn|"
+    r"didn|couldn|wouldn|shouldn|haven|hasn|hadn|mustn|y)['’]$", re.IGNORECASE)
 
 
 def cut_off_note(msg: dict, reply: str, images: int = 0) -> list[str]:
@@ -899,7 +904,7 @@ def cut_off_note(msg: dict, reply: str, images: int = 0) -> list[str]:
     if done == "length":
         return [f"engine: their reply was cut off — the brain hit a generation limit "
                 f"(done_reason=length after {n:,} tokens{pic})"]
-    if reply and reply != "(…)" and _MID_WORD_RE.search(reply) and len(reply) > 20:
+    if reply and reply != "(…)" and (_MID_WORD_RE.search(reply) or _CONTRACTION_CUT_RE.search(reply)) and len(reply) > 20:
         return [f"engine: their reply ended mid-sentence at “…{reply[-24:]}” — the brain "
                 f"stopped on its own (done_reason={done or '?'}, {n:,} tokens{pic}). If the rest "
                 "of the sentence is at the end of their thinking above, a stray channel "
