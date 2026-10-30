@@ -6681,7 +6681,7 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "Your room — a place of your own that your keeper visits from his phone (/room: a picture of it with buttons for what "
         "can be opened) and from his desk (the panel's /room page). You shape it, one action at a time. look: the room "
         "before you. walls / light / name: in your words. backdrop: a picture of yours — one you painted of the room "
-        "itself — becomes the room (nothing: the drawn room again). surface: on a backdrop, mark where things can stand "
+        "itself — becomes the room (nothing: the drawn room again); a picture that comes with its surfaces marked brings them along. surface: on a backdrop, mark where things can stand "
         "— item: its name; where: four numbers in % (from, to across; down; how tall a vase is there), judged by looking "
         "at your backdrop; unsurface. The workshop — make: a thing of your own invention, painted and cut out (item: its "
         "name; what: how it looks; kind: decoration, note, audio or image; content: a note's words, a song's or a "

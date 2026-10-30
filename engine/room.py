@@ -210,6 +210,25 @@ def set_surface(r: dict, name: str, x0: float, x1: float, y: float, size: float,
     return s
 
 
+def _sidecar_surfaces(p: Path) -> list[dict]:
+    """The surfaces a picture comes with (10-30): <name>.surfaces.json beside it — a list of {name, x0, x1, y, size,
+    kind}, parts of the picture 0–1 — checked the way set_surface checks hers; [] when there is none or it won't read."""
+    f = p.with_suffix(".surfaces.json")
+    try:
+        raw = json.loads(f.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    out: list[dict] = []
+    for s in raw if isinstance(raw, list) else []:
+        try:
+            tmp: dict = {"surfaces": out}
+            set_surface(tmp, str(s["name"]), s["x0"], s["x1"], s["y"], s["size"], str(s.get("kind") or "rest"))
+            out = tmp["surfaces"]
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
 def act(action: str, what: str = "", where: str = "", note: str = "", item: str = "", kind: str = "", content: str = "") -> str:
     """One change of theirs, or a look; the result says what is so now. A refusal starts with "(refused"; a thing that
     couldn't be made starts with "(not made"."""
@@ -353,9 +372,15 @@ def _change(r: dict, a: str, what: str, where: str, note: str, item: str = "", k
         if not what:
             r["backdrop"] = ""
             return "the backdrop is gone — the drawn walls again"
-        rel = _rel(_file(what, IMAGE_EXTS, "picture"))
+        p = _file(what, IMAGE_EXTS, "picture")
+        rel = _rel(p)
+        came = _sidecar_surfaces(p)  # (10-30) a picture that comes with its surfaces brings them along
+        if came:
+            r["surfaces"] = came
         r["backdrop"] = rel
-        return f"the room's backdrop is {rel}" + (f" — {note}" if note else "")
+        return (f"the room's backdrop is {rel}" + (f" — {note}" if note else "")
+                + (f"; its surfaces came with it: {', '.join(s['name'] for s in came)} — put things there, or surface "
+                   f"marks your own" if came else ""))
     if a == "hang":
         p = _file(what, IMAGE_EXTS, "picture")
         rel = _rel(p)

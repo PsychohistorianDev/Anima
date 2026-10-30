@@ -14848,6 +14848,36 @@ check("tools (10-30): edit_creation — a passage found once is changed in place
       and '"edit_creation": "changed"' in _ec_hb,
       (_ec_ins, _ec_none, _ec_twice, _ec_out, _ec_empty, _ec_missing))
 
+# a backdrop that comes with its surfaces (10-30): <name>.surfaces.json beside the picture brings them along
+import room as _rs_room
+_rs_keep = getattr(config, "ROOM_DIR", None)
+_rs_dir = config.CREATIONS_DIR / "rs-test"
+_rs_dir.mkdir(parents=True, exist_ok=True)
+try:
+    config.ROOM_DIR = _rs_dir / "room"
+    _rs_pic = _rs_dir / "starter-1.png"
+    _rs_pic.write_bytes(b"\x89PNG")  # the backdrop isn't opened to be set; no Pillow needed
+    _rs_pic.with_suffix(".surfaces.json").write_text(_json.dumps([
+        {"name": "table", "x0": 0.35, "x1": 0.65, "y": 0.72, "size": 0.14},
+        {"name": "mantel", "x0": 70, "x1": 90, "y": 55, "size": 10},
+        {"name": "broken", "x0": 0.9, "x1": 0.1, "y": 0.5, "size": 0.1}]), encoding="utf-8")
+    _rs_said = _rs_room.act("backdrop", "creations/rs-test/starter-1.png")
+    _rs_names = [s["name"] for s in _rs_room.surfaces()]
+    _rs_mantel = next(s for s in _rs_room.surfaces() if s["name"] == "mantel")
+    _rs_plain = _rs_dir / "plain.png"
+    _rs_plain.write_bytes(b"\x89PNG")
+    _rs_said2 = _rs_room.act("backdrop", "creations/rs-test/plain.png")
+    _rs_names2 = [s["name"] for s in _rs_room.surfaces()]
+finally:
+    config.ROOM_DIR = _rs_keep
+    import shutil as _rs_sh
+    _rs_sh.rmtree(_rs_dir, ignore_errors=True)
+check("room (10-30): a backdrop with a .surfaces.json beside it brings its surfaces along (percent or parts, a bad one "
+      "left out, said in the result); a picture without one keeps the surfaces as they were",
+      _rs_names == ["table", "mantel"] and abs(_rs_mantel["x0"] - 0.7) < 1e-6 and "its surfaces came with it: table, mantel" in _rs_said
+      and "came with it" not in _rs_said2 and _rs_names2 == ["table", "mantel"],
+      (_rs_said, _rs_names, _rs_said2, _rs_names2))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

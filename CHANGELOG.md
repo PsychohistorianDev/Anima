@@ -158,6 +158,10 @@ for a tic turned glitch.
   (new, 1,050,000) — each reference rides beside the painting at about its
   size, so a painting that looks at references is painted no larger than this
   (its shape kept); three references beside a 1440 painting had spilled the card.
+- **A backdrop that comes with its surfaces** (10-30): a picture with a
+  `<name>.surfaces.json` beside it (a list of name, x0, x1, y, size — parts of
+  the picture) brings those surfaces along when it becomes the room's backdrop,
+  so things can be put on it at once; any can be marked again.
 - **One passage changed in place** (10-30): `edit_creation` (new tool) — the
   exact text found once on a page is replaced, so a line can be fixed, a section
   rewritten or something put in the middle without rewriting the whole page;
