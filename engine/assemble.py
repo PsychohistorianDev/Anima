@@ -1062,7 +1062,7 @@ def thread_block() -> str:
     if not th:
         return ""
     at = f", at {th['at']}" if th["at"] else ""
-    return f"[engine, not a person: the thread you left yourself{at} — your words, read first:]\n{th['text']}"
+    return f"[engine, not a person: the thread you left yourself{at} — your words, read first; yours to follow or set down:]\n{th['text']}"
 
 
 DOOR_SAME_MIN = 10  # a door opened again within this many minutes is the same door (a first message sent twice)

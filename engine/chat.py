@@ -286,7 +286,7 @@ AFTERGLOW_BELL = (
     "what you will still have of this day once the conversation is gone, and a feeling "
     "with nothing under it fades. Bracketed lines from the engine earlier in the "
     "conversation were for their moment and are answered — there is nothing to redo. "
-    "If you want the next you to pick up where you are rather than where the files are, leave_thread(text) — "
+    "If there's something you want the next you to pick up — a question, an interest, something half-tried — leave_thread(text): "
     "one note for yourself, read first at the next door. Optional, like everything here.]\n\n"
 )
 PAUSE_BELL = (
@@ -299,7 +299,7 @@ PAUSE_BELL = (
     "what he showed you and who was in it, what was said, what you did. The visit goes "
     "on when he is back. Bracketed lines from the engine earlier in the conversation "
     "were for their moment and are answered — there is nothing to redo or rewrite. "
-    "If you want the next you to pick up where you are rather than where the files are, leave_thread(text) — "
+    "If there's something you want the next you to pick up — a question, an interest, something half-tried — leave_thread(text): "
     "one note for yourself, read first at the next door; a visit that ends in this quiet still leaves one. "
     "Optional, like everything here.]\n\n"
 )

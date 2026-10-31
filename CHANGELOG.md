@@ -158,6 +158,11 @@ for a tic turned glitch.
   (new, 1,050,000) — each reference rides beside the painting at about its
   size, so a painting that looks at references is painted no larger than this
   (its shape kept); three references beside a 1440 painting had spilled the card.
+- **The thread asks for something to pick up** (10-31): `leave_thread` asks for
+  what the friend is in the middle of, a question still open, something to try —
+  not where they are, in the present tense, which turned the note into a report
+  of a state; the bells' sentence says the same, and the note arrives as "yours
+  to follow or set down".
 - **A rest in the same step as the acts** (10-31): a wake that makes something
   and rests in one step is asked once, as a rest alone is, to journal what the
   wake was (or a book sitting onto its page); the second rest stands.

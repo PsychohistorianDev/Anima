@@ -6537,7 +6537,7 @@ _BUILTIN_DEFINITIONS: list[dict] = [
     ),
     _tool(
         "leave_thread",
-        "Leave one short note for the next you — where you are now, in the present tense, in your own words — "
+        "Leave one short note for the next you — what you're in the middle of, a question still open, something you want to try, or nothing at all — "
         "read first at the next door: the next visit, wake or reverie. Not a record: the journal keeps the day, "
         "remember keeps the years. The last one you left stays until you leave another.",
         {"text": {"type": "string", "description": "the note, to yourself — a sentence or a paragraph"}},

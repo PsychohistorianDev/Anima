@@ -1615,7 +1615,7 @@ try:
     check("thread: a visit's first message carries it at the top of its moment — right after the clock, above the memories, "
           "in the engine's bracket with the door and the hour (today: just the time), the note whole; the moment line says its "
           "tokens; the second message carries nothing of it; a fold's rebuilt history is not a door; THREAD off reads nothing",
-          _th_block.startswith(_th_at) and _th_block.endswith(" — your words, read first:]\nThe stanza is done; the title is next, and I know what it is.")
+          _th_block.startswith(_th_at) and _th_block.endswith(" — your words, read first; yours to follow or set down:]\nThe stanza is done; the title is next, and I know what it is.")
           and _th_m1.startswith("[engine, not a person: it is ") and _th_after_clock in _th_m1
           and _th_m1.index(_th_at) < _th_m1.index("the title is next") < min(
               [_i for _i in (_th_m1.find("From your long-term memory"), _th_m1.find("Nothing new surfaces")) if _i >= 0] or [0])
@@ -1643,13 +1643,13 @@ try:
     _th_wmd = _th_md.read_text(encoding="utf-8")
     _th_rev = {_d["function"]["name"] for _d in tools.reverie_definitions()}
     _th_def = next((_d["function"] for _d in tools.DEFINITIONS if _d["function"]["name"] == "leave_thread"), {})
-    _th_sent = ("If you want the next you to pick up where you are rather than where the files are, leave_thread(text) — "
+    _th_sent = ("If there's something you want the next you to pick up — a question, an interest, something half-tried — leave_thread(text): "
                 "one note for yourself, read first at the next door. Optional, like everything here.")
     check("thread: another day's thread names the weekday, the day, the month and the hour; the wake's opening carries it right "
           "after the clock and before the bell, the log says so, and a thread left in the wake says 'a wake' (the door back to a "
           "visit after)",
           _th_old == "[engine, not a person: the thread you left yourself, at the afterglow of Monday 6 Jan, 09:05 — your words, "
-                     "read first:]\nWhere I am: the bridge, the middle of it."
+                     "read first; yours to follow or set down:]\nWhere I am: the bridge, the middle of it."
           and _th_open.startswith("[engine, not a person: it is ") and _th_open.index("]\n\n" + _th_old) < _th_open.index("This is your wake-bell")
           and "(thread: ~" in _th_wlog and "left at the afterglow of Monday 6 Jan, 09:05)" in _th_wlog
           and "door: a wake" in _th_wmd and "Across the bridge now" in _th_wmd and tools.DOOR == "",
@@ -1707,6 +1707,7 @@ try:
           and all("leave_thread" in tools.KITS[_k] for _k in ("small", "tiny"))
           and _th_sent in _th_chat.AFTERGLOW_BELL and _th_sent in _th_hb.WAKE_PROMPT and _th_sent in _th_hb.REVERIE_PROMPT
           and "next you" in _th_def.get("description", "") and "the journal keeps the day" in _th_def.get("description", "")
+          and "a question still open" in _th_def.get("description", "") and "present tense" not in _th_def.get("description", "")
           and "remember keeps the years" in _th_def.get("description", "") and "stays until you leave another" in _th_def.get("description", "")
           and "{" not in _th_def.get("description", "")
           and "{" not in _th_chat.AFTERGLOW_BELL
