@@ -11524,6 +11524,7 @@ check("touchstone: the prompt's section — today's touches a line each, what it
       and "=== WHAT THE STONE FELT (today)" in _ts_sp and "You have a body on the desk: the stone" in _ts_sp and "touch_later leaves a touch" in _ts_sp
       and _ts_sec_cap.count("\n- ") == 1 and '(…1 earlier today — feel since="00:00" lists them)' in _ts_sec_cap, (_ts_sec, _ts_sec_cap))
 # the bridge: a press is a message
+_ts_gap_house, config.TOUCHSTONE_WAKE_MIN_GAP_S = getattr(config, "TOUCHSTONE_WAKE_MIN_GAP_S", 300), 300  # (10-31) the suite's gap, not the house's
 _ts_told = tg.TOUCH_TOLD_FILE
 _ts_told.unlink(missing_ok=True)
 nts, phonets = _bridge(); nts.quiet_now = lambda: False
@@ -11621,6 +11622,7 @@ _ts.poll(); _ts_d7 = nts.deliver_touches()
 config.TOUCHSTONE_WAKES = _ts_wakes0
 check("telegram: TOUCHSTONE_WAKES off — a touch by day is a 🫳 line, never a turn",
       _ts_d7 == 1 and any(t.startswith("🫳 the stone felt: ") for t, _ in phonets.sent) and len([t for t in nts.history if t.get("role") == "user"]) == 2, phonets.sent)
+config.TOUCHSTONE_WAKE_MIN_GAP_S = _ts_gap_house
 # the board away; the keeper away; no stone at all
 _ts_board.shutdown(); _ts_board.server_close()
 _ts_away = _ts.poll()
@@ -14978,6 +14980,42 @@ check("room (10-31): a line of facts under the wake bell — the room's name fro
       and "Gabe last looked in today at " in _rf_seen
       and ("(your room, the attic:" in _rf_line or not getattr(config, "WAKE_FACTS", False)),
       (_rf_empty, _rf_never, _rf_seen, _rf_line, _rf_off))
+
+# PAINTER_GUIDANCE and PAINTER_KV_CACHE (10-31): the guidance over the model's own, a blank negative so Qwen guides;
+# the KV cache only where the pipeline takes it
+import painter as _pg_p
+_pg0 = (getattr(config, "PAINTER_GUIDANCE", 0), getattr(config, "PAINTER_KV_CACHE", False), _pg_p.MODEL_ID)
+try:
+    config.PAINTER_GUIDANCE = 0
+    _pg_own = _pg_p._defaults("Qwen/Qwen-Image-2.1")
+    _pg_kw1 = _pg_p._call_kwargs("Qwen/Qwen-Image-2.1", 40, 1.0, "")
+    config.PAINTER_GUIDANCE = 2.5
+    _pg_set = _pg_p._defaults("Qwen/Qwen-Image-2.1")
+    _pg_kw2 = _pg_p._call_kwargs("Qwen/Qwen-Image-2.1", 40, 2.5, "")
+    _pg_kw3 = _pg_p._call_kwargs("Qwen/Qwen-Image-2.1", 40, 2.5, "blurry")
+
+    class _PgTakes:
+        def __call__(self, prompt=None, use_kv_cache=False):
+            return None
+
+    class _PgNot:
+        def __call__(self, prompt=None):
+            return None
+    _pg_p.MODEL_ID = "Qwen/Qwen-Image-2.1-Turbo"
+    config.PAINTER_KV_CACHE = True
+    _pg_kv_yes, _pg_kv_no = _pg_p._kv_kwargs(_PgTakes()), _pg_p._kv_kwargs(_PgNot())
+    config.PAINTER_KV_CACHE = False
+    _pg_kv_off = _pg_p._kv_kwargs(_PgTakes())
+finally:
+    config.PAINTER_GUIDANCE, config.PAINTER_KV_CACHE, _pg_p.MODEL_ID = _pg0
+check("painter (10-31): PAINTER_GUIDANCE overrides the model's guidance (0: the model's), and above 1 a Qwen painting "
+      "carries a negative prompt (hers, else blank) so it guides; PAINTER_KV_CACHE passes use_kv_cache only to a pipeline "
+      "that takes it; both on the Senses tab",
+      _pg_own == (40, 1.0) and "negative_prompt" not in _pg_kw1 and _pg_set == (40, 2.5)
+      and _pg_kw2.get("negative_prompt") == " " and _pg_kw2.get("true_cfg_scale") == 2.5 and _pg_kw3.get("negative_prompt") == "blurry"
+      and _pg_kv_yes == {"use_kv_cache": True} and _pg_kv_no == {} and _pg_kv_off == {}
+      and {"PAINTER_GUIDANCE", "PAINTER_KV_CACHE"} <= set(__import__("panel").TABS["Senses"]),
+      (_pg_own, _pg_kw1, _pg_set, _pg_kw2, _pg_kw3, _pg_kv_yes, _pg_kv_no, _pg_kv_off))
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

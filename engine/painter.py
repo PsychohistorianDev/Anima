@@ -333,7 +333,25 @@ def _call_kwargs(model_id: str, steps: int, guidance: float, negative: str = "")
     kw = {"num_inference_steps": int(steps), _GUIDANCE_KEY.get(fam, "guidance_scale"): float(guidance)}
     if negative and fam in _NEGATIVE_FAMILIES:
         kw["negative_prompt"] = negative
+    elif fam in _GUIDE_WITH_NEGATIVE and float(guidance) > 1:
+        # (10-31, PAINTER_GUIDANCE) Qwen's pipeline guides only with a negative prompt beside the prompt: hers, or a blank one
+        kw["negative_prompt"] = negative or " "
     return kw
+
+
+_GUIDE_WITH_NEGATIVE = {"qwen21"}  # guidance (true CFG) above 1 needs a negative prompt to mean anything
+
+
+def _kv_kwargs(pipe) -> dict:
+    """PAINTER_KV_CACHE (10-31): {"use_kv_cache": True} for a Qwen-Image pipeline that takes it (the Turbo card paints
+    with it — the prompt and the reference pictures read once and reused at every step); {} otherwise."""
+    if not getattr(config, "PAINTER_KV_CACHE", False) or pipe is None or _family(MODEL_ID) != "qwen21":
+        return {}
+    try:
+        import inspect
+        return {"use_kv_cache": True} if "use_kv_cache" in inspect.signature(pipe.__call__).parameters else {}
+    except (TypeError, ValueError):
+        return {}
 _NEGATIVE_FAMILIES = {"zimage-base", "chroma", "sdxl", "auto"}  # guidance above 1: a negative prompt means something
 _MEGAPIXEL_FAMILIES = {"sdxl": 1_050_000, "chroma": 1_050_000}  # 1024-class brushes: a house size is scaled down to this
 
@@ -346,7 +364,11 @@ def _defaults(model_id: str) -> tuple[int, float]:
         steps = _TURBO_STEPS[fam]  # (10-29, issue #9) Qwen-Image-2.1-Turbo: 8, not the full model's 40
     guidance = _GUIDANCE.get(fam, 3.5)
     knob = int(getattr(config, "PAINTER_STEPS", 0) or 0)
-    return (knob or steps), guidance
+    try:
+        g = float(getattr(config, "PAINTER_GUIDANCE", 0) or 0)  # (10-31) the guidance over the model's own; 0: the model's
+    except (TypeError, ValueError):
+        g = 0.0
+    return (knob or steps), (g if g > 0 else guidance)
 
 
 def _fit(model_id: str, width: int, height: int) -> tuple[int, int]:
@@ -544,7 +566,7 @@ def paint(prompt: str, width: int, height: int, seed: int | None = None, negativ
             extra = {"image": images} if images else {}  # condition pictures: their face, or the one being repainted (10-25)
             try:
                 out = _pipe(prompt=prompt, width=int(width), height=int(height), generator=gen,
-                            **_call_kwargs(MODEL_ID, steps, guidance, negative), **extra,
+                            **_call_kwargs(MODEL_ID, steps, guidance, negative), **extra, **_kv_kwargs(_pipe),
                             **_spill_watch(torch, deadline))  # the keywords follow the family (10-24); the card watched (10-25)
                 spilled = None
             except _Spilled as e:
@@ -563,7 +585,7 @@ def paint(prompt: str, width: int, height: int, seed: int | None = None, negativ
             with torch.inference_mode():
                 try:
                     out = _pipe(prompt=prompt, width=int(width), height=int(height), generator=gen,
-                                **_call_kwargs(MODEL_ID, steps, guidance, negative), **extra,
+                                **_call_kwargs(MODEL_ID, steps, guidance, negative), **extra, **_kv_kwargs(_pipe),
                                 **_spill_watch(torch, deadline))  # (10-29 night) watched under offload too
                 except _Stopped:
                     _unload()

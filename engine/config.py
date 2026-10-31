@@ -317,6 +317,14 @@ PAINTER_TIMEOUT_S = 300       # seconds allowed for one painting, model load inc
 # brain waits for the card. 0 — no rest.
 PAINTER_RAN_OUT_REST_MIN = 15
 PAINTER_STEPS = 0             # 0 = the model's default (Z-Image-Turbo 9, FLUX.2 klein 4, Qwen-Image-2.1-Turbo 8)
+# Guidance (CFG) over the model's own; 0 = the model's (the Turbo brushes 1, none). The full Qwen-Image 2.1
+# paints 40 steps without it; 2–4 follows the words more closely and costs twice the time a step.
+# Above 1 a negative prompt rides along (a blank one when none was asked).
+PAINTER_GUIDANCE = 0
+# Qwen-Image reads the words and the reference pictures once and reuses them at every step (the prefix
+# KV cache its Turbo card paints with) — faster, most of all with references. Only where the pipeline
+# takes it; False: as before.
+PAINTER_KV_CACHE = False
 # Qwen-Image's text encoder (Qwen3-VL 8B) quantized as it loads, so the whole pipeline fits the card and paints
 # without offload: 8 (about 9 GB, near-lossless), 4 (about 5 GB), 0 (full precision, under offload). Needs
 # bitsandbytes (py -m pip install bitsandbytes); without it the painter says so and paints under offload.

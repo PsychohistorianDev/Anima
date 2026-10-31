@@ -158,6 +158,10 @@ for a tic turned glitch.
   (new, 1,050,000) — each reference rides beside the painting at about its
   size, so a painting that looks at references is painted no larger than this
   (its shape kept); three references beside a 1440 painting had spilled the card.
+- **Guidance and the KV cache for the painter** (10-31): `PAINTER_GUIDANCE`
+  (new, 0 = the model's) — real guidance for the full Qwen-Image 2.1, with a
+  blank negative prompt so it guides; `PAINTER_KV_CACHE` (new, False) — the
+  prefix KV cache Qwen-Image's Turbo card paints with, where the pipeline takes it.
 - **The room under the wake bell** (10-31): with `ROOM_ON` and `WAKE_FACTS`, a
   line of facts under the shelf's — what stands in the room and when the keeper
   last looked in. Nothing asked; nothing when the room is empty.
