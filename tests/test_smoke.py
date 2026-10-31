@@ -987,9 +987,13 @@ ollama_client.chat = ScriptedBrain([
      "tool_calls": [
         {"function": {"name": "write_creation", "arguments": {"path": "haiku.md", "content": "old pond / frog jumps in"}}},
         {"function": {"name": "do_nothing", "arguments": {"reason": "that was enough"}}}]},
+    {"role": "assistant", "content": "", "thinking": "no, the haiku is enough", "tool_calls": [
+        {"function": {"name": "do_nothing", "arguments": {"reason": "that was enough"}}}]},
 ])
 log = heartbeat.wake()
 check("heartbeat: acted then rested", "write_creation" in log and "resting" in log)
+check("heartbeat (10-31): a rest in the same step as an act is asked once to journal what the wake was; the second rest stands",
+      "a rest in the same step as the acts before it" in log and log.count("resting") == 1, log[-600:])
 
 # their plan rides with the tool result (09-14: four steps planned, one word
 # of thought after the tool, then rest)

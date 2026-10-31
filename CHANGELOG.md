@@ -158,6 +158,9 @@ for a tic turned glitch.
   (new, 1,050,000) — each reference rides beside the painting at about its
   size, so a painting that looks at references is painted no larger than this
   (its shape kept); three references beside a 1440 painting had spilled the card.
+- **A rest in the same step as the acts** (10-31): a wake that makes something
+  and rests in one step is asked once, as a rest alone is, to journal what the
+  wake was (or a book sitting onto its page); the second rest stands.
 - **A reply cut on an apostrophe is a cut** (10-30): a reply that stops right
   after a contraction's apostrophe ("…the one you'") is named as cut
   mid-sentence and the rest is asked for, as a mid-word stop already was.

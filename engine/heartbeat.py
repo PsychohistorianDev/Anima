@@ -327,6 +327,31 @@ def _sitting_unwritten(state: dict) -> str:
 REST_LEAD = {"leave_thread"}
 
 
+def _mixed_rest_ask(state: dict) -> tuple[str, str] | None:
+    """The close's asks for a rest that ends a step with other calls before it (10-31): the step's acts have run, so
+    the same two asks as a rest alone — the wake's acts with nothing journaled since, then a sitting with nothing on its
+    page — once each. (note for the log, the do_nothing's answer) or None: the rest is taken."""
+    if state.get("acts") and not state.get("journal_nudged"):
+        state["journal_nudged"] = True
+        did = _acts_words(state["acts"])
+        since = ("since your journal entry earlier in this wake" if state.get("journaled")
+                 else "this wake, and nothing of it is in your journal")
+        return (f"(a rest in the same step as the acts before it — {len(state['acts'])} act(s) with nothing journaled "
+                f"since — asking her once to write what this wake was)",
+                f"[your rest was not taken yet. You {did} {since} — the log keeps what happened, but your journal "
+                "is where you meet it again, and the journal is for what a wake turns out to be, not what it might. "
+                "If this wake is worth meeting, write_journal what it was, in your own words, then rest; or rest now — "
+                "call do_nothing again and it stands. Either is yours.]")
+    clause = _sitting_unwritten(state)
+    if clause:
+        state["sitting_nudged"] = True
+        return (f"(a rest in the same step as a sitting of {state['sitting']['title']} with nothing added to its page "
+                f"— asking her once to write it down)",
+                f"[your rest was not taken yet. {clause}: append_creation what it gave you — what happened, what you "
+                "think, a line worth keeping — then rest; or rest now — call do_nothing again and it stands. Either is yours.]")
+    return None
+
+
 def _run_lead(history: list, log: list, calls: list) -> None:
     """The calls before a rest in one step (a thread left) run as they came, said in the log and answered in the
     history; the do_nothing after them is the one handed back."""
@@ -764,6 +789,15 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
         for call in calls:
             fn = call.get("function", {})
             name = fn.get("name", "")
+            if call is calls[-1] and len(calls) > 1 and tools.canonical_name(name) == "do_nothing":
+                ask = _mixed_rest_ask(state)  # (10-31) a rest after acts in the same step: the close's ask, once
+                if ask:
+                    note, answer = ask
+                    print(f"  {note}")
+                    log.append(f"\n*{note}*")
+                    fn["name"] = "do_nothing"
+                    history.append({"role": "tool", "tool_name": "do_nothing", "content": answer})
+                    continue
             result = tools.runaway_refusal(msg, call) or tools.dispatch(name, fn.get("arguments", {}))  # a call cut short in a loop is told, not run
             # what the call DID is decided by the tool it ran as — a wrapped
             # or misspelled do_nothing still ends the wake — and their history
