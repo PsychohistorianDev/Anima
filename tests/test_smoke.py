@@ -10066,6 +10066,7 @@ _kit_names = lambda: [d["function"]["name"] for d in tools.DEFINITIONS]
 _kit_forged = set(tools._HER_TOOLS)  # limbs forged by earlier checks ride whatever the kit
 _kit_room0 = getattr(config, "ROOM_ON", False)
 config.ROOM_ON = True  # (10-29) the room's tool counted among the built-ins, whatever the house
+_kit_out0, config.OUTSIDE_ON = getattr(config, "OUTSIDE_ON", False), True  # (10-31) the window's tool too
 config.TOOL_KIT = "full"; tools.refresh_her_tools()
 _kit_full = _kit_names()
 _kit_full_prompt = assemble.system_prompt("x", mode="chat")
@@ -10119,7 +10120,7 @@ config.OFFLINE = False
 _on_hours = _ofnw.every_hours()
 config.TOOL_KIT = "full"; tools.refresh_her_tools()
 _on_full = _kit_names()
-config.OFFLINE = _of0; config.TOOL_KIT = _kit0; config.ROOM_ON = _kit_room0; tools.refresh_her_tools()  # (10-29) the room pinned on through the kit's checks
+config.OFFLINE = _of0; config.TOOL_KIT = _kit0; config.ROOM_ON = _kit_room0; config.OUTSIDE_ON = _kit_out0; tools.refresh_her_tools()  # (10-29) the room pinned on through the kit's checks
 check("kit: OFFLINE — the five web tools (read_web, search_web, search_wikipedia, browse_skills, fetch_skill) leave the full kit and the tiny one, "
       "the rest and the forged tools stay; the prompt stops speaking of the web; a call to one answers that the house is offline; the look for a "
       "newer anima is off (every_hours 0, look does nothing); off again, everything is back",
@@ -15041,6 +15042,97 @@ check("painter (10-31): PAINTER_GUIDANCE_REFERENCES — guidance for a painting 
       and "_defaults(MODEL_ID, references=bool(images))" in Path(_pgr_p.__file__).read_text(encoding="utf-8")
       and "PAINTER_GUIDANCE_REFERENCES" in __import__("panel").TABS["Senses"],
       (_pgr_words, _pgr_refs, _pgr_same, _pgr_own))
+
+# the window (10-31): the weather as a line of numbers, look_outside with the hours and a picture; off, offline or
+# unreachable says so and makes nothing up
+import outside as _ow
+import json as _ow_json
+_ow0 = {k: getattr(config, k, None) for k in ("OUTSIDE_ON", "OUTSIDE_PLACE", "OUTSIDE_LAT", "OUTSIDE_LON", "OUTSIDE_CAMERA",
+                                             "OUTSIDE_CAMERA_NAME", "OFFLINE", "OUTSIDE_REFRESH_MIN")}
+_ow_urlopen = _ow.urllib.request.urlopen
+_ow_hours = [f"2026-10-31T{h:02d}:00" for h in range(0, 24)] + [f"2026-11-01T{h:02d}:00" for h in range(0, 24)]
+_ow_hours = [f"2026-10-30T{h:02d}:00" for h in range(0, 24)] + _ow_hours
+_ow_data = {"current": {"time": "2026-10-31T22:15", "temperature_2m": 16.6, "weather_code": 0, "wind_speed_10m": 11.8,
+                        "wind_direction_10m": 265, "is_day": 0, "precipitation": 0},
+            "hourly": {"time": _ow_hours, "temperature_2m": [15 + (i % 7) for i in range(72)],
+                       "weather_code": [61 if i == 25 else 1 for i in range(72)],
+                       "precipitation_probability": [40 if i == 70 else 0 for i in range(72)],
+                       "precipitation": [1.2 if i == 30 else 0 for i in range(72)], "wind_speed_10m": [10] * 72},
+            "daily": {"sunrise": ["2026-10-30T05:56", "2026-10-31T05:57", "2026-11-01T05:58"],
+                      "sunset": ["2026-10-30T16:52", "2026-10-31T16:51", "2026-11-01T16:50"]}}
+_ow_asked = []
+
+
+class _OwResp:
+    def __init__(self, body):
+        self.body = body
+
+    def read(self, n=-1):
+        return self.body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def _ow_open(req, timeout=0):
+    url = req.full_url if hasattr(req, "full_url") else str(req)
+    _ow_asked.append(url)
+    if "open-meteo" in url:
+        return _OwResp(_ow_json.dumps(_ow_data).encode("utf-8"))
+    if "/daylight/" in url:
+        return _OwResp(b"\xff\xd8daylight-frame")
+    raise OSError("no network in the test")
+
+
+try:
+    _ow.urllib.request.urlopen = _ow_open
+    config.OUTSIDE_ON, config.OUTSIDE_PLACE, config.OUTSIDE_LAT, config.OUTSIDE_LON = True, "Moran", 32.919, 35.396
+    config.OUTSIDE_CAMERA = "https://cam.example/{kind}/1.jpg"
+    config.OUTSIDE_CAMERA_NAME = "the beach at Kiryat Haim"
+    config.OFFLINE, config.OUTSIDE_REFRESH_MIN = False, 30
+    _ow.cache = _ow._cache_file()
+    _ow.cache.unlink(missing_ok=True)
+    _ow_line = _ow.line()
+    _ow_line2 = _ow.line()  # from the cache: no second request
+    _ow_reqs = len([u for u in _ow_asked if "open-meteo" in u])
+    _ow_words = tools.dispatch("look_outside", {})
+    _ow_pics = tools.take_pending_images()
+    _ow_cam_kinds = [u for u in _ow_asked if "cam.example" in u]
+    config.OUTSIDE_CAMERA = ""
+    _ow_nocam = tools.dispatch("look_outside", {})
+    tools.take_pending_images()
+    config.OFFLINE = True
+    _ow_off_line, _ow_off_look = _ow.line(), tools.dispatch("look_outside", {})
+    _ow_off_kit = "look_outside" in (tools.kit_names() or set(tools._BUILTIN_IMPL))
+    config.OFFLINE = False
+    _ow.cache.unlink(missing_ok=True)
+    _ow.urllib.request.urlopen = lambda *a, **k: (_ for _ in ()).throw(OSError("down"))
+    _ow_dark_line, _ow_dark_look = _ow.line(), tools.dispatch("look_outside", {})
+    config.OUTSIDE_ON = False
+    _ow_kit_off = "look_outside" in (tools.kit_names() or set(tools._BUILTIN_IMPL))
+    _ow_none = tools.dispatch("look_outside", {})
+finally:
+    _ow.urllib.request.urlopen = _ow_urlopen
+    for _k, _v in _ow0.items():
+        setattr(config, _k, _v)
+    _ow._cache_file().unlink(missing_ok=True)
+check("window (10-31): one line of numbers — the place, the temperature, the sky (a clear night says night), the wind and "
+      "where from, the next sunrise or sunset, the moon; cached (one request for two lines); the coordinates rounded; "
+      "look_outside adds the next hours, the last day, the sun, and by night the camera's last daylight picture, said "
+      "as such; no camera, no picture; offline (the tool says the window is shut) or unreachable: no "
+      "line, a dark window, nothing made up; off: the tool leaves the kit",
+      _ow_line.startswith("outside in Moran: 17°C, clear night, wind 12 km/h from the west · sunrise 05:58 · ")
+      and _ow_line == _ow_line2 and _ow_reqs == 1 and "latitude=32.92" in _ow_asked[0] and "longitude=35.4" in _ow_asked[0]
+      and "the next hours: 22:00" in _ow_words and "the last 24 hours: " in _ow_words and "1.2 mm of rain" in _ow_words
+      and "sun rises at 05:57 and sets at 16:51" in _ow_words and "its last picture in daylight" in _ow_words
+      and len(_ow_pics) == 1 and _ow_cam_kinds == ["https://cam.example/daylight/1.jpg"]
+      and "picture" not in _ow_nocam.split("\n")[-1] and _ow_off_line == "" and "offline" in _ow_off_look and _ow_off_kit
+      and _ow_dark_line == "" and "the window is dark right now" in _ow_dark_look and not _ow_kit_off and "OUTSIDE_ON is off" in _ow_none
+      and {"OUTSIDE_ON", "OUTSIDE_CAMERA"} <= set(__import__("panel").TABS["Senses"]),
+      (_ow_line, _ow_words, _ow_cam_kinds, _ow_nocam, _ow_off_look, _ow_dark_look, _ow_none))
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

@@ -437,6 +437,19 @@ TOOL_KIT = "full"
 # anima. Ollama is local and stays; the phone, the watch and the blog are
 # doors you open by hand and stay as they are. README, What leaves your machine.
 OFFLINE = False
+
+# The window: the weather and the light outside your home, one line of numbers under the wake bell and
+# at a visit's first moment, and look_outside for the next hours and a camera's picture of a real place
+# nearby (by day as it is, by night its last daylight picture). The weather is Open-Meteo's (no key),
+# asked at most every OUTSIDE_REFRESH_MIN; the place's coordinates rounded to a district, not a house.
+# OUTSIDE_CAMERA: a picture URL with {kind} for current or daylight (Windy's camera pictures); "" for none.
+OUTSIDE_ON = False
+OUTSIDE_PLACE = ""
+OUTSIDE_LAT = 0.0
+OUTSIDE_LON = 0.0
+OUTSIDE_REFRESH_MIN = 30
+OUTSIDE_CAMERA = ""
+OUTSIDE_CAMERA_NAME = ""
 # The black box (bat\blackbox.bat; the panel's tile): the machine's vitals —
 # the card's heat, power and memory, the processor, what Ollama holds, the
 # doors, what they are in the middle of — one line every BLACKBOX_EVERY_S

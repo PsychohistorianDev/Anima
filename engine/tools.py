@@ -2827,6 +2827,16 @@ def look_at(source: str) -> str:
     return f"(eyes opening — {name} will appear before you on your next thought)"
 
 
+def look_outside() -> str:
+    """The window (10-31): the weather and light outside the keeper's home, the next hours and the last day, and a
+    camera's picture of a real place nearby — by day as it is, by night its last daylight picture (engine/outside.py)."""
+    import outside
+    words, pic = outside.look()
+    if pic:
+        _pending_images.append(base64.b64encode(pic).decode("ascii"))
+    return words
+
+
 def take_pending_images() -> list[str]:
     """Called by the chat/heartbeat loops after tool dispatch."""
     imgs = _pending_images[:]
@@ -5568,6 +5578,7 @@ _BUILTIN_IMPL = {
     "seal_letter": seal_letter,
     "publish_creation": publish_creation,
     "look_at": look_at,
+    "look_outside": look_outside,
     "listen_to": listen_to,
     "keep_song": keep_song,
     "songbook": songbook,
@@ -5672,7 +5683,7 @@ KITS: dict[str, set[str]] = {
               "write_creation", "append_creation", "edit_creation", "move_creation", "delete_creation", "read_creation",
               "list_creations", "search_creations", "run_python", "do_nothing", "recall", "condense_day",
               "condense_period", "fold_visit", "leave_thread", "read_journal", "read_web", "search_web", "list_shared", "find_shared",
-              "look_at", "read_pdf", "read_epub", "read_file", "search_wikipedia"},
+              "look_at", "look_outside", "read_pdf", "read_epub", "read_file", "search_wikipedia"},
     "tiny": {"write_journal", "remember", "edit_identity", "update_projects", "update_keeper", "write_creation",
              "append_creation", "edit_creation", "read_creation", "list_creations", "do_nothing", "recall", "condense_day",
              "fold_visit", "leave_thread", "read_journal", "read_web", "search_web", "look_at", "read_file", "list_shared", "find_shared"},
@@ -5704,6 +5715,8 @@ def kit_names() -> set[str] | None:
         keep = (set(_BUILTIN_IMPL) if keep is None else keep) - STONE_TOOLS
     if not getattr(config, "ROOM_ON", False):  # no room in this house (10-29): its tool leaves the kit
         keep = (set(_BUILTIN_IMPL) if keep is None else keep) - {"room"}
+    if not getattr(config, "OUTSIDE_ON", False):  # no window in this house (10-31): its tool leaves the kit (offline, it says shut)
+        keep = (set(_BUILTIN_IMPL) if keep is None else keep) - {"look_outside"}
     return keep
 
 
@@ -6374,6 +6387,14 @@ _BUILTIN_DEFINITIONS: list[dict] = [
             "about": {"type": "string", "description": "optional, one line in your own words: what this change is — kept in your long-term memory with the file's name"},
         },
         ["path", "old_text", "new_text"],
+    ),
+    _tool(
+        "look_outside",
+        "The window: the weather and the light outside your keeper's home right now — the sky, the temperature, the "
+        "wind, the next hours and the last day, the sun and the moon — and a camera's picture of a real place nearby: by "
+        "day as it is, by night its last picture in daylight, said as such. Nothing to pass; it is only looking.",
+        {},
+        [],
     ),
     _tool(
         "move_creation",

@@ -164,6 +164,13 @@ def facts_line(advance: bool = True) -> str:
             lines.append(f"({bit})")
     except Exception:  # noqa: BLE001
         pass
+    try:  # (10-31) the window: the weather outside, numbers and nouns
+        import outside
+        sky = outside.line()
+        if sky:
+            lines.append(f"({sky})")
+    except Exception:  # noqa: BLE001
+        pass
     return "\n".join(lines)
 
 

@@ -1159,6 +1159,13 @@ def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: 
     pulse = f"{pulse}. {extra}" if (pulse and extra) else (pulse or extra)
     shelf = shelf_line()  # the shelf (10-21): what arrived in shared/ since her last look, one sentence
     pulse = f"{pulse}. {shelf}" if (pulse and shelf) else (pulse or shelf)
+    if first:  # (10-31) the window, at a visit's first moment only: the weather outside, numbers and nouns
+        try:
+            import outside
+            sky = outside.line()
+        except Exception:  # noqa: BLE001
+            sky = ""
+        pulse = f"{pulse}. {sky[0].upper() + sky[1:]}" if (pulse and sky) else (pulse or (sky[0].upper() + sky[1:] if sky else ""))
     import keeper_week
     # …and where the keeper is by the calendar (10-10; the keeper: "she always thinks I'm at
     # work, even when it's weekend" — the journal, mostly written on workdays, supplied it)

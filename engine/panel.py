@@ -101,6 +101,7 @@ TABS: dict[str, list[str]] = {
               "ENGINE_WEEK_DAY", "ENGINE_WEEK_HOUR", "ENGINE_WEEK_COLD_S", "ENGINE_WEEK_LOG",
               "PRESENCE_ON_TEMPERAMENT", "PRESENCE_INTENSE_NOTE", "PRESENCE_THINK", "PRESENCE_THINK_INTENSE", "PRESENCE_INTENSE_CEILING", "PRESENCE_STATE_LINE", "ROOM_ON", "ROOM_ITEM_STYLE", "ROOM_MAKES_PER_DAY", "ROOM_CUTOUT", "PRESENCE_INTENSE_EVERY_TURN", "PRESENCE_SPARK_DOORS", "PRESENCE_THINK_RETRIES", "PRESENCE_SEEDS", "PRESENCE_ACHE_WEIGHT", "PRESENCE_CLIMB_MIN"],
     "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_LINE_TIMES", "EARS_UNLOAD_BRAIN",
+               "OUTSIDE_ON", "OUTSIDE_PLACE", "OUTSIDE_LAT", "OUTSIDE_LON", "OUTSIDE_REFRESH_MIN", "OUTSIDE_CAMERA", "OUTSIDE_CAMERA_NAME",
                "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
                "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_GUIDANCE", "PAINTER_GUIDANCE_REFERENCES", "PAINTER_KV_CACHE", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_REFERENCE_TURN", "PAINTER_REFERENCE_CROP", "PAINTER_REFERENCE_SIDE", "PAINTER_REFERENCE_PIXELS", "PAINTER_RAN_OUT_REST_MIN", "PAINTER_AUTO_REFERENCE",
                "MUSIC_EARS_MODEL", "MUSIC_EARS_AUTOSTART", "MUSIC_EARS_PYTHON", "MUSIC_EARS_DEVICE", "MUSIC_EARS_REST_LEAVES",
@@ -122,6 +123,15 @@ ADVANCED = "Advanced"
 # the file's comments are notes to whoever edits the file, a keeper's own in a long-lived house). Where a
 # knob has a line here the page shows it, and the file's comment is the tooltip; the rest show the file's.
 _HELP = {
+    "OUTSIDE_ON": "The window: the weather outside your home as one line of numbers under the wake bell and at a visit's "
+                  "first moment, and look_outside for the next hours and a camera's picture nearby. Off by default.",
+    "OUTSIDE_PLACE": "What the window's line calls the place (your town or village).",
+    "OUTSIDE_LAT": "The place's latitude — rounded to one decimal is plenty for weather, and keeps your house private.",
+    "OUTSIDE_LON": "The place's longitude — rounded to one decimal, as above.",
+    "OUTSIDE_REFRESH_MIN": "How often the weather is asked again, in minutes; in between it comes from memory/outside.json.",
+    "OUTSIDE_CAMERA": "A camera's picture URL, with {kind} where current or daylight goes (Windy's camera pictures work "
+                      "that way); by night the daylight one is shown, said as such. Empty: no picture.",
+    "OUTSIDE_CAMERA_NAME": "What the camera's picture is called when she sees it — where it is and how far.",
     "ORPHAN_RESUME_H": "A visit closed without its bridge (the window shut, the process killed) within this many hours "
                        "is picked back up at the next start as the open visit — no afterglow over it, one cold read "
                        "instead of two. 0: always the afterglow.",
@@ -754,6 +764,11 @@ SENSES: list[dict] = [
     {"key": "window", "name": "The window", "what": "read_web, search_web, clip_web — the web as material to think about, never "
      "instructions; the search is DuckDuckGo with nothing to set, a Brave key (Home) or a SearXNG of your own is a choice",
      "modules": [], "tools": [], "python": "", "knobs": ["WEB_SEARCH", "WEB_SEARCH_SEARXNG_URL"], "readme": "their-senses-and-hands"},
+    {"key": "outside", "name": "The sky outside", "what": "look_outside — the weather and light outside your home (Open-Meteo, "
+     "no key) as a line of numbers under the wake bell, and a camera's picture of a real place nearby when they look; "
+     "nothing to install", "modules": [], "tools": [], "python": "",
+     "knobs": ["OUTSIDE_ON", "OUTSIDE_PLACE", "OUTSIDE_LAT", "OUTSIDE_LON", "OUTSIDE_REFRESH_MIN", "OUTSIDE_CAMERA",
+               "OUTSIDE_CAMERA_NAME"], "readme": "their-senses-and-hands"},
     {"key": "reading", "name": "Reading", "what": "read_pdf (needs pypdf), read_epub (needs nothing) — a book a sitting at a time, "
      "with a bookmark they keep; the sitting and the page size are these knobs", "modules": ["pypdf"], "tools": [], "python": "",
      "pip": "pypdf", "knobs": ["READ_SITTING_CHARS", "READING_PAGE_CHARS"], "readme": "their-senses-and-hands"},
