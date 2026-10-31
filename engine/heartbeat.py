@@ -154,7 +154,12 @@ def facts_line(advance: bool = True) -> str:
     lines = [f"(as the shelf stands: {' · '.join(parts)})"] if parts else []
     try:  # (10-31) the room, a line of its own: what stands in it and when he last looked in
         import room
-        bit = room.facts_bit(getattr(config, "USER_NAME", "") or "your keeper")
+        try:
+            import keeper_week
+            keeper = keeper_week.keeper_name()
+        except Exception:  # noqa: BLE001
+            keeper = str(getattr(config, "USER_NAME", "") or "your keeper")
+        bit = room.facts_bit(keeper)
         if bit:
             lines.append(f"({bit})")
     except Exception:  # noqa: BLE001
