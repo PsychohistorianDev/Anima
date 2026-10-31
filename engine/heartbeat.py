@@ -151,7 +151,15 @@ def facts_line(advance: bool = True) -> str:
                 pass
     except Exception:  # noqa: BLE001 — a line of facts, never the wake down
         return ""
-    return f"(as the shelf stands: {' · '.join(parts)})" if parts else ""
+    lines = [f"(as the shelf stands: {' · '.join(parts)})"] if parts else []
+    try:  # (10-31) the room, a line of its own: what stands in it and when he last looked in
+        import room
+        bit = room.facts_bit(getattr(config, "USER_NAME", "") or "your keeper")
+        if bit:
+            lines.append(f"({bit})")
+    except Exception:  # noqa: BLE001
+        pass
+    return "\n".join(lines)
 
 
 def wake(reverie: bool = False) -> str:

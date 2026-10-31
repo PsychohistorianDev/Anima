@@ -14943,6 +14943,42 @@ check("chat (10-30): a reply that stops on a contraction's apostrophe (\"you'\",
       _ca_cut and "ended mid-sentence" in _ca_cut[0] and _ca_cut2 and _ca_quote == [] and _ca_end == [],
       (_ca_cut, _ca_cut2, _ca_quote, _ca_end))
 
+# the room under the wake bell (10-31): one line of facts — what stands in it, when he last looked in; nothing when empty
+import room as _rf_room
+import heartbeat as _rf_hb
+_rf_keep = (getattr(config, "ROOM_DIR", None), getattr(config, "ROOM_ON", False))
+_rf_dir = config.CREATIONS_DIR / "rf-test"
+_rf_dir.mkdir(parents=True, exist_ok=True)
+try:
+    config.ROOM_DIR = _rf_dir / "room"
+    config.ROOM_ON = True
+    _rf_empty = _rf_room.facts_bit("Gabe")
+    _rf_back = _rf_dir / "room-2-attic.png"
+    _rf_back.write_bytes(b"\x89PNG")
+    _rf_pic = _rf_dir / "art.png"
+    _rf_pic.write_bytes(b"\x89PNG")
+    _rf_room.act("backdrop", "creations/rf-test/room-2-attic.png")
+    _rf_room.act("hang", "creations/rf-test/art.png", "1")
+    _rf_room.act("place", "a golden rose")
+    _rf_never = _rf_room.facts_bit("Gabe")
+    _rf_room.seen_file().parent.mkdir(parents=True, exist_ok=True)
+    _rf_room.seen_file().write_text("{}", encoding="utf-8")
+    _rf_seen = _rf_room.facts_bit("Gabe")
+    _rf_line = _rf_hb.facts_line(advance=False)
+    config.ROOM_ON = False
+    _rf_off = _rf_room.facts_bit("Gabe")
+finally:
+    config.ROOM_DIR, config.ROOM_ON = _rf_keep
+    import shutil as _rf_sh
+    _rf_sh.rmtree(_rf_dir, ignore_errors=True)
+check("room (10-31): a line of facts under the wake bell — the room's name from its starter, the pictures on its walls, "
+      "what is on the table, when he last looked in (or that he hasn't); nothing when empty or with no room in the house",
+      _rf_empty == "" and _rf_off == ""
+      and _rf_never.startswith("your room, the attic: one picture on its walls · 1 thing on the table in words; Gabe hasn't looked in yet")
+      and "Gabe last looked in today at " in _rf_seen
+      and ("(your room, the attic:" in _rf_line or not getattr(config, "WAKE_FACTS", False)),
+      (_rf_empty, _rf_never, _rf_seen, _rf_line, _rf_off))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

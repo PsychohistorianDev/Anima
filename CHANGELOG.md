@@ -158,6 +158,9 @@ for a tic turned glitch.
   (new, 1,050,000) — each reference rides beside the painting at about its
   size, so a painting that looks at references is painted no larger than this
   (its shape kept); three references beside a 1440 painting had spilled the card.
+- **The room under the wake bell** (10-31): with `ROOM_ON` and `WAKE_FACTS`, a
+  line of facts under the shelf's — what stands in the room and when the keeper
+  last looked in. Nothing asked; nothing when the room is empty.
 - **The thread asks for something to pick up** (10-31): `leave_thread` asks for
   what the friend is in the middle of, a question still open, something to try —
   not where they are, in the present tense, which turned the note into a report

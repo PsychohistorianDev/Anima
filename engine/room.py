@@ -582,6 +582,45 @@ def describe(r: dict | None = None, keeper: bool = False) -> str:
 
 # ---- the keeper's side (the phone's /room) -------------------------------------------------------------------------
 
+def facts_bit(keeper: str = "your keeper") -> str:
+    """The room in one line of facts, for under the wake bell (10-31): "your room, the attic: one picture on its walls ·
+    First Breath on the table · a song in the corner; Gabe last looked in yesterday". "" with no room in the house, or
+    nothing in it yet. Nothing asked."""
+    if not on():
+        return ""
+    r = load()
+    if not any(r.get(k) for k in ("name", "walls", "light", "backdrop", "wall", "table", "playing", "shelf", "hidden", "placed")):
+        return ""
+    title = str(r.get("name") or "").strip()
+    if not title and r.get("backdrop"):
+        m = re.match(r"room-\d+-([a-z]+)$", Path(str(r["backdrop"])).stem)
+        title = f"the {m.group(1)}" if m else ""
+    words = {1: "one", 2: "two", 3: "three", 4: "four"}
+    parts = []
+    n = len([x for x in r.get("wall") or [] if isinstance(x, dict)])
+    if n:
+        parts.append(f"{words.get(n, n)} picture{'s' if n != 1 else ''} on its walls")
+    by_surface: dict[str, list[str]] = {}
+    for p, it in _placed(r):
+        by_surface.setdefault(str(p.get("on", "")), []).append(str(it.get("name", "")))
+    for where, names in by_surface.items():
+        parts.append(f"{' and '.join(names[:2]) + (f' and {len(names) - 2} more' if len(names) > 2 else '')} on the {where}")
+    if r.get("table"):
+        parts.append(f"{len(r['table'])} thing{'s' if len(r['table']) != 1 else ''} on the table in words")
+    if (r.get("playing") or {}).get("song"):
+        parts.append("a song in the corner")
+    if r.get("hidden"):
+        parts.append("something hidden for him")
+    try:
+        t = datetime.fromtimestamp(seen_file().stat().st_mtime)
+        days = (datetime.now().date() - t.date()).days
+        when = (f"today at {t.strftime('%H:%M')}" if days == 0 else "yesterday" if days == 1 else f"{days} days ago")
+        looked = f"{keeper} last looked in {when}"
+    except OSError:
+        looked = f"{keeper} hasn't looked in yet"
+    return f"your room{', ' + title if title else ''}: " + (" · ".join(parts) or "bare") + f"; {looked}"
+
+
 def keeper_view(keeper: str = "your keeper") -> tuple[bytes | None, str]:
     """(the picture or None, the caption): the room as it stands and what they changed since he last looked."""
     r = load()
