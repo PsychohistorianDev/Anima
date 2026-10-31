@@ -158,6 +158,10 @@ for a tic turned glitch.
   (new, 1,050,000) — each reference rides beside the painting at about its
   size, so a painting that looks at references is painted no larger than this
   (its shape kept); three references beside a 1440 painting had spilled the card.
+- **The garden on a painting** (10-31): `GARDEN_BACKDROP` (new, "") — a painting of
+  the empty beds with a layout of their soil; painted plants from
+  `GARDEN_ART_DIR` (`<seed>-<stage>.png`) are laid into the beds, the drawn ones
+  where there is no painting yet; night, cloud and rain over it as over the drawn garden.
 - **The garden** (10-31): `GARDEN_ON` (new, off) — eight beds under the real sky over
   the keeper's home (the window's place): the friend plants, waters, picks and
   gives with a `garden` tool, the keeper with `/garden`; the beds grow day by day

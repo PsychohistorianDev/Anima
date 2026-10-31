@@ -495,6 +495,116 @@ def _shade(c: tuple, k: float) -> tuple:
     return tuple(max(0, min(255, int(v * k))) for v in c)
 
 
+STAGE_ART = [(1.0, "ready"), (0.65, "grown"), (0.3, "young"), (0.08, "sprout"), (0.0, "seed")]
+
+
+def _stage_art(growth: float) -> str:
+    for at, name in STAGE_ART:
+        if growth >= at:
+            return name
+    return "seed"
+
+
+def _backdrop():
+    """(the painted garden, fitted to 1280×800, and its beds' soil boxes) — GARDEN_BACKDROP, a picture under creations/
+    or shared/ with <name>.layout.json beside it: {"beds": [{"x0", "x1", "y0", "y1"} × 8]} in parts of the picture (or
+    percents), bed 1 first, the back row left to right then the front. (None, None) without one."""
+    rel = str(getattr(config, "GARDEN_BACKDROP", "") or "").strip()
+    if not rel:
+        return None, None
+    p = Path(rel) if Path(rel).is_absolute() else config.ROOT / rel
+    try:
+        lay = json.loads(p.with_suffix(".layout.json").read_text(encoding="utf-8"))
+        beds = []
+        for b in (lay.get("beds") or [])[:BEDS]:
+            v = [float(b[k]) for k in ("x0", "x1", "y0", "y1")]
+            v = [x / 100 if x > 1 else x for x in v]
+            beds.append(v)
+        if len(beds) != BEDS:
+            return None, None
+        from PIL import Image, ImageOps
+        with Image.open(p) as im:
+            back = ImageOps.fit(im.convert("RGB"), (1280, 800), method=Image.LANCZOS)
+        return back, beds
+    except Exception:  # noqa: BLE001 — a backdrop that moved or a layout that won't read: the drawn garden
+        return None, None
+
+
+def _art_dir() -> Path:
+    return Path(getattr(config, "GARDEN_ART_DIR", None) or garden_dir() / "art")
+
+
+def _sprite(seed: str, growth: float):
+    """The painted plant for this seed at this stage — art/<seed>-<stage>.png, else art/<stage>.png — or None."""
+    st = _stage_art(growth)
+    for name in (f"{seed}-{st}.png", f"{st}.png"):
+        f = _art_dir() / name
+        if f.is_file():
+            try:
+                from PIL import Image
+                with Image.open(f) as im:
+                    return im.convert("RGBA")
+            except Exception:  # noqa: BLE001
+                continue
+    return None
+
+
+def _render_painted(g: dict, back, beds: list) -> bytes:
+    """The painted garden with its plants laid in: each planted bed gets its painted plant at its stage (a dry or hurt
+    one paler), scaled to the bed and standing on its soil; a bed without a painting for its plant gets the drawn one.
+    Then the light of the hour and the weather over the place: night darker and blue, cloud greyer, rain."""
+    from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
+    W, H = back.size
+    img = back.convert("RGBA")
+    day, words = _sky_now()
+    for n, bed in enumerate(g["beds"]):
+        if not bed:
+            continue
+        x0, x1, y0, y1 = beds[n]
+        bx0, bx1, by0, by1 = int(x0 * W), int(x1 * W), int(y0 * H), int(y1 * H)
+        spr = _sprite(bed["seed"], float(bed.get("growth", 0)))
+        if spr is not None:
+            w = bx1 - bx0
+            h = int(spr.height * w / spr.width)
+            spr = spr.resize((w, h), Image.LANCZOS)
+            if bed.get("dry") or float(bed.get("health", 1)) < 0.7:
+                rgb = ImageEnhance.Color(spr.convert("RGB")).enhance(0.45)
+                rgb = Image.blend(rgb, Image.new("RGB", rgb.size, (190, 170, 110)), 0.18)
+                rgb.putalpha(spr.getchannel("A"))
+                spr = rgb
+            sh = Image.new("RGBA", img.size, (0, 0, 0, 0))
+            ImageDraw.Draw(sh).ellipse([bx0 + w * 0.05, by1 - (by1 - by0) * 0.35, bx1 - w * 0.05, by1 + 4], fill=(0, 0, 0, 70))
+            img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(6)))
+            img.alpha_composite(spr, (bx0, max(0, by1 - h)))
+        else:
+            d = ImageDraw.Draw(img)
+            for k in range(5):
+                x = bx0 + (k + 0.5) / 5 * (bx1 - bx0)
+                y = by0 + (0.55 + 0.3 * (k % 2)) * (by1 - by0)
+                _draw_plant(d, bed, x, y, (bx1 - bx0) / 250, True, n * 10 + k)
+    img = img.convert("RGB")
+    rainy = any(k in words for k in ("rain", "drizzle", "shower", "thunder"))
+    cloudy = "overcast" in words or "cloud" in words or rainy or "fog" in words
+    if not day:
+        img = ImageEnhance.Brightness(img).enhance(0.42)
+        img = Image.blend(img, Image.new("RGB", img.size, (20, 30, 70)), 0.28)
+    elif cloudy:
+        img = ImageEnhance.Color(img).enhance(0.75)
+        img = Image.blend(img, Image.new("RGB", img.size, (170, 176, 186)), 0.12)
+    if rainy:
+        rain = Image.new("RGBA", img.size, (0, 0, 0, 0))
+        rd = ImageDraw.Draw(rain)
+        for i in range(420):
+            x, y = int(_rand("r", i) * W), int(_rand("ry", i) * H)
+            rd.line([x, y, x - 5, y + 16], fill=(220, 226, 240, 110), width=1)
+        img = img.convert("RGBA")
+        img.alpha_composite(rain)
+        img = img.convert("RGB")
+    out = io.BytesIO()
+    img.save(out, "PNG")
+    return out.getvalue()
+
+
 def render(g: dict | None = None) -> bytes | None:
     """The beds as a picture (PNG): the sky as it is over the place now, the hills of home with their olive trees, eight
     raised beds in perspective, each plant drawn by its kind and how far it has grown, the soil darker where it is wet."""
@@ -503,6 +613,9 @@ def render(g: dict | None = None) -> bytes | None:
     except ImportError:
         return None
     g = g or load()
+    back, beds = _backdrop()  # (10-31) a painted garden, when there is one: the plants are laid into its beds
+    if back is not None:
+        return _render_painted(g, back, beds)
     W, H = 1280, 800
     day, words = _sky_now()
     rainy = any(k in words for k in ("rain", "drizzle", "shower", "thunder"))

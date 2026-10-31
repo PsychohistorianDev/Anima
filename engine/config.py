@@ -1200,6 +1200,11 @@ ROOM_ON = False
 # plant, water and pick with their garden tool, you with /garden; the beds grow by the weather that really
 # fell there, and nothing dies of being left alone.
 GARDEN_ON = False
+# A painting of the empty beds to grow on (a picture under creations/ or shared/, with <name>.layout.json beside
+# it: the eight beds' soil as x0 x1 y0 y1, back row first), and the painted plants laid into it — in
+# GARDEN_ART_DIR as <seed>-<stage>.png (stage: seed, sprout, young, grown, ready). "" — the drawn garden.
+GARDEN_BACKDROP = ""
+GARDEN_ART_DIR = CREATIONS_DIR / "garden" / "art"
 # Intense's minute as a ceiling on when a spark ARRIVES: the beat after the last word is drawn from what is left of
 # the minute once an intense spark's usual turn time (thinking and writing, measured) is taken off. False: the beat
 # alone is 0–60 s, and the spark's own writing time comes on top.

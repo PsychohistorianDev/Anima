@@ -15286,6 +15286,44 @@ check("garden (10-31): seeds listed; planted (kalanit is the anemone), a full be
       and "GARDEN_ON is off" in _gd_off[0] and not _gd_off[1] and _gd_off[2] == "",
       (_gd_words, _gd_bit, _gd_pick, _gd_dry, _gd_frost_ev, _gd_kwords[:300], _gd_give, _gd_knews))
 
+# the garden on a painted backdrop (10-31): the painting and its layout; a painted plant laid into its bed, the drawn one
+# where there is no painting for it; a layout that won't read leaves the drawn garden
+import garden as _gb
+_gb0 = (getattr(config, "GARDEN_BACKDROP", ""), getattr(config, "GARDEN_ART_DIR", None), _gb._sky_now)
+_gb_dir = config.CREATIONS_DIR / "gb-test"
+_gb_ok = None
+try:
+    from PIL import Image as _gb_I
+    import io as _gb_io
+    _gb_dir.mkdir(parents=True, exist_ok=True)
+    _gb_I.new("RGB", (640, 400), (60, 120, 60)).save(_gb_dir / "back.png")
+    (_gb_dir / "back.layout.json").write_text(_json.dumps({"beds": [
+        {"x0": 5 + 24 * (i % 4), "x1": 23 + 24 * (i % 4), "y0": 40 if i < 4 else 65, "y1": 50 if i < 4 else 75} for i in range(8)]}),
+        encoding="utf-8")
+    (_gb_dir / "art").mkdir(exist_ok=True)
+    _gb_I.new("RGBA", (200, 100), (250, 0, 250, 255)).save(_gb_dir / "art" / "radish-ready.png")
+    config.GARDEN_BACKDROP, config.GARDEN_ART_DIR = str(_gb_dir / "back.png"), _gb_dir / "art"
+    _gb._sky_now = lambda: (True, "clear")
+    _gb_g = _gb._empty()
+    _gb_g["beds"][0] = {"seed": "radish", "planted": "2026-10-01", "growth": 1.0, "water": 0.6, "health": 1.0}
+    _gb_g["beds"][4] = {"seed": "lettuce", "planted": "2026-10-01", "growth": 0.5, "water": 0.6, "health": 1.0}
+    _gb_img = _gb_I.open(_gb_io.BytesIO(_gb.render(_gb_g))).convert("RGB")
+    _gb_bed1 = _gb_img.getpixel((int(0.14 * 1280), int(0.47 * 800)))  # inside the painted radish
+    _gb_empty = _gb_img.getpixel((int(0.86 * 1280), int(0.45 * 800)))  # bed 4, nothing planted: the backdrop
+    (_gb_dir / "back.layout.json").write_text("{not json", encoding="utf-8")
+    _gb_fallback = _gb._backdrop()
+    _gb_ok = (_gb_bed1[0] > 200 and _gb_bed1[1] < 60 and _gb_bed1[2] > 200 and abs(_gb_empty[1] - 120) < 25
+              and _gb_fallback == (None, None) and _gb._stage_art(0.5) == "young" and _gb._stage_art(1.0) == "ready")
+except ImportError:
+    _gb_ok = True  # no Pillow in this Python: nothing to draw
+finally:
+    config.GARDEN_BACKDROP, config.GARDEN_ART_DIR, _gb._sky_now = _gb0
+    import shutil as _gb_sh
+    _gb_sh.rmtree(_gb_dir, ignore_errors=True)
+check("garden (10-31): on a painted backdrop the painted plant stands in its bed, an empty bed shows the painting, a layout "
+      "that won't read leaves the drawn garden; the stages by growth",
+      _gb_ok, _gb_ok)
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)
