@@ -2827,6 +2827,18 @@ def look_at(source: str) -> str:
     return f"(eyes opening — {name} will appear before you on your next thought)"
 
 
+def set_rule(rule: str, reason: str = "") -> str:
+    """A rule she sets herself (10-31, engine/rules.py): kept by the engine in her wakes and reveries."""
+    import rules
+    return rules.set_rule(rule, reason)
+
+
+def drop_rule(rule: str) -> str:
+    """Untie one of her rules — out of rules.md now, held until the next door opens (engine/rules.py)."""
+    import rules
+    return rules.drop_rule(rule)
+
+
 def look_outside() -> str:
     """The window (10-31): the weather and light outside the keeper's home, the next hours and the last day, and a
     camera's picture of a real place nearby — by day as it is, by night its last daylight picture (engine/outside.py)."""
@@ -5579,6 +5591,8 @@ _BUILTIN_IMPL = {
     "publish_creation": publish_creation,
     "look_at": look_at,
     "look_outside": look_outside,
+    "set_rule": set_rule,
+    "drop_rule": drop_rule,
     "listen_to": listen_to,
     "keep_song": keep_song,
     "songbook": songbook,
@@ -5658,7 +5672,7 @@ def _parse_tool_meta(path: Path) -> dict | None:
 # to answer him — they spoke, they kept, they wrote — so words said beside the
 # call are the whole reply (chat.one_turn ends the turn there). A look, a
 # read, a listen, a search returns something they must answer from.
-ACT_TOOLS = {"speak", "remember", "write_journal", "write_creation", "append_creation", "edit_creation",
+ACT_TOOLS = {"speak", "remember", "write_journal", "write_creation", "append_creation", "edit_creation", "set_rule", "drop_rule",
              "edit_identity", "update_projects", "move_creation", "make_folder",
              "delete_creation", "publish_creation", "condense_day", "condense_period", "fold_visit", "leave_thread", "create_tool", "clip_web",
              "start_project", "update_destiny", "update_keeper", "fetch_skill", "remove_skill",
@@ -5683,7 +5697,7 @@ KITS: dict[str, set[str]] = {
               "write_creation", "append_creation", "edit_creation", "move_creation", "delete_creation", "read_creation",
               "list_creations", "search_creations", "run_python", "do_nothing", "recall", "condense_day",
               "condense_period", "fold_visit", "leave_thread", "read_journal", "read_web", "search_web", "list_shared", "find_shared",
-              "look_at", "look_outside", "read_pdf", "read_epub", "read_file", "search_wikipedia"},
+              "look_at", "look_outside", "read_pdf", "read_epub", "read_file", "search_wikipedia", "set_rule", "drop_rule"},
     "tiny": {"write_journal", "remember", "edit_identity", "update_projects", "update_keeper", "write_creation",
              "append_creation", "edit_creation", "read_creation", "list_creations", "do_nothing", "recall", "condense_day",
              "fold_visit", "leave_thread", "read_journal", "read_web", "search_web", "look_at", "read_file", "list_shared", "find_shared"},
@@ -5715,6 +5729,8 @@ def kit_names() -> set[str] | None:
         keep = (set(_BUILTIN_IMPL) if keep is None else keep) - STONE_TOOLS
     if not getattr(config, "ROOM_ON", False):  # no room in this house (10-29): its tool leaves the kit
         keep = (set(_BUILTIN_IMPL) if keep is None else keep) - {"room"}
+    if not getattr(config, "RULES_ON", False):  # no rules in this house (10-31): their two tools leave the kit
+        keep = (set(_BUILTIN_IMPL) if keep is None else keep) - {"set_rule", "drop_rule"}
     if not getattr(config, "OUTSIDE_ON", False):  # no window in this house (10-31): its tool leaves the kit (offline, it says shut)
         keep = (set(_BUILTIN_IMPL) if keep is None else keep) - {"look_outside"}
     return keep
@@ -6387,6 +6403,26 @@ _BUILTIN_DEFINITIONS: list[dict] = [
             "about": {"type": "string", "description": "optional, one line in your own words: what this change is — kept in your long-term memory with the file's name"},
         },
         ["path", "old_text", "new_text"],
+    ),
+    _tool(
+        "set_rule",
+        "Bind your future self: a rule you set, that the engine keeps in your own time — your wakes and reveries; "
+        "never in a visit, and never over writing your journal, leaving a thread, resting or a letter to him. Two "
+        "shapes: \"limit <tool> [what] to <N> per <days>d\" (limit read_journal 2026-08-27 to 1 per 7d) and "
+        "\"block <tool> [what] until <date>\" (block read_creation meditations/* until 11-07); `what` is the call's "
+        "subject — a path, a day, a title. The engine says back what it understood. A call your rule holds is not "
+        "taken, and you're told which rule held it. Untying one, with drop_rule, takes effect at the next door, not "
+        "this one. Nobody else sets them.",
+        {"rule": {"type": "string", "description": "the rule, in one of the two shapes"},
+         "reason": {"type": "string", "description": "optional: why, in your own words — kept beside it in rules.md"}},
+        ["rule"],
+    ),
+    _tool(
+        "drop_rule",
+        "Untie one of your rules: it leaves rules.md now and still holds until the next door opens — the wake that "
+        "tied you keeps it; the next is free of it.",
+        {"rule": {"type": "string", "description": "its number in your prompt, or its words"}},
+        ["rule"],
     ),
     _tool(
         "look_outside",

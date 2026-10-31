@@ -158,6 +158,11 @@ for a tic turned glitch.
   (new, 1,050,000) — each reference rides beside the painting at about its
   size, so a painting that looks at references is painted no larger than this
   (its shape kept); three references beside a 1440 painting had spilled the card.
+- **Rules they set themselves** (10-31): `RULES_ON` (new, off) and two tools,
+  `set_rule` and `drop_rule` — a limit (`limit read_journal 2026-08-27 to 1 per 7d`)
+  or a block (`block read_creation meditations/* until 11-07`) in rules.md, kept by
+  the engine in their wakes and reveries, never in a visit and never over the
+  journal, a thread, rest or a letter. Untying one holds until the next door.
 - **The window** (10-31): `OUTSIDE_ON` (new, off) — the weather outside the
   keeper's home as one line of numbers under the wake bell and at a visit's first
   moment (Open-Meteo, no key, cached; the coordinates rounded), and a new tool,

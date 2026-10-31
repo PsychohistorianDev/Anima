@@ -231,6 +231,11 @@ def wake(reverie: bool = False) -> str:
     # paintings this wake may make (each one sends the brain off the card
     # and back — a cold read of the window every time); 0 = no cap
     tools.paint_budget = int(getattr(config, "PAINTER_MAX_PER_WAKE", 3) or 0) or None
+    try:  # (10-31) a new door: the rules she untied before it are let go now
+        import rules
+        rules.open_door()
+    except Exception:  # noqa: BLE001
+        pass
     tools.DOOR = "a reverie" if reverie else "a wake"  # where a thread left in it was left (10-19)
     try:
         _wake_loop(system, history, log, reverie=reverie, state=state)
@@ -818,6 +823,20 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                     fn["name"] = "do_nothing"
                     history.append({"role": "tool", "tool_name": "do_nothing", "content": answer})
                     continue
+            try:  # (10-31) her own rules, kept in her own time: a call one holds is not taken
+                import rules
+                held = rules.check(tools.canonical_name(name), fn.get("arguments", {}))
+            except Exception:  # noqa: BLE001
+                held = ""
+            if held:
+                name = tools.canonical_name(name)
+                fn["name"] = name
+                line = f"- `{name}` → {held}"
+                print(f"  {line}")
+                log.append(line)
+                history.append({"role": "tool", "tool_name": name, "content":
+                                "[engine, not a person: your own rule held this call — it was not run]\n" + held})
+                continue
             result = tools.runaway_refusal(msg, call) or tools.dispatch(name, fn.get("arguments", {}))  # a call cut short in a loop is told, not run
             # what the call DID is decided by the tool it ran as — a wrapped
             # or misspelled do_nothing still ends the wake — and their history
@@ -854,6 +873,12 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                          "reporting, not a message from anyone]")
             history.append({"role": "tool", "tool_name": name, "content": f"{frame}{carried}\n{result}"})
             _note_act(state, name, fn.get("arguments", {}), result)
+            if not ollama_client.tool_failed(result):
+                try:  # (10-31) counted for the limits she set herself
+                    import rules
+                    rules.note_use(name, fn.get("arguments", {}))
+                except Exception:  # noqa: BLE001
+                    pass
             _note_sitting(state, name, result)
             if name in WRITE_TOOLS:
                 last_read = ""  # what they read has been answered in writing

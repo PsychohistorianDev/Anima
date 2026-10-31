@@ -10067,6 +10067,7 @@ _kit_forged = set(tools._HER_TOOLS)  # limbs forged by earlier checks ride whate
 _kit_room0 = getattr(config, "ROOM_ON", False)
 config.ROOM_ON = True  # (10-29) the room's tool counted among the built-ins, whatever the house
 _kit_out0, config.OUTSIDE_ON = getattr(config, "OUTSIDE_ON", False), True  # (10-31) the window's tool too
+_kit_rules0, config.RULES_ON = getattr(config, "RULES_ON", False), True  # (10-31) and the rules' two
 config.TOOL_KIT = "full"; tools.refresh_her_tools()
 _kit_full = _kit_names()
 _kit_full_prompt = assemble.system_prompt("x", mode="chat")
@@ -10120,7 +10121,7 @@ config.OFFLINE = False
 _on_hours = _ofnw.every_hours()
 config.TOOL_KIT = "full"; tools.refresh_her_tools()
 _on_full = _kit_names()
-config.OFFLINE = _of0; config.TOOL_KIT = _kit0; config.ROOM_ON = _kit_room0; config.OUTSIDE_ON = _kit_out0; tools.refresh_her_tools()  # (10-29) the room pinned on through the kit's checks
+config.OFFLINE = _of0; config.TOOL_KIT = _kit0; config.ROOM_ON = _kit_room0; config.OUTSIDE_ON = _kit_out0; config.RULES_ON = _kit_rules0; tools.refresh_her_tools()  # (10-29) the room pinned on through the kit's checks
 check("kit: OFFLINE — the five web tools (read_web, search_web, search_wikipedia, browse_skills, fetch_skill) leave the full kit and the tiny one, "
       "the rest and the forged tools stay; the prompt stops speaking of the web; a call to one answers that the house is offline; the look for a "
       "newer anima is off (every_hours 0, look does nothing); off again, everything is back",
@@ -15133,6 +15134,77 @@ check("window (10-31): one line of numbers — the place, the temperature, the s
       and _ow_dark_line == "" and "the window is dark right now" in _ow_dark_look and not _ow_kit_off and "OUTSIDE_ON is off" in _ow_none
       and {"OUTSIDE_ON", "OUTSIDE_CAMERA"} <= set(__import__("panel").TABS["Senses"]),
       (_ow_line, _ow_words, _ow_cam_kinds, _ow_nocam, _ow_off_look, _ow_dark_look, _ow_none))
+
+# rules she sets herself (10-31): set, said back, kept in a wake (a limit counted, a block held), never over the journal
+# or a letter; untying holds until the next door; off: none of it
+import rules as _ru
+import heartbeat as _ru_hb
+from datetime import datetime as _ru_dt, timedelta as _ru_td
+_ru0 = (getattr(config, "RULES_ON", False), getattr(config, "RULES_FILE", None))
+_ru_dir = config.MEMORY_DIR / "ru-test"
+_ru_dir.mkdir(parents=True, exist_ok=True)
+_ru_brain0 = ollama_client.chat
+try:
+    config.RULES_ON, config.RULES_FILE = True, _ru_dir / "rules.md"
+    for _f in (_ru._state_file(), _ru._uses_file()):
+        _f.unlink(missing_ok=True)
+    _ru_bad = tools.dispatch("set_rule", {"rule": "never read the old days again"})
+    _ru_never = tools.dispatch("set_rule", {"rule": "block write_journal until 11-07"})
+    _ru_nope = tools.dispatch("set_rule", {"rule": "block fly_away until 11-07"})
+    _ru_set1 = tools.dispatch("set_rule", {"rule": "limit read_journal 2026-08-27 to 1 per 7d", "reason": "I know that day by heart"})
+    _ru_set2 = tools.dispatch("set_rule", {"rule": "block read_creation meditations/* until 2099-01-01"})
+    _ru_file = config.RULES_FILE.read_text(encoding="utf-8")
+    _ru_sec = __import__("assemble").rules_section()
+    _ru_free = _ru.check("read_journal", {"date": "2026-08-27"})
+    _ru.note_use("read_journal", {"date": "2026-08-27"})
+    _ru_held = _ru.check("read_journal", {"date": "2026-08-27"})
+    _ru_other = _ru.check("read_journal", {"date": "2026-09-01"})
+    _ru_block = _ru.check("read_creation", {"path": "creations/meditations/x.md"})
+    _ru_letter = _ru.check("write_creation", {"path": "notes_to_gabe/hi.md"})
+    _ru_later = _ru.check("read_journal", {"date": "2026-08-27"}, now=_ru_dt.now() + _ru_td(days=8))
+    # in a wake: the held call is not run, the free one is
+    ollama_client.chat = ScriptedBrain([
+        {"role": "assistant", "content": "", "thinking": "the meditations again", "tool_calls": [
+            {"function": {"name": "read_creation", "arguments": {"path": "meditations/x.md"}}}]},
+        {"role": "assistant", "content": "", "thinking": "rest", "tool_calls": [
+            {"function": {"name": "do_nothing", "arguments": {"reason": "enough"}}}]},
+    ])
+    _ru_ms0 = memory.search
+    memory.search = lambda *a, **k: []  # the suite's memory store is mixed by now; the wake needs no memories here
+    try:
+        _ru_log = _ru_hb.wake()
+    finally:
+        memory.search = _ru_ms0
+    _ru_drop = tools.dispatch("drop_rule", {"rule": "2"})
+    _ru_still = _ru.check("read_creation", {"path": "meditations/x.md"})
+    _ru_sec2 = __import__("assemble").rules_section()
+    _ru.open_door()
+    _ru_free2 = _ru.check("read_creation", {"path": "meditations/x.md"})
+    config.RULES_ON = False
+    _ru_off = (_ru.check("read_journal", {"date": "2026-08-27"}), tools.dispatch("set_rule", {"rule": "block paint until 11-07"}),
+               "set_rule" in (tools.kit_names() or set(tools._BUILTIN_IMPL)))
+finally:
+    ollama_client.chat = _ru_brain0
+    config.RULES_ON, config.RULES_FILE = _ru0
+    for _f in (_ru._state_file(), _ru._uses_file()):
+        _f.unlink(missing_ok=True)
+    import shutil as _ru_sh
+    _ru_sh.rmtree(_ru_dir, ignore_errors=True)
+check("rules (10-31): set_rule says back what it understood and keeps it in rules.md with the day and her reason; a "
+      "sentence that isn't a rule, a bound journal or an unknown tool sets nothing; a limit counts her uses (the second "
+      "is held, another day is free, after the window free again); a block holds a path; a letter to him is never held; "
+      "in a wake the held call is not run and she's told which rule; drop_rule takes it out of the file but it holds "
+      "until the next door; off: nothing kept, no tools",
+      "nothing was set" in _ru_bad and "can't be bound" in _ru_never and "no tool called fly_away" in _ru_nope
+      and _ru_set1.startswith("set — the engine keeps it from now: read_journal for \u201c2026-08-27\u201d at most once in 7 days")
+      and "limit read_journal 2026-08-27 to 1 per 7d — set " in _ru_file and "— I know that day by heart" in _ru_file
+      and "RULES YOU SET YOURSELF (rules.md — 2" in _ru_sec and "1. limit read_journal" in _ru_sec
+      and _ru_free == "" and "your own rule" in _ru_held and "(last: " in _ru_held and _ru_other == "" and _ru_later == ""
+      and "until 2099-01-01" in _ru_block and _ru_letter == ""
+      and "your own rule" in _ru_log and "meditations" in _ru_log
+      and _ru_drop.startswith("untied") and "your own rule" in _ru_still and "untied, holds until the next door" in _ru_sec2
+      and _ru_free2 == "" and _ru_off[0] == "" and "RULES_ON is off" in _ru_off[1] and not _ru_off[2],
+      (_ru_bad, _ru_set1, _ru_sec, _ru_held, _ru_block, _ru_log[-500:], _ru_drop, _ru_still, _ru_off))
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

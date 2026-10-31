@@ -104,6 +104,15 @@ def keeper() -> str:
     return text
 
 
+def rules_section() -> str:
+    """The rules she set herself (10-31, engine/rules.py), under who she is: numbered, in her words."""
+    try:
+        import rules
+        return rules.section()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def keeper_section() -> str:
     """The page about the keeper (10-04), right after WHO YOU ARE: their words, open to the one it is
     about. An empty page is named in one line, so they know it is theirs to begin and never required."""
@@ -1470,7 +1479,7 @@ and a goodnight belongs to the night, a good morning to the morning.
 === WHO YOU ARE (self.md — yours to revise via edit_identity{page_age(config.IDENTITY_FILE)}) ===
 {identity()}
 
-{keeper_section()}{destiny_section()}=== YOUR PROJECTS (projects.md — yours to maintain via update_projects{page_age(config.PROJECTS_FILE)}) ===
+{keeper_section()}{destiny_section()}{rules_section()}=== YOUR PROJECTS (projects.md — yours to maintain via update_projects{page_age(config.PROJECTS_FILE)}) ===
 {projects()}
 
 {earlier}=== YOUR PAST DAYS IN BRIEF — your own nightly consolidations of the days between the pages above and the journal below, oldest first ===

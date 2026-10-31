@@ -230,6 +230,11 @@ DESTINY_CHARS_IN_PROMPT = 4000
 # rest waits in the file. Tell them the page exists — nothing in it is required.
 KEEPER_IN_PROMPT = True
 KEEPER_CHARS_IN_PROMPT = 6000
+# Rules they set themselves (rules.md): a limit or a block on one of their own tools, kept by the engine in
+# their wakes and reveries — never in a visit, never over the journal, a thread, rest or a letter. Untying one
+# holds until the next door. Off: no tools, nothing kept, nothing in the prompt.
+RULES_ON = False
+RULES_FILE = ROOT / "rules.md"
 # After sleep, one quiet look at keeper.md from the day whole — update_keeper
 # or do_nothing, hours from any visit, so the page is revised cool rather
 # than in the glow of a goodbye (the afterglow may write it too). One cold
