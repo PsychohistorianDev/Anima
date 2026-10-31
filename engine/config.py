@@ -1211,6 +1211,10 @@ GARDEN_ART_DIR = CREATIONS_DIR / "garden" / "art"
 GARDEN_ART_STYLE = "storybook painterly illustration, bright natural daylight from the upper left, soft shadows, vivid fresh colours, fine detail"
 GARDEN_ART_SIZE = "small"
 GARDEN_INVENTS_PER_DAY = 2
+# The garden's pace: the days a plant takes from seed to ready, as (fastest, slowest). Every plant's real time is
+# laid into this span, the quickest at the first number and the slowest at the second, the order kept; a plant
+# made up with invent is given its days inside it. (0, 0) — real timings, about a month to four.
+GARDEN_DAYS = (0, 0)
 # Intense's minute as a ceiling on when a spark ARRIVES: the beat after the last word is drawn from what is left of
 # the minute once an intense spark's usual turn time (thinking and writing, measured) is taken off. False: the beat
 # alone is 0–60 s, and the spark's own writing time comes on top.

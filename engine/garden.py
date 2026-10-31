@@ -43,7 +43,31 @@ SEEDS: dict[str, dict] = {
     "cyclamen":   {"days": 110, "ready": "flowers open",     "t": (3, 8, 18, 26),  "thirst": 0.4, "hardy": True,  "col": (230, 120, 190), "form": "flower", "yield": "a pink cyclamen (rakefet)", "again": 0.8, "look": "a wild cyclamen (rakefet) with heart-shaped marbled leaves", "ripe": "with pink upswept cyclamen flowers"},
     "rosemary":   {"days": 70,  "ready": "sprigs to cut",    "t": (0, 12, 30, 38), "thirst": 0.3, "hardy": True,  "col": (90, 130, 110), "form": "herb", "yield": "a sprig of rosemary", "again": 0.7, "look": "a rosemary bush", "ripe": "a bushy rosemary with tiny pale blue flowers"},
 }
-INVENTED_KEYS = ("days", "ready", "t", "thirst", "hardy", "col", "form", "yield", "again", "look", "ripe", "by", "invented")
+INVENTED_KEYS = ("days", "ready", "t", "thirst", "hardy", "col", "form", "yield", "again", "look", "ripe", "by", "invented",
+                 "paced")
+REAL_SPAN = (21, 120)  # the real days a plant here takes, quickest to slowest (a made-up one is held to them too)
+
+
+def pace() -> tuple[int, int] | None:
+    """GARDEN_DAYS as (fastest, slowest), or None for real timings."""
+    try:
+        lo, hi = (int(x) for x in (getattr(config, "GARDEN_DAYS", (0, 0)) or (0, 0)))
+    except (TypeError, ValueError):
+        return None
+    return (min(lo, hi), max(lo, hi)) if lo > 0 and hi > 0 else None
+
+
+def days_of(sp: dict) -> int:
+    """The days this plant takes here: its real days, or laid into the garden's pace (GARDEN_DAYS) — a plant made up
+    under the pace keeps the days it was given."""
+    d = int(sp.get("days") or 60)
+    p = pace()
+    if not p:
+        return d
+    if sp.get("paced"):
+        return min(p[1], max(p[0], d))
+    lo, hi = REAL_SPAN
+    return round(p[0] + (min(hi, max(lo, d)) - lo) / (hi - lo) * (p[1] - p[0]))
 SEASONS = {"cool": (4, 10, 20, 27), "warm": (10, 20, 30, 35), "any": (5, 12, 28, 34)}
 THIRST = {"low": 0.3, "mid": 0.55, "high": 0.8}
 
@@ -235,7 +259,7 @@ def _grow_day(bed: dict, day: str, w: dict, events: list, n: int) -> None:
         health = min(1.0, health + 0.08)
     bed["health"] = round(health, 3)
     before = float(bed.get("growth", 0.0))
-    g = before + (1.0 / sp["days"]) * tf * wf * lf * (0.6 + 0.4 * health)
+    g = before + (1.0 / days_of(sp)) * tf * wf * lf * (0.6 + 0.4 * health)
     g = min(1.0, g)
     bed["growth"] = round(g, 4)
     if stage(before) != stage(g):
@@ -342,7 +366,7 @@ def seeds_text(keeper: bool = False) -> str:
     """The seeds; a made-up one says whose it is and when — "made up by you" to them (10-31: "made up by them" read to
     them as someone else's plant)."""
     return "seeds: " + "; ".join(
-        f"{k} ({v['days']} days, {v['ready']})"
+        f"{k} ({days_of(v)} days, {v['ready']})"
         + (f" — made up by {'them' if keeper else 'you'} {_made_on(v)}".rstrip() if v.get("invented") else "")
         for k, v in all_seeds().items())
 
@@ -386,14 +410,14 @@ def act(action: str, where: str = "", what: str = "", who: str = "them", keeper_
             return f"(bed {n} has {g['beds'][n - 1]['seed']} in it — pull it first, or plant in an empty bed)"
         g["beds"][n - 1] = {"seed": sp, "planted": date.today().isoformat(), "growth": 0.0, "water": 1.0, "health": 1.0,
                             "by": "keeper" if who == "keeper" else "them"}
-        out = f"planted {sp} in bed {n} and watered it — {all_seeds()[sp]['ready']} in about {all_seeds()[sp]['days']} days, weather willing"
+        out = f"planted {sp} in bed {n} and watered it — {all_seeds()[sp]['ready']} in about {days_of(all_seeds()[sp])} days, weather willing"
     elif a in ("pick", "harvest", "give"):
         if not n or not g["beds"][n - 1]:
             return "(nothing in that bed to pick)"
         bed = g["beds"][n - 1]
         sp = all_seeds().get(bed["seed"]) or {"days": 60, "yield": "something", "ready": "ready"}
         if bed.get("growth", 0) < 1.0:
-            return f"(the {bed['seed']} in bed {n} isn't ready — {stage(bed.get('growth', 0))}, about {round((1 - bed.get('growth', 0)) * sp['days'])} days to go, weather willing)"
+            return f"(the {bed['seed']} in bed {n} isn't ready — {stage(bed.get('growth', 0))}, about {round((1 - bed.get('growth', 0)) * days_of(sp))} days to go, weather willing)"
         got = sp["yield"]
         if sp.get("again"):
             bed["growth"] = sp["again"]
@@ -729,11 +753,13 @@ def invent(name: str, look: str, days="", season: str = "", thirst: str = "", gi
         return (f"(the garden takes {getattr(config, 'GARDEN_INVENTS_PER_DAY', 2)} new plants a day"
                 + (f", and today you made up {' and '.join(today)}" if today else "")
                 + " — this one can wait in words until tomorrow)")
+    pc = pace()  # the garden's pace (GARDEN_DAYS): the days are given inside it
+    mid = (pc[0] + pc[1]) // 2 if pc else 60
     try:
-        d = int(re.search(r"\d+", str(days)).group(0)) if str(days).strip() else 60
+        d = int(re.search(r"\d+", str(days)).group(0)) if str(days).strip() else mid
     except (AttributeError, ValueError):
-        d = 60
-    d = min(120, max(21, d))
+        d = mid
+    d = min(pc[1], max(pc[0], d)) if pc else min(REAL_SPAN[1], max(REAL_SPAN[0], d))
     season = str(season or "any").strip().lower()
     season = season if season in SEASONS else ("cool" if season in ("winter", "cold", "autumn", "fall") else
                                                "warm" if season in ("summer", "hot", "spring") else "any")
@@ -745,6 +771,8 @@ def invent(name: str, look: str, days="", season: str = "", thirst: str = "", gi
           "col": [200, 120, 200], "form": _form_of(look), "yield": (" ".join(str(harvest or "").split())[:80] or f"something of the {raw}"),
           "look": look, "ripe": (" ".join(str(ripe or "").split())[:200] or "in full bloom, ready"), "by": by,
           "invented": datetime.now().isoformat(timespec="seconds")}
+    if pc:
+        sp["paced"] = True
     if again:
         sp["again"] = 0.7
     _spend_invent()

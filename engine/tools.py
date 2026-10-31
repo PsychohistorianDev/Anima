@@ -2850,6 +2850,13 @@ def garden(action: str = "look", bed: str = "", what: str = "", name: str = "", 
     return _gm.act(action, str(bed or ""), str(what or ""), who="them", keeper_name=keeper)
 
 
+def _garden_span() -> str:
+    """The days a made-up plant may take, as invent's words say them: the garden's pace (GARDEN_DAYS), or 21–120."""
+    import garden as _gm
+    p = _gm.pace()
+    return f"{p[0]}–{p[1]}" if p else "21–120"
+
+
 def set_rule(rule: str, reason: str = "") -> str:
     """A rule she sets herself (10-31, engine/rules.py): kept by the engine in her wakes and reveries."""
     import rules
@@ -6437,7 +6444,7 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "you looked (a first bud, a bee, a snail). seeds: what can be planted, and how long each takes. plant (bed 1–8, "
         "what), water (a bed, or all), pick (a bed that's ready — it goes on your shelf in the room), give (the same, "
         "for him), pull (clear a bed), note (a few words on a bed). invent: make up a plant of your own — a name, how it "
-        "looks, and if you like its days (21–120), season (cool, warm, any), thirst (low, mid, high), gives (once or "
+        "looks, and if you like its days (" + _garden_span() + "), season (cool, warm, any), thirst (low, mid, high), gives (once or "
         "again), harvest (what it gives) and ripe (how it looks when ready); your painter paints it at four stages "
         "(a few minutes, while your brain steps aside) and it becomes a seed like the others. paint (what: a plant): "
         "paint a plant's stages that have no picture yet. Nothing dies of being left alone: a dry bed rests until it's "
@@ -6447,7 +6454,7 @@ _BUILTIN_DEFINITIONS: list[dict] = [
          "what": {"type": "string", "description": "for plant and paint: the plant; for note: the words"},
          "name": {"type": "string", "description": "for invent: the new plant's name"},
          "look": {"type": "string", "description": "for invent: how it looks — leaves, flowers or fruit, colours"},
-         "days": {"type": "string", "description": "for invent: days from seed to ready, 21–120"},
+         "days": {"type": "string", "description": "for invent: days from seed to ready, " + _garden_span()},
          "season": {"type": "string", "description": "for invent: cool, warm or any"},
          "thirst": {"type": "string", "description": "for invent: low, mid or high"},
          "gives": {"type": "string", "description": "for invent: once, or again"},

@@ -15207,6 +15207,8 @@ check("rules (10-31): set_rule says back what it understood and keeps it in rule
       and _ru_free2 == "" and _ru_off[0] == "" and "RULES_ON is off" in _ru_off[1] and not _ru_off[2],
       (_ru_bad, _ru_set1, _ru_sec, _ru_held, _ru_block, _ru_log[-500:], _ru_drop, _ru_still, _ru_off))
 
+_gd_pace0 = getattr(config, "GARDEN_DAYS", (0, 0))
+config.GARDEN_DAYS = (0, 0)  # the garden's checks at real timings; the pace has its own
 # the garden (10-31): planted, grown by the days' real weather, picked to the shelf or given; a dry bed rests and wakes;
 # frost bites a tender plant; the keeper plants from the phone and she's told; a line under the bell; off: none of it
 import garden as _gd
@@ -15419,6 +15421,7 @@ _rb = [_rb_inspect.getsource(m.Handler.do_POST) if hasattr(m, "Handler") else ""
 check("doors (10-31): the painter's and the music ear's POST read the body before any answer, /rest included",
       all(s and 0 < s.index("self.rfile.read(n)") < s.index('if self.path == "/rest"') for s in _rb), [len(s) for s in _rb])
 
+config.GARDEN_DAYS = _gd_pace0
 # garden (10-31 evening): a made-up plant says whose it is and when; "plant**" is plant; an unknown action is named
 # back; a third invent names the day's two
 import garden as _gw
@@ -15451,6 +15454,44 @@ check("garden (10-31 evening): a made-up plant says whose it is and when (yours 
       and "a plant they made up today" in _gw_r.get("kbed", "") and "— made up by them today" in _gw_r.get("keeper", "")
       and "“dig”" in _gw_r.get("dig", "") and "it knows: look" in _gw_r.get("dig", ""),
       {k: v[:120] for k, v in _gw_r.items()})
+
+# garden (10-31 night): the pace — GARDEN_DAYS lays the real days into its span, the order kept; a made-up plant is given
+# its days inside it and keeps them; a day's growth is a share of the paced days; (0, 0) is real timings
+import garden as _gp
+_gp0 = (config.GARDEN_ON, getattr(config, "GARDEN_DIR", None), getattr(config, "GARDEN_DAYS", (0, 0)), _gp.paint_art)
+_gp_dir = config.CREATIONS_DIR / "gp-test"
+_gp_r: dict = {}
+try:
+    config.GARDEN_ON, config.GARDEN_DIR = True, _gp_dir
+    _gp._invents_file().unlink(missing_ok=True)
+    _gp.paint_art = lambda *a, **k: ([], "no painter in the test")
+    config.GARDEN_DAYS = (0, 0)
+    _gp_r["real"] = [_gp.days_of(_gp.SEEDS[k]) for k in ("radish", "cyclamen")]
+    config.GARDEN_DAYS = (15, 20)
+    _gp_r["paced"] = {k: _gp.days_of(v) for k, v in _gp.SEEDS.items()}
+    _gp_r["inv"] = tools.dispatch("garden", {"action": "invent", "name": "Glass Bell", "look": "a bell of clear glass on a thin stem", "days": "90"})
+    _gp_r["inv2"] = tools.dispatch("garden", {"action": "invent", "name": "Quick Moss", "look": "a soft moss that glows faintly green"})
+    _gp_r["seed"] = _gp.invented().get("glass-bell", {})
+    _gp_r["seeds"] = _gp.seeds_text()
+    _gp_r["plant"] = tools.dispatch("garden", {"action": "plant", "bed": "1", "what": "radish"})
+    _gp_r["old"] = _gp.days_of({"days": 45, "t": (5, 10, 20, 25)})  # made up before the pace: laid in like a real one
+    _gp_r["span"] = tools._garden_span()
+finally:
+    config.GARDEN_ON, config.GARDEN_DIR, config.GARDEN_DAYS, _gp.paint_art = _gp0
+    _gp._invents_file().unlink(missing_ok=True)
+    import shutil as _gp_sh
+    _gp_sh.rmtree(_gp_dir, ignore_errors=True)
+_gp_pv = _gp_r.get("paced", {})
+check("garden (10-31 night): the pace — GARDEN_DAYS (15, 20) lays every real plant into 15–20 days, the order kept "
+      "(radish 15, cyclamen 19); a made-up plant asked for 90 days is given 20 and keeps it, none asked is the middle; "
+      "one made up before the pace is laid in like a real one; planting says the paced days; invent's words say the span; "
+      "(0, 0) is real timings",
+      _gp_r.get("real") == [28, 110] and _gp_pv.get("radish") == 15 and _gp_pv.get("cyclamen") == 19
+      and all(15 <= v <= 20 for v in _gp_pv.values()) and _gp_pv.get("mint", 0) <= _gp_pv.get("strawberry", 0)
+      and _gp_r.get("inv", "").startswith("made up glass-bell: 20 days") and _gp_r.get("inv2", "").startswith("made up quick-moss: 17 days")
+      and _gp_r.get("seed", {}).get("paced") is True and "glass-bell (20 days" in _gp_r.get("seeds", "")
+      and "in about 15 days" in _gp_r.get("plant", "") and _gp_r.get("old") == 16 and _gp_r.get("span") == "15–20",
+      {k: (v if not isinstance(v, str) else v[:100]) for k, v in _gp_r.items()})
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
