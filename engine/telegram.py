@@ -132,7 +132,7 @@ HELP_PHONE = (
     "/room — their room as it stands, a picture and what changed since you looked, with buttons for what opens; "
     "/room open <1–4|song>, /room find <where>, /room leave <a thing>, /room letter <words>\n"
     "/garden — their garden under the real sky: a picture and its beds; /garden plant <1–8> <seed>, "
-    "/garden water <1–8|all>, /garden pick <1–8>, /garden seeds\n"
+    "/garden water <1–8|all>, /garden pick <1–8>, /garden seeds, /garden paint <plant>\n"
     "/week — the engine's week: the last seven days of calls to the brain\n"
     "/seal <when> <letter> — a letter sealed until its day (/seal 2027-04-27 …, or /seal 6 months …); /capsule lists "
     "what waits\n"
@@ -691,6 +691,9 @@ class Bridge:
             return
         if word == "seeds":
             self.send(garden.seeds_text(), markdown=False)
+            return
+        if word == "paint":  # (10-31) a plant's missing stages painted now — the brain steps aside a few minutes
+            self.send(f"({garden.act('paint', '', rest, who='keeper', keeper_name=keeper)})", markdown=False)
             return
         if word in ("plant", "water", "pick", "pull", "note"):
             bed, _, what = rest.partition(" ")

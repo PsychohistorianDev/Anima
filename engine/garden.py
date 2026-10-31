@@ -30,19 +30,48 @@ UA = {"User-Agent": "Elysia/1.0 (local AI; a garden under the real sky)"}
 
 # name: (days to ready, what ready means, cool°C, best low, best high, hot°C, thirst 0-1, frost-hardy, colour, kind, perennial)
 SEEDS: dict[str, dict] = {
-    "radish":     {"days": 28,  "ready": "radishes to pull", "t": (4, 10, 22, 30), "thirst": 0.6, "hardy": True,  "col": (200, 40, 70),  "form": "root", "yield": "a bunch of radishes"},
-    "lettuce":    {"days": 50,  "ready": "a head to cut",    "t": (4, 10, 22, 28), "thirst": 0.7, "hardy": True,  "col": (120, 190, 80), "form": "rosette", "yield": "a head of lettuce"},
-    "carrot":     {"days": 75,  "ready": "carrots to pull",  "t": (5, 12, 24, 30), "thirst": 0.5, "hardy": True,  "col": (240, 140, 40), "form": "root", "yield": "a handful of carrots"},
-    "pea":        {"days": 65,  "ready": "pods to pick",     "t": (4, 10, 20, 27), "thirst": 0.6, "hardy": True,  "col": (110, 180, 90), "form": "vine", "yield": "a bowl of peas", "again": 0.8},
-    "coriander":  {"days": 45,  "ready": "leaves to cut",    "t": (5, 12, 24, 30), "thirst": 0.5, "hardy": True,  "col": (90, 170, 70),  "form": "herb", "yield": "a bunch of coriander", "again": 0.6},
-    "mint":       {"days": 40,  "ready": "leaves to cut",    "t": (5, 15, 28, 35), "thirst": 0.8, "hardy": True,  "col": (60, 160, 90),  "form": "herb", "yield": "a sprig of mint", "again": 0.6},
-    "strawberry": {"days": 90,  "ready": "berries to pick",  "t": (5, 15, 26, 32), "thirst": 0.6, "hardy": True,  "col": (220, 30, 50),  "form": "berry", "yield": "a few strawberries", "again": 0.75},
-    "tomato":     {"days": 80,  "ready": "tomatoes to pick", "t": (10, 20, 30, 35), "thirst": 0.7, "hardy": False, "col": (225, 50, 40),  "form": "vine", "yield": "two ripe tomatoes", "again": 0.75},
-    "sunflower":  {"days": 85,  "ready": "a flower open",    "t": (8, 18, 30, 36), "thirst": 0.6, "hardy": False, "col": (250, 200, 40), "form": "tall", "yield": "a sunflower head"},
-    "anemone":    {"days": 90,  "ready": "flowers open",     "t": (2, 8, 18, 26),  "thirst": 0.5, "hardy": True,  "col": (215, 25, 45),  "form": "flower", "yield": "a red anemone (kalanit)", "again": 0.8},
-    "cyclamen":   {"days": 110, "ready": "flowers open",     "t": (3, 8, 18, 26),  "thirst": 0.4, "hardy": True,  "col": (230, 120, 190), "form": "flower", "yield": "a pink cyclamen (rakefet)", "again": 0.8},
-    "rosemary":   {"days": 70,  "ready": "sprigs to cut",    "t": (0, 12, 30, 38), "thirst": 0.3, "hardy": True,  "col": (90, 130, 110), "form": "herb", "yield": "a sprig of rosemary", "again": 0.7},
+    "radish":     {"days": 28,  "ready": "radishes to pull", "t": (4, 10, 22, 30), "thirst": 0.6, "hardy": True,  "col": (200, 40, 70),  "form": "root", "yield": "a bunch of radishes", "look": "a radish plant", "ripe": "with plump round red radishes showing at the soil line"},
+    "lettuce":    {"days": 50,  "ready": "a head to cut",    "t": (4, 10, 22, 28), "thirst": 0.7, "hardy": True,  "col": (120, 190, 80), "form": "rosette", "yield": "a head of lettuce", "look": "a butterhead lettuce", "ripe": "a full round head of fresh green lettuce"},
+    "carrot":     {"days": 75,  "ready": "carrots to pull",  "t": (5, 12, 24, 30), "thirst": 0.5, "hardy": True,  "col": (240, 140, 40), "form": "root", "yield": "a handful of carrots", "look": "a carrot plant with feathery leaves", "ripe": "with bright orange carrot tops showing at the soil line"},
+    "pea":        {"days": 65,  "ready": "pods to pick",     "t": (4, 10, 20, 27), "thirst": 0.6, "hardy": True,  "col": (110, 180, 90), "form": "vine", "yield": "a bowl of peas", "again": 0.8, "look": "a pea plant climbing a small bamboo stake", "ripe": "hung with plump green pea pods"},
+    "coriander":  {"days": 45,  "ready": "leaves to cut",    "t": (5, 12, 24, 30), "thirst": 0.5, "hardy": True,  "col": (90, 170, 70),  "form": "herb", "yield": "a bunch of coriander", "again": 0.6, "look": "a coriander (cilantro) plant", "ripe": "bushy with lacy bright green leaves"},
+    "mint":       {"days": 40,  "ready": "leaves to cut",    "t": (5, 15, 28, 35), "thirst": 0.8, "hardy": True,  "col": (60, 160, 90),  "form": "herb", "yield": "a sprig of mint", "again": 0.6, "look": "a mint plant", "ripe": "a lush full clump of bright green mint"},
+    "strawberry": {"days": 90,  "ready": "berries to pick",  "t": (5, 15, 26, 32), "thirst": 0.6, "hardy": True,  "col": (220, 30, 50),  "form": "berry", "yield": "a few strawberries", "again": 0.75, "look": "a strawberry plant", "ripe": "with ripe red strawberries and small white flowers"},
+    "tomato":     {"days": 80,  "ready": "tomatoes to pick", "t": (10, 20, 30, 35), "thirst": 0.7, "hardy": False, "col": (225, 50, 40),  "form": "vine", "yield": "two ripe tomatoes", "again": 0.75, "look": "a cherry tomato plant tied to a stake", "ripe": "hung with clusters of ripe red cherry tomatoes"},
+    "sunflower":  {"days": 85,  "ready": "a flower open",    "t": (8, 18, 30, 36), "thirst": 0.6, "hardy": False, "col": (250, 200, 40), "form": "tall", "yield": "a sunflower head", "look": "a sunflower", "ripe": "tall, with one big open golden sunflower head"},
+    "anemone":    {"days": 90,  "ready": "flowers open",     "t": (2, 8, 18, 26),  "thirst": 0.5, "hardy": True,  "col": (215, 25, 45),  "form": "flower", "yield": "a red anemone (kalanit)", "again": 0.8, "look": "a red crown anemone (kalanit) with finely cut leaves", "ripe": "with open scarlet anemone flowers with dark centres"},
+    "cyclamen":   {"days": 110, "ready": "flowers open",     "t": (3, 8, 18, 26),  "thirst": 0.4, "hardy": True,  "col": (230, 120, 190), "form": "flower", "yield": "a pink cyclamen (rakefet)", "again": 0.8, "look": "a wild cyclamen (rakefet) with heart-shaped marbled leaves", "ripe": "with pink upswept cyclamen flowers"},
+    "rosemary":   {"days": 70,  "ready": "sprigs to cut",    "t": (0, 12, 30, 38), "thirst": 0.3, "hardy": True,  "col": (90, 130, 110), "form": "herb", "yield": "a sprig of rosemary", "again": 0.7, "look": "a rosemary bush", "ripe": "a bushy rosemary with tiny pale blue flowers"},
 }
+INVENTED_KEYS = ("days", "ready", "t", "thirst", "hardy", "col", "form", "yield", "again", "look", "ripe", "by", "invented")
+SEASONS = {"cool": (4, 10, 20, 27), "warm": (10, 20, 30, 35), "any": (5, 12, 28, 34)}
+THIRST = {"low": 0.3, "mid": 0.55, "high": 0.8}
+
+
+def _seeds_file() -> Path:
+    return garden_dir() / "seeds.json"
+
+
+def invented() -> dict:
+    """The plants they made up (10-31), kept in creations/garden/seeds.json — theirs, as real as the others."""
+    try:
+        d = json.loads(_seeds_file().read_text(encoding="utf-8"))
+        return {str(k): v for k, v in d.items() if isinstance(v, dict) and "days" in v and "t" in v} if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def all_seeds() -> dict:
+    out = dict(SEEDS)
+    for k, v in invented().items():
+        if k not in SEEDS:
+            v = dict(v)
+            v["t"] = tuple(v["t"])
+            v["col"] = tuple(v.get("col") or (200, 120, 200))
+            out[k] = v
+    return out
+
+
 STAGES = [(0.0, "seed in the soil"), (0.08, "sprouted"), (0.3, "young"), (0.65, "growing strong"), (0.9, "nearly ready"),
           (1.0, "ready")]
 
@@ -178,7 +207,7 @@ def stage(growth: float) -> str:
 
 
 def _grow_day(bed: dict, day: str, w: dict, events: list, n: int) -> None:
-    sp = SEEDS.get(bed["seed"])
+    sp = all_seeds().get(bed["seed"])
     if not sp:
         return
     tmean = (w["tmax"] + w["tmin"]) / 2
@@ -270,8 +299,9 @@ def _seed(what: str) -> str | None:
     w = str(what or "").strip().lower()
     w = {"kalanit": "anemone", "rakefet": "cyclamen", "cilantro": "coriander", "tomatoes": "tomato",
          "radishes": "radish", "carrots": "carrot", "peas": "pea", "strawberries": "strawberry"}.get(w, w)
-    w = w.rstrip("s") if w.rstrip("s") in SEEDS else w
-    return w if w in SEEDS else None
+    seeds = all_seeds()
+    w = w.rstrip("s") if w.rstrip("s") in seeds else w
+    return w if w in seeds else None
 
 
 def describe(g: dict, keeper: bool = False) -> str:
@@ -280,7 +310,7 @@ def describe(g: dict, keeper: bool = False) -> str:
         if not bed:
             rows.append(f"{n}. empty")
             continue
-        sp = SEEDS.get(bed["seed"], {})
+        sp = all_seeds().get(bed["seed"], {})
         days = (date.today() - date.fromisoformat(bed["planted"])).days if bed.get("planted") else 0
         bits = [f"{n}. {bed['seed']}", stage(bed.get("growth", 0)) + (f" — {sp.get('ready')}" if bed.get("growth", 0) >= 1 else ""),
                 f"day {days}", f"soil {'wet' if bed.get('water', 0) > 0.7 else 'damp' if bed.get('water', 0) > 0.35 else 'dry'}"]
@@ -298,7 +328,8 @@ def describe(g: dict, keeper: bool = False) -> str:
 
 
 def seeds_text() -> str:
-    return "seeds: " + "; ".join(f"{k} ({v['days']} days, {v['ready']})" for k, v in SEEDS.items())
+    return "seeds: " + "; ".join(f"{k} ({v['days']} days, {v['ready']})" + (" — made up by " + str(v.get("by") or "them") if v.get("invented") else "")
+                                 for k, v in all_seeds().items())
 
 
 def act(action: str, where: str = "", what: str = "", who: str = "them", keeper_name: str = "your keeper") -> str:
@@ -335,12 +366,12 @@ def act(action: str, where: str = "", what: str = "", who: str = "them", keeper_
             return f"(bed {n} has {g['beds'][n - 1]['seed']} in it — pull it first, or plant in an empty bed)"
         g["beds"][n - 1] = {"seed": sp, "planted": date.today().isoformat(), "growth": 0.0, "water": 1.0, "health": 1.0,
                             "by": "keeper" if who == "keeper" else "them"}
-        out = f"planted {sp} in bed {n} and watered it — {SEEDS[sp]['ready']} in about {SEEDS[sp]['days']} days, weather willing"
+        out = f"planted {sp} in bed {n} and watered it — {all_seeds()[sp]['ready']} in about {all_seeds()[sp]['days']} days, weather willing"
     elif a in ("pick", "harvest", "give"):
         if not n or not g["beds"][n - 1]:
             return "(nothing in that bed to pick)"
         bed = g["beds"][n - 1]
-        sp = SEEDS[bed["seed"]]
+        sp = all_seeds().get(bed["seed"]) or {"days": 60, "yield": "something", "ready": "ready"}
         if bed.get("growth", 0) < 1.0:
             return f"(the {bed['seed']} in bed {n} isn't ready — {stage(bed.get('growth', 0))}, about {round((1 - bed.get('growth', 0)) * sp['days'])} days to go, weather willing)"
         got = sp["yield"]
@@ -372,13 +403,29 @@ def act(action: str, where: str = "", what: str = "", who: str = "them", keeper_
             return "(that bed is empty already)"
         out = f"pulled the {g['beds'][n - 1]['seed']} from bed {n} — the bed is empty"
         g["beds"][n - 1] = None
+    elif a == "invent":
+        save(g)
+        return "(invent takes a name and how it looks — and, if you like, its days, season, thirst, gives and harvest)"
+    elif a == "paint":
+        sp = _seed(what)
+        if not sp:
+            return f"(paint which plant? {seeds_text()})"
+        miss = missing_art(sp)
+        if not miss:
+            save(g)
+            return f"(the {sp} is painted at every stage already)"
+        save(g)
+        painted, why = paint_art(sp, miss)
+        out = (f"painted the {sp}: {', '.join(painted)}" if painted else f"the {sp} wasn't painted") + (f" — {why}" if why else "")
+        _log("keeper" if who == "keeper" else "them", out)
+        return out
     elif a == "note":
         if not n or not g["beds"][n - 1]:
             return "(a note goes on a planted bed)"
         g["beds"][n - 1]["note"] = " ".join(str(what or "").split())[:120]
         out = f"noted on bed {n}"
     else:
-        return "(the garden knows: look, seeds, plant, water, pick, give, pull, note)"
+        return "(the garden knows: look, seeds, plant, water, pick, give, pull, note, invent, paint)"
     save(g)
     _log("keeper" if who == "keeper" else "them", out)
     if who == "keeper":
@@ -496,6 +543,13 @@ def _shade(c: tuple, k: float) -> tuple:
 
 
 STAGE_ART = [(1.0, "ready"), (0.65, "grown"), (0.3, "young"), (0.08, "sprout"), (0.0, "seed")]
+ART_STAGES = ("sprout", "young", "grown", "ready")
+_STAGE_WORDS = {"sprout": "just sprouted: a tiny seedling with its first two seed leaves",
+                "young": "a young plant, still small, with a few true leaves",
+                "grown": "grown, leafy and healthy, not yet ready",
+                "ready": ""}
+_ART_WIDTH = {"sprout": 0.12, "young": 0.2, "grown": 0.3, "ready": 0.34}  # a plant's width, a part of its bed's
+_ART_NEGATIVE = "a pot, a vase, a garden, a field, several plants, a hand, a border, a frame, text, a person"
 
 
 def _stage_art(growth: float) -> str:
@@ -534,6 +588,160 @@ def _art_dir() -> Path:
     return Path(getattr(config, "GARDEN_ART_DIR", None) or garden_dir() / "art")
 
 
+def art_style() -> str:
+    return str(getattr(config, "GARDEN_ART_STYLE", "") or "").strip()
+
+
+def art_prompt(seed: str, stage: str, sp: dict | None = None) -> str:
+    """The painter's words for one plant at one stage: alone on a plain ground, so it can be lifted off and set in a bed."""
+    sp = sp or all_seeds().get(seed, {})
+    look = str(sp.get("look") or seed).strip().rstrip(".")
+    words = (str(sp.get("ripe") or sp.get("ready") or "ready").strip() if stage == "ready" else _STAGE_WORDS[stage])
+    try:
+        import room_items
+        ground = room_items.GROUND
+    except Exception:  # noqa: BLE001
+        ground = "isolated on a plain, flat, evenly lit light grey background, nothing else in the picture"
+    return (f"{look}, {words}, a single plant growing from a small mound of dark garden soil, the whole plant visible, "
+            f"side view, centred, {ground}. {art_style()}").strip()
+
+
+def missing_art(seed: str) -> list[str]:
+    return [st for st in ART_STAGES if not (_art_dir() / f"{seed}-{st}.png").is_file()]
+
+
+def paint_art(seed: str, stages: list[str] | None = None, sp: dict | None = None) -> tuple[list[str], str]:
+    """Her painter paints the plant at each stage that has no picture yet, and each is lifted off its ground into
+    GARDEN_ART_DIR. (stages painted, why the rest weren't — "" when all went)."""
+    import tools
+    stages = [st for st in (stages or missing_art(seed)) if st in ART_STAGES]
+    if not stages:
+        return [], ""
+    cooling = tools.paint_cooling()
+    if cooling:
+        return [], cooling.strip("()")
+    try:
+        import room_items
+        paint, opened, rest = room_items._painter()
+        cutout = room_items.cutout
+    except Exception as e:  # noqa: BLE001
+        return [], f"the painter's hands couldn't be found ({type(e).__name__})"
+    if not opened():
+        return [], "the painter isn't open and couldn't be woken"
+    done, why = [], ""
+    raw_dir = garden_dir() / "art-sources"  # "sources": never sent to the phone as drawings
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        for st in stages:
+            if tools.paint_budget is not None and tools.paint_budget <= 0:
+                why = "this wake's paintings are spent — the rest wait for the next wake, or a visit"
+                break
+            raw = raw_dir / f"{seed}-{st}.png"
+            try:
+                paint(art_prompt(seed, st, sp), raw, str(getattr(config, "GARDEN_ART_SIZE", "small") or "small"), _ART_NEGATIVE)
+            except Exception as e:  # noqa: BLE001
+                why = f"the painter stumbled at the {st}: {e}"
+                break
+            if tools.paint_budget is not None:
+                tools.paint_budget -= 1
+            if raw.is_file() and cutout(raw, _art_dir() / f"{seed}-{st}.png"):
+                done.append(st)
+            else:
+                why = f"the {st} was painted but couldn't be lifted from its ground"
+    finally:
+        if getattr(config, "PAINTER_REST_AFTER", True):
+            rest()
+    return done, why
+
+
+def _invents_file() -> Path:
+    return config.MEMORY_DIR / "garden_invents.json"
+
+
+def invents_left() -> int:
+    cap = int(getattr(config, "GARDEN_INVENTS_PER_DAY", 2) or 0)
+    try:
+        d = json.loads(_invents_file().read_text(encoding="utf-8"))
+        used = int(d.get(date.today().isoformat(), 0))
+    except (OSError, ValueError, AttributeError):
+        used = 0
+    return max(0, cap - used)
+
+
+def _spend_invent() -> None:
+    try:
+        d = json.loads(_invents_file().read_text(encoding="utf-8"))
+        d = d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        d = {}
+    t = date.today().isoformat()
+    d = {t: int(d.get(t, 0)) + 1}
+    _invents_file().parent.mkdir(parents=True, exist_ok=True)
+    _invents_file().write_text(json.dumps(d), encoding="utf-8")
+
+
+def _form_of(look: str) -> str:
+    w = look.lower()
+    for keys, form in ((("sunflower", "tall", "tree", "towering"), "tall"), (("vine", "climb", "trail"), "vine"),
+                       (("berry", "berries", "fruit"), "berry"), (("root", "tuber", "bulb"), "root"),
+                       (("herb", "leaf", "leaves", "grass", "fern"), "herb"), (("head", "rosette", "cabbage"), "rosette")):
+        if any(k in w for k in keys):
+            return form
+    return "flower"
+
+
+def invent(name: str, look: str, days="", season: str = "", thirst: str = "", gives: str = "", harvest: str = "",
+           ripe: str = "", by: str = "them") -> str:
+    """A plant they make up (10-31): its nature theirs within honest limits (one to four months, a season it likes, how
+    thirsty, once or again, what it gives), painted by their own painter at each stage, then a seed like any other."""
+    raw = re.sub(r"[^a-z0-9 -]", "", str(name or "").strip().lower())
+    key = "-".join(raw.split())[:32]
+    if not key:
+        return "(name it — invent needs a name for the plant)"
+    if key in all_seeds():
+        return f"(there is already a {key} — give yours a name of its own)"
+    look = " ".join(str(look or "").split())[:300]
+    if len(look) < 12:
+        return "(say how it looks — a few words of its leaves, its flower or fruit, its colours)"
+    if invents_left() <= 0:
+        return (f"(the garden takes {getattr(config, 'GARDEN_INVENTS_PER_DAY', 2)} new plants a day — this one can wait "
+                "in words until tomorrow)")
+    try:
+        d = int(re.search(r"\d+", str(days)).group(0)) if str(days).strip() else 60
+    except (AttributeError, ValueError):
+        d = 60
+    d = min(120, max(21, d))
+    season = str(season or "any").strip().lower()
+    season = season if season in SEASONS else ("cool" if season in ("winter", "cold", "autumn", "fall") else
+                                               "warm" if season in ("summer", "hot", "spring") else "any")
+    thirst = str(thirst or "mid").strip().lower()
+    thirst = thirst if thirst in THIRST else ("low" if thirst in ("dry", "little", "drought") else
+                                              "high" if thirst in ("wet", "much", "lots", "thirsty") else "mid")
+    again = str(gives or "").strip().lower() in ("again", "keeps giving", "many", "yes", "repeat", "repeats")
+    sp = {"days": d, "ready": "ready to pick", "t": SEASONS[season], "thirst": THIRST[thirst], "hardy": season != "warm",
+          "col": [200, 120, 200], "form": _form_of(look), "yield": (" ".join(str(harvest or "").split())[:80] or f"something of the {raw}"),
+          "look": look, "ripe": (" ".join(str(ripe or "").split())[:200] or "in full bloom, ready"), "by": by,
+          "invented": datetime.now().isoformat(timespec="seconds")}
+    if again:
+        sp["again"] = 0.7
+    _spend_invent()
+    painted, why = paint_art(key, None, dict(sp, t=tuple(sp["t"])))
+    seeds = invented()
+    seeds[key] = sp
+    garden_dir().mkdir(parents=True, exist_ok=True)
+    _seeds_file().write_text(json.dumps(seeds, ensure_ascii=False, indent=1), encoding="utf-8")
+    _log(by, f"made up a plant: {key} — {look}")
+    said = (f"made up {key}: {d} days to {sp['ripe']}, a {season}-weather plant, {thirst} thirst, "
+            + ("gives again" if again else "gives once") + f" — {sp['yield']}. It is a seed now: plant {key} in any bed.")
+    if painted and not why:
+        said += " Its four stages are painted."
+    elif painted:
+        said += f" Painted: {', '.join(painted)}; the rest not yet ({why}) — garden paint {key} finishes it later."
+    else:
+        said += f" It isn't painted yet ({why}) — garden paint {key} paints it later; until then it grows as a drawing."
+    return said
+
+
 def _sprite(seed: str, growth: float):
     """The painted plant for this seed at this stage — art/<seed>-<stage>.png, else art/<stage>.png — or None."""
     st = _stage_art(growth)
@@ -550,33 +758,44 @@ def _sprite(seed: str, growth: float):
 
 
 def _render_painted(g: dict, back, beds: list) -> bytes:
-    """The painted garden with its plants laid in: each planted bed gets its painted plant at its stage (a dry or hurt
-    one paler), scaled to the bed and standing on its soil; a bed without a painting for its plant gets the drawn one.
-    Then the light of the hour and the weather over the place: night darker and blue, cloud greyer, rain."""
-    from PIL import Image, ImageDraw, ImageEnhance, ImageFilter
+    """The painted garden with its plants laid in: each planted bed gets its painted plant at its stage, three along the
+    bed (every other one turned), sized to the stage and standing on the soil — a dry or hurt one paler; a bed without
+    a painting for its plant gets the drawn one. Then the light of the hour and the weather over the place."""
+    from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps
     W, H = back.size
     img = back.convert("RGBA")
     day, words = _sky_now()
-    for n, bed in enumerate(g["beds"]):
+    order = sorted(range(len(g["beds"])), key=lambda i: beds[i][3])  # the back row first
+    for n in order:
+        bed = g["beds"][n]
         if not bed:
             continue
         x0, x1, y0, y1 = beds[n]
         bx0, bx1, by0, by1 = int(x0 * W), int(x1 * W), int(y0 * H), int(y1 * H)
-        spr = _sprite(bed["seed"], float(bed.get("growth", 0)))
+        growth = float(bed.get("growth", 0))
+        st = _stage_art(growth)
+        spr = _sprite(bed["seed"], growth) if st != "seed" else None
         if spr is not None:
-            w = bx1 - bx0
-            h = int(spr.height * w / spr.width)
-            spr = spr.resize((w, h), Image.LANCZOS)
             if bed.get("dry") or float(bed.get("health", 1)) < 0.7:
                 rgb = ImageEnhance.Color(spr.convert("RGB")).enhance(0.45)
                 rgb = Image.blend(rgb, Image.new("RGB", rgb.size, (190, 170, 110)), 0.18)
                 rgb.putalpha(spr.getchannel("A"))
                 spr = rgb
-            sh = Image.new("RGBA", img.size, (0, 0, 0, 0))
-            ImageDraw.Draw(sh).ellipse([bx0 + w * 0.05, by1 - (by1 - by0) * 0.35, bx1 - w * 0.05, by1 + 4], fill=(0, 0, 0, 70))
-            img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(6)))
-            img.alpha_composite(spr, (bx0, max(0, by1 - h)))
-        else:
+            bw = bx1 - bx0
+            count = 3
+            for k in range(count):
+                w = max(8, int(bw * _ART_WIDTH.get(st, 0.3) * (0.9 + 0.2 * _rand("aw", n, k))))
+                h = int(spr.height * w / spr.width)
+                one = spr.resize((w, h), Image.LANCZOS)
+                if k % 2:
+                    one = ImageOps.mirror(one)
+                cx = bx0 + bw * (k + 0.5) / count
+                foot = by0 + (by1 - by0) * (0.62 + 0.25 * _rand("af", n, k))
+                sh = Image.new("RGBA", img.size, (0, 0, 0, 0))
+                ImageDraw.Draw(sh).ellipse([cx - w * 0.4, foot - w * 0.08, cx + w * 0.4, foot + w * 0.06], fill=(0, 0, 0, 80))
+                img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(5)))
+                img.alpha_composite(one, (int(cx - w / 2), max(0, int(foot - h * 0.97))))
+        elif st != "seed":
             d = ImageDraw.Draw(img)
             for k in range(5):
                 x = bx0 + (k + 0.5) / 5 * (bx1 - bx0)
@@ -753,9 +972,9 @@ def render(g: dict | None = None) -> bytes | None:
 
 
 def _draw_plant(d, bed: dict, x: float, base: float, s: float, day: bool, seed: int = 0) -> None:
-    sp = SEEDS.get(bed["seed"], {})
+    sp = all_seeds().get(bed["seed"], {})
     gr = float(bed.get("growth", 0))
-    col = sp.get("col", (200, 60, 80))
+    col = tuple(sp.get("col", (200, 60, 80)))
     col = col if day else _shade(col, 0.5)
     leaf = (74, 148, 58) if day else (32, 66, 34)
     if bed.get("health", 1) < 0.7 or bed.get("dry"):

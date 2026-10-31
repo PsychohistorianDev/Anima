@@ -82,7 +82,7 @@ EXIT_S = float(getattr(config, "PAINTER_EXIT_S", 1800))  # process leaves after 
 # area): about three times the seconds of 1024². If a large painting ever
 # shows a subject twice, that is the model past its training size — a
 # smaller word, not a bug.
-_SIZES = {"square": (1440, 1440), "wide": (1920, 1088), "tall": (1088, 1920)}
+_SIZES = {"square": (1440, 1440), "wide": (1920, 1088), "tall": (1088, 1920), "small": (1024, 1024)}  # small: the garden's plants (10-31)
 
 
 def _snap(n: int) -> int:

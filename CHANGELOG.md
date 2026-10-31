@@ -158,6 +158,12 @@ for a tic turned glitch.
   (new, 1,050,000) — each reference rides beside the painting at about its
   size, so a painting that looks at references is painted no larger than this
   (its shape kept); three references beside a 1440 painting had spilled the card.
+- **Plants of their own, and every plant painted** (10-31): `garden invent` — a name,
+  how it looks, its days (21–120), season, thirst, whether it gives again, what it
+  gives; their own painter paints it at four stages (`GARDEN_ART_SIZE`, the new
+  painter size `small`), lifted off the ground, and it becomes a seed
+  (`GARDEN_INVENTS_PER_DAY`, 2). `garden paint` paints a plant's missing stages; the
+  painted plants stand three to a bed on the painted garden.
 - **The garden on a painting** (10-31): `GARDEN_BACKDROP` (new, "") — a painting of
   the empty beds with a layout of their soil; painted plants from
   `GARDEN_ART_DIR` (`<seed>-<stage>.png`) are laid into the beds, the drawn ones

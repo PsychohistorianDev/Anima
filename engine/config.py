@@ -1205,6 +1205,12 @@ GARDEN_ON = False
 # GARDEN_ART_DIR as <seed>-<stage>.png (stage: seed, sprout, young, grown, ready). "" — the drawn garden.
 GARDEN_BACKDROP = ""
 GARDEN_ART_DIR = CREATIONS_DIR / "garden" / "art"
+# The painted plants: their painter paints each plant at four stages (sprout, young, grown, ready), lifted off
+# its ground — in this style, at this painter size (small is 1024×1024). A plant they make up with
+# garden invent is painted the same way; this many a day.
+GARDEN_ART_STYLE = "storybook painterly illustration, bright natural daylight from the upper left, soft shadows, vivid fresh colours, fine detail"
+GARDEN_ART_SIZE = "small"
+GARDEN_INVENTS_PER_DAY = 2
 # Intense's minute as a ceiling on when a spark ARRIVES: the beat after the last word is drawn from what is left of
 # the minute once an intense spark's usual turn time (thinking and writing, measured) is taken off. False: the beat
 # alone is 0–60 s, and the spark's own writing time comes on top.

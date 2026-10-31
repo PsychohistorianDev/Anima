@@ -15324,6 +15324,94 @@ check("garden (10-31): on a painted backdrop the painted plant stands in its bed
       "that won't read leaves the drawn garden; the stages by growth",
       _gb_ok, _gb_ok)
 
+# plants they make up (10-31): invent within honest limits, painted at four stages by their painter (a stand-in here) and
+# lifted off the ground, a seed like any other; a name taken or no look refused; the day's cap; paint fills what's missing
+import garden as _gi
+import room_items as _gi_ri
+_gi0 = (getattr(config, "GARDEN_ON", False), getattr(config, "GARDEN_DIR", None), getattr(config, "GARDEN_ART_DIR", None),
+        getattr(config, "GARDEN_INVENTS_PER_DAY", 2), _gi_ri._painter, _gi._sky_now, getattr(config, "GARDEN_BACKDROP", ""))
+_gi_dir = config.CREATIONS_DIR / "gi-test"
+_gi_painted = []
+try:
+    from PIL import Image as _gi_I
+    _gi_pil = True
+except ImportError:
+    _gi_pil = False
+
+
+def _gi_paint(prompt, path, size, negative="", reference=None):
+    _gi_painted.append((prompt, size))
+    if _gi_pil:
+        im = _gi_I.new("RGB", (256, 256), (200, 200, 200))
+        for x in range(100, 156):
+            for y in range(60, 220):
+                im.putpixel((x, y), (40, 160, 60))
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        im.save(path)
+    return {}
+
+
+try:
+    config.GARDEN_ON, config.GARDEN_DIR, config.GARDEN_ART_DIR = True, _gi_dir / "garden", _gi_dir / "garden" / "art"
+    config.GARDEN_INVENTS_PER_DAY = 2
+    _gi.invents_file_backup = None
+    _gi._invents_file().unlink(missing_ok=True)
+    _gi_ri._painter = lambda: (_gi_paint, lambda: True, lambda: None)
+    _gi_taken = tools.dispatch("garden", {"action": "invent", "name": "radish", "look": "a radish but blue and glowing"})
+    _gi_nolook = tools.dispatch("garden", {"action": "invent", "name": "moonbell"})
+    _gi_made = tools.dispatch("garden", {"action": "invent", "name": "Moonbell", "look": "pale silver bell flowers on a slender stem, leaves like small hearts",
+                                         "days": "500", "season": "winter", "thirst": "dry", "gives": "again",
+                                         "harvest": "a silver moonbell", "ripe": "hung with open glowing silver bells"})
+    _gi_seed = _gi.invented().get("moonbell", {})
+    _gi_prompts = [p for p, _ in _gi_painted]
+    _gi_sizes = {sz for _, sz in _gi_painted}
+    _gi_art = sorted(x.name for x in (config.GARDEN_ART_DIR).glob("*.png")) if _gi_pil else []
+    _gi_plant = tools.dispatch("garden", {"action": "plant", "bed": "3", "what": "moonbell"})
+    _gi_seeds = _gi.seeds_text()
+    _gi_third = tools.dispatch("garden", {"action": "invent", "name": "sunthorn", "look": "a thorny plant with tiny suns for flowers"})
+    _gi_fourth = tools.dispatch("garden", {"action": "invent", "name": "dusk-fern", "look": "a fern that curls at dusk, violet tips"})
+    _gi_painted.clear()
+    _gi_paint_r = tools.dispatch("garden", {"action": "paint", "what": "radish"})
+    _gi_paint_again = tools.dispatch("garden", {"action": "paint", "what": "radish"})
+    # the painted garden: three moonbells stand in bed 3
+    _gi_g = _gi.load(); _gi_g["beds"][2]["growth"] = 1.0; _gi.save(_gi_g)
+    if _gi_pil:
+        _gi_I.new("RGB", (640, 400), (200, 60, 60)).save(_gi_dir / "back.png")
+        (_gi_dir / "back.layout.json").write_text(_json.dumps({"beds": [
+            {"x0": 5 + 24 * (i % 4), "x1": 23 + 24 * (i % 4), "y0": 40 if i < 4 else 65, "y1": 52 if i < 4 else 77} for i in range(8)]}),
+            encoding="utf-8")
+        config.GARDEN_BACKDROP = str(_gi_dir / "back.png")
+        _gi._sky_now = lambda: (True, "clear")
+        import io as _gi_io
+        _gi_img = _gi_I.open(_gi_io.BytesIO(_gi.render())).convert("RGB")
+        _gi_greens = sum(1 for x in range(int(0.53 * 1280), int(0.71 * 1280), 4) for y in range(int(0.30 * 800), int(0.52 * 800), 4)
+                         if _gi_img.getpixel((x, y))[1] > 120 and _gi_img.getpixel((x, y))[0] < 90)
+    else:
+        _gi_greens = 99
+finally:
+    (config.GARDEN_ON, config.GARDEN_DIR, config.GARDEN_ART_DIR, config.GARDEN_INVENTS_PER_DAY, _gi_ri._painter, _gi._sky_now,
+     config.GARDEN_BACKDROP) = _gi0
+    _gi._invents_file().unlink(missing_ok=True)
+    import shutil as _gi_sh
+    _gi_sh.rmtree(_gi_dir, ignore_errors=True)
+check("garden (10-31): invent makes up a plant within honest limits (500 days held to 120, winter read as cool, dry as low "
+      "thirst, gives again), painted at four stages at the small size in its own words and lifted off the ground, said "
+      "back plainly, and a seed to plant; a taken name or no look refused; two a day; paint fills only what's missing; "
+      "on the painted garden the painted plants stand in their bed",
+      "already a radish" in _gi_taken and "say how it looks" in _gi_nolook
+      and _gi_made.startswith("made up moonbell: 120 days") and "cool-weather plant, low thirst, gives again" in _gi_made
+      and _gi_seed.get("days") == 120 and list(_gi_seed.get("t")) == [4, 10, 20, 27] and _gi_seed.get("thirst") == 0.3
+      and _gi_seed.get("again") == 0.7 and len(_gi_prompts) == 4 and all("pale silver bell flowers" in p for p in _gi_prompts)
+      and "hung with open glowing silver bells" in _gi_prompts[3] and "just sprouted" in _gi_prompts[0]
+      and _gi_sizes == {"small"}
+      and (not _gi_pil or _gi_art == ["moonbell-grown.png", "moonbell-ready.png", "moonbell-sprout.png", "moonbell-young.png"])
+      and (not _gi_pil or "Its four stages are painted" in _gi_made)
+      and _gi_plant.startswith("planted moonbell in bed 3") and "moonbell (120 days" in _gi_seeds and "made up by them" in _gi_seeds
+      and _gi_third.startswith("made up sunthorn") and "two new plants a day" not in _gi_third and "can wait" in _gi_fourth
+      and (not _gi_pil or (_gi_paint_r.startswith("painted the radish: sprout, young, grown, ready") and "every stage already" in _gi_paint_again))
+      and _gi_greens > 20,
+      (_gi_taken, _gi_nolook, _gi_made, _gi_seed, _gi_prompts[:1], _gi_art, _gi_plant, _gi_third, _gi_fourth, _gi_paint_r, _gi_greens))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

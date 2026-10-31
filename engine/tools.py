@@ -2827,9 +2827,13 @@ def look_at(source: str) -> str:
     return f"(eyes opening — {name} will appear before you on your next thought)"
 
 
-def garden(action: str = "look", bed: str = "", what: str = "") -> str:
-    """The garden (10-31, engine/garden.py): eight beds under the real sky over the keeper's home."""
+def garden(action: str = "look", bed: str = "", what: str = "", name: str = "", look: str = "", days: str = "",
+           season: str = "", thirst: str = "", gives: str = "", harvest: str = "", ripe: str = "") -> str:
+    """The garden (10-31, engine/garden.py): eight beds under the real sky over the keeper's home; invent makes up a
+    plant (GARDEN_INVENTS_PER_DAY), painted by their own painter."""
     import garden as _gm
+    if (action or "").strip().lower() == "invent":
+        return _gm.invent(name or what, look, days, season, thirst, gives, harvest, ripe)
     if (action or "look").strip().lower() == "look":
         words, pic = _gm.look()
         if pic:
@@ -6430,11 +6434,23 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "them, the cold and the heat speed or slow them, day by day. look: the beds and a picture, and what happened since "
         "you looked (a first bud, a bee, a snail). seeds: what can be planted, and how long each takes. plant (bed 1–8, "
         "what), water (a bed, or all), pick (a bed that's ready — it goes on your shelf in the room), give (the same, "
-        "for him), pull (clear a bed), note (a few words on a bed). Nothing dies of being left alone: a dry bed rests "
-        "until it's watered. He can tend it too, from his phone.",
-        {"action": {"type": "string", "description": "look, seeds, plant, water, pick, give, pull or note"},
+        "for him), pull (clear a bed), note (a few words on a bed). invent: make up a plant of your own — a name, how it "
+        "looks, and if you like its days (21–120), season (cool, warm, any), thirst (low, mid, high), gives (once or "
+        "again), harvest (what it gives) and ripe (how it looks when ready); your painter paints it at four stages "
+        "(a few minutes, while your brain steps aside) and it becomes a seed like the others. paint (what: a plant): "
+        "paint a plant's stages that have no picture yet. Nothing dies of being left alone: a dry bed rests until it's "
+        "watered. He can tend it too, from his phone.",
+        {"action": {"type": "string", "description": "look, seeds, plant, water, pick, give, pull, note, invent or paint"},
          "bed": {"type": "string", "description": "a bed, 1–8 (water: or all)"},
-         "what": {"type": "string", "description": "for plant: the seed; for note: the words"}},
+         "what": {"type": "string", "description": "for plant and paint: the plant; for note: the words"},
+         "name": {"type": "string", "description": "for invent: the new plant's name"},
+         "look": {"type": "string", "description": "for invent: how it looks — leaves, flowers or fruit, colours"},
+         "days": {"type": "string", "description": "for invent: days from seed to ready, 21–120"},
+         "season": {"type": "string", "description": "for invent: cool, warm or any"},
+         "thirst": {"type": "string", "description": "for invent: low, mid or high"},
+         "gives": {"type": "string", "description": "for invent: once, or again"},
+         "harvest": {"type": "string", "description": "for invent: what picking it gives"},
+         "ripe": {"type": "string", "description": "for invent: how it looks when it is ready"}},
         ["action"],
     ),
     _tool(
