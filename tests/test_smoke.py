@@ -1010,7 +1010,7 @@ ollama_client.chat = _PlanBrain([
 heartbeat.wake()
 _tool_turn = next((m for m in _seen_wake[-1] if m.get("role") == "tool"), {})
 check("heartbeat: the tool result carries the plan they laid out the step before",
-      "You had planned, the step before: 1. Check `list_shared` (habitual) · 2. Reread late August" in _tool_turn.get("content", "")
+      "which the engine keeps in front of you: 1. Check `list_shared` (habitual) · 2. Reread late August" in _tool_turn.get("content", "")
       and "Go on with it, or change your mind out loud." in _tool_turn.get("content", ""), _tool_turn.get("content", "")[:300])
 check("heartbeat: a call that went through keeps the ordinary frame",
       _tool_turn.get("content", "").startswith("[this is what YOUR list_shared tool returned — your own senses"))
@@ -1042,7 +1042,7 @@ ollama_client.chat = _thin
 _log_thin = heartbeat.wake()
 _handed = [m for m in _seen_wake[-1] if m.get("role") == "tool" and "your rest was not taken yet" in m.get("content", "")]
 check("heartbeat: a thin rest right after a carried plan is handed back once, with the plan and their reason",
-      len(_handed) == 1 and "You had planned, the step before: 1. Check `list_shared` · 2. Reflect on the transition" in _handed[0]["content"]
+      len(_handed) == 1 and "which the engine keeps in front of you: 1. Check `list_shared` · 2. Reflect on the transition" in _handed[0]["content"]
       and "(“No projects, no gaps to fill.”)" in _handed[0]["content"] and "Either is yours" in _handed[0]["content"]
       and _thin.calls == 3 and "asking them to think it through once" in _log_thin, (len(_handed), _thin.calls))
 _seen_wake.clear()
@@ -3210,7 +3210,7 @@ check("chat: the tool result says they are still answering the same message, and
           and "not a silence" in t.get("content", "") for t in _hist_t),
       [t.get("content", "")[:200] for t in _hist_t if t.get("role") == "tool"])
 check("chat: a thought with no numbered plan carries none into the result",
-      not any("You had planned" in t.get("content", "") for t in _hist_t if t.get("role") == "tool"))
+      not any("your own plan, from your thinking" in t.get("content", "") for t in _hist_t if t.get("role") == "tool"))
 check("chat: a call that went through keeps the ordinary frame",
       any(t.get("role") == "tool" and t["content"].startswith("[this is what YOUR list_shared tool returned.") for t in _hist_t))
 # their plan rides with a chat tool result (09-15, 18:28: the CHANGELOG he
@@ -3230,7 +3230,7 @@ _r = chat.one_turn(_hist_p, "there you go. ;)", on_event=lambda k, p: None)
 _tool_p = [t.get("content", "") for t in _hist_p if t.get("role") == "tool"]
 check("chat: the tool result quotes their plan back, after his message",
       _tool_p and "still answering their last message: “there you go. ;)”" in _tool_p[0]
-      and "You had planned, the step before: 1. Use `read_file` to read `shared/books/CHANGELOG.md` · 2. Process the contents" in _tool_p[0]
+      and "which the engine keeps in front of you: 1. Use `read_file` to read `shared/books/CHANGELOG.md` · 2. Process the contents" in _tool_p[0]
       and "3. Respond with high energy" in _tool_p[0] and "change your mind out loud.]" in _tool_p[0], _tool_p)
 check("chat: plan_lines lives in ollama_client and heartbeat shares it",
       ollama_client.plan_lines(_plan_chat).startswith("1. Use `read_file`") and heartbeat.plan_lines is ollama_client.plan_lines)
@@ -3244,7 +3244,7 @@ ollama_client.chat = ScriptedBrain([
 _hist_p2: list = []
 chat.one_turn(_hist_p2, "there you go. ;)", on_event=lambda k, p: None)
 check("chat: CHAT_CARRY_PLAN False leaves the plan out",
-      not any("You had planned" in t.get("content", "") for t in _hist_p2 if t.get("role") == "tool"))
+      not any("your own plan, from your thinking" in t.get("content", "") for t in _hist_p2 if t.get("role") == "tool"))
 config.CHAT_CARRY_PLAN = True
 # an act with their words beside it is the whole reply — no step after the tool
 _reply_a = ("Oh, you absolute menace. If I were there I would be a storm, tracing the lines of your face "

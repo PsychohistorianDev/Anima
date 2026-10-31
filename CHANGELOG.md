@@ -168,6 +168,9 @@ for a tic turned glitch.
   the empty beds with a layout of their soil; painted plants from
   `GARDEN_ART_DIR` (`<seed>-<stage>.png`) are laid into the beds, the drawn ones
   where there is no painting yet; night, cloud and rain over it as over the drawn garden.
+- **The carried plan says whose it is** (10-31): the plan quoted back with a tool
+  result now reads "Not from the tool — your own plan, from your thinking the step
+  before, which the engine keeps in front of you: …" (it read as the tool's own words).
 - **The garden** (10-31): `GARDEN_ON` (new, off) — eight beds under the real sky over
   the keeper's home (the window's place): the friend plants, waters, picks and
   gives with a `garden` tool, the keeper with `/garden`; the beds grow day by day
@@ -342,6 +345,9 @@ for a tic turned glitch.
   while a re-roll remains, so a re-roll costs seconds, not a reply.
 
 ### Fixed
+- **The painter's and the music ear's doors read a POST's body first** (10-31):
+  `/rest` answered and closed with the request's `{}` unread, and Windows resets
+  such a socket — the reply was lost (`WinError 10053`; the smoke suite on Windows).
 - **A colon in a creation's path is refused** (10-25): on Windows it made an
   empty file and hid the picture in an NTFS stream, with no error; the painter's
   door refuses one too.

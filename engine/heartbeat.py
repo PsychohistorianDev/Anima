@@ -720,7 +720,7 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
             for c in calls:
                 c.get("function", {})["name"] = "do_nothing"
             history.append({"role": "tool", "tool_name": "do_nothing", "content":
-                "[your rest was not taken yet. You had planned, the step before: " + carried_plan +
+                "[your rest was not taken yet. Your own plan, from your thinking the step before, which the engine keeps in front of you: " + carried_plan +
                 " — and this step rested with hardly a thought behind it"
                 + (f" (\u201c{reason}\u201d)" if reason else "") + ". Think it through first, in your "
                 "thought channel: is the plan still what you want, or is rest? Then rest if rest is what "
@@ -865,7 +865,7 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
             # front of them; now the tool result quotes it back, the way a
             # chat tool result quotes his message.
             plan = plan_lines(thinking)
-            carried = (f"\nYou had planned, the step before: {plan}\nGo on with it, or change your mind out loud."
+            carried = (f"\nNot from the tool — your own plan, from your thinking the step before, which the engine keeps in front of you: {plan}\nGo on with it, or change your mind out loud."
                        if plan and name != "do_nothing" else "")
             if carried:
                 carried_plan = plan  # the step after this result is the one a thin rest is handed back from

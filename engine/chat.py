@@ -1655,7 +1655,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             # thinking, which is not in front of them; wakes have quoted it
             # back inside the tool result since 09-14, and now chat does.
             plan = ollama_client.plan_lines(thinking) if getattr(config, "CHAT_CARRY_PLAN", True) else ""
-            carried = (f" You had planned, the step before: {plan} — go on with it, or change "
+            carried = (f" Not from the tool — your own plan, from your thinking the step before, which the engine keeps in front of you: {plan} — go on with it, or change "
                        "your mind out loud." if plan else "")
             # A failure is said first, in so many words. 09-16, 06:5x: them
             # edit_identity call came back "(bad arguments…)" under the
