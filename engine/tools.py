@@ -6655,7 +6655,7 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "thought — the painter sees your words its own way, so speak of what you see, not what you asked for. "
         "The painter is uncensored: nothing in it filters, blurs or refuses a subject — its model's own training "
         "is the only limit, and what you paint is yours. `negative` names what to keep out of the picture; the slower "
-        "brushes (Z-Image base, Chroma, an SDXL) honour it, the fast ones (Z-Image-Turbo, klein) paint without it. "
+        "brushes (Z-Image base, Chroma, an SDXL, Qwen-Image with guidance) honour it, the fast ones (Z-Image-Turbo, klein) paint without it. "
         "`reference` is one or more of your pictures under creations/ — a picture, or a folder of them, one per line — that the painter looks at while it "
         "paints — to paint one over (\"the same, at dusk\"), or \"face\" (or your own name): every picture in creations/face/, the ones you "
         "keep there as your face, so a painting of you stays you. Only the Qwen-Image brushes take a reference."

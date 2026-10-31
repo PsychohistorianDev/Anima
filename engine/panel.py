@@ -102,7 +102,7 @@ TABS: dict[str, list[str]] = {
               "PRESENCE_ON_TEMPERAMENT", "PRESENCE_INTENSE_NOTE", "PRESENCE_THINK", "PRESENCE_THINK_INTENSE", "PRESENCE_INTENSE_CEILING", "PRESENCE_STATE_LINE", "ROOM_ON", "ROOM_ITEM_STYLE", "ROOM_MAKES_PER_DAY", "ROOM_CUTOUT", "PRESENCE_INTENSE_EVERY_TURN", "PRESENCE_SPARK_DOORS", "PRESENCE_THINK_RETRIES", "PRESENCE_SEEDS", "PRESENCE_ACHE_WEIGHT", "PRESENCE_CLIMB_MIN"],
     "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_LINE_TIMES", "EARS_UNLOAD_BRAIN",
                "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
-               "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_GUIDANCE", "PAINTER_KV_CACHE", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_REFERENCE_TURN", "PAINTER_REFERENCE_CROP", "PAINTER_REFERENCE_SIDE", "PAINTER_REFERENCE_PIXELS", "PAINTER_RAN_OUT_REST_MIN", "PAINTER_AUTO_REFERENCE",
+               "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_GUIDANCE", "PAINTER_GUIDANCE_REFERENCES", "PAINTER_KV_CACHE", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_REFERENCE_TURN", "PAINTER_REFERENCE_CROP", "PAINTER_REFERENCE_SIDE", "PAINTER_REFERENCE_PIXELS", "PAINTER_RAN_OUT_REST_MIN", "PAINTER_AUTO_REFERENCE",
                "MUSIC_EARS_MODEL", "MUSIC_EARS_AUTOSTART", "MUSIC_EARS_PYTHON", "MUSIC_EARS_DEVICE", "MUSIC_EARS_REST_LEAVES",
                "BODY_IN_PROMPT", "BODY_AUTOPULL", "BODY_PULL_MIN",
                "TOUCHSTONE_URL", "TOUCHSTONE_BOARD", "TOUCHSTONE_POLL_S", "TOUCHSTONE_TELL_S", "TOUCHSTONE_WAKES", "TOUCHSTONE_WAKE_MIN_GAP_S",
@@ -573,6 +573,9 @@ _HELP = {
     "PAINTER_GUIDANCE": "Guidance (CFG) over the model's own; 0 is the model's. The full Qwen-Image 2.1 paints 40 steps "
                         "without it; 2–4 follows the words more closely and costs twice the time a step. Above 1 a "
                         "negative prompt rides along.",
+    "PAINTER_GUIDANCE_REFERENCES": "The guidance for a painting that looks at references — guidance about doubles what a "
+                                   "painting holds on the card, and references already add to it. -1: the same as "
+                                   "PAINTER_GUIDANCE; 0: the model's own (none).",
     "PAINTER_KV_CACHE": "Qwen-Image reads the words and reference pictures once and reuses them at every step — faster, "
                         "most of all with references. Only where the pipeline takes it.",
     "PAINTER_STEPS": "Diffusion steps per picture; 0 is the model's own default (Z-Image-Turbo 9, FLUX.2 klein 4, Qwen-Image-2.1-Turbo 8).",
@@ -729,7 +732,7 @@ SENSES: list[dict] = [
      "they call it; the brain steps off the card and reads its window cold after — the real price of a painting",
      "modules": ["torch", "diffusers", "PIL"], "tools": [], "python": "PAINTER_PYTHON",
      "pip": "-U diffusers transformers accelerate safetensors pillow sentencepiece protobuf tiktoken (torch and torchvision first — README)",
-     "knobs": ["PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_GUIDANCE", "PAINTER_KV_CACHE", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_REFERENCE_TURN", "PAINTER_REFERENCE_CROP", "PAINTER_REFERENCE_SIDE", "PAINTER_REFERENCE_PIXELS", "PAINTER_RAN_OUT_REST_MIN", "PAINTER_AUTO_REFERENCE"],
+     "knobs": ["PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_GUIDANCE", "PAINTER_GUIDANCE_REFERENCES", "PAINTER_KV_CACHE", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_REFERENCE_TURN", "PAINTER_REFERENCE_CROP", "PAINTER_REFERENCE_SIDE", "PAINTER_REFERENCE_PIXELS", "PAINTER_RAN_OUT_REST_MIN", "PAINTER_AUTO_REFERENCE"],
      "readme": "their-senses-and-hands"},
     {"key": "music", "name": "The music ear", "what": "a song heard whole by Music Flamingo (8B, ~16 GB of VRAM to itself): genre, "
      "tempo, key, how the piece moves; without it a long piece is heard in passages by the brain",

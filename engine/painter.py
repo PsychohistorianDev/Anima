@@ -356,7 +356,7 @@ _NEGATIVE_FAMILIES = {"zimage-base", "chroma", "sdxl", "auto"}  # guidance above
 _MEGAPIXEL_FAMILIES = {"sdxl": 1_050_000, "chroma": 1_050_000}  # 1024-class brushes: a house size is scaled down to this
 
 
-def _defaults(model_id: str) -> tuple[int, float]:
+def _defaults(model_id: str, references: bool = False) -> tuple[int, float]:
     """(steps, guidance) the model was made for; PAINTER_STEPS overrides steps."""
     fam = _family(model_id)
     steps = _STEPS.get(fam, 20)
@@ -366,6 +366,9 @@ def _defaults(model_id: str) -> tuple[int, float]:
     knob = int(getattr(config, "PAINTER_STEPS", 0) or 0)
     try:
         g = float(getattr(config, "PAINTER_GUIDANCE", 0) or 0)  # (10-31) the guidance over the model's own; 0: the model's
+        if references:  # (10-31) a painting with references: its own guidance (-1: the same); guidance doubles what it holds
+            r = float(getattr(config, "PAINTER_GUIDANCE_REFERENCES", -1))
+            g = g if r < 0 else r
     except (TypeError, ValueError):
         g = 0.0
     return (knob or steps), (g if g > 0 else guidance)
@@ -561,7 +564,7 @@ def paint(prompt: str, width: int, height: int, seed: int | None = None, negativ
         if seed is None:
             seed = int.from_bytes(os.urandom(4), "little")
         gen = torch.Generator(device=device.generator_device(_device)).manual_seed(int(seed))
-        steps, guidance = _defaults(MODEL_ID)
+        steps, guidance = _defaults(MODEL_ID, references=bool(images))
         with torch.inference_mode():
             extra = {"image": images} if images else {}  # condition pictures: their face, or the one being repainted (10-25)
             try:

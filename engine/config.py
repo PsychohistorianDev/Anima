@@ -321,6 +321,9 @@ PAINTER_STEPS = 0             # 0 = the model's default (Z-Image-Turbo 9, FLUX.2
 # paints 40 steps without it; 2–4 follows the words more closely and costs twice the time a step.
 # Above 1 a negative prompt rides along (a blank one when none was asked).
 PAINTER_GUIDANCE = 0
+# The guidance for a painting that looks at references: guidance about doubles what a painting holds on the
+# card, and references already add to it. -1 = the same as above; 0 = the model's own (none).
+PAINTER_GUIDANCE_REFERENCES = -1
 # Qwen-Image reads the words and the reference pictures once and reuses them at every step (the prefix
 # KV cache its Turbo card paints with) — faster, most of all with references. Only where the pipeline
 # takes it; False: as before.

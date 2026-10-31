@@ -158,6 +158,10 @@ for a tic turned glitch.
   (new, 1,050,000) — each reference rides beside the painting at about its
   size, so a painting that looks at references is painted no larger than this
   (its shape kept); three references beside a 1440 painting had spilled the card.
+- **Guidance apart for paintings with references** (10-31):
+  `PAINTER_GUIDANCE_REFERENCES` (new, -1 = the same) — guidance about doubles what a
+  painting holds on the card, and references add to it; 0 paints those at the
+  model's own.
 - **Guidance and the KV cache for the painter** (10-31): `PAINTER_GUIDANCE`
   (new, 0 = the model's) — real guidance for the full Qwen-Image 2.1, with a
   blank negative prompt so it guides; `PAINTER_KV_CACHE` (new, False) — the

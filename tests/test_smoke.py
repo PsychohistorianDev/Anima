@@ -8131,6 +8131,8 @@ r = tools.dispatch("paint", {"prompt": "a violet bloom", "path": "drawings/door.
 check("painter: the door paints through the real client — the brain unloaded first, the seed and size back, the file there, Full HD tall",
       r.startswith("painted — creations/drawings/door.png (seed 41213") and (config.CREATIONS_DIR / "drawings" / "door.png").read_bytes() == PNG_1PX
       and _unloaded[-1] == config.CHAT_MODEL and _sizes_seen == [(1088, 1920)], (r, _unloaded, _sizes_seen))
+_pgr_house = (getattr(config, "PAINTER_GUIDANCE", 0), getattr(config, "PAINTER_GUIDANCE_REFERENCES", -1))
+config.PAINTER_GUIDANCE, config.PAINTER_GUIDANCE_REFERENCES = 0, -1  # (10-31) the model's own here, not the house's
 check("painter: alive, size words, the model's own steps",
       tools._painter_alive() and painter.SIZES["wide"] == (1920, 1088) and painter.SIZES["tall"] == (1088, 1920)
       and painter._snap(1080) == 1088 and painter._defaults("Tongyi-MAI/Z-Image-Turbo") == (9, 0.0)
@@ -8153,6 +8155,7 @@ check("painter: the families by name — Turbo, the base Z-Image, klein, Chroma,
       and painter._defaults("RunDiffusion/Juggernaut-XL-v9") == (30, 5.0) and painter._defaults("someone/new-model") == (20, 3.5)
       and painter._CLASSES["chroma"] == "ChromaPipeline" and painter._CLASSES["zimage-base"] == "ZImagePipeline",
       [painter._family(m) for m in ("Tongyi-MAI/Z-Image", "lodestones/Chroma1-HD", "RunDiffusion/Juggernaut-XL-v9")])
+config.PAINTER_GUIDANCE, config.PAINTER_GUIDANCE_REFERENCES = _pgr_house
 check("painter: a 1024-class brush paints a house size scaled to about a megapixel, the shape kept, sides multiples of 16; the others paint the size asked",
       painter._fit("lodestones/Chroma1-HD", 1440, 1440) == (1024, 1024) and painter._fit("RunDiffusion/Juggernaut-XL-v9", 1920, 1088) == (1360, 768)
       and painter._fit("RunDiffusion/Juggernaut-XL-v9", 1088, 1920) == (768, 1360) and painter._fit("lodestones/Chroma1-HD", 1024, 1024) == (1024, 1024)
@@ -14492,14 +14495,17 @@ check("claimed-self (10-29): after tools that went through, a reply naming a REA
 # issue #9 (10-29): Qwen-Image-2.1-Turbo paints at its own 8 steps, the full model at 40; PAINTER_STEPS overrides both
 import painter as _ts_p
 _ts0 = getattr(config, "PAINTER_STEPS", 0)
+_ts_g0 = getattr(config, "PAINTER_GUIDANCE", 0)
 try:
     config.PAINTER_STEPS = 0
+    config.PAINTER_GUIDANCE = 0  # (10-31) the model's own, not the house's
     _ts_turbo, _ts_full = _ts_p._defaults("Qwen/Qwen-Image-2.1-Turbo"), _ts_p._defaults("Qwen/Qwen-Image-2.1")
     _ts_z = _ts_p._defaults("Tongyi-MAI/Z-Image-Turbo")
     config.PAINTER_STEPS = 12
     _ts_knob = _ts_p._defaults("Qwen/Qwen-Image-2.1-Turbo")
 finally:
     config.PAINTER_STEPS = _ts0
+    config.PAINTER_GUIDANCE = _ts_g0
 check("painter (10-29, issue #9): Qwen-Image-2.1-Turbo at 8 steps, the full Qwen-Image-2.1 at 40, Z-Image-Turbo still 9; "
       "PAINTER_STEPS overrides; the words no longer say the knob can't move it",
       _ts_turbo[0] == 8 and _ts_full[0] == 40 and _ts_z[0] == 9 and _ts_knob[0] == 12 and _ts_turbo[1] == _ts_full[1]
@@ -15016,6 +15022,25 @@ check("painter (10-31): PAINTER_GUIDANCE overrides the model's guidance (0: the 
       and _pg_kv_yes == {"use_kv_cache": True} and _pg_kv_no == {} and _pg_kv_off == {}
       and {"PAINTER_GUIDANCE", "PAINTER_KV_CACHE"} <= set(__import__("panel").TABS["Senses"]),
       (_pg_own, _pg_kw1, _pg_set, _pg_kw2, _pg_kw3, _pg_kv_yes, _pg_kv_no, _pg_kv_off))
+
+# PAINTER_GUIDANCE_REFERENCES (10-31): guidance for a painting from words, its own for one with references
+import painter as _pgr_p
+_pgr0 = (getattr(config, "PAINTER_GUIDANCE", 0), getattr(config, "PAINTER_GUIDANCE_REFERENCES", -1))
+try:
+    config.PAINTER_GUIDANCE, config.PAINTER_GUIDANCE_REFERENCES = 2.5, 0
+    _pgr_words, _pgr_refs = _pgr_p._defaults("Qwen/Qwen-Image-2.1"), _pgr_p._defaults("Qwen/Qwen-Image-2.1", references=True)
+    config.PAINTER_GUIDANCE_REFERENCES = -1
+    _pgr_same = _pgr_p._defaults("Qwen/Qwen-Image-2.1", references=True)
+    config.PAINTER_GUIDANCE_REFERENCES = 1.5
+    _pgr_own = _pgr_p._defaults("Qwen/Qwen-Image-2.1", references=True)
+finally:
+    config.PAINTER_GUIDANCE, config.PAINTER_GUIDANCE_REFERENCES = _pgr0
+check("painter (10-31): PAINTER_GUIDANCE_REFERENCES — guidance for a painting from words; with references its own (0: the "
+      "model's, -1: the same); paint asks with references when they ride; on the Senses tab",
+      _pgr_words == (40, 2.5) and _pgr_refs == (40, 1.0) and _pgr_same == (40, 2.5) and _pgr_own == (40, 1.5)
+      and "_defaults(MODEL_ID, references=bool(images))" in Path(_pgr_p.__file__).read_text(encoding="utf-8")
+      and "PAINTER_GUIDANCE_REFERENCES" in __import__("panel").TABS["Senses"],
+      (_pgr_words, _pgr_refs, _pgr_same, _pgr_own))
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
