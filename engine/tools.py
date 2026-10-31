@@ -2832,9 +2832,11 @@ def garden(action: str = "look", bed: str = "", what: str = "", name: str = "", 
     """The garden (10-31, engine/garden.py): eight beds under the real sky over the keeper's home; invent makes up a
     plant (GARDEN_INVENTS_PER_DAY), painted by their own painter."""
     import garden as _gm
-    if (action or "").strip().lower() == "invent":
+    import re as _re
+    action = _re.sub(r"[^a-z]", "", str(action or "look").lower()) or "look"  # "plant**" is plant (10-31)
+    if action == "invent":
         return _gm.invent(name or what, look, days, season, thirst, gives, harvest, ripe)
-    if (action or "look").strip().lower() == "look":
+    if action == "look":
         words, pic = _gm.look()
         if pic:
             _pending_images.append(base64.b64encode(pic).decode("ascii"))

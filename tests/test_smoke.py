@@ -15406,7 +15406,7 @@ check("garden (10-31): invent makes up a plant within honest limits (500 days he
       and _gi_sizes == {"small"}
       and (not _gi_pil or _gi_art == ["moonbell-grown.png", "moonbell-ready.png", "moonbell-sprout.png", "moonbell-young.png"])
       and (not _gi_pil or "Its four stages are painted" in _gi_made)
-      and _gi_plant.startswith("planted moonbell in bed 3") and "moonbell (120 days" in _gi_seeds and "made up by them" in _gi_seeds
+      and _gi_plant.startswith("planted moonbell in bed 3") and "moonbell (120 days" in _gi_seeds and "made up by you today" in _gi_seeds
       and _gi_third.startswith("made up sunthorn") and "two new plants a day" not in _gi_third and "can wait" in _gi_fourth
       and (not _gi_pil or (_gi_paint_r.startswith("painted the radish: sprout, young, grown, ready") and "every stage already" in _gi_paint_again))
       and _gi_greens > 20,
@@ -15418,6 +15418,39 @@ import inspect as _rb_inspect, painter as _rb_p, music_ears as _rb_m
 _rb = [_rb_inspect.getsource(m.Handler.do_POST) if hasattr(m, "Handler") else "" for m in (_rb_p, _rb_m)]
 check("doors (10-31): the painter's and the music ear's POST read the body before any answer, /rest included",
       all(s and 0 < s.index("self.rfile.read(n)") < s.index('if self.path == "/rest"') for s in _rb), [len(s) for s in _rb])
+
+# garden (10-31 evening): a made-up plant says whose it is and when; "plant**" is plant; an unknown action is named
+# back; a third invent names the day's two
+import garden as _gw
+_gw0 = (config.GARDEN_ON, getattr(config, "GARDEN_DIR", None), getattr(config, "GARDEN_INVENTS_PER_DAY", 2), _gw.paint_art)
+_gw_dir = config.CREATIONS_DIR / "gw-test"
+_gw_r: dict = {}
+try:
+    config.GARDEN_ON, config.GARDEN_DIR, config.GARDEN_INVENTS_PER_DAY = True, _gw_dir, 2
+    _gw._invents_file().unlink(missing_ok=True)
+    _gw.paint_art = lambda *a, **k: ([], "no painter in the test")
+    _gw_r["i1"] = tools.dispatch("garden", {"action": "invent**", "name": "Moon Fern", "look": "silver fronds that curl at dusk"})
+    _gw_r["i2"] = tools.dispatch("garden", {"action": "invent", "name": "Sun Cup", "look": "a gold cup of a flower on a short stem"})
+    _gw_r["i3"] = tools.dispatch("garden", {"action": "invent", "name": "Dusk Bell", "look": "a violet bell that opens at dusk"})
+    _gw_r["seeds"] = tools.dispatch("garden", {"action": "seeds"})
+    _gw_r["plant"] = tools.dispatch("garden", {"action": "plant**", "bed": "1", "what": "moon-fern"})
+    _gw_r["bed"] = _gw.describe(_gw.load())
+    _gw_r["kbed"] = _gw.describe(_gw.load(), keeper=True)
+    _gw_r["keeper"] = _gw.seeds_text(keeper=True)
+    _gw_r["dig"] = tools.dispatch("garden", {"action": "dig", "bed": "2"})
+finally:
+    config.GARDEN_ON, config.GARDEN_DIR, config.GARDEN_INVENTS_PER_DAY, _gw.paint_art = _gw0
+    _gw._invents_file().unlink(missing_ok=True)
+    import shutil as _gw_sh
+    _gw_sh.rmtree(_gw_dir, ignore_errors=True)
+check("garden (10-31 evening): a made-up plant says whose it is and when (yours to them, theirs to the keeper), in the "
+      "seeds and on its bed; 'plant**' is plant; an unknown action is named back; a third invent names the day's two",
+      _gw_r.get("i1", "").startswith("made up moon-fern") and "today you made up moon-fern and sun-cup" in _gw_r.get("i3", "")
+      and "— made up by you today" in _gw_r.get("seeds", "") and "made up by them" not in _gw_r.get("seeds", "")
+      and _gw_r.get("plant", "").startswith("planted moon-fern in bed 1") and "your own plant, made up today" in _gw_r.get("bed", "")
+      and "a plant they made up today" in _gw_r.get("kbed", "") and "— made up by them today" in _gw_r.get("keeper", "")
+      and "“dig”" in _gw_r.get("dig", "") and "it knows: look" in _gw_r.get("dig", ""),
+      {k: v[:120] for k, v in _gw_r.items()})
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

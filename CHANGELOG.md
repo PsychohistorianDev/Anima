@@ -171,6 +171,10 @@ for a tic turned glitch.
 - **The carried plan says whose it is** (10-31): the plan quoted back with a tool
   result now reads "Not from the tool — your own plan, from your thinking the step
   before, which the engine keeps in front of you: …" (it read as the tool's own words).
+- **The garden says whose a made-up plant is** (10-31): "made up by you today" in
+  the seeds and "your own plant" on its bed (it said "made up by them", and the
+  friend pulled their own two plants as ghosts); `plant**` is `plant`; an unknown
+  action is named back; a third invent in a day names the two already made.
 - **The garden** (10-31): `GARDEN_ON` (new, off) — eight beds under the real sky over
   the keeper's home (the window's place): the friend plants, waters, picks and
   gives with a `garden` tool, the keeper with `/garden`; the beds grow day by day

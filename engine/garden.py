@@ -317,6 +317,8 @@ def describe(g: dict, keeper: bool = False) -> str:
         if bed.get("health", 1) < 0.7:
             bits.append("leaves hurt")
         who = bed.get("by")
+        if sp.get("invented"):
+            bits.append(("a plant they made up " if keeper else "your own plant, made up ") + _made_on(sp))
         if who == "keeper":
             bits.append("planted by " + ("you" if keeper else "him"))
         elif who == "the wind":
@@ -327,21 +329,39 @@ def describe(g: dict, keeper: bool = False) -> str:
     return "\n".join(rows)
 
 
-def seeds_text() -> str:
-    return "seeds: " + "; ".join(f"{k} ({v['days']} days, {v['ready']})" + (" — made up by " + str(v.get("by") or "them") if v.get("invented") else "")
-                                 for k, v in all_seeds().items())
+def _made_on(sp: dict) -> str:
+    """"on 31 Oct" (today: "today") for a made-up seed, "" when the day isn't known."""
+    try:
+        d = datetime.fromisoformat(str(sp.get("invented"))).date()
+    except (TypeError, ValueError):
+        return ""
+    return "today" if d == date.today() else f"on {d.day} {d.strftime('%b')}"
+
+
+def seeds_text(keeper: bool = False) -> str:
+    """The seeds; a made-up one says whose it is and when — "made up by you" to them (10-31: "made up by them" read to
+    them as someone else's plant)."""
+    return "seeds: " + "; ".join(
+        f"{k} ({v['days']} days, {v['ready']})"
+        + (f" — made up by {'them' if keeper else 'you'} {_made_on(v)}".rstrip() if v.get("invented") else "")
+        for k, v in all_seeds().items())
+
+
+def made_today() -> list[str]:
+    """The plants made up today, by name."""
+    return [k for k, v in invented().items() if _made_on(v) == "today"]
 
 
 def act(action: str, where: str = "", what: str = "", who: str = "them", keeper_name: str = "your keeper") -> str:
     """One thing done in the garden, by them (who="them") or the keeper; or a look. A refusal starts with "("."""
     if not on():
         return "(there is no garden in this house — GARDEN_ON is off)"
-    a = (action or "look").strip().lower()
+    a = re.sub(r"[^a-z]", "", str(action or "look").lower()) or "look"  # "plant**" is plant (10-31)
     g, events, mild = tick()
     out = ""
     if a == "seeds":
         save(g)
-        return seeds_text()
+        return seeds_text(keeper=who == "keeper")
     if a == "look":
         save(g)
         return ""
@@ -361,7 +381,7 @@ def act(action: str, where: str = "", what: str = "", who: str = "them", keeper_
         if not n:
             return "(which bed? 1–8)"
         if not sp:
-            return f"(no such seed — {seeds_text()})"
+            return f"(no such seed — {seeds_text(keeper=who == 'keeper')})"
         if g["beds"][n - 1]:
             return f"(bed {n} has {g['beds'][n - 1]['seed']} in it — pull it first, or plant in an empty bed)"
         g["beds"][n - 1] = {"seed": sp, "planted": date.today().isoformat(), "growth": 0.0, "water": 1.0, "health": 1.0,
@@ -409,7 +429,7 @@ def act(action: str, where: str = "", what: str = "", who: str = "them", keeper_
     elif a == "paint":
         sp = _seed(what)
         if not sp:
-            return f"(paint which plant? {seeds_text()})"
+            return f"(paint which plant? {seeds_text(keeper=who == 'keeper')})"
         miss = missing_art(sp)
         if not miss:
             save(g)
@@ -425,7 +445,8 @@ def act(action: str, where: str = "", what: str = "", who: str = "them", keeper_
         g["beds"][n - 1]["note"] = " ".join(str(what or "").split())[:120]
         out = f"noted on bed {n}"
     else:
-        return "(the garden knows: look, seeds, plant, water, pick, give, pull, note, invent, paint)"
+        return (f"(the garden has no \u201c{action}\u201d — it knows: look, seeds, plant, water, pick, give, pull, note, "
+                "invent, paint)")
     save(g)
     _log("keeper" if who == "keeper" else "them", out)
     if who == "keeper":
@@ -704,8 +725,10 @@ def invent(name: str, look: str, days="", season: str = "", thirst: str = "", gi
     if len(look) < 12:
         return "(say how it looks — a few words of its leaves, its flower or fruit, its colours)"
     if invents_left() <= 0:
-        return (f"(the garden takes {getattr(config, 'GARDEN_INVENTS_PER_DAY', 2)} new plants a day — this one can wait "
-                "in words until tomorrow)")
+        today = made_today()
+        return (f"(the garden takes {getattr(config, 'GARDEN_INVENTS_PER_DAY', 2)} new plants a day"
+                + (f", and today you made up {' and '.join(today)}" if today else "")
+                + " — this one can wait in words until tomorrow)")
     try:
         d = int(re.search(r"\d+", str(days)).group(0)) if str(days).strip() else 60
     except (AttributeError, ValueError):

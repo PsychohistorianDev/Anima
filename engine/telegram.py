@@ -690,7 +690,7 @@ class Bridge:
             self.send(words, markdown=False)
             return
         if word == "seeds":
-            self.send(garden.seeds_text(), markdown=False)
+            self.send(garden.seeds_text(keeper=True), markdown=False)
             return
         if word == "paint":  # (10-31) a plant's missing stages painted now — the brain steps aside a few minutes
             self.send(f"({garden.act('paint', '', rest, who='keeper', keeper_name=keeper)})", markdown=False)
