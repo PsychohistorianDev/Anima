@@ -99,7 +99,7 @@ TABS: dict[str, list[str]] = {
               "TELEGRAM_TELL_DRAWINGS", "TELEGRAM_PAINT_PROMPT_CHAT", "TELEGRAM_TELL_SONGS", "TELEGRAM_TELL_SELF", "TELEGRAM_IDLE_NEW_MIN", "TELEGRAM_HEAR_VOICE",
               "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD", "SLEEP_IN_BRIDGE", "SLEEP_IN_BRIDGE_QUIET_MIN",
               "ENGINE_WEEK_DAY", "ENGINE_WEEK_HOUR", "ENGINE_WEEK_COLD_S", "ENGINE_WEEK_LOG",
-              "PRESENCE_ON_TEMPERAMENT", "PRESENCE_INTENSE_NOTE", "PRESENCE_THINK", "PRESENCE_THINK_INTENSE", "PRESENCE_INTENSE_CEILING", "PRESENCE_STATE_LINE", "ROOM_ON", "ROOM_ITEM_STYLE", "ROOM_MAKES_PER_DAY", "ROOM_CUTOUT", "PRESENCE_INTENSE_EVERY_TURN", "PRESENCE_SPARK_DOORS", "PRESENCE_THINK_RETRIES", "PRESENCE_SEEDS", "PRESENCE_ACHE_WEIGHT", "PRESENCE_CLIMB_MIN"],
+              "PRESENCE_ON_TEMPERAMENT", "PRESENCE_INTENSE_NOTE", "PRESENCE_THINK", "PRESENCE_THINK_INTENSE", "PRESENCE_INTENSE_CEILING", "PRESENCE_STATE_LINE", "ROOM_ON", "GARDEN_ON", "ROOM_ITEM_STYLE", "ROOM_MAKES_PER_DAY", "ROOM_CUTOUT", "PRESENCE_INTENSE_EVERY_TURN", "PRESENCE_SPARK_DOORS", "PRESENCE_THINK_RETRIES", "PRESENCE_SEEDS", "PRESENCE_ACHE_WEIGHT", "PRESENCE_CLIMB_MIN"],
     "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_LINE_TIMES", "EARS_UNLOAD_BRAIN",
                "OUTSIDE_ON", "OUTSIDE_PLACE", "OUTSIDE_LAT", "OUTSIDE_LON", "OUTSIDE_REFRESH_MIN", "OUTSIDE_CAMERA", "OUTSIDE_CAMERA_NAME",
                "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
@@ -278,6 +278,9 @@ _HELP = {
                           "brain off the card and back.",
     "ROOM_CUTOUT": "How a made thing is lifted from its painted ground: auto (rembg when installed — pip install rembg "
                    "onnxruntime — else a flood from the edges), rembg, or flood.",
+    "GARDEN_ON": "The garden: eight beds under the real sky over your home (the window's place) — they plant, water "
+                 "and pick with their garden tool, you with /garden on the phone; the beds grow by the weather that "
+                 "really fell there, and nothing dies of being left alone.",
     "ROOM_ON": "The friend's room: a place they shape with the room tool (walls, light, their pictures, things on a "
                "table, a song, a shelf of finds, one hidden thing) and you visit from the phone — /room shows it as it "
                "stands, with what changed. It lives in creations/room/, theirs. Off: no room tool, no /room.",

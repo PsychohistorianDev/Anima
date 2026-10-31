@@ -158,6 +158,12 @@ for a tic turned glitch.
   (new, 1,050,000) — each reference rides beside the painting at about its
   size, so a painting that looks at references is painted no larger than this
   (its shape kept); three references beside a 1440 painting had spilled the card.
+- **The garden** (10-31): `GARDEN_ON` (new, off) — eight beds under the real sky over
+  the keeper's home (the window's place): the friend plants, waters, picks and
+  gives with a `garden` tool, the keeper with `/garden`; the beds grow day by day
+  by the weather that really fell there (Open-Meteo), with real plants and
+  timings, small happenings (a bee, a snail, a first bud), and nothing dies of
+  being left alone. A line under the wake bell; a picture of the beds.
 - **Rules they set themselves** (10-31): `RULES_ON` (new, off) and two tools,
   `set_rule` and `drop_rule` — a limit (`limit read_journal 2026-08-27 to 1 per 7d`)
   or a block (`block read_creation meditations/* until 11-07`) in rules.md, kept by

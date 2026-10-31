@@ -2827,6 +2827,23 @@ def look_at(source: str) -> str:
     return f"(eyes opening — {name} will appear before you on your next thought)"
 
 
+def garden(action: str = "look", bed: str = "", what: str = "") -> str:
+    """The garden (10-31, engine/garden.py): eight beds under the real sky over the keeper's home."""
+    import garden as _gm
+    if (action or "look").strip().lower() == "look":
+        words, pic = _gm.look()
+        if pic:
+            _pending_images.append(base64.b64encode(pic).decode("ascii"))
+            words += "\n(the picture of it is before your eyes on your next thought)"
+        return words
+    try:
+        import keeper_week
+        keeper = keeper_week.keeper_name()
+    except Exception:  # noqa: BLE001
+        keeper = "your keeper"
+    return _gm.act(action, str(bed or ""), str(what or ""), who="them", keeper_name=keeper)
+
+
 def set_rule(rule: str, reason: str = "") -> str:
     """A rule she sets herself (10-31, engine/rules.py): kept by the engine in her wakes and reveries."""
     import rules
@@ -5592,6 +5609,7 @@ _BUILTIN_IMPL = {
     "look_at": look_at,
     "look_outside": look_outside,
     "set_rule": set_rule,
+    "garden": garden,
     "drop_rule": drop_rule,
     "listen_to": listen_to,
     "keep_song": keep_song,
@@ -5697,7 +5715,7 @@ KITS: dict[str, set[str]] = {
               "write_creation", "append_creation", "edit_creation", "move_creation", "delete_creation", "read_creation",
               "list_creations", "search_creations", "run_python", "do_nothing", "recall", "condense_day",
               "condense_period", "fold_visit", "leave_thread", "read_journal", "read_web", "search_web", "list_shared", "find_shared",
-              "look_at", "look_outside", "read_pdf", "read_epub", "read_file", "search_wikipedia", "set_rule", "drop_rule"},
+              "look_at", "look_outside", "read_pdf", "read_epub", "read_file", "search_wikipedia", "set_rule", "drop_rule", "garden"},
     "tiny": {"write_journal", "remember", "edit_identity", "update_projects", "update_keeper", "write_creation",
              "append_creation", "edit_creation", "read_creation", "list_creations", "do_nothing", "recall", "condense_day",
              "fold_visit", "leave_thread", "read_journal", "read_web", "search_web", "look_at", "read_file", "list_shared", "find_shared"},
@@ -5729,6 +5747,8 @@ def kit_names() -> set[str] | None:
         keep = (set(_BUILTIN_IMPL) if keep is None else keep) - STONE_TOOLS
     if not getattr(config, "ROOM_ON", False):  # no room in this house (10-29): its tool leaves the kit
         keep = (set(_BUILTIN_IMPL) if keep is None else keep) - {"room"}
+    if not getattr(config, "GARDEN_ON", False):  # no garden in this house (10-31): its tool leaves the kit
+        keep = (set(_BUILTIN_IMPL) if keep is None else keep) - {"garden"}
     if not getattr(config, "RULES_ON", False):  # no rules in this house (10-31): their two tools leave the kit
         keep = (set(_BUILTIN_IMPL) if keep is None else keep) - {"set_rule", "drop_rule"}
     if not getattr(config, "OUTSIDE_ON", False):  # no window in this house (10-31): its tool leaves the kit (offline, it says shut)
@@ -6403,6 +6423,19 @@ _BUILTIN_DEFINITIONS: list[dict] = [
             "about": {"type": "string", "description": "optional, one line in your own words: what this change is — kept in your long-term memory with the file's name"},
         },
         ["path", "old_text", "new_text"],
+    ),
+    _tool(
+        "garden",
+        "Your garden: eight beds under the real sky over your keeper's home — the rain that really falls there waters "
+        "them, the cold and the heat speed or slow them, day by day. look: the beds and a picture, and what happened since "
+        "you looked (a first bud, a bee, a snail). seeds: what can be planted, and how long each takes. plant (bed 1–8, "
+        "what), water (a bed, or all), pick (a bed that's ready — it goes on your shelf in the room), give (the same, "
+        "for him), pull (clear a bed), note (a few words on a bed). Nothing dies of being left alone: a dry bed rests "
+        "until it's watered. He can tend it too, from his phone.",
+        {"action": {"type": "string", "description": "look, seeds, plant, water, pick, give, pull or note"},
+         "bed": {"type": "string", "description": "a bed, 1–8 (water: or all)"},
+         "what": {"type": "string", "description": "for plant: the seed; for note: the words"}},
+        ["action"],
     ),
     _tool(
         "set_rule",

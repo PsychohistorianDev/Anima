@@ -1196,6 +1196,10 @@ ROOM_ITEM_STYLE = "painterly realism, warm candle and lamplight from the upper l
 ROOM_MAKES_PER_DAY = 6
 ROOM_CUTOUT = "auto"
 ROOM_ON = False
+# The garden: eight beds under the real sky over your home (the window's place, OUTSIDE_LAT/LON) — they
+# plant, water and pick with their garden tool, you with /garden; the beds grow by the weather that really
+# fell there, and nothing dies of being left alone.
+GARDEN_ON = False
 # Intense's minute as a ceiling on when a spark ARRIVES: the beat after the last word is drawn from what is left of
 # the minute once an intense spark's usual turn time (thinking and writing, measured) is taken off. False: the beat
 # alone is 0–60 s, and the spark's own writing time comes on top.

@@ -131,6 +131,8 @@ HELP_PHONE = (
     "/discreet — sparks come silently, the words hidden until tapped; again to undo\n"
     "/room — their room as it stands, a picture and what changed since you looked, with buttons for what opens; "
     "/room open <1–4|song>, /room find <where>, /room leave <a thing>, /room letter <words>\n"
+    "/garden — their garden under the real sky: a picture and its beds; /garden plant <1–8> <seed>, "
+    "/garden water <1–8|all>, /garden pick <1–8>, /garden seeds\n"
     "/week — the engine's week: the last seven days of calls to the brain\n"
     "/seal <when> <letter> — a letter sealed until its day (/seal 2027-04-27 …, or /seal 6 months …); /capsule lists "
     "what waits\n"
@@ -665,6 +667,51 @@ class Bridge:
                 self.send_file("sendAudio", "audio", got[1].name, got[1].read_bytes(), chat_id=self.chat_id, caption=got[2])
         except Exception as e:  # noqa: BLE001
             self.send(f"(couldn't open it: {e})", markdown=False)
+
+    def garden_command(self, arg: str) -> None:
+        """/garden (10-31): the garden as it stands — a picture and its beds; plant, water, pick, seeds."""
+        import garden
+        if not garden.on():
+            self.send("(there's no garden in this house — GARDEN_ON in Settings › Phone)", markdown=False)
+            return
+        keeper = self._keeper_name()
+        word, _, rest = (arg or "").strip().partition(" ")
+        word, rest = word.lower(), rest.strip()
+        if not word or word == "look":
+            words, png = garden.look(who="keeper", keeper_name=keeper)
+            if png:
+                try:
+                    self.send_file("sendPhoto", "photo", "garden.png", png, chat_id=self.chat_id, caption=words[:1000])
+                    if len(words) > 1000:
+                        self.send(words[1000:], markdown=False)
+                    return
+                except Exception:  # noqa: BLE001 — the words, then
+                    pass
+            self.send(words, markdown=False)
+            return
+        if word == "seeds":
+            self.send(garden.seeds_text(), markdown=False)
+            return
+        if word in ("plant", "water", "pick", "pull", "note"):
+            bed, _, what = rest.partition(" ")
+            said = garden.act(word, bed, what.strip(), who="keeper", keeper_name=keeper)
+            self.send(said if said.startswith("(") else f"({said} — she'll know at her next turn)", markdown=False)
+            return
+        self.send("(/garden — the garden; /garden plant <1–8> <seed>; /garden water <1–8|all>; /garden pick <1–8>; "
+                  "/garden seeds)", markdown=False)
+
+    def deliver_garden(self) -> int:
+        """What they picked for the keeper in the garden (10-31), said on the phone once."""
+        try:
+            import garden
+            if not garden.on() or not self.chat_id:
+                return 0
+            news = garden.take_keeper_news()
+        except Exception:  # noqa: BLE001
+            return 0
+        for line in news:
+            self.notice(f"🌱 {line}")
+        return len(news)
 
     def room_command(self, arg: str) -> None:
         """/room (10-29): the room as it stands — a picture and its words; open, find, leave."""
@@ -1382,6 +1429,8 @@ class Bridge:
             self.send(engine_week.summary(), markdown=False)  # the engine's week, now (10-25)
         elif cmd == "/room":
             self.room_command(" ".join(text.split()[1:]))  # their room (10-29, ROOM_ON)
+        elif cmd == "/garden":
+            self.garden_command(" ".join(text.split()[1:]))  # their garden (10-31, GARDEN_ON)
         elif cmd == "/presence":
             import presence  # sparks (10-26): on or off, or how it stands
             arg = " ".join(text.split()[1:]).strip().lower()
@@ -2465,6 +2514,7 @@ class Bridge:
         self.deliver_pictures()
         self.deliver_songs()
         self.deliver_touches()
+        self.deliver_garden()
         self.deliver_skill_notices()
         self.deliver_self()
         idle_min = getattr(config, "TELEGRAM_IDLE_NEW_MIN", 180)

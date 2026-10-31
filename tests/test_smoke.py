@@ -10068,6 +10068,7 @@ _kit_room0 = getattr(config, "ROOM_ON", False)
 config.ROOM_ON = True  # (10-29) the room's tool counted among the built-ins, whatever the house
 _kit_out0, config.OUTSIDE_ON = getattr(config, "OUTSIDE_ON", False), True  # (10-31) the window's tool too
 _kit_rules0, config.RULES_ON = getattr(config, "RULES_ON", False), True  # (10-31) and the rules' two
+_kit_garden0, config.GARDEN_ON = getattr(config, "GARDEN_ON", False), True  # (10-31) and the garden's
 config.TOOL_KIT = "full"; tools.refresh_her_tools()
 _kit_full = _kit_names()
 _kit_full_prompt = assemble.system_prompt("x", mode="chat")
@@ -10121,7 +10122,7 @@ config.OFFLINE = False
 _on_hours = _ofnw.every_hours()
 config.TOOL_KIT = "full"; tools.refresh_her_tools()
 _on_full = _kit_names()
-config.OFFLINE = _of0; config.TOOL_KIT = _kit0; config.ROOM_ON = _kit_room0; config.OUTSIDE_ON = _kit_out0; config.RULES_ON = _kit_rules0; tools.refresh_her_tools()  # (10-29) the room pinned on through the kit's checks
+config.OFFLINE = _of0; config.TOOL_KIT = _kit0; config.ROOM_ON = _kit_room0; config.OUTSIDE_ON = _kit_out0; config.RULES_ON = _kit_rules0; config.GARDEN_ON = _kit_garden0; tools.refresh_her_tools()  # (10-29) the room pinned on through the kit's checks
 check("kit: OFFLINE — the five web tools (read_web, search_web, search_wikipedia, browse_skills, fetch_skill) leave the full kit and the tiny one, "
       "the rest and the forged tools stay; the prompt stops speaking of the web; a call to one answers that the house is offline; the look for a "
       "newer anima is off (every_hours 0, look does nothing); off again, everything is back",
@@ -15205,6 +15206,85 @@ check("rules (10-31): set_rule says back what it understood and keeps it in rule
       and _ru_drop.startswith("untied") and "your own rule" in _ru_still and "untied, holds until the next door" in _ru_sec2
       and _ru_free2 == "" and _ru_off[0] == "" and "RULES_ON is off" in _ru_off[1] and not _ru_off[2],
       (_ru_bad, _ru_set1, _ru_sec, _ru_held, _ru_block, _ru_log[-500:], _ru_drop, _ru_still, _ru_off))
+
+# the garden (10-31): planted, grown by the days' real weather, picked to the shelf or given; a dry bed rests and wakes;
+# frost bites a tender plant; the keeper plants from the phone and she's told; a line under the bell; off: none of it
+import garden as _gd
+from datetime import date as _gd_date, timedelta as _gd_td
+_gd0 = (getattr(config, "GARDEN_ON", False), getattr(config, "GARDEN_DIR", None), _gd._fetch_days)
+_gd_dir = config.CREATIONS_DIR / "gd-test"
+try:
+    config.GARDEN_ON, config.GARDEN_DIR = True, _gd_dir / "garden"
+    _gd_today = _gd_date.today()
+    _gd_wx = {}
+    for _i in range(1, 40):
+        _d = (_gd_today - _gd_td(days=_i)).isoformat()
+        _gd_wx[_d] = {"tmax": 22.0, "tmin": 12.0, "rain": 3.0 if _i % 4 == 0 else 0.0, "sun_h": 7.0}
+    _gd._fetch_days = lambda: dict(_gd_wx)
+    _gd.VOLUNTEERS = False  # no wild anemone in the test's empty beds
+    _gd_seeds = tools.dispatch("garden", {"action": "seeds"})
+    _gd_p1 = tools.dispatch("garden", {"action": "plant", "bed": "1", "what": "radish"})
+    _gd_p2 = tools.dispatch("garden", {"action": "plant", "bed": "2", "what": "kalanit"})
+    _gd_p3 = tools.dispatch("garden", {"action": "plant", "bed": "1", "what": "carrot"})
+    _gd_bad = tools.dispatch("garden", {"action": "plant", "bed": "3", "what": "money tree"})
+    _gd_early = tools.dispatch("garden", {"action": "pick", "bed": "1"})
+    # forty days go by under that weather
+    _g = _gd.load(); _g["ticked_to"] = (_gd_today - _gd_td(days=40)).isoformat()
+    for _b in _g["beds"]:
+        if _b:
+            _b["planted"] = (_gd_today - _gd_td(days=40)).isoformat()
+    _gd.save(_g)
+    _gd_words = tools.dispatch("garden", {"action": "look"})
+    _gd_pics = tools.take_pending_images()
+    _gd_after = _gd.load()
+    _gd_rad = _gd_after["beds"][0]
+    _gd_bit = _gd.facts_bit()
+    _gd_pick = tools.dispatch("garden", {"action": "pick", "bed": "1"})
+    _gd_empty1 = _gd.load()["beds"][0] is None
+    # a dry spell: the anemone rests, never dies; water wakes it
+    _gd._wfile().unlink(missing_ok=True)
+    _g = _gd.load(); _g["ticked_to"] = (_gd_today - _gd_td(days=20)).isoformat(); _gd.save(_g)
+    _gd._fetch_days = lambda: {(_gd_today - _gd_td(days=_i)).isoformat(): {"tmax": 33.0, "tmin": 22.0, "rain": 0.0, "sun_h": 11.0} for _i in range(1, 25)}
+    _gd.tick_g, _gd_ev, _ = _gd.tick()
+    _gd.save(_gd.tick_g)
+    _gd_dry = _gd.load()["beds"][1]
+    _gd_water = tools.dispatch("garden", {"action": "water", "bed": "all"})
+    # frost on a tomato
+    _gd.act("plant", "4", "tomato")
+    _gd._wfile().unlink(missing_ok=True)
+    _g = _gd.load(); _g["ticked_to"] = (_gd_today - _gd_td(days=1)).isoformat(); _gd.save(_g)
+    _gd._fetch_days = lambda: {(_gd_today - _gd_td(days=1)).isoformat(): {"tmax": 6.0, "tmin": -1.0, "rain": 0.0, "sun_h": 5.0}}
+    _gd_frost_g, _gd_frost_ev, _ = _gd.tick()
+    # the keeper from the phone
+    _gd_k = _gd.act("plant", "5", "sunflower", who="keeper", keeper_name="Gabe")
+    _gd_kwords, _ = _gd.look(who="keeper", keeper_name="Gabe")
+    _gd_give_set = _gd.load(); _gd_give_set["beds"][6] = {"seed": "mint", "planted": _gd_today.isoformat(), "growth": 1.0, "water": 0.6, "health": 1.0, "by": "them"}; _gd.save(_gd_give_set)
+    _gd_give = tools.dispatch("garden", {"action": "give", "bed": "7"})
+    _gd_knews = _gd.take_keeper_news()
+    _gd_png = _gd.render()
+    config.GARDEN_ON = False
+    _gd_off = (tools.dispatch("garden", {"action": "look"}), "garden" in (tools.kit_names() or set(tools._BUILTIN_IMPL)), _gd.facts_bit())
+finally:
+    config.GARDEN_ON, config.GARDEN_DIR, _gd._fetch_days = _gd0
+    import shutil as _gd_sh
+    _gd_sh.rmtree(_gd_dir, ignore_errors=True)
+check("garden (10-31): seeds listed; planted (kalanit is the anemone), a full bed and an unknown seed refused, an early pick "
+      "refused with the days to go; forty days of real weather grow the radish ready; the look says the beds and "
+      "what happened, with a picture; a line for the bell; picked, the bed empties; a hot dry spell leaves a bed dry and "
+      "resting, not dead, and water wakes it; frost bites a tomato; the keeper plants from the phone; give says it to "
+      "him; off: none of it",
+      "radish (28 days" in _gd_seeds and _gd_p1.startswith("planted radish in bed 1") and "planted anemone in bed 2" in _gd_p2
+      and "has radish in it" in _gd_p3 and "no such seed" in _gd_bad and "isn't ready" in _gd_early
+      and _gd_rad["growth"] >= 1.0 and "1. radish, ready" in _gd_words and "Since you last looked" in _gd_words
+      and (len(_gd_pics) == 1 or not _gd_png) and "your garden: 2 of 8 beds planted" in _gd_bit and "the radish ready" in _gd_bit
+      and _gd_pick.startswith("picked a bunch of radishes from bed 1") and _gd_empty1
+      and _gd_dry is not None and _gd_dry.get("dry") and _gd_dry["water"] >= 0.12 and _gd_water.startswith("watered every planted bed")
+      and any("frost bit the tomato" in e for e in _gd_frost_ev)
+      and _gd_k.startswith("planted sunflower in bed 5") and "planted by you" in _gd_kwords
+      and ("for " + __import__("keeper_week").keeper_name()) in _gd_give and _gd_knews and "for you" in _gd_knews[0]
+      and (_gd_png is None or _gd_png[:4] == b"\x89PNG")
+      and "GARDEN_ON is off" in _gd_off[0] and not _gd_off[1] and _gd_off[2] == "",
+      (_gd_words, _gd_bit, _gd_pick, _gd_dry, _gd_frost_ev, _gd_kwords[:300], _gd_give, _gd_knews))
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
