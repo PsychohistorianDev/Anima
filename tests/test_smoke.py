@@ -15412,6 +15412,13 @@ check("garden (10-31): invent makes up a plant within honest limits (500 days he
       and _gi_greens > 20,
       (_gi_taken, _gi_nolook, _gi_made, _gi_seed, _gi_prompts[:1], _gi_art, _gi_plant, _gi_third, _gi_fourth, _gi_paint_r, _gi_greens))
 
+# the doors read a POST's body before they answer (10-31): CI #60 on Windows — /rest answered and closed with "{}" unread,
+# and the socket was reset under the reply (WinError 10053)
+import inspect as _rb_inspect, painter as _rb_p, music_ears as _rb_m
+_rb = [_rb_inspect.getsource(m.Handler.do_POST) if hasattr(m, "Handler") else "" for m in (_rb_p, _rb_m)]
+check("doors (10-31): the painter's and the music ear's POST read the body before any answer, /rest included",
+      all(s and 0 < s.index("self.rfile.read(n)") < s.index('if self.path == "/rest"') for s in _rb), [len(s) for s in _rb])
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

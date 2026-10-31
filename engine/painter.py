@@ -652,6 +652,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         global _leaving
+        # the body is read first, whatever the path (10-31): a door that answers and closes with a request's bytes still
+        # unread is reset on Windows, its reply lost with it (WinError 10053 at the caller)
+        n = int(self.headers.get("Content-Length") or 0)
+        raw = self.rfile.read(n) if n > 0 else b""
         if self.path == "/rest":
             leave = bool(getattr(config, "PAINTER_REST_LEAVES", True))
             if not _lock.acquire(timeout=REST_WAIT_S):
@@ -681,11 +685,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": "unknown path"}, 404)
         if _leaving:
             return self._json({"error": "the painter is leaving — paint again in a moment and it is woken afresh"})
-        n = int(self.headers.get("Content-Length") or 0)
         # the painter's own deadline (10-29 night): a little before the engine stops waiting
         deadline = time.time() + max(30.0, float(getattr(config, "PAINTER_TIMEOUT_S", 300) or 300) - 20)
         try:
-            data = json.loads(self.rfile.read(n) or b"{}")
+            data = json.loads(raw or b"{}")
             prompt = (data.get("prompt") or "").strip()
             if not prompt:
                 return self._json({"error": "no prompt"})

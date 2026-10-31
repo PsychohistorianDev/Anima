@@ -248,6 +248,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         global _leaving
+        # the body is read first, whatever the path (10-31): a door that answers and closes with a request's bytes still
+        # unread is reset on Windows, its reply lost with it (WinError 10053 at the caller)
+        n = int(self.headers.get("Content-Length") or 0)
+        raw = self.rfile.read(n) if n > 0 else b""
         if self.path == "/rest":
             with _lock:
                 _unload()
@@ -266,9 +270,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": "unknown path"}, 404)
         if _leaving:
             return self._json({"error": "the music ear is leaving — listen again in a moment and it is woken afresh"})
-        n = int(self.headers.get("Content-Length") or 0)
         try:
-            data = json.loads(self.rfile.read(n) or b"{}")
+            data = json.loads(raw or b"{}")
             wav = base64.b64decode(data.get("audio_b64") or "")
             prompt = data.get("prompt") or "Describe this music in full."
             t0 = time.time()
