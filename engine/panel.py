@@ -80,7 +80,7 @@ _POSTS = threading.Lock()  # one change at a time: two saves never read the same
 # "# ---- x ----" heading it sits beneath in the file — so a knob added tomorrow is on the page the
 # day it is added (a test holds every knob to exactly one tab, and every name here to config.py).
 TABS: dict[str, list[str]] = {
-    "Main": ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_SLOT_KEEP", "BRAIN_CACHE_RAM_MB", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT",
+    "Main": ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_SLOT_KEEP", "BRAIN_CACHE_RAM_MB", "BRAIN_CHECKPOINT_EVERY", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT",
              "USER_NAME", "DEFAULT_NAME", "BLOG_TITLE",
              "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "FIRST_DAY", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN", "HOUSE_LINE"],
     "Heartbeat": ["HEARTBEAT_MAX_STEPS", "WAKE_LOG_PAINT_PROMPT", "REVERIE_EVERY", "REVERIE_MAX_STEPS", "HEARTBEAT_YIELD_TO_VISIT",
@@ -164,6 +164,10 @@ _HELP = {
                       "the door starts, so restart the door after changing it.",
     "BRAIN_SLOT_KEEP": "How many saved readings the slot folder keeps — the newest; the older ones are deleted after "
                        "each save (each is a few GB, and a RAM disk is small). 0 keeps them all.",
+    "BRAIN_CHECKPOINT_EVERY": "Checkpoints inside a long prompt, every this many tokens (--checkpoint-every — a llama-server "
+                              "built with it): a standing prompt that changes near its end, like a new journal entry, is "
+                              "read again from the last checkpoint instead of from the top. ~225 MB of RAM each for a 31B. "
+                              "0: off. Takes on the door's next start.",
     "BRAIN_CACHE_RAM_MB": "Host RAM llama-server may keep evicted prompt caches in, MiB (--cache-ram) — the visit's "
                           "prompt and the wake's take turns on one slot; with room here both stay warm. 32768 on a "
                           "64 GB machine. 0: the server's default. Read when the door starts.",

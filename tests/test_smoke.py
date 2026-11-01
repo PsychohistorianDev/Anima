@@ -10955,7 +10955,7 @@ check("panel: every knob of the real config.py on exactly one tab (Advanced coun
       and len(_p_listed) == len(set(_p_listed)) and not (set(_p_listed) - set(_k_realn)),
       (set(_p_listed) - set(_k_realn), [n for n in set(_p_placed) if _p_placed.count(n) > 1]))
 check("panel: the real Main tab in the keeper's order — the brain, the window, the journal, the names, the rhythm",
-      [k["name"] for k in _p_real_tabs["Main"]] == ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_SLOT_KEEP", "BRAIN_CACHE_RAM_MB", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT", "USER_NAME", "DEFAULT_NAME",
+      [k["name"] for k in _p_real_tabs["Main"]] == ["CHAT_MODEL", "NUM_CTX", "TOOL_KIT", "BRAIN_API", "BRAIN_URL", "BRAIN_SLOT_DIR", "BRAIN_SLOT_KEEP", "BRAIN_CACHE_RAM_MB", "BRAIN_CHECKPOINT_EVERY", "OFFLINE", "JOURNAL_CHARS_IN_PROMPT", "USER_NAME", "DEFAULT_NAME",
                                                     "BLOG_TITLE", "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "FIRST_DAY", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN", "HOUSE_LINE"]
       and {k["heading"] for k in _p_real_tabs["Advanced"]} >= {"paths", "ollama", "behaviour", "telegram", "update"}
       and all(not k["editable"] for k in _p_real_tabs["Advanced"] if k["kind"] == "expr"))
@@ -13720,8 +13720,9 @@ _bd_td = _BdPath(_bd_tmp.mkdtemp(prefix="brainfind_"))
 _bd_env0 = {k: _bd_os.environ.get(k) for k in ("PATH", "OLLAMA_MODELS")}
 _bd_root0 = _bf.ROOT
 _bd_cfg0 = {k: getattr(config, k, None) for k in ("BRAIN_MODEL_FILE", "BRAIN_MMPROJ_FILE", "BRAIN_SLOT_DIR", "BRAIN_URL", "NUM_CTX", "BRAIN_MMAP", "BRAIN_THINK_OPEN",
-                                                  "BRAIN_CACHE_RAM_MB")}
+                                                  "BRAIN_CACHE_RAM_MB", "BRAIN_CHECKPOINT_EVERY")}
 try:
+    config.BRAIN_CHECKPOINT_EVERY = 0  # the command as the stock server takes it; the checkpoints have their own check
     _bd_os.environ["OLLAMA_MODELS"] = str(_bd_td / "models")
     _bd_os.environ["PATH"] = str(_bd_td / "empty")
     (_bd_td / "empty").mkdir()
@@ -15511,6 +15512,42 @@ finally:
 check("steps.log (11-01): a step says how many prompt tokens the door reused and a saved reading restored; a cold one says neither",
       bool(_rl_rec) and _rl_rec.get("reused") == 148000 and _rl_rec.get("restored") == 147000
       and bool(_rl_rec2) and "reused" not in _rl_rec2 and "restored" not in _rl_rec2, (_rl_rec, _rl_rec2))
+
+# checkpoints inside a long prompt (11-02): BRAIN_CHECKPOINT_EVERY reaches the command only when the server's help names
+# --checkpoint-every; a stock server is started without it, and the door's line says why
+import brain_find as _ck_bf
+_ck0 = (getattr(config, "BRAIN_CHECKPOINT_EVERY", 0), dict(_ck_bf._HELP), config.BRAIN_MODEL_FILE, _ck_bf.find_server,
+        getattr(config, "BRAIN_THINK_OPEN", False), getattr(config, "BRAIN_SLOT_DIR", ""), getattr(config, "BRAIN_CACHE_RAM_MB", 0))
+_ck_dir = config.CREATIONS_DIR / "ck-test"
+try:
+    _ck_dir.mkdir(parents=True, exist_ok=True)
+    (_ck_dir / "m.gguf").write_bytes(b"GGUF")
+    _ck_srv = str(_ck_dir / "llama-server.exe")
+    _ck_bf.find_server = lambda: _ck_srv
+    config.BRAIN_MODEL_FILE = str(_ck_dir / "m.gguf")
+    config.BRAIN_THINK_OPEN, config.BRAIN_SLOT_DIR, config.BRAIN_CACHE_RAM_MB = False, "", 0
+    config.BRAIN_CHECKPOINT_EVERY = 16384
+    _ck_bf._HELP[_ck_srv] = "--checkpoint-every N   also create a context checkpoint every N tokens\n--load-mode"
+    _ck_on, _ck_said_on = _ck_bf.command()
+    _ck_bf._HELP[_ck_srv] = "--load-mode"
+    _ck_stock, _ck_said_stock = _ck_bf.command()
+    config.BRAIN_CHECKPOINT_EVERY = 0
+    _ck_bf._HELP[_ck_srv] = "--checkpoint-every N\n--load-mode"
+    _ck_off, _ = _ck_bf.command()
+finally:
+    (config.BRAIN_CHECKPOINT_EVERY, _hb, config.BRAIN_MODEL_FILE, _ck_bf.find_server, config.BRAIN_THINK_OPEN,
+     config.BRAIN_SLOT_DIR, config.BRAIN_CACHE_RAM_MB) = _ck0
+    _ck_bf._HELP.clear()
+    _ck_bf._HELP.update(_hb)
+    import shutil as _ck_sh
+    _ck_sh.rmtree(_ck_dir, ignore_errors=True)
+_ck_i = (_ck_on or []).index("--checkpoint-every") if "--checkpoint-every" in (_ck_on or []) else -1
+check("brain_find (11-02): BRAIN_CHECKPOINT_EVERY passes --checkpoint-every to a server that has it; a stock one starts "
+      "without it and the line says so; 0 passes nothing; the panel names it",
+      _ck_i > 0 and _ck_on[_ck_i + 1] == "16384" and "--checkpoint-every" not in (_ck_stock or [])
+      and "no --checkpoint-every" in _ck_said_stock and "--checkpoint-every" not in (_ck_off or [])
+      and "BRAIN_CHECKPOINT_EVERY" in __import__("panel")._HELP,
+      (_ck_on, _ck_said_stock[-120:] if _ck_said_stock else None, _ck_off))
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

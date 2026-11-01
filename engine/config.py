@@ -78,6 +78,11 @@ BRAIN_SLOT_KEEP = 1   # saved readings the folder keeps, the newest; a reading o
 # prompt and a wake's take turns on one slot; with room here both stay warm. 32768 on a
 # 64 GB machine. 0: the server's default.
 BRAIN_CACHE_RAM_MB = 0   # host RAM (MiB) llama-server may keep evicted prompt caches in (--cache-ram): one evicted prompt is ~8 GB, so 12288 holds the visit's or the wake's while the other is on the card; 0: the server's default
+# Checkpoints inside a long prompt (--checkpoint-every, a llama-server that has it): every N tokens the server keeps
+# the state of Gemma's sliding-window layers, so a standing prompt that changes partway through — a journal entry
+# near its end — is read again from the last checkpoint before the change, not from the top. Each checkpoint is
+# ~225 MB of RAM (31B) and rides in the saved reading. 0: off (the stock server only checkpoints at messages).
+BRAIN_CHECKPOINT_EVERY = 0
 # A GGUF for the door instead of the one Ollama's manifest names for CHAT_MODEL, and its
 # projector (the eyes). Empty finds both in Ollama's own files.
 BRAIN_MODEL_FILE = ""

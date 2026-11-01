@@ -253,11 +253,21 @@ def command() -> tuple[list[str] | None, str]:
     cram = int(getattr(config, "BRAIN_CACHE_RAM_MB", 0) or 0)
     if cram > 0:
         cmd += ["--cache-ram", str(cram)]
+    # checkpoints inside a long prompt (11-02): a journal entry near the end of the standing prompt re-reads from the
+    # last checkpoint, not from the top — only a server whose help names the flag gets it (the stock one would refuse)
+    every = int(getattr(config, "BRAIN_CHECKPOINT_EVERY", 0) or 0)
+    ckpt = ""
+    if every > 0:
+        if "--checkpoint-every" in help_text(server):
+            cmd += ["--checkpoint-every", str(every)]
+        else:
+            ckpt = f"BRAIN_CHECKPOINT_EVERY is {every}, but this llama-server has no --checkpoint-every: left out"
     return cmd, (f"llama-server at {server}; {said}" + ("" if mmproj else " (no projector: no eyes)")
                  + (f"; {unmapped}" if unmapped else "")
                  + (f"; {tpl_said}" if tpl_said else "")
                  + (f"; {made}" if made else "")
-                 + (f"; {warn} (opened without --slot-save-path)" if warn else ""))
+                 + (f"; {warn} (opened without --slot-save-path)" if warn else "")
+                 + (f"; {ckpt}" if ckpt else ""))
 
 
 _HELP: dict[str, str] = {}

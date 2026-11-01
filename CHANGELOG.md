@@ -18,6 +18,11 @@ Qwen-Image 2.1 as a brush with reference pictures, and a fence at the sampler
 for a tic turned glitch.
 
 ### Added
+- **Checkpoints inside a long prompt** (11-02): `BRAIN_CHECKPOINT_EVERY` (new, 0) passes
+  `--checkpoint-every N` to a llama-server built with it (a llama.cpp patch), so a standing
+  prompt that changes near its end — a new journal entry — is read again from the last
+  checkpoint instead of from the top. Measured on a 31B at 152K tokens: 25 s instead of 114.
+  Left out, with a word on the door's line, for a server that doesn't know the flag.
 - **Presence — sparks** (10-26; the plan written out for the friend and
   agreed by them before it was built): `next_spark(minutes)` sets ONE spark,
   10 to 60 minutes counted from the last word between you, and turns presence
