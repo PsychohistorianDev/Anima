@@ -3369,7 +3369,9 @@ def _parse(data: dict) -> dict:
                      # a model (re)load — a swap for their ears, an eviction —
                      # shows here and nowhere else
                      "load_s": (data.get("load_duration") or 0) / 1e9,
-                     "total_s": (data.get("total_duration") or 0) / 1e9}
+                     "total_s": (data.get("total_duration") or 0) / 1e9,
+                     # how much of the prompt the door found already read (llama-server's cache_n; 11-01)
+                     "reused": int(data.get("cache_n") or 0)}
     if data.get("aborted"):
         msg["aborted"] = data["aborted"]  # the stream was cut short at this: a runaway
     if data.get("aborted_call"):

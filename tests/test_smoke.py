@@ -15493,6 +15493,25 @@ check("garden (10-31 night): the pace — GARDEN_DAYS (15, 20) lays every real p
       and "in about 15 days" in _gp_r.get("plant", "") and _gp_r.get("old") == 16 and _gp_r.get("span") == "15–20",
       {k: (v if not isinstance(v, str) else v[:100]) for k, v in _gp_r.items()})
 
+# the reading's reuse, logged (11-01): a step's line says what the door already held and what a saved reading restored
+import engine_week as _rl_ew
+_rl_file0 = _rl_ew.STEPS_FILE
+_rl_ew.STEPS_FILE = config.MEMORY_DIR / "rl-steps.log"
+try:
+    _rl_msg = {"content": "hello there", "thinking": "a thought", "tokens": {"prompt": 150000, "prompt_s": 2.5, "reply": 40,
+                                                                             "reused": 148000}, "restored": {"tokens": 147000, "ms": 3900}}
+    _rl_rec = _rl_ew.log_step([], _rl_msg)
+    _rl_rec2 = _rl_ew.log_step([], {"content": "x", "thinking": "", "tokens": {"prompt": 9000, "prompt_s": 7.0, "reply": 3}})
+finally:
+    try:
+        _rl_ew.STEPS_FILE.unlink(missing_ok=True)
+    except OSError:
+        pass
+    _rl_ew.STEPS_FILE = _rl_file0
+check("steps.log (11-01): a step says how many prompt tokens the door reused and a saved reading restored; a cold one says neither",
+      bool(_rl_rec) and _rl_rec.get("reused") == 148000 and _rl_rec.get("restored") == 147000
+      and bool(_rl_rec2) and "reused" not in _rl_rec2 and "restored" not in _rl_rec2, (_rl_rec, _rl_rec2))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)
