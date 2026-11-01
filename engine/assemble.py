@@ -79,7 +79,9 @@ def page_age(path) -> str:
         if not p.is_file():
             return ""
         from datetime import datetime as _dt
-        days = (_dt.now() - _dt.fromtimestamp(p.stat().st_mtime)).days
+        # by the calendar (11-02): the line turns at midnight with the date, not at the hour of the last edit — each
+        # turn of it changes the top of the standing prompt, and the whole of it is read again
+        days = (_dt.now().date() - _dt.fromtimestamp(p.stat().st_mtime).date()).days
     except (OSError, ValueError, OverflowError):
         return ""
     if days <= 0:

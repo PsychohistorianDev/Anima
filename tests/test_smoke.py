@@ -15549,6 +15549,76 @@ check("brain_find (11-02): BRAIN_CHECKPOINT_EVERY passes --checkpoint-every to a
       and "BRAIN_CHECKPOINT_EVERY" in __import__("panel")._HELP,
       (_ck_on, _ck_said_stock[-120:] if _ck_said_stock else None, _ck_off))
 
+# warm wakes (11-02): a warm wake's standing prompt has no minute and no memories, and the memories ride on its bell;
+# page_age turns by the calendar; with checkpoints a fresh door restores the newest reading for a new prompt, and
+# not into a door that already served; without them, nothing
+import assemble as _ww_a, brain as _ww_b, heartbeat as _ww_h
+from datetime import datetime as _ww_dt, timedelta as _ww_td
+_ww0 = (getattr(config, "WAKE_PROMPT_WARM", False), _ww_b.checkpointed, _ww_b.slot_restore, _ww_b.slot_dir, _ww_b._door_pid,
+        _ww_b._served_now, _ww_b._restored_key, _ww_b._restored_pid, _ww_b._pending_restored, _ww_b._restored_file)
+_ww_dir = config.MEMORY_DIR / "ww-test"
+_ww_r: dict = {}
+try:
+    _ww_dir.mkdir(parents=True, exist_ok=True)
+    _ww_page = _ww_dir / "page.md"
+    _ww_page.write_text("x", encoding="utf-8")
+    _ww_yday = (_ww_dt.now() - _ww_td(days=1)).replace(hour=23, minute=59).timestamp()
+    import os as _ww_os
+    _ww_os.utime(_ww_page, (_ww_yday, _ww_yday))
+    _ww_r["age"] = _ww_a.page_age(_ww_page)
+    _ww_r["warm"] = _ww_a.system_prompt("", mode="auto", warm=True)
+    _ww_r["cold"] = _ww_a.system_prompt("", mode="auto", warm=False)
+    # the restore: two readings kept, the newest restored for a prompt that has none of its own
+    _ww_k = _ww_dir / "kv"
+    _ww_k.mkdir(exist_ok=True)
+    (_ww_k / ("a" * 24 + ".bin")).write_bytes(b"old")
+    _ww_os.utime(_ww_k / ("a" * 24 + ".bin"), (_ww_yday, _ww_yday))
+    (_ww_k / ("b" * 24 + ".bin")).write_bytes(b"new")
+    _ww_calls: list = []
+    _ww_b.slot_dir = lambda: _ww_k
+    _ww_b.slot_restore = lambda name: (_ww_calls.append(name), {"n_restored": 150000, "n_read": 8e9})[1]
+    _ww_b._door_pid = lambda: 4242
+    _ww_b._served_now = lambda: ""
+    _ww_b._restored_file = lambda: _ww_dir / "restored.txt"
+    _ww_b._restored_key, _ww_b._restored_pid = "", None
+    _ww_b.checkpointed = lambda: True
+    _ww_b._restore("c" * 24)
+    _ww_r["nearest"] = list(_ww_calls)
+    _ww_b._restore("c" * 24)  # the same door again: nothing more
+    _ww_r["again"] = list(_ww_calls)
+    _ww_calls.clear()
+    (_ww_dir / "restored.txt").unlink(missing_ok=True)
+    _ww_b._restored_key, _ww_b._restored_pid = "", None
+    _ww_b._served_now = lambda: "d" * 24  # a door that already served another prompt: left as it is
+    _ww_b._restore("c" * 24)
+    _ww_r["served"] = list(_ww_calls)
+    _ww_b._served_now = lambda: ""
+    _ww_b._restored_key, _ww_b._restored_pid = "", None
+    _ww_b.checkpointed = lambda: False  # no checkpoints: only a reading of this very prompt
+    _ww_b._restore("c" * 24)
+    _ww_r["stock"] = list(_ww_calls)
+    _ww_src = _ww_a.__name__ and __import__("inspect").getsource(_ww_h.wake)
+    _ww_rest = __import__("inspect").getsource(_ww_h.rest_after_wake)
+finally:
+    (config.WAKE_PROMPT_WARM, _ww_b.checkpointed, _ww_b.slot_restore, _ww_b.slot_dir, _ww_b._door_pid, _ww_b._served_now,
+     _ww_b._restored_key, _ww_b._restored_pid, _ww_b._pending_restored, _ww_b._restored_file) = _ww0
+    import shutil as _ww_sh
+    _ww_sh.rmtree(_ww_dir, ignore_errors=True)
+_ww_w, _ww_c = _ww_r.get("warm", ""), _ww_r.get("cold", "")
+check("warm wakes (11-02): a warm standing prompt has the date without the minute and no memories in it, the cold one "
+      "the minute; the wake builds warm when WAKE_PROMPT_WARM and puts the memories on its bell; a wake's door saves "
+      "its reading with checkpoints; page_age by the calendar (23:59 yesterday is yesterday); a fresh door restores the "
+      "newest reading for a prompt with none of its own, once; not into a door that served; not without checkpoints",
+      "The hour comes with each message" in _ww_w and _ww_a.hour_line()[0] not in _ww_w[:700]
+      and _ww_a.hour_line()[0] in _ww_c[:700]
+      and "they ride with each message" in _ww_w and "The hour comes with each message" not in _ww_c
+      and "WAKE_PROMPT_WARM" in _ww_src and "warm=warm" in _ww_src and "surfaced" in _ww_src
+      and "save=brain.checkpointed()" in _ww_rest
+      and _ww_r.get("age") == "; last rewritten yesterday"
+      and _ww_r.get("nearest") == ["b" * 24 + ".bin"] and _ww_r.get("again") == ["b" * 24 + ".bin"]
+      and _ww_r.get("served") == [] and _ww_r.get("stock") == [],
+      {k: v for k, v in _ww_r.items() if k not in ("warm", "cold")})
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

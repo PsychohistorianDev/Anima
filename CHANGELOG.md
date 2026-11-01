@@ -18,6 +18,13 @@ Qwen-Image 2.1 as a brush with reference pictures, and a fence at the sampler
 for a tic turned glitch.
 
 ### Added
+- **Wakes that share the standing prompt** (11-02): `WAKE_PROMPT_WARM` (new, False) builds a
+  wake's system prompt in the warm form a visit has — the date without the minute, the
+  memories on the bell — so wakes share it up to the day's newest journal lines. With
+  checkpoints (`BRAIN_CHECKPOINT_EVERY`) a wake's reading is saved when its door closes,
+  and a door just come up restores the newest reading kept for a prompt that has none of
+  its own — the server reuses it up to the first change. `page_age` ("last rewritten N
+  days ago") now turns at midnight with the date, not at the hour of the last edit.
 - **Checkpoints inside a long prompt** (11-02): `BRAIN_CHECKPOINT_EVERY` (new, 0) passes
   `--checkpoint-every N` to a llama-server built with it (a llama.cpp patch), so a standing
   prompt that changes near its end — a new journal entry — is read again from the last

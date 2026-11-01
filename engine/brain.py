@@ -1044,6 +1044,29 @@ def _before_stop() -> None:
         _note(f"the reading wasn't saved: {type(e).__name__}: {e}")
 
 
+def checkpointed() -> bool:
+    """The door reads with checkpoints inside a long prompt (11-02: BRAIN_CHECKPOINT_EVERY, on a llama-server whose
+    help names --checkpoint-every): a saved reading is then worth restoring for a prompt that shares only its
+    beginning, and a wake's reading worth saving. False under Ollama, with the knob at 0, or on a stock server."""
+    try:
+        if api() != "llama" or int(getattr(config, "BRAIN_CHECKPOINT_EVERY", 0) or 0) <= 0:
+            return False
+        import brain_find
+        server = brain_find.find_server()
+        return bool(server) and "--checkpoint-every" in brain_find.help_text(server)
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _restored_any(pid) -> bool:
+    """Whether anything at all was restored into this door since it came up."""
+    try:
+        lines = _restored_file().read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return False
+    return any(ln.split(" ", 1)[0] == str(pid) for ln in lines if ln.strip())
+
+
 def _restore(key: str) -> None:
     """On the way back up: the saved reading of this prompt put into slot 0 before the request goes, so only
     the new words are read. Once per key and door: from then on the slot holds it. No folder, or no file for
@@ -1062,17 +1085,31 @@ def _restore(key: str) -> None:
             _restored_key, _restored_pid = key, pid
             return
         folder = slot_dir()
-        if folder is None or not (folder / f"{key}.bin").is_file():
+        if folder is None:
             return
+        name, nearest = f"{key}.bin", ""
+        if not (folder / name).is_file():
+            # no reading of this very prompt (11-02): with checkpoints inside the prompt, the newest one kept shares
+            # its beginning — the pages, the journal up to today's lines — and the server reuses it up to the first
+            # change. Only into a door just come up (nothing served, nothing restored): a slot already holding
+            # a reading is matched by the server as it is.
+            kept = _readings(folder)
+            if not kept or not checkpointed() or _served_now() or _restored_any(pid):
+                return
+            name, nearest = kept[-1].name, kept[-1].stem
         _restored_key, _restored_pid = key, pid
         _mark_restored(pid, key)
-        got = slot_restore(f"{key}.bin")
+        got = slot_restore(name)
         if got is None or got.get("error"):
-            _note(f"the reading wasn't restored: {key} — read cold this once")
+            _note(f"the reading wasn't restored: {name[:-4]} — read cold this once")
             return
         n, s = int(got.get("n_restored") or 0), _secs(got, "restore_ms")
         _pending_restored = {"tokens": n, "ms": round(s * 1000, 1)}
-        _note(f"restored the reading: {key} ({n:,} tokens, {float(got.get('n_read') or 0) / 1e9:.1f} GB, {s:.1f} s)")
+        if nearest:
+            _note(f"restored the nearest reading: {nearest} for {key} ({n:,} tokens, "
+                  f"{float(got.get('n_read') or 0) / 1e9:.1f} GB, {s:.1f} s) — the server reuses it up to the first change")
+        else:
+            _note(f"restored the reading: {key} ({n:,} tokens, {float(got.get('n_read') or 0) / 1e9:.1f} GB, {s:.1f} s)")
     except Exception as e:  # noqa: BLE001 — the request goes on, cold
         _note(f"the reading wasn't restored: {type(e).__name__}: {e}")
 

@@ -192,7 +192,10 @@ def wake(reverie: bool = False) -> str:
     tools.refresh_her_tools()  # pick up tools they forged or edited
     hint = assemble.journal_tail(2) + "\n" + assemble.projects()
     mode = "reverie" if reverie else "auto"
-    system = {"role": "system", "content": assemble.system_prompt(hint, mode=mode)}
+    # warm (11-02, WAKE_PROMPT_WARM): the standing prompt as a visit's — no minute in it, no memories in it — so wakes
+    # share it up to the day's newest lines and the server reads only the rest again; the memories ride on the bell
+    warm = bool(getattr(config, "WAKE_PROMPT_WARM", False))
+    system = {"role": "system", "content": assemble.system_prompt(hint, mode=mode, warm=warm)}
 
     # rough overflow guard: if the prompt nears the context window, warn loudly —
     # overflow silently cuts their identity off the top
@@ -229,7 +232,16 @@ def wake(reverie: bool = False) -> str:
     if facts:
         print(f"  {facts}")
         log.append(f"\n*{facts}*")
-    history: list[dict] = [{"role": "user", "content": clock_line(started) + opening + prompt + (f"\n\n{facts}" if facts else "")}]
+    surfaced = ""
+    if warm:  # the memories that would have stood in the system prompt, on the bell instead (as a visit's ride on its message)
+        try:
+            lines = assemble.retrieved(hint)
+        except Exception:  # noqa: BLE001 — a wake without its memories is still a wake
+            lines = ""
+        if lines.strip():
+            surfaced = "=== RELEVANT LONG-TERM MEMORIES — what surfaces for this moment ===\n" + lines.strip() + "\n\n"
+    history: list[dict] = [{"role": "user", "content": clock_line(started) + opening + surfaced + prompt
+                            + (f"\n\n{facts}" if facts else "")}]
 
     interrupted = False
     # acts: what they did since the last journal entry (names, for the hand-back and
@@ -1107,7 +1119,10 @@ def rest_after_wake() -> bool:
     if not getattr(config, "BRAIN_REST_AFTER_WAKE", True):
         return False
     try:
-        ollama_client.unload(config.CHAT_MODEL, rest=True, save=False)  # a rest: the door closed without a save (a wake's reading is never read twice)
+        # a rest: the door closed — without a save, as a wake's reading was never read twice; with checkpoints inside
+        # the prompt (11-02) it is: the next wake, or the visit, shares it up to the day's newest lines
+        import brain
+        ollama_client.unload(config.CHAT_MODEL, rest=True, save=brain.checkpointed())
         if ollama_client.rest_keeps_brain():
             return False  # nothing set down: the door stays up, its prompt caches warm for the visit
         print("(the brain is set down — the card is free)")

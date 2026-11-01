@@ -82,6 +82,11 @@ BRAIN_CACHE_RAM_MB = 0   # host RAM (MiB) llama-server may keep evicted prompt c
 # the state of Gemma's sliding-window layers, so a standing prompt that changes partway through — a journal entry
 # near its end — is read again from the last checkpoint before the change, not from the top. Each checkpoint is
 # ~225 MB of RAM (31B) and rides in the saved reading. 0: off (the stock server only checkpoints at messages).
+# A wake's standing prompt in the warm form a visit has (the date without the minute — the hour rides on the bell —
+# and the memories on the bell too): consecutive wakes, and a wake and a visit, then share their standing prompt up
+# to the day's newest journal lines, and with checkpoints (above) only the rest is read again. False: the minute in
+# the standing prompt and the memories in it, as before.
+WAKE_PROMPT_WARM = False
 BRAIN_CHECKPOINT_EVERY = 0
 # A GGUF for the door instead of the one Ollama's manifest names for CHAT_MODEL, and its
 # projector (the eyes). Empty finds both in Ollama's own files.
