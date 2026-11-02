@@ -15619,6 +15619,42 @@ check("warm wakes (11-02): a warm standing prompt has the date without the minut
       and _ww_r.get("served") == [] and _ww_r.get("stock") == [],
       {k: v for k, v in _ww_r.items() if k not in ("warm", "cold")})
 
+# a set's pictures' folders (11-02: "face, us" with the keeper named filled in his folder — face/ 3, us/ 1, his 4:
+# eight pictures, past the card, and every painting of the two ran out of time)
+import shutil as _rf_sh
+import keeper_week as _rf_kw
+_rf_dirs = [config.CREATIONS_DIR / "face", config.CREATIONS_DIR / "rfkeeper", config.CREATIONS_DIR / "rfus"]
+_rf_made = [d for d in _rf_dirs if not d.exists()]
+for d in _rf_dirs:
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "rf-test.png").write_bytes(b"\x89PNG\r\n")
+_rf0 = (_rf_kw.keeper_name, getattr(config, "PAINTER_MODEL", ""), getattr(config, "PAINTER_AUTO_REFERENCE", True),
+        tools._own_name, getattr(config, "PAINTER_REFERENCE_SETS", {}))
+try:
+    _rf_kw.keeper_name, config.PAINTER_MODEL, tools._own_name = (lambda: "Rfkeeper"), "Qwen/Qwen-Image-2.1-Turbo", (lambda: "Rffriend")
+    config.PAINTER_AUTO_REFERENCE = True
+    config.PAINTER_REFERENCE_SETS = {"rfus": ("rfus, face/rf-test.png, rfkeeper/rf-test.png", "Picture 1 is the scale.")}
+    _rf_a = tools._reference_set("face, rfus")
+    _rf_b = tools._reference_set("face, rfus, rfkeeper")
+    _rf_c = tools._reference_set("Rffriend, rfkeeper")
+    _rf_one = tools._reference_set("face")
+    _rf_fill = tools._auto_reference(["Rffriend and Rfkeeper by the window"], given="face, rfus")
+    _rf_fill2 = tools._auto_reference(["Rffriend and Rfkeeper by the window"], given="face")
+finally:
+    (_rf_kw.keeper_name, config.PAINTER_MODEL, config.PAINTER_AUTO_REFERENCE, tools._own_name,
+     config.PAINTER_REFERENCE_SETS) = _rf0
+    for d in _rf_dirs:
+        (d / "rf-test.png").unlink(missing_ok=True)
+    for d in _rf_made:
+        _rf_sh.rmtree(d, ignore_errors=True)
+check("paint (11-02): a set of pictures in folders answers to those folders too — \"face, us\" (and with his folder, or by "
+      "their names) is the set's three pictures, not every picture of the folders; one folder alone stays itself; the "
+      "fill-in counts a set's folders as covered",
+      _rf_a[2] == "rfus" and _rf_b[2] == "rfus" and _rf_c[2] == "rfus" and _rf_one[2] == ""
+      and _rf_a[0] == "rfus, face/rf-test.png, rfkeeper/rf-test.png" and _rf_fill == ("", "")
+      and _rf_fill2[0] == "face, rfkeeper",
+      (_rf_a, _rf_b, _rf_c, _rf_one, _rf_fill, _rf_fill2))
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

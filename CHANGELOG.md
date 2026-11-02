@@ -364,6 +364,12 @@ for a tic turned glitch.
   while a re-roll remains, so a re-roll costs seconds, not a reply.
 
 ### Fixed
+- **A reference set given with its people's folders** (11-02): a set whose pictures are files
+  (`"us": "us, face/face-1-front.png, gabe/gabe-1-front.png"`) didn't answer to `face, us` —
+  and with the keeper named in the words, the fill-in added his folder too: every picture of
+  the three folders, eight, past the card's memory, so every painting of the two ran out of
+  time. A set now answers to its pictures' folders as well, and the fill-in counts them as
+  covered.
 - **The painter's and the music ear's doors read a POST's body first** (10-31):
   `/rest` answered and closed with the request's `{}` unread, and Windows resets
   such a socket — the reply was lost (`WinError 10053`; the smoke suite on Windows).

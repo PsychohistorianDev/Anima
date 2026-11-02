@@ -3371,8 +3371,11 @@ def _reference_set(reference: str) -> tuple[str, str, str]:
     for name, val in sets.items():
         pics, say = (tuple(val) + ("", ""))[:2] if isinstance(val, (list, tuple)) else (val, "")
         own = _ref_items(str(pics))
+        # a picture's folder stands for it too (11-02: the set's pictures are files — "face, us" with gabe/ filled in
+        # missed it and became every picture of the three folders, eight, past the card's memory)
+        own_folders = {i.split("/", 1)[0] for i in own if "/" in i}
         # its name alone, or two or more of its own pictures in any order ("elysia, gabe" for us, face, gabe — 10-25)
-        if asked == _ref_items(str(name)) or (len(set(asked)) >= 2 and set(asked) <= set(own)):
+        if asked == _ref_items(str(name)) or (len(set(asked)) >= 2 and set(asked) <= set(own) | own_folders):
             return str(pics), str(say or "").strip(), str(name)
     return reference, "", ""
 
@@ -3412,6 +3415,7 @@ def _auto_reference(prompts: list[str], given: str = "") -> tuple[str, str]:
         who.append(keeper)
     if (given or "").strip():  # fill in what the references given leave out (10-27): a set counts for its pictures
         covered = set(_ref_items(_reference_set(given)[0]))
+        covered |= {i.split("/", 1)[0] for i in covered if "/" in i}  # a set's picture covers its folder (11-02)
         missing = [(r, w) for r, w in zip(refs, who) if r not in covered]
         if not missing:
             return "", ""
