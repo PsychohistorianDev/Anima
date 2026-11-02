@@ -634,7 +634,8 @@ _HELP = {
                               "face that leans in its picture, which the painter would copy into every painting. In memory "
                               "only: the file is never touched. {} — none.",
     "PAINTER_PROMPT_HINTS": "Words that bring the painter a plain line: when a prompt has the word (any ending), the line "
-                            "goes to the painter ahead of it — for a pose it keeps getting wrong. {} — none.",
+                            "goes to the painter ahead of it — for a pose it keeps getting wrong. The word \"*\" is a line "
+                            "for every painting. {} — none.",
     "PAINTER_REFERENCE_SETS": "Named sets of reference pictures: a word given alone as paint's reference stands for its "
                               "pictures in order (\"us\": \"us, face, partner\"), and its line goes to the painter ahead of the "
                               "prompt — what each picture is for. {} — none.",

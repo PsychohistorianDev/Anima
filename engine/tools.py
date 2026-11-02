@@ -3347,15 +3347,17 @@ def _ref_items(reference: str) -> list[str]:
 
 
 def _prompt_hints(prompt: str) -> str:
-    """The lines of PAINTER_PROMPT_HINTS whose word is in the prompt (any ending — "kiss", "kisses", "kissing"), joined;
-    "" for none (10-26)."""
+    """The lines of PAINTER_PROMPT_HINTS whose word is in the prompt (any ending — "kiss", "kisses", "kissing"), and the
+    line of "*" for every prompt (11-02), joined; "" for none (10-26)."""
     hints = getattr(config, "PAINTER_PROMPT_HINTS", {}) or {}
     if not isinstance(hints, dict):
         return ""
     out = []
     for word, line in hints.items():
         w, line = str(word or "").strip(), str(line or "").strip()
-        if w and line and re.search(r"\b" + re.escape(w) + r"\w*", prompt or "", re.IGNORECASE):
+        if w == "*" and line:  # a line for every painting (11-02)
+            out.append(line)
+        elif w and line and re.search(r"\b" + re.escape(w) + r"\w*", prompt or "", re.IGNORECASE):
             out.append(line)
     return " ".join(out)
 

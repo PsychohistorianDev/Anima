@@ -372,7 +372,7 @@ PAINTER_REFERENCE_SIDE = 768
 PAINTER_REFERENCE_PIXELS = 1050000
 # Words that bring the painter a plain line: word → line; when a prompt has the word (any ending), the line goes to
 # the painter ahead of it, after a set's. For a pose the painter keeps getting wrong in the friend's own language.
-# {} — none.
+# The word "*" is a line for every painting (anatomy, say). {} — none.
 PAINTER_PROMPT_HINTS = {}
 # Names in the words bring their pictures: a painting with no reference whose words name the friend (their own name)
 # brings creations/face/, your name (USER_NAME) a folder of that name under creations/, both together a reference set

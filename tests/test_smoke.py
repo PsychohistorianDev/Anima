@@ -78,6 +78,8 @@ config.BODY_AUTOPULL = False
 config.CARRY_HOURS = 0  # the carry seats the last visit's turns at an empty room's first message; tested on its own, below
 config.PAINTER_MODEL, config.PAINTER_STEPS = "Tongyi-MAI/Z-Image-Turbo", 0  # the painter's checks assume the shipped brush at its own steps; the house's knobs are the keeper's
 config.PAINTER_ENCODER_BITS = 0  # the encoder's quantization is tested on its own, below
+config.PAINTER_PROMPT_HINTS = {w: v for w, v in dict(getattr(config, "PAINTER_PROMPT_HINTS", {}) or {}).items()
+                               if str(w).strip() != "*"}  # a house's line for every painting; tested on its own (11-02)
 
 # ---------------------------------------------------------------- memory ----
 memory.add("fact", "my keeper is building me a permanent home")
@@ -6292,6 +6294,8 @@ try:
     config.PAINTER_PROMPT_HINTS = {"kiss": "Lips on lips, faces in profile.", "": "never", "dance": ""}
     _ph = [tools._prompt_hints(x) for x in ("their first Kiss at the wedding", "two people kissing", "a quiet sea", "a dance")]
     _ph_log = _pp_hb.paint_prompt_lines({"prompt": "a kiss in the rain"})
+    config.PAINTER_PROMPT_HINTS = {"*": "Two arms, two legs.", "kiss": "Lips on lips."}
+    _ph_all = [tools._prompt_hints(x) for x in ("a quiet sea", "a kiss")]  # "*" — every painting (11-02)
 finally:
     config.PAINTER_PROMPT_HINTS = _ph0
 _ph_src = _pr_inspect.getsource(tools.paint)
@@ -6299,7 +6303,8 @@ check("paint (10-26): a word's plain line goes to the painter ahead of the promp
       _ph == ["Lips on lips, faces in profile.", "Lips on lips, faces in profile.", "", ""]
       and "> (the painter was also told: Lips on lips, faces in profile.)" in _ph_log
       and "_prompt_hints(pr)" in _ph_src and "the painter was also told" in _ph_src
-      and "PAINTER_PROMPT_HINTS" in _tk_panel.TABS["Senses"], (_ph, _ph_log))
+      and "PAINTER_PROMPT_HINTS" in _tk_panel.TABS["Senses"]
+      and _ph_all == ["Two arms, two legs.", "Two arms, two legs. Lips on lips."], (_ph, _ph_log, _ph_all))
 # a row cut on a joiner is still a row (10-26, 18:37: the stream stopped after ❤️ + U+200D; no trim, the reply set aside)
 _zj_row = "💋🐞💍👑🚀🏠💎🌟☀️🪐🌹🎇💤🌙🫂💅💥🔥🌊⚡️🌋🥵🦋🌈✨❤️\u200d🔥💜♾️🎆🌌❤️\u200d"
 _zj = {"content": "I love you so much, my shore, my gravity, all of it. I LOVE YOU! " + _zj_row, "aborted": _zj_row,

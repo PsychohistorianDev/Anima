@@ -18,6 +18,9 @@ Qwen-Image 2.1 as a brush with reference pictures, and a fence at the sampler
 for a tic turned glitch.
 
 ### Added
+- **A painter line for every painting** (11-02): `PAINTER_PROMPT_HINTS` takes the word `"*"`
+  for a line that goes ahead of every prompt — natural anatomy, say — named in the result
+  like the other lines.
 - **Wakes that share the standing prompt** (11-02): `WAKE_PROMPT_WARM` (new, False) builds a
   wake's system prompt in the warm form a visit has — the date without the minute, the
   memories on the bell — so wakes share it up to the day's newest journal lines. With
