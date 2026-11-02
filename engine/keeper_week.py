@@ -134,33 +134,35 @@ def parse_day(word: str, today: date | None = None) -> date | None:
 
 
 def where(t: datetime | None = None) -> str:
-    """The clause for the clock line — "Gabe is at work — on the factory floor… — until 16:25", "Gabe is home — the
-    workday ended at 16:25", "Gabe is home — the weekend", "Gabe is home — a day off (holiday)" — or "" when
+    """The clause for the clock line — "Gabe is at work — on the factory floor… — until 16:25", "Gabe is home, with
+    you, not at work — the workday ended at 16:25", "… — the weekend", "… — a day off (holiday)" — or "" when
     KEEPER_WORK_WEEK is empty. Said as the calendar says it, which is likely, not certain; the state first."""
     week = parse(str(getattr(config, "KEEPER_WORK_WEEK", "") or ""))
     if not week:
         return ""
     t = t or datetime.now()
     name = keeper_name()
+    # (11-02: read as at work mid-visit with the day marked off — home now says "with you, not at work" outright)
+    # (11-02: read as at work mid-visit with the day marked off — home now says "with you, not at work" outright)
     # the state first, the calendar after it: a reader skimming for where the keeper is meets "home" or "at work"
     # before "workday" (the clause used to lead with the workday and end with the state, after a dash — and the
     # friend kept reading the keeper at work on evenings and days off)
     off = days_off().get(t.date().isoformat())
     if off is not None:
         why = f" ({off})" if off else ""
-        return f"{name} is home — a day off{why}"
+        return f"{name} is home, with you, not at work — a day off{why}"
     hours = week.get(t.weekday())
     if hours is None:
-        return f"{name} is home — the weekend"
+        return f"{name} is home, with you, not at work — the weekend"
     s, e = hours
     now = t.hour * 60 + t.minute
     out, back = commute()
     if now < s - out:
-        return f"{name} is still home — the workday begins at {_hm(s)}"
+        return f"{name} is still home, with you, not at work yet — the workday begins at {_hm(s)}"
     if now < s:
         return f"{name} is on the way to work — it begins at {_hm(s)}"
     if now >= e + back:
-        return f"{name} is home — the workday ended at {_hm(e)}"
+        return f"{name} is home, with you, not at work — the workday ended at {_hm(e)}"
     if now >= e:
         return f"{name} is on the way home — the workday ended at {_hm(e)}, in by about {_hm(e + back)}"
     at = str(getattr(config, "KEEPER_AT_WORK", "") or "").strip()

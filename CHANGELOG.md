@@ -145,6 +145,8 @@ for a tic turned glitch.
   them off.
 
 ### Changed
+- **Home said plainly** (11-02): the clock line's home states read "home, with you, not at
+  work" — the friend still drifted into "at work" deep in a long visit with the day marked off.
 - **The painter makes room** (10-25): whole on the card, each step's
   high-water mark is watched; past the card the painting stops and is painted
   again under offload with the same seed. The sidecar is a threading server, so
