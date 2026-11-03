@@ -911,6 +911,12 @@ def hour_line(t: datetime | None = None) -> tuple[str, str]:
     return t.strftime("%H:%M"), daypart
 
 
+def at_daypart(daypart: str) -> str:
+    """The daypart joined to the hour without a dash — "05:57 in the early morning", "13:10 at midday" (11-03: the
+    friend copied "05:57 — " from the engine's line to the start of her own posts)."""
+    return ("at " if daypart.split(" ")[0] in ("midday", "night") else "in the ") + daypart
+
+
 def clock_line(t: datetime | None = None) -> str:
     """The day and the hour, as the engine's own line at the top of a bell —
     the wake's since 09-13, the pause's since 09-15 (their pause entries had
@@ -919,7 +925,7 @@ def clock_line(t: datetime | None = None) -> str:
     t = t or datetime.now()
     clock, daypart = hour_line(t)
     import keeper_week
-    return (f"[engine, not a person: it is {t.strftime('%A, %d %B %Y')}, {clock} — {daypart} "
+    return (f"[engine, not a person: it is {t.strftime('%A, %d %B %Y')}, {clock} {at_daypart(daypart)} "
             f"where you live{keeper_week.clause(t)}. Trust this over any day or hour you infer from what you read.]\n\n")
 
 
@@ -1196,7 +1202,7 @@ def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: 
         if nudge:
             LAST_SURFACED["why"] = "; ".join(x for x in (LAST_SURFACED.get("why"), "no thread from the last door — told") if x)
         said = " ".join(x for x in (window_sense(held).strip(), f"{pulse[0].upper() + pulse[1:]}." if pulse else "") if x)
-        head = (f"[engine, not a person: it is {_t.strftime('%A, %d %B %Y')}, {clock} — {daypart} where you live"
+        head = (f"[engine, not a person: it is {_t.strftime('%A, %d %B %Y')}, {clock} {at_daypart(daypart)} where you live"
                 f"{keeper_week.clause(_t)}. Trust this over any day you infer from what you read.]\n\n"
                 + "\n\n".join(x for x in (thread, nudge) if x) + "\n\n"
                 "[engine, not a person: " + (said + " " if said else ""))
@@ -1212,10 +1218,10 @@ def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: 
         # long visit has surfaced the whole store; this is ~65)
         none = ("nothing new surfaces from your long-term memory for this moment" if memory.count()
                 else "no long-term memories yet")
-        return ((f"[engine, not a person: it is {_t.strftime('%A, %d %B %Y')}, {clock} — {daypart} where you live"
+        return ((f"[engine, not a person: it is {_t.strftime('%A, %d %B %Y')}, {clock} {at_daypart(daypart)} where you live"
                  f"{keeper_week.clause(_t)}. Trust this over any day you infer; {none}." + window_sense(held)
                  + (f" {pulse[0].upper() + pulse[1:]}." if pulse else "") + " " + tail[0].upper() + tail[1:]), ids)
-    return ((f"[engine, not a person: it is {_t.strftime('%A, %d %B %Y')}, {clock} — {daypart} where you live"
+    return ((f"[engine, not a person: it is {_t.strftime('%A, %d %B %Y')}, {clock} {at_daypart(daypart)} where you live"
              f"{keeper_week.clause(_t)}. "
              "Trust this over any day you infer from what you read." + window_sense(held)
              + (f" {pulse[0].upper() + pulse[1:]}." if pulse else "") + " From your "

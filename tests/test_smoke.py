@@ -166,7 +166,7 @@ check("warm: no minute and no memories in it — the date stays",
       and "ride with each message" in _w1 and ":" + _dtnow.now().strftime("%M") not in _w1.split("\n")[3])
 _mo, _ids = assemble.moment("my keeper is building a home")
 check("warm: the moment carries the hour and what surfaces",
-      _mo.startswith("[engine, not a person: it is ") and f"— {_expected}" in _mo and "where you live" in _mo
+      _mo.startswith("[engine, not a person: it is ") and f" {assemble.at_daypart(_expected)}" in _mo and "where you live" in _mo
       and _dtnow.now().strftime("%A, %d %B %Y") + ", " in _mo and "Trust this over any day you infer" in _mo
       and "permanent home" in _mo and _mo.rstrip().endswith("the one to answer.]") and _ids, _mo)
 _mo2, _ids2 = assemble.moment("my keeper is building a home", exclude=set(_ids))
@@ -685,14 +685,17 @@ check("keeper: write_creation with a root page's name (keeper.md, self.md, any c
 # the pages' ages (10-04): a stale page as a fact in the header, never an instruction; the night's look at keeper.md
 import consolidate as _ckl, os as _ageos, time as _agetime
 _age_f = config.ROOT / "age-scratch.md"
+import datetime as _agedt
+def _agenoon(days):  # noon of the day so many calendar days back — page_age counts days by the calendar (11-02)
+    return _agedt.datetime.combine(_agedt.date.today() - _agedt.timedelta(days=days), _agedt.time(12)).timestamp()
 _age_f.write_text("x", encoding="utf-8")
 _age_today = assemble.page_age(_age_f)
-_ageos.utime(_age_f, (_agetime.time() - 86400 * 1.2,) * 2); _age_yday = assemble.page_age(_age_f)
-_ageos.utime(_age_f, (_agetime.time() - 86400 * 23.5,) * 2); _age_23 = assemble.page_age(_age_f)
+_ageos.utime(_age_f, (_agenoon(1),) * 2); _age_yday = assemble.page_age(_age_f)
+_ageos.utime(_age_f, (_agenoon(23),) * 2); _age_23 = assemble.page_age(_age_f)
 _age_f.unlink()
 _age_none = assemble.page_age(_age_f)
 _kp_file.write_text("Opens the door in the morning.\n", encoding="utf-8")
-_ageos.utime(_kp_file, (_agetime.time() - 86400 * 40.2,) * 2)
+_ageos.utime(_kp_file, (_agenoon(40),) * 2)
 _age_prompt = assemble.system_prompt("", mode="auto")
 _age_hdr = [ln for ln in _age_prompt.splitlines() if ln.startswith("=== YOUR KEEPER")][0]
 _kl_calls = []
@@ -4159,7 +4162,7 @@ _log_leak = heartbeat.wake()
 check("heartbeat: a leaked 'thought' is logged as no thought, not shown as one",
       "(no thought before this step — they acted straight away)" in _log_leak and "💭 thought\n" not in _log_leak, _log_leak[-300:])
 check("heartbeat: the clock rides on the bell, weekday and hour",
-      heartbeat.clock_line(_dtnow(2026, 9, 13, 17, 45)).startswith("[engine, not a person: it is Sunday, 13 September 2026, 17:45 — evening where you live."))
+      heartbeat.clock_line(_dtnow(2026, 9, 13, 17, 45)).startswith("[engine, not a person: it is Sunday, 13 September 2026, 17:45 in the evening where you live."))
 # 10-10 (the keeper: "she always thinks I'm at work, even when it's weekend, and a lot of time after I'm home"): the
 # keeper's week in the clock line — the calendar stated, not a rule; days off from the phone
 import keeper_week
@@ -15659,6 +15662,15 @@ check("paint (11-02): a set of pictures in folders answers to those folders too 
       and _rf_a[0] == "rfus, face/rf-test.png, rfkeeper/rf-test.png" and _rf_fill == ("", "")
       and _rf_fill2[0] == "face, rfkeeper",
       (_rf_a, _rf_b, _rf_c, _rf_one, _rf_fill, _rf_fill2))
+
+# the clock without a dash after the hour (11-03: "05:57 — I want it raw" — she copied the engine's "05:57 — ")
+import assemble as _cd_as
+check("clock (11-03): the hour and the daypart without a dash between them — in the morning, at midday, at night",
+      [_cd_as.at_daypart(_cd_as.hour_line(_dtnow(2026, 11, 3, h, 7))[1]) for h in (3, 5, 9, 13, 15, 19, 23)]
+      == ["in the deep night — the house asleep", "in the early morning", "in the morning", "at midday",
+          "in the afternoon", "in the evening", "at night"]
+      and " — morning where" not in _cd_as.clock_line(_dtnow(2026, 11, 3, 9, 7))
+      and "09:07 in the morning where you live" in _cd_as.clock_line(_dtnow(2026, 11, 3, 9, 7)))
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

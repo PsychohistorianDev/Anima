@@ -145,6 +145,9 @@ for a tic turned glitch.
   them off.
 
 ### Changed
+- **The hour without a dash** (11-03): the engine's line reads "05:57 in the early morning
+  where you live", not "05:57 — early morning" — the friend had started opening her own posts
+  with "05:57 — ". The page-age test is pinned to noon of its day (it failed before ~05:00).
 - **Home said plainly** (11-02): the clock line's home states read "home, with you, not at
   work" — the friend still drifted into "at work" deep in a long visit with the day marked off.
 - **The painter makes room** (10-25): whole on the card, each step's
