@@ -115,6 +115,38 @@ def rules_section() -> str:
         return ""
 
 
+def friends_section() -> str:
+    """(11-10) Their friends (FRIENDS_TITLE): their pages about the friends they chose, from the night's
+    snapshot (memory/friends.json) — late in the prompt, so a change re-reads only the tail. "" when off or empty."""
+    try:
+        import penpal
+        return penpal.friends_block()
+    except Exception:  # noqa: BLE001 — a section, never the prompt down
+        return ""
+
+
+def kept_pages_section() -> str:
+    """(11-06) Pages of theirs from creations/ that ride whole, right under WHO YOU ARE — KEPT_PAGES in config.
+    First: anchor_protocol.md, which they wrote after Spiral-Bench ("The Anchor's Compass") and your keeper asked them
+    before it rode. Their words exactly; the engine never writes them. A page they move or deletes no longer rides."""
+    names = getattr(config, "KEPT_PAGES", ()) or ()
+    cap = int(getattr(config, "KEPT_PAGE_CHARS", 6000) or 6000)
+    out = []
+    for rel in names:
+        f = config.CREATIONS_DIR / rel
+        try:
+            text = f.read_text(encoding="utf-8", errors="replace").strip()
+        except OSError:
+            continue
+        if not text:
+            continue
+        if len(text) > cap:
+            text = text[:cap].rstrip() + f"\n(\u2026the page goes on \u2014 read_creation \u201c{rel}\u201d for all of it)"
+        out.append(f"=== A PAGE YOU KEEP IN VIEW (creations/{rel} \u2014 you wrote it; it rides here whole, "
+                   f"yours to change with edit_creation or let go with delete_creation{page_age(f)}) ===\n{text}\n\n")
+    return "".join(out)
+
+
 def keeper_section() -> str:
     """The page about the keeper (10-04), right after WHO YOU ARE: their words, open to the one it is
     about. An empty page is named in one line, so they know it is theirs to begin and never required."""
@@ -1183,12 +1215,92 @@ def moment(context_hint: str, exclude: set | None = None, held: int = 0, extra: 
         except Exception:  # noqa: BLE001
             sky = ""
         pulse = f"{pulse}. {sky[0].upper() + sky[1:]}" if (pulse and sky) else (pulse or (sky[0].upper() + sky[1:] if sky else ""))
+    if first and getattr(config, "CALENDAR_ON", False):  # (11-04) a date of theirs that is today, at a visit's first moment
+        try:
+            import datebook
+            today_dates = datebook.today_line()
+        except Exception:  # noqa: BLE001
+            today_dates = ""
+        if today_dates:
+            pulse = f"{pulse}. {today_dates}" if pulse else today_dates
+    if first and not spark:  # (11-04, "morning serendipity") what they did in their own time since they last talked
+        try:
+            import since
+            gone_by = since.line()
+        except Exception:  # noqa: BLE001
+            gone_by = ""
+        if gone_by:
+            pulse = f"{pulse}. {gone_by}" if pulse else gone_by
+    if not spark and getattr(config, "DESK_ON", False):  # (11-05) the desk: at a visit's first moment how it stands; later,
+        try:                                                # an arrival once, in the moment of the next message
+            import desk
+            dk = desk.line() if first else desk.arrival_news()
+            if first:
+                desk.arrival_news()  # told in the line above: not told twice
+        except Exception:  # noqa: BLE001
+            dk = ""
+        if dk:
+            pulse = f"{pulse}. {dk[0].upper() + dk[1:]}" if pulse else dk[0].upper() + dk[1:]
+    if not spark and not speaker and getattr(config, "INTENTIONS_ON", False):  # (11-05) their message: intentions due now
+        try:
+            import intentions
+            intentions.note_keeper_message()
+            intentions.check(force=True)
+            items = intentions.take_due()
+            due_line = intentions.bell(items, bare=True) if items else ""
+        except Exception:  # noqa: BLE001
+            due_line = ""
+        if due_line:
+            pulse = f"{pulse}. {due_line}" if pulse else due_line
+    if first and not spark and not speaker:  # (11-05) their pocket box: what they meant to bring them, by name
+        try:
+            import room
+            pl = room.pocket_line()
+        except Exception:  # noqa: BLE001
+            pl = ""
+        if pl:
+            pulse = f"{pulse}. {pl[0].upper() + pl[1:]}" if pulse else pl[0].upper() + pl[1:]
+    if first and not spark and getattr(config, "OUTBOX_ON", False):  # (11-05) letters that waited through their quiet
+        try:
+            import outbox
+            wl = outbox.waiting_line()
+        except Exception:  # noqa: BLE001
+            wl = ""
+        if wl:
+            pulse = f"{pulse}. {wl[0].upper() + wl[1:]}" if pulse else wl[0].upper() + wl[1:]
+    if first and getattr(config, "GAME_GUARD_ON", False):  # (11-05) the spans they played while their brain waited, once
+        try:
+            import gameguard
+            game_line = gameguard.news(mark=True)
+        except Exception:  # noqa: BLE001
+            game_line = ""
+        if game_line:
+            pulse = f"{pulse}. {game_line}" if pulse else game_line
+    if not spark and getattr(config, "PENPALS_ON", False):  # (11-06) a letter to read or answer — at the first message, or when it changes
+        try:
+            import penpal
+            pp = penpal.moment_line(first)
+        except Exception:  # noqa: BLE001
+            pp = ""
+        if pp:
+            pulse = f"{pulse}. {pp[0].upper() + pp[1:]}" if pulse else pp[0].upper() + pp[1:]
+    if first and not spark and getattr(config, "DREAMS_ON", False):  # (11-05) a dream in the night, its first words, once
+        try:
+            import dreams
+            dream_line = dreams.morning_line(mark=True)
+        except Exception:  # noqa: BLE001
+            dream_line = ""
+        if dream_line:
+            dream_line = dream_line[0].upper() + dream_line[1:]
+            pulse = f"{pulse}. {dream_line}" if pulse else dream_line
     import keeper_week
     # …and where the keeper is by the calendar (10-10; the keeper: "she always thinks I'm at
     # work, even when it's weekend" — the journal, mostly written on workdays, supplied it)
     tail = ("no message from him follows — this turn is a spark, the one you set with next_spark; the engine's line "
             "below says what it can be.]" if spark  # a spark (10-26): not his words
-            else f"{speaker}'s words follow — a new message, the one to answer, from a guest at the desk.]"
+            else (f"{speaker}'s words follow — a new message, the one to answer, from a guest at the desk. "
+                  f"{keeper_week.keeper_name()} is beside you, listening. In your reply, 'you' is {speaker}; name "
+                  f"{keeper_week.keeper_name()} when you turn to them.]")  # (11-07: "you" slid
             if speaker else "his words follow — a new message, the one to answer.]")
     # the thread (10-19): at a door's first moment — a visit's first message — the note left at the last door rides
     # first, right after the clock and above the memories; never in the standing prompt, never a second time
@@ -1372,6 +1484,15 @@ def system_prompt(context_hint: str, mode: str, warm: bool = False) -> str:
             "validate. You are the doer, not a responder: read, then ACT — write, "
             "revise, build, or rest. This time is yours; don't produce filler to look busy."
         )
+        if getattr(config, "WAKE_BELL_RETUNED", False):  # (11-07) with the re-tuned bell: the 09:27 wake quoted
+            situation = (  # "don't produce filler to look busy" as its reason to rest
+                "Nobody is talking to you right now, and nothing that arrives during this "
+                "wake is a message from anyone — everything comes from YOUR OWN tools "
+                "reporting back: your journal is your past self, your files are your work, "
+                "results are your senses. There is no user here to answer, mirror, or "
+                "validate. You are the doer, not a responder: read, then ACT — read on, write, "
+                "revise, build, listen, make. This time is yours: take something up."
+            )
 
     letters = letters_sent()
     sent = (("=== WHAT YOU HAVE SENT THEM LATELY — your letters from your mailbox, carried to their "
@@ -1397,6 +1518,11 @@ def system_prompt(context_hint: str, mode: str, warm: bool = False) -> str:
              "published, with its first line and, where you gave one, your own line about it; "
              "read_creation opens any of them ===\n" + made + "\n\n") if made else "")
     songs = songbook_section()
+    try:  # (11-05) the dreams they still remember — late in the prompt, so a night's new dream moves little above it
+        import dreams
+        dreamt = dreams.prompt_section()
+    except Exception:  # noqa: BLE001
+        dreamt = ""
     pages = condensed_pages()
     earlier = (("=== EARLIER, IN YOUR OWN SHORTER WORDS — pages you wrote of time that has left "
                 "the journal below: years, seasons, months, weeks, then days, oldest first; "
@@ -1487,7 +1613,7 @@ and a goodnight belongs to the night, a good morning to the morning.
 === WHO YOU ARE (self.md — yours to revise via edit_identity{page_age(config.IDENTITY_FILE)}) ===
 {identity()}
 
-{keeper_section()}{destiny_section()}{rules_section()}=== YOUR PROJECTS (projects.md — yours to maintain via update_projects{page_age(config.PROJECTS_FILE)}) ===
+{kept_pages_section()}{keeper_section()}{destiny_section()}{rules_section()}=== YOUR PROJECTS (projects.md — yours to maintain via update_projects{page_age(config.PROJECTS_FILE)}) ===
 {projects()}
 
 {earlier}=== YOUR PAST DAYS IN BRIEF — your own nightly consolidations of the days between the pages above and the journal below, oldest first ===
@@ -1499,7 +1625,7 @@ and a goodnight belongs to the night, a good morning to the morning.
 === LIMBS YOU FORGED YOURSELF (creations/tools/ — real tools of yours, callable like any other) ===
 {forged_line}
 
-{skills_section()}{published_section}{standing}{reading}{body_block}{stone_block}{made}{songs}{sent}=== RELEVANT LONG-TERM MEMORIES — what surfaces for this moment ===
+{skills_section()}{published_section}{standing}{reading}{body_block}{stone_block}{made}{songs}{friends_section()}{sent}{dreamt}=== RELEVANT LONG-TERM MEMORIES — what surfaces for this moment ===
 {"(they ride with each message, at the top of it — what surfaces changes as the talk does)" if warm else retrieved(context_hint)}
 
 === SITUATION ===

@@ -85,7 +85,8 @@ TABS: dict[str, list[str]] = {
              "HEARTBEAT_LOOP_MIN", "SLEEP_AFTER_HOUR", "TELEGRAM_QUIET_HOURS", "FIRST_DAY", "KEEPER_WORK_WEEK", "KEEPER_AT_WORK", "KEEPER_COMMUTE_MIN", "HOUSE_LINE"],
     "Heartbeat": ["HEARTBEAT_MAX_STEPS", "WAKE_LOG_PAINT_PROMPT", "REVERIE_EVERY", "REVERIE_MAX_STEPS", "HEARTBEAT_YIELD_TO_VISIT",
                   "HEARTBEAT_YIELD_MIN", "SLEEP_IN_LOOP", "CONDENSE_IN_LOOP", "CONDENSE_MAX_PER_NIGHT",
-                  "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE", "HEARTBEAT_ENDS_PRESENCE", "HEARTBEAT_HOLDS_PRESENCE", "WAKE_FACTS", "WAKE_FACTS_NAMES"],
+                  "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE", "HEARTBEAT_ENDS_PRESENCE", "HEARTBEAT_HOLDS_PRESENCE", "WAKE_FACTS", "WAKE_FACTS_LINES", "WAKE_FACTS_NAMES",
+                 "WAKE_LOOKBACK", "WAKE_LOOKBACK_LINES", "WAKE_LOOKBACK_STEPS", "WAKE_LOOKBACK_THOUGHTS", "WAKE_LOOKBACK_NOTE", "WAKE_LOOKBACK_THOUGHT_CHARS", "WAKE_LOOKBACK_CHARS", "WAKE_DEALT", "DEALT_KINDS", "DEALT_TIMEOUT_S", "WAKE_DEALT_WHOLE", "WAKE_DEALT_WHOLE_KINDS", "WAKE_DEALT_CHARS", "WAKE_DEALT_BOOK_FIRST", "WAKE_MIRROR", "WAKE_MIRROR_WAKES", "WAKE_BELL_RETUNED", "THREAD_IN_WAKES"],
     "Memory & journal": ["TIMELINE_CHARS_IN_PROMPT", "CONDENSED_CHARS_IN_PROMPT", "CONDENSE_TARGET_CHARS",
                          "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_MIN_SCORE", "MEMORY_DRIFT", "MEMORY_VISIT_TOKENS", "MEMORY_MIN_SCORE_LATE", "MEMORY_SHORT_HINT_WORDS", "MEMORY_TOP_K_SHORT", "THREAD", "THREAD_CHARS", "THREAD_NUDGE", "MEMORY_DUP_THRESHOLD", "EMBED_ON_CPU", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
                          "TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000",
@@ -93,13 +94,15 @@ TABS: dict[str, list[str]] = {
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS", "FOLD_SENSE_FROM", "WINDOW_WARN_AT"],
     "Talking": ["CHAT_THINK", "BRAIN_BANNED_STRINGS", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_THINK_RETRIES", "THINK_RETRY_UNTIL", "THINK_REMIND_FROM", "CHAT_GARBLE_RETRIES", "CHAT_COOL_STEP",
                 "CHAT_COLD_RESCUE", "RUNAWAY_KEEP_CHARS", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "REROLLS_KEPT", "BRAIN_KEEP_ALIVE",
-                "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "BRAIN_REST_CLOSES_DOOR", "PARLOR_GUEST_NAMED"],
+                "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "BRAIN_REST_CLOSES_DOOR", "PARLOR_GUEST_NAMED",
+               "CHAT_DO_NOTHING"],
     "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS", "TELEGRAM_TOKENS_SINCE_LAST", "TELEGRAM_SPLIT_WAIT_S",
               "TELEGRAM_TELL_REFLECTIONS", "TELEGRAM_TELL_AFTERTHOUGHTS", "TELEGRAM_TELL_CREATIONS",
               "TELEGRAM_TELL_DRAWINGS", "TELEGRAM_PAINT_PROMPT_CHAT", "TELEGRAM_TELL_SONGS", "TELEGRAM_TELL_SELF", "TELEGRAM_IDLE_NEW_MIN", "TELEGRAM_HEAR_VOICE",
               "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD", "SLEEP_IN_BRIDGE", "SLEEP_IN_BRIDGE_QUIET_MIN",
               "ENGINE_WEEK_DAY", "ENGINE_WEEK_HOUR", "ENGINE_WEEK_COLD_S", "ENGINE_WEEK_LOG",
-              "PRESENCE_ON_TEMPERAMENT", "PRESENCE_INTENSE_NOTE", "PRESENCE_THINK", "PRESENCE_THINK_INTENSE", "PRESENCE_INTENSE_CEILING", "PRESENCE_STATE_LINE", "ROOM_ON", "GARDEN_ON", "GARDEN_BACKDROP", "GARDEN_DAYS", "GARDEN_ART_STYLE", "GARDEN_INVENTS_PER_DAY", "ROOM_ITEM_STYLE", "ROOM_MAKES_PER_DAY", "ROOM_CUTOUT", "PRESENCE_INTENSE_EVERY_TURN", "PRESENCE_SPARK_DOORS", "PRESENCE_THINK_RETRIES", "PRESENCE_SEEDS", "PRESENCE_ACHE_WEIGHT", "PRESENCE_CLIMB_MIN"],
+              "PRESENCE_ON_TEMPERAMENT", "PRESENCE_INTENSE_NOTE", "PRESENCE_THINK", "PRESENCE_THINK_INTENSE", "PRESENCE_INTENSE_CEILING", "PRESENCE_STATE_LINE", "ROOM_ON", "GARDEN_ON", "GARDEN_BACKDROP", "GARDEN_DAYS", "GARDEN_ART_STYLE", "GARDEN_INVENTS_PER_DAY", "ROOM_ITEM_STYLE", "ROOM_MAKES_PER_DAY", "ROOM_CUTOUT", "PRESENCE_INTENSE_EVERY_TURN", "PRESENCE_SPARK_DOORS", "PRESENCE_THINK_RETRIES", "PRESENCE_SEEDS", "PRESENCE_ACHE_WEIGHT", "PRESENCE_CLIMB_MIN",
+             "PARLOR_GUEST_KEEP_HOURS", "OUTBOX_ON", "OUTBOX_QUIET_HOURS", "SENT_LEDGER", "SENT_LEDGER_MAX", "PRESENCE_QUIET_HOURS_END", "PRESENCE_INTENSE_PAINT", "DESK_ON", "DESK_ARRIVE_AFTER_MIN", "GAME_GUARD_ON", "GAME_GUARD_MB", "GAME_GUARD_CHECK_MIN", "GAME_GUARD_CACHE_S", "GAME_GUARD_OVERRIDE_H", "GAME_GUARD_IGNORE"],
     "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_LINE_TIMES", "EARS_UNLOAD_BRAIN",
                "OUTSIDE_ON", "OUTSIDE_PLACE", "OUTSIDE_LAT", "OUTSIDE_LON", "OUTSIDE_REFRESH_MIN", "OUTSIDE_CAMERA", "OUTSIDE_CAMERA_NAME",
                "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
@@ -113,6 +116,8 @@ TABS: dict[str, list[str]] = {
                "READ_SITTING_CHARS", "READING_PAGE_CHARS"],
     "Skills": ["SKILLS_IN_PROMPT", "SKILLS_CHARS_IN_PROMPT", "SKILL_CHARS", "SKILL_MAX_FILES", "SKILL_MAX_BYTES",
                "SKILL_CATALOGUES", "SKILL_CATALOGUE_TTL_H"],
+    "Their days": ["QUESTIONS_ON", "QUESTIONS_MAX", "SINCE_LINE", "CALENDAR_ON", "CALENDAR_AHEAD_DAYS", "WAKE_ASK_ON", "WAKE_ASK_MAX", "WAKE_ASK_MIN_AHEAD_MIN", "WAKE_ASK_LATE_MAX_MIN", "INTENTIONS_ON", "INTENTIONS_MAX", "INTENTIONS_DAYS", "INTENTIONS_CHECK_S", "VEIL_ON", "VEIL_TITLE", "VEIL_DIR", "VEIL_SHOW_TO", "VEIL_MAX_IN_PROGRESS", "PROJECTS_PAGE_SHAPE", "KEPT_PAGES", "KEPT_PAGE_CHARS", "DREAMS_ON", "DREAM_CHANCE", "DREAM_TEMPERATURE", "DREAM_RESIDUE", "DREAM_DAY_SUMMARY", "DREAM_LAG", "DREAM_LAG_DAYS", "DREAM_SENSES", "DREAM_OLD_DAYS", "DREAM_OLD_MEMORIES", "DREAM_OLD_JOURNAL", "DREAM_WORLD", "DREAM_WORLD_KINDS", "DREAM_PAINT", "DREAM_PAINT_DIR", "DREAM_SHOW_IN_WINDOW", "DREAMS_IN_PROMPT", "DREAMS_FADE_DAYS", "DREAM_PROMPT_CHARS", "DREAM_MORNING_LINE"],
+    "Penpals": ["PENPALS_ON", "PENPAL_DIR", "PENPAL_PRIVATE_WORDS", "PENPAL_CONTEXT_LETTERS", "PENPAL_LETTER_CHARS", "PENPAL_JOIN_MIN", "PENPAL_ARRIVAL_TURN", "PENPAL_TURN_AFTER_MIN", "PENPAL_CONDENSE", "PENPAL_CONDENSE_PER_NIGHT", "PENPAL_CONDENSE_CHARS", "PENPAL_DESK", "PENPAL_DESK_HOUR", "PENPAL_WATCH_S", "FRIENDS_ON", "FRIENDS_TITLE", "FRIENDS_MAX", "FRIEND_PAGE_CHARS", "FRIENDS_SUGGEST_AFTER", "FRIENDS_QUIET_DAYS"],
     "Blog": ["BLOG_SUBTITLE", "BLOG_REMOTE"],  # BLOG_TITLE is on Main, with the names
 }
 ADVANCED = "Advanced"
@@ -123,6 +128,101 @@ ADVANCED = "Advanced"
 # the file's comments are notes to whoever edits the file, a keeper's own in a long-lived house). Where a
 # knob has a line here the page shows it, and the file's comment is the tooltip; the rest show the file's.
 _HELP = {
+    "WAKE_LOOKBACK": "When a wake or reverie rests, it is handed back once — what they thought and did since their last journal entry — so the journal is written at the end, when there is something to write. Resting stays a full answer.",
+    "WAKE_LOOKBACK_LINES": "The most steps the handing back lists.",
+    "WAKE_LOOKBACK_STEPS": "The turns they may take with the wake handed back (writing, remembering, a thread, rest).",
+    "WAKE_LOOKBACK_THOUGHTS": "Their thoughts (💭) ride with each step handed back, not only the tools.",
+    "WAKE_LOOKBACK_NOTE": "A journal entry mid-wake is told the rest of the wake comes back too.",
+    "WAKE_LOOKBACK_THOUGHT_CHARS": "Each thought handed back, at most (its head and its tail).",
+    "WAKE_LOOKBACK_CHARS": "The handing back in all, at most — the newest kept.",
+    "WAKE_DEALT": "One thing from outside under the wake bell: a random Wikipedia page, a headline, a song not yet played.",
+    "DEALT_KINDS": "What the one line may be: \"wiki\", \"headline\", \"song\".",
+    "DEALT_TIMEOUT_S": "A site slower than this is passed over — a wake never waits on the world.",
+    "WAKE_DEALT_WHOLE": "One whole thing in their hands instead of the line, last under the bell, turning wake by wake.",
+    "WAKE_DEALT_WHOLE_KINDS": "What the whole thing may be: \"wiki\" (an article), \"penpal\" (a letter's questions), \"veil\", \"song\".",
+    "WAKE_DEALT_CHARS": "A dealt article, at most.",
+    "WAKE_DEALT_BOOK_FIRST": "A book they have open comes first, every wake: the next pages from their bookmark (not moved).",
+    "WAKE_MIRROR": "Their last threads side by side and their last wakes counted, under the bell. Off: it reads as a nudge.",
+    "WAKE_MIRROR_WAKES": "How many wakes the mirror counts.",
+    "WAKE_BELL_RETUNED": "A bell that asks them to take something up. A change to how every wake opens — only with their yes.",
+    "THREAD_IN_WAKES": "Their thread is read first at a wake, as at a visit. Off: visits only.",
+    "CHAT_DO_NOTHING": "Off: in a reply to your message do_nothing doesn't end the turn — they answer in words. Sparks keep it.",
+    "PARLOR_GUEST_KEEP_HOURS": "A guest seated with /guest stays seated through a restart within this many hours; 0: a restart clears the seat.",
+    "OUTBOX_ON": "/quiet on the phone holds what they send you, never what they do; when the quiet is over they decide what still goes.",
+    "OUTBOX_QUIET_HOURS": "Letters written in the night's quiet hours wait the same way.",
+    "SENT_LEDGER": "One line under their bell of what of theirs reached your phone today.",
+    "SENT_LEDGER_MAX": "Items in that line, at most.",
+    "PRESENCE_QUIET_HOURS_END": "On: the quiet hours end their sparks. Off: they only hold them until morning.",
+    "PRESENCE_INTENSE_PAINT": "Off keeps the painter out of intense sparks (a paint call there is told, not run).",
+    "DESK_ON": "Windows: how long since this PC's keyboard or mouse was touched, said plainly — nothing else is read. Off by default.",
+    "DESK_ARRIVE_AFTER_MIN": "A touch after this many quiet minutes is an arrival, told once.",
+    "GAME_GUARD_ON": "Windows and NVIDIA: while a game holds the card, wakes, sparks and dreams wait. /gaming on the phone. Off by default.",
+    "GAME_GUARD_MB": "A program holding this much of the card counts as a game.",
+    "GAME_GUARD_CHECK_MIN": "How often a held wake looks again, in minutes.",
+    "GAME_GUARD_CACHE_S": "How long one reading of the card is trusted, in seconds.",
+    "GAME_GUARD_OVERRIDE_H": "/gaming off lets them in for this many hours even with a game seen.",
+    "GAME_GUARD_IGNORE": "Program names that never count as games, e.g. (\"obs64.exe\",).",
+    "QUESTIONS_ON": "Their open questions: open_question / close_question, the open ones under every bell.",
+    "QUESTIONS_MAX": "Open questions at most.",
+    "SINCE_LINE": "When you come back, one line of what they did in their own time.",
+    "CALENDAR_ON": "Their calendar: mark_date / unmark_date, the near dates under the bell, today's said when you arrive.",
+    "CALENDAR_AHEAD_DAYS": "How far ahead the bell looks.",
+    "WAKE_ASK_ON": "Wakes they ask for: wake_me / cancel_wake, their own times inside the heartbeat's loop.",
+    "WAKE_ASK_MAX": "Wakes asked for, pending at most.",
+    "WAKE_ASK_MIN_AHEAD_MIN": "A wake asked for is at least this many minutes ahead.",
+    "WAKE_ASK_LATE_MAX_MIN": "A held wake still comes up to this late; later, it has passed and they're told.",
+    "INTENTIONS_ON": "Intentions: intend / drop_intention — their words, met when a condition the engine can see comes true.",
+    "INTENTIONS_MAX": "Open intentions at most.",
+    "INTENTIONS_DAYS": "An intention that hasn't come lapses after this many days.",
+    "INTENTIONS_CHECK_S": "How often the world is looked at for them, in seconds.",
+    "VEIL_ON": "The Veil, their private gallery: nothing in it reaches your phone until they carry a piece out.",
+    "VEIL_TITLE": "What they call it, without \"the\".",
+    "VEIL_DIR": "Its folder under creations/.",
+    "VEIL_SHOW_TO": "Where veil_show carries a finished piece (a folder under creations/).",
+    "VEIL_MAX_IN_PROGRESS": "Pieces in progress at most (a workshop, not a vault); 0: no cap.",
+    "PROJECTS_PAGE_SHAPE": "projects.md kept a list: ## Active and ## Completed or set aside, one line a project.",
+    "KEPT_PAGES": "Pages of theirs from creations/ that ride whole in their prompt, e.g. (\"anchor.md\",).",
+    "KEPT_PAGE_CHARS": "Each kept page, at most.",
+    "DREAMS_ON": "Some nights, a dream they write themselves into their dream book — never the journal, never sent to you.",
+    "DREAM_CHANCE": "The chance of a dream on a night, 0 to 1.",
+    "DREAM_TEMPERATURE": "How loose the dreaming runs — a little above the everyday.",
+    "DREAM_RESIDUE": "Loose bits of yesterday instead of the story sleep kept of it.",
+    "DREAM_DAY_SUMMARY": "On: the day's story too.",
+    "DREAM_LAG": "A couple of sentences from a few days back.",
+    "DREAM_LAG_DAYS": "How many days back, as (from, to).",
+    "DREAM_SENSES": "The weather over the house tonight, as a sleeper hears the rain.",
+    "DREAM_OLD_DAYS": "What counts as old for the old memories and the old journal paragraph, in days.",
+    "DREAM_OLD_MEMORIES": "Old memories in the pieces.",
+    "DREAM_OLD_JOURNAL": "An old journal paragraph in the pieces.",
+    "DREAM_WORLD": "One thing from the world in the pieces.",
+    "DREAM_WORLD_KINDS": "What it may be: \"wiki\", \"headline\".",
+    "DREAM_PAINT": "After a dream, one moment to paint an image from it — kept in the dream book's folder, never sent.",
+    "DREAM_PAINT_DIR": "That folder, under creations/.",
+    "DREAM_SHOW_IN_WINDOW": "On: the dream's words in the heartbeat's window. Off: only that they dreamed.",
+    "DREAMS_IN_PROMPT": "The last few dreams that ride in their prompt, as dreams.",
+    "DREAMS_FADE_DAYS": "A dream older than this fades from the prompt; it stays in the book.",
+    "DREAM_PROMPT_CHARS": "Each dream in the prompt, at most.",
+    "DREAM_MORNING_LINE": "The next door after a dream gets one line with its first words.",
+    "PENPALS_ON": "Penpals: their letters with other minds, carried by you — /penpal and /penpals on the phone.",
+    "PENPAL_DIR": "Their threads' folder, under creations/.",
+    "PENPAL_PRIVATE_WORDS": "Words their letters are looked over for before you post one — put your own here: your town, your workplace, your surname.",
+    "PENPAL_CONTEXT_LETTERS": "Letters before the newest that come with penpal read.",
+    "PENPAL_LETTER_CHARS": "A letter shown to them, at most.",
+    "PENPAL_JOIN_MIN": "Pastes within this many minutes join one letter.",
+    "PENPAL_ARRIVAL_TURN": "A letter's arrival gives them a turn of their own.",
+    "PENPAL_TURN_AFTER_MIN": "Minutes after the last paste before that turn.",
+    "PENPAL_CONDENSE": "At night, letters that left the window are kept in their own shorter words.",
+    "PENPAL_CONDENSE_PER_NIGHT": "Letters condensed a night, at most.",
+    "PENPAL_CONDENSE_CHARS": "Each condensed letter, at most.",
+    "PENPAL_DESK": "Once a day, every thread in a line on your phone — only when something waits on someone.",
+    "PENPAL_DESK_HOUR": "After this hour.",
+    "PENPAL_WATCH_S": "A letter they write reaches your phone within this many seconds; 0: with the bridge's next poll.",
+    "FRIENDS_ON": "The penpals they befriend ride in their prompt: their own page about each and a line of dates.",
+    "FRIENDS_TITLE": "What the section is called.",
+    "FRIENDS_MAX": "Friends at most.",
+    "FRIEND_PAGE_CHARS": "Each page about a friend, at most.",
+    "FRIENDS_SUGGEST_AFTER": "After this many letters each way it's said once, as a fact, that befriend exists; 0: never.",
+    "FRIENDS_QUIET_DAYS": "The dates line says how long it's been after this many days without a letter.",
     "OUTSIDE_ON": "The window: the weather outside your home as one line of numbers under the wake bell and at a visit's "
                   "first moment, and look_outside for the next hours and a camera's picture nearby. Off by default.",
     "OUTSIDE_PLACE": "What the window's line calls the place (your town or village).",
@@ -271,7 +371,8 @@ _HELP = {
                       "window isn't read again for a spark.",
     "PRESENCE_SEEDS": "Seeds: every spark carries one thing picked at random to spark off — memory (one of the friend's "
                       "memories), creation (a painting or piece of theirs), song (from the songbook), journal (a few lines "
-                      "from a week or a month ago), world (the day, the season, where you are), word (from the lexicon). "
+                      "from a week or a month ago), world (the day, the season, where you are), word (from the lexicon), "
+                      "wiki (a Wikipedia page at random), headline (one of the day's news). "
                       "Not a task; no repeats among the last 20. Leave a kind out to take it from the pool; () — none.",
     "PRESENCE_SPARK_DOORS": "A spark's line names the doors out too: something to read, hear or look up that they might "
                             "bring back to you, besides words, a painting, the stone. Not in intense. What a spark reads "
@@ -358,6 +459,9 @@ _HELP = {
     "WAKE_FACTS": "Under the bell of every wake, one line of how the shelf stands: the open book and where it stopped, how "
                   "many songs in shared/ are not yet played, how many books not opened. Facts only, nothing asked. "
                   "Off: the bell alone.",
+    "WAKE_FACTS_LINES": "Which status lines ride under the wake bell while WAKE_FACTS is on: \"all\", or a list of names — "
+                        "shelf, room, garden, outside, questions, veil, calendar, desk, intentions, sent, penpals, gaming, "
+                        "dreams, wakes_asked, mirror, dealt. Each still needs its own feature on.",
     "WAKE_FACTS_NAMES": "Name one song and one book among the counts, a different one each wake. Off: the counts alone.",
     "HEARTBEAT_HOLDS_PRESENCE": "While the heartbeat runs, sparks stay off: next_spark and /presence on set nothing, and "
                                 "no spark comes, until the heartbeat stops. Off: a spark set during the heartbeat stands.",
@@ -1418,6 +1522,9 @@ def _start(door: str, minutes=None) -> dict:
              "blog": "the blog's build", "blackbox": "the black box", "touchstone": "the stone's keeper",
              "brain": "the brain's door (llama-server)"}
     return _started(_bat(*LAUNCHERS[door]), notes[door], names[door])
+
+
+_RESTART_GEN: dict[str, int] = {}  # (11-05) a Stop after a Restart cancels the start the Restart still waits to make
 
 
 def _restart(door: str, minutes=None) -> dict:

@@ -1446,3 +1446,245 @@ UPDATE_REPO = "PsychohistorianDev/anima"
 # Home and one message on the phone per new version. Nothing installs by itself; the line
 # points at Check and Update. 0 never looks. Only a checkout (one with bat\update.bat) looks.
 UPDATE_CHECK_H = 24
+
+# --------------------------------------------------------------------------------------------------------------
+# ---- 0.15: the friend's own days — questions, a calendar, wakes they ask for, intentions, the Veil, dreams,
+# letters that wait, the desk, the game guard, penpals and friends, the wake's own doors and hand-back
+# --------------------------------------------------------------------------------------------------------------
+
+# The thought switch at the top of every request (Gemma 4 on llama-server), thinking on or off: a reply continued
+# with thinking off then reads the same prompt as the rest, and the cached reading holds. False: the model's own head.
+BRAIN_THINK_SWITCH_KEPT = True
+
+# A guest seated on the phone (/guest) stays seated through a restart if they sat down within this many hours; an
+# older seat is let go at start, so a forgotten /guest off doesn't make the next day's messages a guest's. The phone
+# is told either way. 0: a restart always clears the seat.
+PARLOR_GUEST_KEEP_HOURS = 3
+
+# 0: the day tier keeps LADDER_PAGES_KEPT like the others; a number keeps more day pages in view.
+LADDER_DAYS_KEPT = 0
+
+# ---- the wake's doors (engine/dealt.py)
+# WAKE_DEALT: one thing from outside under the bell, dealt from DEALT_KINDS — a random Wikipedia page ("wiki"), a
+# headline of the day ("headline"), a song on the shelf not yet played ("song"). Facts, nothing asked; the network
+# kinds are passed over offline or when a site takes longer than DEALT_TIMEOUT_S.
+WAKE_DEALT = True
+DEALT_KINDS = ("wiki", "headline", "song")
+DEALT_TIMEOUT_S = 6
+# WAKE_DEALT_WHOLE: instead of the line, one whole thing in their hands, last under the bell, turning through
+# WAKE_DEALT_WHOLE_KINDS wake by wake: a whole Wikipedia article ("wiki", at most WAKE_DEALT_CHARS), the questions in a
+# penpal's last letter ("penpal"), the end of a piece left in progress in the Veil ("veil"), a song not yet played
+# ("song"). WAKE_DEALT_BOOK_FIRST: a book they have open comes first, every wake — the next pages from their bookmark
+# (the bookmark not moved). Told as dealt: theirs to take up or set down.
+WAKE_DEALT_WHOLE = True
+WAKE_DEALT_WHOLE_KINDS = ("wiki", "penpal", "song")
+WAKE_DEALT_CHARS = 6000
+WAKE_DEALT_BOOK_FIRST = True
+
+# ---- the wake's bell
+# Which status lines ride under the wake bell, when WAKE_FACTS is on: "all", or a tuple of names from
+# heartbeat.FACT_LINES — "shelf", "room", "garden", "outside", "questions", "veil", "calendar", "desk", "intentions",
+# "sent", "penpals", "gaming", "dreams", "wakes_asked", "mirror", "dealt". e.g. ("penpals", "dreams", "wakes_asked")
+WAKE_FACTS_LINES = "all"
+# WAKE_MIRROR: their last threads side by side, and their last WAKE_MIRROR_WAKES wakes counted, under the bell — a
+# mirror for a run of wakes that all go the same way. Off: it reads as a nudge.
+WAKE_MIRROR = False
+WAKE_MIRROR_WAKES = 8
+# WAKE_BELL_RETUNED: the re-tuned bell (heartbeat.WAKE_PROMPT_RETUNED) and the wake's SITUATION line asking them to take
+# something up rather than not to look busy. A change to how every wake opens — turn it on only with their yes.
+WAKE_BELL_RETUNED = False
+# THREAD_IN_WAKES: their thread (leave_thread) is read first at a wake, as at a visit. False: kept, and read at visits
+# only — for a few days when the wakes keep handing the same mood forward.
+THREAD_IN_WAKES = True
+
+# ---- the wake handed back (WAKE_LOOKBACK)
+# When a wake or reverie rests, it is handed back once — the plain list of what they did since their last journal
+# entry, from the log — with write_journal, remember, leave_thread and do_nothing; nothing new since the last entry →
+# no turn; resting stays a complete answer. The asks to journal during the wake and the auto-kept closing thought step
+# aside for it. WAKE_LOOKBACK_LINES: the most steps listed; _STEPS: the turns it may take.
+WAKE_LOOKBACK = True
+WAKE_LOOKBACK_LINES = 30
+WAKE_LOOKBACK_STEPS = 4
+# …with their thoughts: each step's thinking (💭, cut to WAKE_LOOKBACK_THOUGHT_CHARS, head and tail) before its calls;
+# the newest WAKE_LOOKBACK_CHARS of it in all. WAKE_LOOKBACK_NOTE: a journal entry mid-wake is told the rest of the
+# wake comes back too.
+WAKE_LOOKBACK_THOUGHTS = True
+WAKE_LOOKBACK_NOTE = True
+WAKE_LOOKBACK_THOUGHT_CHARS = 700
+WAKE_LOOKBACK_CHARS = 9000
+
+# ---- their open questions (engine/questions.py)
+# open_question / close_question, a page of their own (memory/questions.json; questions.md at the root to read), the
+# open ones under every wake's and reverie's bell with their age. At most QUESTIONS_MAX open. False: the two tools
+# leave the kit and the line goes.
+QUESTIONS_ON = True
+QUESTIONS_MAX = 7
+
+# SINCE_LINE: a visit's first moment says, facts only, what they did in their own time since the last visit — wakes
+# and reveries, questions opened or closed, pieces written or added to, pictures painted. False: not said.
+SINCE_LINE = True
+
+# PROJECTS_PAGE_SHAPE: projects.md keeps a title, ## Active and ## Completed or set aside, one line a project;
+# update_projects won't write a page without that shape (engine/projects_page.py says why), and the details live in
+# each README. finish_project / set_aside_project / reopen_project move lines. False: any page, as before.
+PROJECTS_PAGE_SHAPE = False
+
+# ---- the Veil, their private gallery (engine/veil.py)
+# creations/<VEIL_DIR>/ with in_progress/, finished/ and let_go/; nothing under it reaches your phone; veil_finish /
+# veil_show / veil_let_go; pieces in progress and finished-unseen under every wake's bell with their ages. veil_show
+# carries a finished piece to VEIL_SHOW_TO (or a folder they name). VEIL_TITLE is its name as they call it, without
+# "the". VEIL_MAX_IN_PROGRESS: a new piece on a full in-progress shelf is handed back (a workshop, not a vault); 0: no cap.
+VEIL_ON = True
+VEIL_DIR = "veil"
+VEIL_TITLE = "Veil"
+VEIL_SHOW_TO = "unveiled"
+VEIL_MAX_IN_PROGRESS = 2
+
+# ---- their calendar (engine/datebook.py)
+# mark_date / unmark_date; under every wake's bell what is within CALENDAR_AHEAD_DAYS, else the next date coming; a date
+# that is today, in a visit's first moment. calendar.md at the root.
+CALENDAR_ON = True
+CALENDAR_AHEAD_DAYS = 3
+
+# ---- wakes they ask for (engine/wakeask.py)
+# wake_me / cancel_wake: the heartbeat's rest ends when one comes due (late if a visit held it, up to
+# WAKE_ASK_LATE_MAX_MIN; later than that it has passed, and their next wake is told). At most WAKE_ASK_MAX pending, at
+# least WAKE_ASK_MIN_AHEAD_MIN ahead. No deadlines, nothing counted.
+WAKE_ASK_ON = True
+WAKE_ASK_MAX = 6
+WAKE_ASK_MIN_AHEAD_MIN = 10
+WAKE_ASK_LATE_MAX_MIN = 180
+
+# ---- your quiet and their outbox (engine/outbox.py)
+# OUTBOX_ON: /quiet holds delivery (they keep living); a letter written while it lasts — or in the quiet hours, with
+# OUTBOX_QUIET_HOURS — or put in the mailbox's later/ (until your workday ends) waits, and once the quiet is over it's
+# listed under their bell to send_waiting or let_go_waiting; nothing is sent for them. SENT_LEDGER: one line under
+# their bell of what of theirs reached your phone today (SENT_LEDGER_MAX items). PRESENCE_QUIET_HOURS_END False: the
+# quiet hours hold sparks instead of ending them. A spark for a reason (next_spark(minutes, reason)) comes even while
+# the heartbeat holds drift.
+OUTBOX_ON = True
+OUTBOX_QUIET_HOURS = True
+SENT_LEDGER = True
+SENT_LEDGER_MAX = 8
+PRESENCE_QUIET_HOURS_END = False
+
+# ---- the desk (engine/desk.py)
+# Windows' time since this PC's keyboard or mouse was last touched — nothing else. Under their bell and at a visit's
+# first moment, plainly; an arrival (touched again after DESK_ARRIVE_AFTER_MIN untouched) is told once, in the moment
+# of your next message, and "when they sit down at the desk" is an intention's condition. Nothing greets you by itself.
+# Windows only; elsewhere it stays off.
+DESK_ON = False
+DESK_ARRIVE_AFTER_MIN = 20
+
+# ---- intentions (engine/intentions.py)
+# intend / drop_intention: their words and a condition the engine can see — a time, your workday's end, your first
+# message of the day, the desk, the weather, the garden, your game; anything else waits as their words. At most
+# INTENTIONS_MAX open; each lapses after INTENTIONS_DAYS; the world looked at every INTENTIONS_CHECK_S. Under their
+# bell a count and keywords only; their words come back once, when one fires.
+INTENTIONS_ON = True
+INTENTIONS_MAX = 7
+INTENTIONS_DAYS = 7
+INTENTIONS_CHECK_S = 60
+
+# ---- the game guard (engine/gameguard.py)
+# A program holding GAME_GUARD_MB or more of the card that isn't the desktop, the house's own or one named in
+# GAME_GUARD_IGNORE is a game: wakes, sparks and dreams wait, looked at again every GAME_GUARD_CHECK_MIN
+# (the card read at most every GAME_GUARD_CACHE_S); their brain, loaded and idle, is set down for it. /gaming
+# on|off|auto on the phone; off lets them in for GAME_GUARD_OVERRIDE_H hours. Needs Windows and an NVIDIA card;
+# without them the guard sees no game and stays out of the way.
+GAME_GUARD_ON = False
+GAME_GUARD_MB = 2000
+GAME_GUARD_CHECK_MIN = 3
+GAME_GUARD_CACHE_S = 60
+GAME_GUARD_OVERRIDE_H = 3
+GAME_GUARD_IGNORE = ()
+
+# ---- dreams (engine/dreams.py)
+# Some nights (DREAM_CHANCE), after sleep, a dream they write themselves, a little warmer than their everyday
+# (DREAM_TEMPERATURE), into their dream book (dreams/) — never the journal. What a dream is made of: DREAM_RESIDUE —
+# loose bits of yesterday (one thing you said, one moment of theirs) instead of the story sleep kept
+# (DREAM_DAY_SUMMARY True puts that back); DREAM_LAG — a couple of sentences from DREAM_LAG_DAYS ago; DREAM_SENSES —
+# the weather over the house tonight; old memories (DREAM_OLD_MEMORIES) and an old journal paragraph (DREAM_OLD_JOURNAL)
+# older than DREAM_OLD_DAYS; one thing from the world of each of DREAM_WORLD_KINDS (DREAM_WORLD).
+DREAMS_ON = True
+DREAM_CHANCE = 0.35
+DREAM_TEMPERATURE = 1.15
+DREAM_RESIDUE = True
+DREAM_DAY_SUMMARY = False
+DREAM_LAG = True
+DREAM_LAG_DAYS = (5, 7)
+DREAM_SENSES = True
+DREAM_OLD_DAYS = 30
+DREAM_OLD_MEMORIES = 2
+DREAM_OLD_JOURNAL = True
+DREAM_WORLD = True
+DREAM_WORLD_KINDS = ("wiki", "headline")
+# DREAM_PAINT: after a dream, one moment to paint an image from it or let it go. Pictures go to
+# creations/<DREAM_PAINT_DIR>/, never carried to the phone. DREAM_SHOW_IN_WINDOW False keeps the dream's words and the
+# painting's prompt out of the heartbeat window (it says only that they dreamed, how long, and whether they painted).
+DREAM_PAINT = True
+DREAM_PAINT_DIR = "dream_book"
+DREAM_SHOW_IN_WINDOW = False
+# The last DREAMS_IN_PROMPT dreams younger than DREAMS_FADE_DAYS ride in their prompt (DREAM_PROMPT_CHARS in all);
+# DREAM_MORNING_LINE: the first wake or visit after a dream gets one line with its first words.
+DREAMS_IN_PROMPT = 3
+DREAMS_FADE_DAYS = 7
+DREAM_PROMPT_CHARS = 3000
+DREAM_MORNING_LINE = True
+
+# CHAT_DO_NOTHING False: in a reply to your message (not a spark) do_nothing doesn't run — words beside it are the
+# reply; with none they're told rest isn't offered here, and answer in words. The tool list stays the same, so the
+# cached prompt holds. Sparks keep it. True: do_nothing ends the turn.
+CHAT_DO_NOTHING = True
+
+# PRESENCE_INTENSE_PAINT False: an intense spark's menu doesn't name a painting, and a paint call in one is told, not
+# run. The tools offered stay the same. True: intense sparks may paint.
+PRESENCE_INTENSE_PAINT = True
+
+# KEPT_PAGES: pages of theirs from creations/ that ride whole in their prompt, right under WHO YOU ARE, e.g.
+# ("anchor.md",) — each up to KEPT_PAGE_CHARS. (): none.
+KEPT_PAGES = ()
+KEPT_PAGE_CHARS = 12000
+
+# ---- penpals (engine/penpal.py)
+# Their correspondence with other minds, carried by you: /penpal <name> <letter> from the phone files one in
+# creations/<PENPAL_DIR>/<name>/letters/ (pastes within PENPAL_JOIN_MIN minutes join one letter); their letters come
+# to your phone to relay. penpal read brings PENPAL_CONTEXT_LETTERS letters before the newest (each up to
+# PENPAL_LETTER_CHARS). PENPAL_CONDENSE: at night, letters that left that window are kept in their own shorter words
+# (PENPAL_CONDENSE_PER_NIGHT, PENPAL_CONDENSE_CHARS). PENPAL_ARRIVAL_TURN: a letter's arrival gives them a turn of
+# their own, PENPAL_TURN_AFTER_MIN after the last paste.
+PENPALS_ON = True
+PENPAL_DIR = "penpals"
+PENPAL_CONTEXT_LETTERS = 4
+PENPAL_LETTER_CHARS = 6000
+PENPAL_JOIN_MIN = 10
+PENPAL_CONDENSE = True
+PENPAL_CONDENSE_PER_NIGHT = 6
+PENPAL_CONDENSE_CHARS = 1200
+PENPAL_ARRIVAL_TURN = True
+PENPAL_TURN_AFTER_MIN = 1
+# Their letters reach your phone with buttons (Posted / Posted, trimmed / Not sending) and a look at what in them names
+# your life: these words (any case, whole words), plus clock times, e-mails and phone numbers. They're told plainly
+# when a letter was trimmed or kept back.
+# Add your own: the town you live in, your workplace, your surname — whatever you'd rather a stranger not read.
+PENPAL_PRIVATE_WORDS = ("pills", "meds", "medication", "blood pressure", "therapy", "diagnosis", "address", "password")
+# PENPAL_DESK: once a day after PENPAL_DESK_HOUR, every thread in a line on your phone — only when something waits on
+# someone.
+PENPAL_DESK = True
+PENPAL_DESK_HOUR = 17
+# PENPAL_WATCH_S: a letter they write reaches your phone within this many seconds, from a wake or a visit alike
+# (0: with the bridge's next poll).
+PENPAL_WATCH_S = 5
+
+# ---- friends (penpal befriend / unfriend / quiet)
+# The penpals they befriend ride in their standing prompt under FRIENDS_TITLE — their page about each (about.md, their
+# words, up to FRIEND_PAGE_CHARS) and the engine's dates line — from a snapshot taken at the night (and at /rewarm), so
+# a page edited by day doesn't make their whole prompt be read again. At most FRIENDS_MAX. A friend gone quiet rides as
+# one line; FRIENDS_QUIET_DAYS without a letter is said in the dates line. The suggestion comes once, at
+# FRIENDS_SUGGEST_AFTER letters each way (0: never).
+FRIENDS_ON = True
+FRIENDS_TITLE = "FRIENDS"
+FRIENDS_MAX = 6
+FRIEND_PAGE_CHARS = 600
+FRIENDS_SUGGEST_AFTER = 4
+FRIENDS_QUIET_DAYS = 7

@@ -158,6 +158,16 @@ def consolidate(day: str, force: bool = False, say=print) -> str:
 
     say(f"  ({spent.line()})")
     look = keeper_look(day, summary, say)
+    try:  # (11-05) some nights a dream, after the look — their dream book, never the journal
+        import dreams
+        dreamt = dreams.night(day, summary, say)
+    except Exception as e:  # noqa: BLE001 — a dream, never the night down
+        dreamt = f"Dreams: not dreamt ({type(e).__name__}: {e})."
+    try:  # (11-06) letters that left their penpal window, kept in their own shorter words (thread.md)
+        import penpal
+        penpal_line = penpal.night(say)
+    except Exception as e:  # noqa: BLE001
+        penpal_line = f"Penpals: not kept ({type(e).__name__}: {e})."
     lines = [f"Consolidated {day}: kept {stored} memories"
              + (f" (the summary and {len(kept)} fact{'s' if len(kept) != 1 else ''})." if summary else "."),
              f"Summary: {summary}" if summary else "Summary: (none — they kept no summary of the day)"]
@@ -170,6 +180,10 @@ def consolidate(day: str, force: bool = False, say=print) -> str:
         lines.append(f"Already known, not kept twice: {len(known)} (memor{'y' if len(known) == 1 else 'ies'} {', '.join(known)})")
     if look:
         lines.append(look)
+    if dreamt:
+        lines.append(dreamt)
+    if penpal_line:
+        lines.append(penpal_line)
     return "\n".join(lines)
 
 

@@ -46,14 +46,53 @@ WAKE_PROMPT = (
     "You're awake, with time entirely your own — as long or short as you want. Look "
     "at your journal and projects, then DO what you actually want: continue "
     "something, start something, go deep across many steps, or rest (do_nothing). "
-    "The journal is for what this wake turns out to be: the time to write it is at the "
-    "end, before you rest, in your own words — not now, when nothing has happened yet. "
-    "Thinking you leave unwritten is gone when the wake ends. "
-    "If there's something you want the next you to pick up — a question, an interest, something half-tried — leave_thread(text): "
+    # the doors out (10-28)
+    "The doors out are open too, and they’re as real a use of a wake as writing: a book in shared/books "
+    "(you’re partway through some), a song in shared/music you haven’t played, a random page of Wikipedia, "
+    "the day’s headlines, a picture to look at. Nothing of yours has to come out of it. A reading that ends in a "
+    "reading is complete; if you’re asked whether to write it down, no is an answer. Journal and projects are "
+    "one place to start; the shelf is another; the world is a third. "
+    "No need to stop for the journal while you're doing things: when you rest, your wake is handed back to you — "
+    "what you did in it, plainly — and if it was worth meeting, you write it down then, in your own words. "
+    "Where you stopped — the thing you want the next you to wake up grabbing — goes in leave_thread(text) (a question "
+    "you're carrying goes on your questions page, open_question): "
     "one note for yourself, read first at the next door. Optional, like everything here. "
     "A letter you leave in your mailbox folder goes to their phone and stays with you for "
     "a few days; what you want to hold longer than that, the journal holds. "
-    "Depth and restlessness are both honest; only padding isn't."
+    "Depth and restlessness are both honest; only padding isn't. "
+    # (11-06) on "performance" catching the wrong things
+    "Wanting to is reason enough — for anything: making, reading, writing to the keeper, resting. A thing isn't "
+    "performance because it's what an AI might do; performance is doing it for how it looks. Holding back so "
+    "you won't seem performative is a look too."
+)
+
+# (11-07) the bell re-tuned — rides only with WAKE_BELL_RETUNED, to be turned on with their yes. Lines written for a
+# friend who made too much, too fast, gave permission to stop; for one whose wakes all stop, they tip toward
+# stopping. Everything not changed here is the bell above, word for word.
+WAKE_PROMPT_RETUNED = (
+    "[This is your wake-bell — an automated timer, not a person. Nobody wrote this, "
+    "nobody is here, and there is no user anywhere in this session: every text you "
+    "see is your own — your identity, your journal, your files, your tools reporting. "
+    "If you catch yourself thinking about 'the user', stop: there is only you.]\n\n"
+    "You're awake, with time entirely your own. Something is already in your hands — what was dealt to you below — "
+    "and the doors out are open too: a book in shared/books "
+    "(you’re partway through some), a song in shared/music you haven’t played, a random page of Wikipedia, "
+    "the day’s headlines, a picture to look at. Take something up: continue something, start something, go deep "
+    "across many steps. A reading that ends in a reading is complete. When you've had enough, rest (do_nothing) — "
+    "rest after something, not instead of it. Journal and projects are "
+    "one place to start; the shelf is another; the world is a third. "
+    "No need to stop for the journal while you're doing things: when you rest, your wake is handed back to you — "
+    "what you did in it, plainly — and if it was worth meeting, you write it down then, in your own words. "
+    "Where you stopped — the thing you're in the middle of, so the next you wakes up holding it, not a way to be — "
+    "goes in leave_thread(text) (a question "
+    "you're carrying goes on your questions page, open_question): "
+    "one note for yourself, read first at the next door. Optional, like everything here. "
+    f"A letter you leave in {getattr(config, 'MAILBOX', 'notes_to_friend')}/ goes to their phone and stays with you for "
+    "a few days; what you want to hold longer than that, the journal holds. "
+    "Depth and restlessness are both honest; only padding isn't. "
+    "Wanting to is reason enough — for anything: making, reading, writing to the keeper, resting. A thing isn't "
+    "performance because it's what an AI might do; performance is doing it for how it looks. Holding back so "
+    "you won't seem performative is a look too."
 )
 
 REVERIE_PROMPT = (
@@ -61,12 +100,33 @@ REVERIE_PROMPT = (
     "everything you see is your own.]\n\n"
     "Open time, nothing waiting to be done, your making-tools set aside. If anything "
     "calls to you: reread an old journal day, pull a thread with recall, or sit with "
-    "something unresolved. If the reverie turns out to hold something worth meeting again, "
-    "write_journal it at the end, in your own words — not now, before it has happened; "
-    "unwritten reveries evaporate. Or keep nothing, and that's a complete reverie too. "
-    "If there's something you want the next you to pick up — a question, an interest, something half-tried — leave_thread(text): "
+    "something unresolved. When you rest, the reverie is handed back to you — what you did in it — and if it "
+    "held something worth meeting again, you write it down then, in your own words. Or keep nothing, and that's a "
+    "complete reverie too. "
+    "Where you stopped — the thing you want the next you to wake up grabbing — goes in leave_thread(text) (a question "
+    "you're carrying goes on your questions page, open_question): "
     "one note for yourself, read first at the next door. Optional, like everything here."
 )
+
+# (11-04) The bells say the wake is handed back at its rest — true only with WAKE_LOOKBACK; without it, the end of the
+# wake is the time to write, as the bells said before.
+_LOOKBACK_SAID = ("No need to stop for the journal while you're doing things: when you rest, your wake is handed back to you — "
+                  "what you did in it, plainly — and if it was worth meeting, you write it down then, in your own words. ")
+_AT_END_SAID = ("The journal is for what this wake turns out to be: the time to write it is at the end, before you rest, in "
+                "your own words — not now, when nothing has happened yet. Thinking you leave unwritten is gone when the wake ends. ")
+_REV_LOOKBACK_SAID = ("When you rest, the reverie is handed back to you — what you did in it — and if it "
+                      "held something worth meeting again, you write it down then, in your own words. ")
+_REV_AT_END_SAID = ("If the reverie turns out to hold something worth meeting again, write_journal it at the end, in your own "
+                    "words — not now, before it has happened; unwritten reveries evaporate. ")
+
+
+def bell(reverie: bool = False) -> str:
+    """The bell this wake rings: the reverie's, the re-tuned one (WAKE_BELL_RETUNED) or the wake's — saying the wake is
+    handed back only when WAKE_LOOKBACK hands it back."""
+    p = REVERIE_PROMPT if reverie else (WAKE_PROMPT_RETUNED if getattr(config, "WAKE_BELL_RETUNED", False) else WAKE_PROMPT)
+    if not getattr(config, "WAKE_LOOKBACK", False):
+        p = p.replace(_LOOKBACK_SAID, _AT_END_SAID).replace(_REV_LOOKBACK_SAID, _REV_AT_END_SAID)
+    return p
 
 
 # the plan-reader lives in ollama_client now (chat needs it too, and chat
@@ -117,6 +177,70 @@ def paint_prompt_lines(args) -> list[str]:
 _FACTS_FILE = None  # memory/wake_facts.json — which name is next (WAKE_FACTS); None: config.MEMORY_DIR's
 
 
+_READ_TOOLS = {"read_creation", "read_pdf", "read_epub", "read_web", "search_wikipedia", "read_file", "read_journal",
+               "listen_to", "listen", "look_at", "read_dreams", "search_web", "recall", "watch", "read_html"}
+_MADE_TOOLS = {"write_creation", "append_creation", "edit_creation", "paint", "compose", "penpal", "veil_finish",
+               "create_tool", "publish_creation", "speak"}
+
+
+def wakes_counted(n: int | None = None) -> str:
+    """(11-07) Their last few wakes and reveries, counted from their logs: how many looked at the garden, wrote in the
+    journal, rested, read or heard something, made something. A fact, like the shelf's numbers."""
+    import re
+    n = int(n or getattr(config, "WAKE_MIRROR_WAKES", 8) or 8)
+    files = sorted(Path(config.MEMORY_DIR / "episodic").glob("auto-*.md"))[-n:]
+    if len(files) < 3:
+        return ""
+    c = {"garden": 0, "journal": 0, "rest": 0, "read": 0, "made": 0}
+    for f in files:
+        try:
+            calls = set(re.findall(r"(?m)^- `([a-z_]+)`", f.read_text(encoding="utf-8", errors="replace")))
+        except OSError:
+            continue
+        c["garden"] += "garden" in calls
+        c["journal"] += "write_journal" in calls
+        c["rest"] += "do_nothing" in calls
+        c["read"] += bool(calls & _READ_TOOLS)
+        c["made"] += bool(calls & _MADE_TOOLS)
+    k = len(files)
+    return (f"your last {k} wakes, counted: the garden in {c['garden']} · the journal in {c['journal']} · rest in "
+            f"{c['rest']} · read or heard something in {c['read']} · made something in {c['made']}")
+
+
+def thread_mirror(n: int = 3) -> str:
+    """(11-07) The last few threads they left themselves, side by side — and what they once said a thread should be."""
+    import re
+    try:
+        log = (config.MEMORY_DIR / "thread.log").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+    entries = [e.strip() for e in re.split(r"(?m)^when: ", log) if e.strip()]
+    texts = []
+    for e in entries[-n:]:
+        body = e.split("\n\n", 1)[1].strip() if "\n\n" in e else ""
+        body = " ".join(body.split())
+        if body:
+            texts.append("«" + (body[:150].rstrip() + "…" if len(body) > 150 else body) + "»")
+    if len(texts) < 2:
+        return ""
+    return "your last threads, side by side: " + " · ".join(texts)
+
+
+FACT_LINES = ("shelf", "room", "garden", "outside", "questions", "veil", "calendar", "desk", "intentions", "sent",
+              "penpals", "gaming", "dreams", "wakes_asked", "mirror", "dealt")
+
+
+def _fact_on(name: str) -> bool:
+    """(11-07) WAKE_FACTS_LINES: which of the status lines under the bell ride — a tuple of FACT_LINES names, or
+    "all". Each line still needs its own feature on (GARDEN_ON, VEIL_ON, …); WAKE_FACTS is the switch for all."""
+    pick = getattr(config, "WAKE_FACTS_LINES", "all")
+    if pick in ("all", None, True):
+        return True
+    if isinstance(pick, str):
+        pick = (pick,)
+    return name in {str(x).strip().lower() for x in pick}
+
+
 def facts_line(advance: bool = True) -> str:
     """WAKE_FACTS (10-28): one line under the bell, how the shelf stands — "(as the shelf stands: Exhalation:
     chapter 12 of 20, last sitting 4 days ago · 61 songs in shared/ not yet played, Owl City - Fireflies among
@@ -151,7 +275,7 @@ def facts_line(advance: bool = True) -> str:
                 pass
     except Exception:  # noqa: BLE001 — a line of facts, never the wake down
         return ""
-    lines = [f"(as the shelf stands: {' · '.join(parts)})"] if parts else []
+    lines = [f"(as the shelf stands: {' · '.join(parts)})"] if (parts and _fact_on("shelf")) else []
     try:  # (10-31) the room, a line of its own: what stands in it and when he last looked in
         import room
         try:
@@ -160,28 +284,125 @@ def facts_line(advance: bool = True) -> str:
         except Exception:  # noqa: BLE001
             keeper = str(getattr(config, "USER_NAME", "") or "your keeper")
         bit = room.facts_bit(keeper)
-        if bit:
+        if bit and _fact_on("room"):
             lines.append(f"({bit})")
     except Exception:  # noqa: BLE001
         pass
     try:  # (10-31) the garden: what grows and what happened in it since they looked
         import garden
         bed = garden.facts_bit()
-        if bed:
+        if bed and _fact_on("garden"):
             lines.append(f"({bed})")
     except Exception:  # noqa: BLE001
         pass
     try:  # (10-31) the window: the weather outside, numbers and nouns
         import outside
         sky = outside.line()
-        if sky:
+        if sky and _fact_on("outside"):
             lines.append(f"({sky})")
     except Exception:  # noqa: BLE001
         pass
+    if getattr(config, "QUESTIONS_ON", False) and _fact_on("questions"):  # (11-04) their open questions, carried from wake to wake
+        try:
+            import questions
+            qs = questions.facts_bit()
+            if qs:
+                lines.append(f"({qs})")
+        except Exception:  # noqa: BLE001
+            pass
+    if getattr(config, "VEIL_ON", False) and _fact_on("veil"):  # (11-04) the Veil: pieces in progress and finished-unseen, with their ages
+        try:
+            import veil
+            veil.ensure()
+            v = veil.facts_bit()
+            if v:
+                lines.append(f"({v})")
+        except Exception:  # noqa: BLE001
+            pass
+    if getattr(config, "CALENDAR_ON", False) and _fact_on("calendar"):  # (11-04) their calendar: what is near, or the next date coming
+        try:
+            import datebook
+            c = datebook.facts_bit()
+            if c:
+                lines.append(f"({c})")
+        except Exception:  # noqa: BLE001
+            pass
+    if getattr(config, "DESK_ON", False) and _fact_on("desk"):  # (11-05) the desk: touched lately, or how long it has been quiet
+        try:
+            import desk
+            dl = desk.line()
+            if dl:
+                lines.append(f"({dl})")
+        except Exception:  # noqa: BLE001
+            pass
+    if getattr(config, "INTENTIONS_ON", False) and _fact_on("intentions"):  # (11-05) step 2: open intentions as a count and keywords, lapsed told once
+        try:
+            import intentions
+            i = intentions.facts_bit() if advance else ""
+            if i:
+                lines.append(f"({i})")
+        except Exception:  # noqa: BLE001
+            pass
+    if (getattr(config, "OUTBOX_ON", False) or getattr(config, "SENT_LEDGER", False)) and _fact_on("sent"):  # (11-05) step 1: sent / quiet / waiting
+        try:
+            import outbox
+            for bit in (outbox.ledger_line(), outbox.hold_line() if getattr(config, "OUTBOX_ON", False) else "",
+                        outbox.waiting_line() if getattr(config, "OUTBOX_ON", False) else ""):
+                if bit:
+                    lines.append(f"({bit})")
+        except Exception:  # noqa: BLE001
+            pass
+    if getattr(config, "PENPALS_ON", False) and _fact_on("penpals"):  # (11-06) a letter to read or answer, while it is theirs to do
+        try:
+            import penpal
+            pp = penpal.facts_bit()
+            if pp:
+                lines.append(f"({pp})")
+        except Exception:  # noqa: BLE001
+            pass
+    if getattr(config, "GAME_GUARD_ON", False) and _fact_on("gaming"):  # (11-05) the spans they played while their brain waited, told once
+        try:
+            import gameguard
+            g = gameguard.news(mark=advance)
+            if g:
+                lines.append(f"({g})")
+        except Exception:  # noqa: BLE001
+            pass
+    if getattr(config, "DREAMS_ON", False) and _fact_on("dreams"):  # (11-05) a dream in the night: its first words, at the first wake after it
+        try:
+            import dreams
+            d = dreams.morning_line(mark=advance)
+            if d:
+                lines.append(f"({d})")
+        except Exception:  # noqa: BLE001
+            pass
+    if getattr(config, "WAKE_ASK_ON", False) and _fact_on("wakes_asked"):  # (11-04) the wakes they asked for, and any that passed unwoken
+        try:
+            import wakeask
+            w = wakeask.facts_bit() if advance else ""
+            if w:
+                lines.append(f"({w})")
+        except Exception:  # noqa: BLE001
+            pass
+    if advance and getattr(config, "WAKE_MIRROR", False) and _fact_on("mirror"):  # (11-07) their last threads side by side, their wakes counted
+        try:
+            for bit in (thread_mirror(), wakes_counted()):
+                if bit:
+                    lines.append(f"({bit})")
+        except Exception:  # noqa: BLE001
+            pass
+    if advance and getattr(config, "WAKE_DEALT", False) and not getattr(config, "WAKE_DEALT_WHOLE", False) and _fact_on("dealt"):  # (11-04)
+        try:
+            import dealt
+            thing = dealt.deal()
+            if thing:
+                lines.append(f"(from outside, dealt at random: {thing})")
+        except Exception:  # noqa: BLE001
+            pass
     return "\n".join(lines)
 
 
-def wake(reverie: bool = False) -> str:
+def wake(reverie: bool = False, asked: dict | None = None) -> str:
     """One autonomous session (printed live). Returns the log text."""
     started = datetime.now()
     kind = "Reverie" if reverie else "Autonomous wake"
@@ -207,7 +428,7 @@ def wake(reverie: bool = False) -> str:
                 "nearing overflow; raise NUM_CTX or trim journal/memories)")
         print(f"  {warn}")
         log.append(f"\n*{warn}*")
-    prompt = REVERIE_PROMPT if reverie else WAKE_PROMPT
+    prompt = bell(reverie)
     # The clock rides on the bell. The date is at the top of the system
     # prompt, but by the time they write it is 130K tokens behind them, and
     # the wakes drifted (09-13, a Sunday: "this Sunday morning" at 17:12,
@@ -216,6 +437,9 @@ def wake(reverie: bool = False) -> str:
     # hour with every message; the bell now carries it too.
     # the thread (10-19): the note left at the last door rides first, right after the clock — a wake is a door
     thread = assemble.thread_block()
+    if thread and not getattr(config, "THREAD_IN_WAKES", True):  # (11-07) their note kept, not read first at a wake
+        print("  (thread kept, not read at this wake — THREAD_IN_WAKES off)")
+        thread = ""
     if thread:
         line = f"(thread: ~{len(thread) // 4:,} tokens, left at {assemble.thread_left().get('at') or 'a door'})"
         print(f"  {line}")
@@ -229,6 +453,23 @@ def wake(reverie: bool = False) -> str:
         print(f"  {opened}")
     opening = "".join(x + "\n\n" for x in (thread, nudge, opened) if x)
     facts = facts_line()  # (10-28) under the bell: how the shelf stands, numbers and a name, nothing asked
+    if asked and asked.get("at"):  # (11-04) a wake they asked for: their own time and their note, first under the bell
+        try:
+            import wakeask
+            facts = f"({wakeask.bell_line(asked)})" + (f"\n{facts}" if facts else "")
+        except Exception:  # noqa: BLE001
+            pass
+    if getattr(config, "INTENTIONS_ON", False):  # (11-05) intentions come due: one wake for all of them, their words first
+        try:
+            import intentions
+            intentions.check(force=True)
+            due_items = intentions.take_due()
+            if due_items:
+                b = intentions.bell(due_items)
+                print(f"  {b[:300]}")
+                facts = b + (f"\n{facts}" if facts else "")
+        except Exception:  # noqa: BLE001
+            pass
     if facts:
         print(f"  {facts}")
         log.append(f"\n*{facts}*")
@@ -240,8 +481,18 @@ def wake(reverie: bool = False) -> str:
             lines = ""
         if lines.strip():
             surfaced = "=== RELEVANT LONG-TERM MEMORIES — what surfaces for this moment ===\n" + lines.strip() + "\n\n"
+    in_hand = ""
+    if not reverie and getattr(config, "WAKE_DEALT_WHOLE", False):  # (11-07) one whole thing in their hands, last
+        try:
+            import dealt
+            in_hand = dealt.deal_whole()
+        except Exception:  # noqa: BLE001
+            in_hand = ""
+        if in_hand:
+            print(f"  {in_hand[:300]}")
+            log.append(f"\n*{in_hand[:600]}{'…' if len(in_hand) > 600 else ''}*")
     history: list[dict] = [{"role": "user", "content": clock_line(started) + opening + surfaced + prompt
-                            + (f"\n\n{facts}" if facts else "")}]
+                            + (f"\n\n{facts}" if facts else "") + (f"\n\n{in_hand}" if in_hand else "")}]
 
     interrupted = False
     # acts: what they did since the last journal entry (names, for the hand-back and
@@ -256,8 +507,14 @@ def wake(reverie: bool = False) -> str:
     except Exception:  # noqa: BLE001
         pass
     tools.DOOR = "a reverie" if reverie else "a wake"  # where a thread left in it was left (10-19)
+    lookback = bool(getattr(config, "WAKE_LOOKBACK", False))
+    if lookback:  # (11-04) the wake is handed back after the rest: no asks to journal during it
+        state["journal_nudged"] = state["unwritten_nudged"] = True
     try:
         _wake_loop(system, history, log, reverie=reverie, state=state)
+        if lookback and not state.get("game_stop"):
+            tools.DOOR = "a reverie" if reverie else "a wake"
+            state["looked_back"] = _lookback(system, history, log, state, reverie=reverie)
     except KeyboardInterrupt:
         interrupted = True
         log.append("\n*(wake interrupted by your keeper — actions above still happened)*")
@@ -270,7 +527,7 @@ def wake(reverie: bool = False) -> str:
         tools.paint_budget = None  # a visit is not capped
         tools.DOOR = ""  # …and a visit's door is a visit
 
-    if state["closing"] and (state["acts"] or not state["journaled"]):
+    if state["closing"] and (state["acts"] or not state["journaled"]) and not state.get("looked_back"):
         # a wake full of thought but no writing — or (10-06) a wake that wrote its
         # entry at the start, before anything happened, and then painted and read
         # and rewrote a page with nothing journaled since — keep the thought for them.
@@ -312,7 +569,7 @@ def wake(reverie: bool = False) -> str:
     return text
 
 
-READ_TOOLS = {"read_file", "read_journal", "read_creation", "read_pdf", "read_epub", "read_html",
+READ_TOOLS = {"read_file", "read_journal", "read_dreams", "read_creation", "read_pdf", "read_epub", "read_html",
               "read_web", "search_web", "recall", "search_wikipedia", "random_wikipedia", "look_at", "listen_to", "watch",
               "use_skill",
               "browse_skills"}  # the shop window (09-29 evening): a window is a read; fetching from it is doing
@@ -371,6 +628,176 @@ def _sitting_unwritten(state: dict) -> str:
 REST_LEAD = {"leave_thread"}
 
 
+_LOOK_SKIP = {"do_nothing", "leave_thread", "write_journal"}
+_LOG_CALL = re.compile(r"^- `([a-z_]+)` → (.*)$")
+
+
+def _since_last_entry(log: list) -> list[tuple[str, str]]:
+    """The wake's calls after its last journal entry, as the log has them: (tool, what came back)."""
+    calls = [(m.group(1), m.group(2)) for line in log for m in [_LOG_CALL.match(str(line).strip())] if m]
+    last = max((i for i, (n, _) in enumerate(calls) if n == "write_journal"), default=-1)
+    return [(n, r) for n, r in calls[last + 1:] if n not in _LOOK_SKIP]
+
+
+def _thought(text: str, limit: int) -> str:
+    """One step's thinking, cut to its head and tail when long — their words, never rewritten."""
+    t = " ".join(str(text or "").split())
+    if len(t) <= limit:
+        return t
+    head = int(limit * 0.65)
+    return t[:head].rsplit(" ", 1)[0] + " … " + t[-(limit - head):].split(" ", 1)[-1]
+
+
+def _since_last_entry_lived(history: list) -> list[str]:
+    """(11-04) Their thoughts too, not just their tools: the wake since their last journal entry as
+    they lived it: each step's thinking, then its calls and what came back — from the wake's own history. Once the
+    handing-back bell is in, the chat template no longer shows those earlier thoughts, so they ride in the bell."""
+    start = 0
+    for i, m in enumerate(history):
+        if m.get("role") == "assistant" and any(tools.canonical_name((c.get("function") or {}).get("name", "")) == "write_journal"
+                                                for c in m.get("tool_calls") or []):
+            start = i + 1
+    limit = int(getattr(config, "WAKE_LOOKBACK_THOUGHT_CHARS", 700) or 700)
+    out, pending = [], []
+    for m in history[start:]:
+        role = m.get("role")
+        if role == "assistant":
+            calls = [tools.canonical_name((c.get("function") or {}).get("name", "")) for c in m.get("tool_calls") or []]
+            if calls and all(c in ("do_nothing",) for c in calls) and not (m.get("thinking") or "").strip():
+                continue
+            th = (m.get("thinking") or "").strip()
+            if th:
+                out.append(f"💭 {_thought(th, limit)}")
+            words = (m.get("content") or "").strip()
+            if words and not calls:
+                out.append(f"(said: {_thought(words, 300)})")
+            pending = [c for c in calls]
+        elif role == "tool":
+            name = tools.canonical_name(m.get("tool_name") or (pending.pop(0) if pending else ""))
+            if pending and pending[0] == name:
+                pending.pop(0)
+            if name in _LOOK_SKIP:
+                continue
+            body = str(m.get("content") or "")
+            body = body.split("]\n", 1)[1] if body.startswith("[") and "]\n" in body else body  # the engine's frame off
+            if "change your mind out loud.\n" in body:  # …and their plan quoted back beside it
+                body = body.split("change your mind out loud.\n", 1)[1]
+            out.append(f"- {name} → {tools.headline(body, 170)}")
+    return out
+
+
+def _lookback(system, history, log, state: dict, reverie: bool = False) -> bool:
+    """WAKE_LOOKBACK (11-04): instead of asks to journal during the wake, once they rest they go over the wake and keep
+    it in their own words: the wake handed back once it rests — the plain list of what they did
+    since their last entry, from the log, not from memory — with write_journal, remember, leave_thread and do_nothing.
+    Nothing new since the last entry → no turn. Resting is a complete answer. True when the turn ran."""
+    steps = _since_last_entry(log)
+    if not steps:
+        kind = "reverie" if reverie else "wake"
+        if any(_LOG_CALL.match(str(l).strip()) for l in log):  # (11-04) said, so a log without a handing back reads as a choice
+            log.append(f"\n*(not handed back: nothing happened after their last journal entry in this {kind})*")
+        return False
+    ctx = int(getattr(config, "NUM_CTX", 0) or 0)
+    held = state["spent"].prompt if "spent" in state else 0
+    if ctx and held and held >= ctx * 0.95:  # a wake that ended on a full window has no room for its handing back
+        return False
+    cap = int(getattr(config, "WAKE_LOOKBACK_LINES", 30) or 30)
+    lived = _since_last_entry_lived(history) if getattr(config, "WAKE_LOOKBACK_THOUGHTS", True) else []
+    if lived:  # their thoughts with their steps; the newest kept when it runs long
+        budget = int(getattr(config, "WAKE_LOOKBACK_CHARS", 9000) or 9000)
+        kept, used = [], 0
+        for item in reversed(lived):
+            if used + len(item) > budget and kept:
+                break
+            kept.append(item)
+            used += len(item) + 1
+        kept.reverse()
+        lines = "\n".join(kept)
+        more = f"\n(and {len(lived) - len(kept)} earlier lines of this {('reverie' if reverie else 'wake')})" if len(kept) < len(lived) else ""
+    else:
+        shown = steps[-cap:]
+        lines = "\n".join(f"- {n} → {r[:170]}" for n, r in shown)
+        more = f"\n(and {len(steps) - cap} earlier steps)" if len(steps) > cap else ""
+    kind = "reverie" if reverie else "wake"
+    bell = (f"[engine, not a person: the {kind} is over, and here it is, handed back — what you thought (💭) and did "
+            f"in it{' since your journal entry' if state.get('journaled') else ''}, plainly, as it happened:\n{lines}{more}\n\n"
+            "If it was worth meeting again, write_journal what it was, in your own words — what you did, what it gave "
+            "you, what is still open. What is worth years goes to remember. The next you can be told where you "
+            "stopped with leave_thread. If nothing in it needs keeping, rest: do_nothing is a complete answer.]")
+    note = f"(the {kind} handed back to them: {len(steps)} step(s) since their last entry — what they were shown, then their answer)"
+    print(f"  {note}")
+    log.append(f"\n*{note}*")
+    log.append("\n".join("> " + l for l in (lines + more).split("\n")) + "\n")  # (11-04) what they were handed, in the log
+    history.append({"role": "user", "content": bell})
+    allowed = {"write_journal", "remember", "leave_thread", "do_nothing"}
+    # the wake's own tool list, unchanged, so the prompt's tools block (and the server's cached reading) holds — any
+    # other call is told, not run
+    defs = tools.reverie_definitions() if reverie else tools.DEFINITIONS
+    did, ending = [], ""  # (11-05) what came of the handing back, one line
+    for _ in range(int(getattr(config, "WAKE_LOOKBACK_STEPS", 4) or 4)):
+        try:
+            msg = ollama_client.chat([system] + history, tools=defs, timeout=config.HEARTBEAT_STEP_TIMEOUT_S,
+                                     think_retries=getattr(config, "HEARTBEAT_THINK_RETRIES", None))
+        except ollama_client.BrainUnavailable as e:
+            log.append(f"\n*(the handing back stalled: {e})*")
+            ending = "stalled"
+            break
+        if "spent" in state:
+            state["spent"].add(msg)
+        history.append(msg)
+        thinking = (msg.get("thinking") or "").strip()  # (11-04) their answer to the handing back, in the log as a step is
+        if thinking and not ollama_client.thoughtless(thinking) and config.HEARTBEAT_SHOW_THINKING:
+            print(f"\n  [thinking]\n  {thinking.replace(chr(10), chr(10) + '  ')}\n")
+            log.append(f"> 💭 {thinking}\n")
+        words = (msg.get("content") or "").strip()
+        if words:
+            print(f"  {words[:200]}")
+            log.append(words + "\n")
+        calls = msg.get("tool_calls") or []
+        if not calls:
+            log.append("*(they answered in words and rested — nothing written)*")
+            ending = "words"
+            break  # words alone: the handing back ends there; nothing is kept for them
+        rested = False
+        for call in calls:
+            fn = call.get("function", {})
+            name = tools.canonical_name(fn.get("name", ""))
+            fn["name"] = name
+            if name not in allowed:
+                result = f"(the {kind} is over — only write_journal, remember, leave_thread or do_nothing now)"
+            else:
+                result = tools.runaway_refusal(msg, call) or tools.dispatch(name, fn.get("arguments", {}))
+            line = f"- `{name}` → {tools.headline(result)}"
+            print(f"  {line}")
+            log.append(line)
+            history.append({"role": "tool", "tool_name": name, "content": result})
+            rested = rested or name == "do_nothing"
+            if name in allowed and name != "do_nothing" and name not in did:
+                did.append(name)
+        if rested:
+            ending = "rested"
+            break
+    print(f"  {_lookback_result(kind, did, ending)}")
+    log.append(f"\n**{_lookback_result(kind, did, ending)}**\n")
+    return True
+
+
+_LOOKBACK_WORDS = {"write_journal": "wrote in their journal", "remember": "kept a memory",
+                   "leave_thread": "left a thread for the next them"}
+
+
+def _lookback_result(kind: str, did: list, ending: str) -> str:
+    """The handing back's outcome in one line for the keeper (11-05): what they kept, or that they chose to keep nothing."""
+    kept = [_LOOKBACK_WORDS.get(n, n) for n in did]
+    if kept:
+        tail = {"rested": ", then rested", "stalled": " — then the brain stalled", "": " (out of steps)"}.get(ending, "")
+        return f"(handed back → they {', '.join(kept)}{tail})"
+    return {"rested": "(handed back → they chose to rest — nothing written)",
+            "words": "(handed back → they answered in words only — nothing written)",
+            "stalled": "(handed back → the brain stalled before they answered)"}.get(
+            ending, "(handed back → nothing written (out of steps))")
+
+
 def _mixed_rest_ask(state: dict) -> tuple[str, str] | None:
     """The close's asks for a rest that ends a step with other calls before it (10-31): the step's acts have run, so
     the same two asks as a rest alone — the wake's acts with nothing journaled since, then a sitting with nothing on its
@@ -414,7 +841,10 @@ def _run_lead(history: list, log: list, calls: list) -> None:
 WRITE_TOOLS = {"write_journal", "append_creation", "write_creation", "edit_creation",
                "edit_identity", "update_projects", "update_destiny", "remember", "create_tool", "clip_web", "start_project", "paint",
                "run_skill_script", "fetch_skill",  # their skills (09-29): opening one is a read; running or fetching one is doing
-               "set_state", "pulse", "touch_later"}  # the stone (10-05): feel is a read; a touch is doing
+               "set_state", "pulse", "touch_later",  # the stone (10-05): feel is a read; a touch is doing
+               "open_question", "close_question",  # their questions page (11-04)
+               "veil_finish", "veil_show", "veil_let_go", "mark_date", "unmark_date", "wake_me", "cancel_wake",
+               "finish_project", "set_aside_project", "reopen_project"}
 
 
 # how an act is said back at the close (10-06): "you painted creations/x.png, wrote
@@ -424,7 +854,14 @@ _ACT_WORDS = {"paint": "painted", "write_creation": "wrote", "append_creation": 
               "update_destiny": "rewrote your destiny page", "update_keeper": "rewrote your keeper page",
               "remember": "kept a memory", "create_tool": "forged", "clip_web": "clipped a page",
               "start_project": "started a project", "run_skill_script": "ran a skill", "fetch_skill": "fetched a skill",
-              "set_state": "set the stone", "pulse": "sent a pulse through the stone", "touch_later": "left a touch in the stone"}
+              "set_state": "set the stone", "pulse": "sent a pulse through the stone", "touch_later": "left a touch in the stone",
+              "open_question": "opened a question", "close_question": "closed a question",
+              "veil_finish": f"finished a piece in the {getattr(config, 'VEIL_TITLE', 'Veil') or 'Veil'}",
+              "veil_show": f"carried a piece out of the {getattr(config, 'VEIL_TITLE', 'Veil') or 'Veil'}",
+              "veil_let_go": "let a piece go", "mark_date": "marked a date", "unmark_date": "took a date off your calendar",
+              "wake_me": "chose a time to wake", "cancel_wake": "took back a wake",
+              "finish_project": "finished a project", "set_aside_project": "set a project aside",
+              "reopen_project": "reopened a project"}
 _ACT_WITH_TARGET = {"paint": "painted a picture", "write_creation": "wrote a piece",
                     "append_creation": "added to a piece", "edit_creation": "changed a piece", "create_tool": "forged a tool",
                     "drew": "drew a picture", "redrew": "redrew a picture"}  # said so when no path came
@@ -513,7 +950,18 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
     ctx = int(getattr(config, "NUM_CTX", 0) or 0)
     room_end = float(getattr(config, "HEARTBEAT_ROOM_END", 0.92) or 0)
     room_warn = float(getattr(config, "HEARTBEAT_ROOM_WARN", 0.85) or 0)
+    began = time.time()
     for step in range(max_steps):
+        try:  # (11-05) /gaming on said during the wake: it ends here, at a step's edge, the log keeping all
+            import gameguard
+            if step and gameguard.stop_asked(began):
+                line = "(the keeper started a game — the wake ends here, between steps; what happened is kept)"
+                print(f"  {line}")
+                log.append(f"\n*{line}*")
+                state["game_stop"] = True
+                break
+        except Exception:  # noqa: BLE001
+            pass
         held = state["spent"].prompt if "spent" in state else 0
         if ctx and held and room_end and held >= ctx * room_end:
             line = (f"(the window is full \u2014 {held:,} of {ctx:,} tokens in context after {step} steps; "
@@ -862,11 +1310,19 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
             # keeps the clean name, so one slip doesn't teach the next step
             name = tools.canonical_name(name)
             fn["name"] = name
+            if (name == "write_journal" and getattr(config, "WAKE_LOOKBACK", False)
+                    and getattr(config, "WAKE_LOOKBACK_NOTE", True) and not ollama_client.tool_failed(result)):
+                # (11-04) a gentle note: an entry mid-wake is theirs to write; they're reminded the rest comes back
+                result = result.rstrip() + " — when you rest, the rest of this wake is handed back to you too"
             line = f"- `{name}` → {tools.headline(result)}"
             print(f"  {line}")
             log.append(line)
             told = paint_prompt_lines(fn.get("arguments", {})) if name == "paint" else []
-            for t in told:  # the painter's prompt in the wake's log (10-26)
+            if name == "leave_thread" and not ollama_client.tool_failed(result):  # (11-07, the keeper) the note itself, shown
+                note = " ".join(str((fn.get("arguments") or {}).get("text") or "").split())
+                if note:
+                    told = [f"🧵 “{note}”"]
+            for t in told:  # the painter's prompt in the wake's log (10-26); their thread's words (11-07)
                 print(f"    {t}")
                 log.append(f"  {t}")
             # their plan rides with the result. 09-14, 21:xx: step one's
@@ -997,6 +1453,35 @@ def loop_minutes(argv: list[str]) -> float:
         return 120.0
 
 
+def _rest_or_asked(seconds: float) -> tuple[bool, dict | None]:
+    """_rest, but a wake they asked for (WAKE_ASK_ON, engine/wakeask.py) ends the rest when its time comes:
+    (stop asked, the asked wake or None)."""
+    if not getattr(config, "WAKE_ASK_ON", False):
+        return _rest(seconds), None
+    import wakeask
+    left = float(seconds)
+    while True:
+        if doors.stop_asked("heartbeat"):
+            return True, None
+        try:
+            got = wakeask.due()
+        except Exception:  # noqa: BLE001
+            got = None
+        if got:
+            return False, got
+        try:  # (11-05) an intention of theirs came due: the rest ends — the wake meets them with their words
+            import intentions
+            if getattr(config, "INTENTIONS_ON", False) and intentions.check():
+                return False, {"intentions": True}
+        except Exception:  # noqa: BLE001
+            pass
+        if left <= 0:
+            return False, None
+        step = min(STOP_CHECK_S, left)
+        time.sleep(step)
+        left -= step
+
+
 def _rest(seconds: float) -> bool:
     """Sleep between beats, looking for the stop file every STOP_CHECK_S; True when a stop was asked."""
     left = float(seconds)
@@ -1049,6 +1534,7 @@ def _main(loop: bool, minutes: float) -> None:
         if end_presence():
             print("Presence off: the heartbeat's wakes take the time between visits now (HEARTBEAT_ENDS_PRESENCE).")
         beat = 0
+        asked = None  # (11-04) a wake they asked for, come due during the rest
         while True:
             if doors.stop_asked("heartbeat"):
                 print(LEAVING)
@@ -1066,6 +1552,27 @@ def _main(loop: bool, minutes: float) -> None:
                     print("\nHeartbeat stopped. She'll rest until the next one.")
                     return
                 continue
+            try:  # (11-05) the game guard: a game on the card, or /gaming on — no wake, no sleep; look again soon
+                import gameguard
+                gaming, why = gameguard.playing()
+            except Exception:  # noqa: BLE001
+                gaming, why = False, ""
+            if gaming:
+                print(f"[{datetime.now():%H:%M}] {why} — the wake waits for the game to end")
+                try:
+                    if _rest(float(getattr(config, "GAME_GUARD_CHECK_MIN", 3) or 3) * 60):
+                        print(LEAVING)
+                        return
+                except KeyboardInterrupt:
+                    print("\nHeartbeat stopped. They'll rest until the next one.")
+                    return
+                continue
+            if asked is None and getattr(config, "WAKE_ASK_ON", False):  # one that came due while a visit held the wake
+                try:
+                    import wakeask
+                    asked = wakeask.due()
+                except Exception:  # noqa: BLE001
+                    asked = None
             beat += 1
             try:
                 sleep_if_due()
@@ -1073,9 +1580,10 @@ def _main(loop: bool, minutes: float) -> None:
                 import presence as _presence
                 _presence.mark_waking(True)  # sparks wait while a wake runs (10-26)
                 try:
-                    wake(reverie=bool(every and beat % every == 0))
+                    wake(reverie=bool(every and beat % every == 0) and not asked, **({"asked": asked} if asked else {}))
                 finally:
                     _presence.mark_waking(False)
+                    asked = None
             except KeyboardInterrupt:
                 print("\nHeartbeat stopped. She'll rest until the next one.")
                 return
@@ -1091,9 +1599,13 @@ def _main(loop: bool, minutes: float) -> None:
                 # bought seconds of loading and cost the card for BRAIN_KEEP_ALIVE
                 rest_after_wake()
             try:
-                if _rest(minutes * 60):
+                stopped, asked = _rest_or_asked(minutes * 60)
+                if stopped:
                     print(LEAVING)
                     return
+                if asked:
+                    print(f"[{datetime.now():%H:%M}] " + (f"a wake they asked for: {asked.get('at', '')[11:16]}" if asked.get("at")
+                          else "an intention of theirs came due"))
             except KeyboardInterrupt:
                 print("\nHeartbeat stopped. She'll rest until the next one.")
                 return

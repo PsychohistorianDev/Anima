@@ -620,6 +620,14 @@ def start_door(wait_s: float = 120) -> tuple[bool, str]:
         if st:
             pid = int(st["pid"])
         else:
+            try:  # (11-05) the game guard: a game on the card, or /gaming on — the door stays shut
+                import gameguard
+                gaming, why = gameguard.playing()
+            except Exception:  # noqa: BLE001
+                gaming, why = False, ""
+            if gaming:
+                _note(f"the door didn't open: {why} (the game guard)")
+                return False, f"{why} — their brain waits for the game to end (/gaming off lets them in now)"
             holder = card_held()
             if holder:
                 _note(f"the door waits: {holder} holds the card")

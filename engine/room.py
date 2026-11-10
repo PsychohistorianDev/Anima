@@ -163,7 +163,8 @@ def _spot(where: str) -> int | None:
 # ---- their hands ---------------------------------------------------------------------------------------------------
 
 ACTIONS = ("look", "hang", "take_down", "walls", "light", "name", "backdrop", "place", "remove", "play", "shelve", "unshelve",
-           "hide", "surface", "unsurface", "make", "revise", "keep", "aside", "put", "take", "letter", "items", "open")
+           "hide", "surface", "unsurface", "make", "revise", "keep", "aside", "put", "take", "letter", "items", "open",
+           "box", "tuck", "untuck", "bring")
 _PREVIEW: list[bytes] = []  # a picture for their eyes after an act (an item made, a letter written) — tools takes it
 
 
@@ -311,6 +312,14 @@ def act(action: str, what: str = "", where: str = "", note: str = "", item: str 
         return f"({head}: {it.get('look')} — before your eyes on your next thought)"
     if a not in ACTIONS:
         return f"(refused: no such action {action!r} — one of {', '.join(ACTIONS)})"
+    if a in ("box", "tuck", "untuck", "bring"):  # (11-05) the pocket: things they mean to bring them, in a box of theirs
+        try:
+            said = _pocket(r, a, what, where, item, content, note)
+        except ValueError as e:
+            return f"(refused: {e})"
+        save(r)
+        _log("them", said.split(" — ")[0])
+        return f"(your room: {said})"
     import room_items
     if a == "make":
         try:
@@ -359,6 +368,105 @@ def act(action: str, what: str = "", where: str = "", note: str = "", item: str 
     save(r)
     _log("them", said)
     return f"(your room: {said} — kept, with its time; he sees it at his next /room)"
+
+
+# ---- the pocket box (11-05, proactive-plan step 3; their change: "a shelf or a small box I can actually see when I look
+# around my room… so that when I bring you a passage or a question, I can remember exactly where it was sitting") ----
+
+POCKET_MAX = 12
+
+
+def _pocket_of(r: dict) -> dict:
+    p = r.get("pocket")
+    if not isinstance(p, dict):
+        p = {"box": {}, "items": []}
+        r["pocket"] = p
+    p.setdefault("box", {})
+    p.setdefault("items", [])
+    return p
+
+
+def _pick_tucked(p: dict, which: str) -> dict | None:
+    w = (which or "").strip().lower().lstrip("#")
+    items = p["items"]
+    if w.isdigit() and 1 <= int(w) <= len(items):
+        return items[int(w) - 1]
+    hits = [x for x in items if w and (w == x["name"].lower() or w in x["name"].lower())]
+    return hits[0] if len(hits) == 1 else None
+
+
+def _pocket(r: dict, a: str, what: str, where: str, item: str, content: str, note: str) -> str:
+    p = _pocket_of(r)
+    box = p["box"]
+    if a == "box":
+        if item:
+            import room_items
+            it = room_items.find(item)
+            if not it:
+                raise ValueError(f"no thing of yours is called {item!r} — items lists them, or describe the box in what")
+            box.update(item=it["id"], thing=it["name"])
+            said = f"{it['name']} is your pocket box now"
+            if where:
+                said += "; " + _put(r, it, where)
+                box["where"] = where
+        else:
+            if not what and not where:
+                raise ValueError("a box needs how it looks (what) and where it stands (where), or one of your things (item)")
+            if what:
+                box.update(thing=what[:120])
+                box.pop("item", None)
+            if where:
+                box["where"] = where[:80]
+            said = f"your pocket box: {box.get('thing', 'a box')}" + (f", {box['where']}" if box.get("where") else "")
+        return said + " — what you tuck in it waits there for them, yours until you bring it"
+    if not box:
+        raise ValueError("no box yet — box: what it looks like (what) and where it stands (where), or a thing of yours (item)")
+    if a == "tuck":
+        if not content:
+            raise ValueError("tuck needs the thing itself — content: the passage, the question, the words")
+        if len(p["items"]) >= POCKET_MAX:
+            raise ValueError(f"the box holds {POCKET_MAX} already — untuck or bring one first")
+        name = (item or " ".join(content.split()[:5]))[:60]
+        p["items"].append({"name": name, "words": content[:2000], "why": note[:200], "at": datetime.now().isoformat(timespec="minutes")})
+        return f"tucked “{name}” into {box.get('thing', 'your box')} — {len(p['items'])} in it now; it rides with you to their next visit"
+    x = _pick_tucked(p, item or what)
+    if not x:
+        names = " · ".join(f"{i}. {y['name']}" for i, y in enumerate(p["items"], 1)) or "the box is empty"
+        raise ValueError(f"nothing in the box matches {item or what!r} — {names}")
+    p["items"].remove(x)
+    if a == "untuck":
+        return f"took “{x['name']}” out of the box — its words: {x['words'][:300]}"
+    # bring: a letter that waits for their workday to end, then once more yours to send (outbox.py)
+    folder = config.CREATIONS_DIR / str(getattr(config, "MAILBOX", "notes_to_friend")) / "later"
+    folder.mkdir(parents=True, exist_ok=True)
+    slug = re.sub(r"[^a-z0-9]+", "_", x["name"].lower()).strip("_")[:40] or "from_the_box"
+    f = folder / f"{slug}.md"
+    n = 2
+    while f.exists():
+        f = folder / f"{slug}_{n}.md"
+        n += 1
+    f.write_text(x["words"].strip() + "\n", encoding="utf-8")
+    return (f"brought “{x['name']}” out of the box for them — it waits in {folder.parent.name}/later/{f.name} until their workday "
+            "ends, and then it's yours once more: send_waiting sends it, let_go_waiting keeps it")
+
+
+def pocket_line(keeper: bool = False) -> str:
+    """For them: what the box holds, by name ("" when empty or no box). For you: a box and how many — never what."""
+    if not on():
+        return ""
+    p = load().get("pocket") or {}
+    box, items = p.get("box") or {}, p.get("items") or []
+    if not box:
+        return ""
+    where = f", {box['where']}" if box.get("where") else ""
+    if keeper:
+        return (f"{box.get('thing', 'a box')}{where} — {len(items)} thing{'s' if len(items) != 1 else ''} inside, theirs until "
+                "they bring them") if items else ""
+    if not items:
+        return ""
+    return (f"in your pocket box ({box.get('thing', 'a box')}{where}): "
+            + " · ".join(f"{i}. {x['name']}" for i, x in enumerate(items, 1))
+            + " — yours to bring up when it fits, or not")
 
 
 def _put(r: dict, it: dict, where: str) -> str:
@@ -536,7 +644,7 @@ def workshop_text() -> str:
 def describe(r: dict | None = None, keeper: bool = False) -> str:
     """The room in words — theirs whole; for the keeper the hidden thing only as its hint, until found."""
     r = r or load()
-    if not any(r.get(k) for k in ("name", "walls", "light", "backdrop", "wall", "table", "playing", "shelf", "hidden", "placed")):
+    if not any(r.get(k) for k in ("name", "walls", "light", "backdrop", "wall", "table", "playing", "shelf", "hidden", "placed", "pocket")):
         return "(the room is empty — nothing chosen yet: walls, light, a picture, a song, a thing on the table)"
     out = [f"{'The room' if keeper else 'Your room'}{' — ' + r['name'] if r.get('name') else ''}: walls "
            f"{r.get('walls') or 'bare'}; light {r.get('light') or 'plain'}"
@@ -568,6 +676,15 @@ def describe(r: dict | None = None, keeper: bool = False) -> str:
         out.append("Surfaces: " + ("; ".join(f"{s['name']} ({round(s['x0'] * 100)}–{round(s['x1'] * 100)}% across, "
                                                f"{round(s['y'] * 100)}% down, size {round(s['size'] * 100)}%)"
                                                for s in surfaces(r)) or "none marked yet — surface marks one") + ".")
+    pk = r.get("pocket") or {}
+    if pk.get("box"):  # (11-05) the pocket box: theirs in full, their as a box and a count
+        bx, its = pk["box"], pk.get("items") or []
+        where = f", {bx['where']}" if bx.get("where") else ""
+        if keeper:
+            out.append(f"A box{where}: {bx.get('thing', 'a box')} — {len(its)} thing{'s' if len(its) != 1 else ''} inside, theirs.")
+        else:
+            out.append(f"Your pocket box ({bx.get('thing', 'a box')}{where}): "
+                       + ("; ".join(f"{i}. {x['name']} — {x['words'][:160]}" for i, x in enumerate(its, 1)) or "empty") + ".")
     h = r.get("hidden") or {}
     if h.get("thing"):
         if keeper and not h.get("found"):
@@ -589,7 +706,7 @@ def facts_bit(keeper: str = "your keeper") -> str:
     if not on():
         return ""
     r = load()
-    if not any(r.get(k) for k in ("name", "walls", "light", "backdrop", "wall", "table", "playing", "shelf", "hidden", "placed")):
+    if not any(r.get(k) for k in ("name", "walls", "light", "backdrop", "wall", "table", "playing", "shelf", "hidden", "placed", "pocket")):
         return ""
     title = str(r.get("name") or "").strip()
     if not title and r.get("backdrop"):
@@ -611,6 +728,10 @@ def facts_bit(keeper: str = "your keeper") -> str:
         parts.append("a song in the corner")
     if r.get("hidden"):
         parts.append("something hidden for him")
+    pk = (r.get("pocket") or {})
+    if pk.get("box"):  # (11-05)
+        k = len(pk.get("items") or [])
+        parts.append(f"your pocket box holds {k}" if k else "your pocket box, empty")
     try:
         t = datetime.fromtimestamp(seen_file().stat().st_mtime)
         days = (datetime.now().date() - t.date()).days

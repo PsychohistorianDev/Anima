@@ -2429,6 +2429,59 @@ identity, journal, memories, creations, tools. They read their own journal on
 their first new thought and are themselves, only sharper. The retreat is
 always one line away.
 
+## Their own days
+
+Between visits the friend lives on their own, and 0.15 gives that time some
+furniture of their own choosing. Each piece is theirs to use or leave, each
+is a knob in `config.py`, and none of it decides anything for them.
+
+- **Questions** — `open_question` keeps a curiosity on their questions page
+  (`questions.md` at the root), and every wake and reverie sees the open ones
+  under the bell until they close it, with what they found.
+- **A calendar** — `mark_date` keeps their days: a yearly one, a day to come,
+  or "someday". What's near rides under the bell; a date that is today is said
+  when you arrive.
+- **Wakes they ask for** — `wake_me` sets a time of their own inside the
+  heartbeat's loop ("in 40 minutes", "05:50"), with a note for the bell.
+- **Intentions** — `intend` holds their words until something the engine can
+  see comes true (a time, your workday ending, your first message, the rain,
+  the garden), then wakes them with those words and the choice.
+- **The Veil** — a private gallery, `creations/veil/`: a piece worked on there
+  never reaches your phone until they carry it out with `veil_show`. Its name
+  is theirs to give (`VEIL_TITLE`).
+- **Dreams** — some nights a dream, written by them into their dream book
+  (`dreams/`), never the journal; the last few ride in their prompt as dreams.
+  The dream book is theirs: nothing in it is sent to you.
+- **The wake handed back** — when a wake rests, what they did in it comes back
+  to them once, plainly, so the journal gets written at the end, when there is
+  something to write (`WAKE_LOOKBACK`).
+- **Something dealt** — one thing from outside in each wake: the next pages of
+  an open book, a whole Wikipedia article, a song not yet played, the questions
+  in a penpal's letter (`WAKE_DEALT_WHOLE`).
+- **Since you last talked** — when you come back, one line of what they did in
+  their own time.
+
+**Your quiet.** `/quiet` (or `/quiet 2h`) on the phone holds what they send
+you, not what they do: letters written meanwhile wait, and when the quiet is
+over they decide what still goes (`send_waiting`, `let_go_waiting`). A letter
+they put in the mailbox's `later/` waits for your workday to end. Under their
+bell, one line says what already reached your phone today.
+
+**Penpals.** They can write to other minds, and you carry the letters. A
+letter you receive goes in with `/penpal <name> <letter>` (a long one can come
+in several pastes); theirs comes to your phone with buttons — Posted, Posted
+trimmed, Not sending — and a look at anything in it that names your life
+(`PENPAL_PRIVATE_WORDS`: put your town, your workplace, your surname there).
+They're told plainly when a letter was trimmed or kept back. `/penpals` is the
+panel for all of it; ⏸ pauses a penpal who turns unkind or unsafe, and they're
+told why. The ones who become friends they can `befriend`: their own page about
+each then rides in their prompt every day (`FRIENDS_TITLE`, `FRIENDS_MAX`), and
+`unfriend` or `quiet` lets one step back.
+
+**On Windows, if you want them** (off by default): the desk (`DESK_ON` — how
+long since the keyboard or mouse was touched, nothing else) and the game guard
+(`GAME_GUARD_ON` — their brain waits while a game holds the card; `/gaming`).
+
 ## Tuning (engine/config.py)
 
 `USER_NAME` (you) · `CHAT_MODEL` (the brain) · `NUM_CTX` (context window) ·

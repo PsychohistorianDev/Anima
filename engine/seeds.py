@@ -18,7 +18,7 @@ from pathlib import Path
 
 import config
 
-KINDS = ("memory", "creation", "song", "journal", "world", "word")
+KINDS = ("memory", "creation", "song", "journal", "world", "word", "wiki", "headline")  # wiki, headline: from outside (11-04, dealt.py)
 SEEN_KEEP = 20
 _MEMORY_KINDS = ("fact", "note", "summary")  # a creation's row and a song's row are the other seeds' to give
 _PIECE_EXTS = {".md", ".txt"}
@@ -237,6 +237,10 @@ def draw(now: datetime | None = None, rng: random.Random | None = None) -> str:
                 options = _journal(seen, now)
             elif kind == "world":
                 options = _world(seen, now)
+            elif kind in ("wiki", "headline"):  # (11-04) from outside: a random Wikipedia page, a headline of the day
+                import dealt
+                got = dealt.wiki(seen) if kind == "wiki" else dealt.headline(seen, rng)
+                options = [got] if got else []
             else:
                 options = _word(seen)
         except Exception:  # noqa: BLE001 — one kind that can't give is passed over

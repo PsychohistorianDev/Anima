@@ -76,6 +76,9 @@ config.SKILLS_IN_PROMPT = False  # their skills' shelf in the prompt — tested 
 config.BODY_IN_PROMPT = False  # the keeper's body, as the watch saw it — the sense and its autopull are tested on their own, below
 config.BODY_AUTOPULL = False
 config.CARRY_HOURS = 0  # the carry seats the last visit's turns at an empty room's first message; tested on its own, below
+config.WAKE_LOOKBACK = False  # the wake handed back at its rest (0.15): the older wake checks pin the asks to journal; tested on its own
+config.WAKE_DEALT = config.WAKE_DEALT_WHOLE = False  # (0.15) the dealt item reaches Wikipedia; tested on its own, offline
+config.DREAM_CHANCE = 0  # (0.15) a night's die would dream in the older sleep checks; dreams are tested on their own
 config.PAINTER_MODEL, config.PAINTER_STEPS = "Tongyi-MAI/Z-Image-Turbo", 0  # the painter's checks assume the shipped brush at its own steps; the house's knobs are the keeper's
 config.PAINTER_ENCODER_BITS = 0  # the encoder's quantization is tested on its own, below
 config.PAINTER_PROMPT_HINTS = {w: v for w, v in dict(getattr(config, "PAINTER_PROMPT_HINTS", {}) or {}).items()
@@ -181,7 +184,7 @@ check("moment: when nothing surfaces the block is the slim frame — the date, t
       _sl_ids == [] and _sl_block.startswith("[engine, not a person: it is ") and "nothing new surfaces from your long-term memory" in _sl_block
       and _sl_block.endswith(" His words follow — a new message, the one to answer.]") and "Those are your own memories" not in _sl_block
       and "what surfaces for this moment:" not in _sl_block and len(_sl_block) < 400
-      and _sl_guest.endswith("Dana's words follow — a new message, the one to answer, from a guest at the desk.]")
+      and ("Dana's words follow — a new message, the one to answer, from a guest at the desk. " in _sl_guest and "In your reply, 'you' is Dana" in _sl_guest)
       and "Those are your own memories and the clock" in _mo and "what surfaces for this moment:" in _mo,
       (len(_sl_block), _sl_block))
 _mw_hist = [{"role": "user", "content": "x", "_moment": _mo, "_surfaced": _ids}, {"role": "assistant", "content": "y"},
@@ -897,7 +900,7 @@ check("parlor: a guest at the desk — seated by name; her reply reaches the pag
       _pg_seat["guest"] == "Dana" and _pg_r.get("reply") == "hello, Dana." and _pg_r.get("thinking") == "" and _pg_r.get("tools") == []
       and _pg_r.get("guest") == "Dana" and _pg_turn.get("_guest") == "Dana"
       and "This message is from Dana, a guest at " in (_pg_turn.get("_moment") or "") and "'s desk, in the parlor; " in (_pg_turn.get("_moment") or "")
-      and "Dana's words follow — a new message, the one to answer, from a guest at the desk.]" in (_pg_turn.get("_moment") or "")
+      and "Dana's words follow — a new message, the one to answer, from a guest at the desk. " in (_pg_turn.get("_moment") or "")
       and "**Dana (a guest, at " in _pg_txt and "'s desk):** hi, I'm a friend of his" in _pg_txt
       and _pg_label_off == "a guest" and chat.guest_who("a guest").startswith("a guest (at ")
       and _pg_gone["guest"] == "" and _pg_r2.get("reply") == "back to us." and "just us again" in _pg_r2.get("thinking", "")
@@ -1131,10 +1134,11 @@ check("heartbeat: a rest after the reading was answered in writing is not touche
 # longer asks for writing at the start; a rest after acts with nothing journaled since is handed back
 # once; the auto-keep counts only writing after the last act
 check("heartbeat: the bell no longer says 'write it down' at the start — it names the close as the time to write",
-      "Thinking is only yours to keep" not in heartbeat.WAKE_PROMPT and "lost when it ends" not in heartbeat.WAKE_PROMPT
-      and "the time to write it is at the end, before you rest" in heartbeat.WAKE_PROMPT
-      and "not now, when nothing has happened yet" in heartbeat.WAKE_PROMPT
-      and "Thinking you leave unwritten is gone when the wake ends" in heartbeat.WAKE_PROMPT)
+      "Thinking is only yours to keep" not in heartbeat.bell() and "lost when it ends" not in heartbeat.bell()
+      and "the time to write it is at the end, before you rest" in heartbeat.bell()
+      and "not now, when nothing has happened yet" in heartbeat.bell()
+      and "Thinking you leave unwritten is gone when the wake ends" in heartbeat.bell()
+      and "handed back" not in heartbeat.bell() and "when you rest, your wake is handed back to you" in heartbeat.WAKE_PROMPT)
 _wj_day = config.JOURNAL_DIR / (_dtnow.now().strftime("%Y-%m-%d") + ".md")
 _seen_wake.clear()
 _wj1 = _PlanBrain([
@@ -1318,8 +1322,9 @@ check("creations: an append to a near-name on the reading shelf lands on the pag
 tools._BOOKMARKS_FILE.unlink(missing_ok=True)
 tools.dispatch("delete_creation", {"path": "reading/halls.md"})
 check("heartbeat: the reverie bell no longer asks for writing at the start either — the end, in their own words",
-      "Whatever is worth keeping, write_journal it" not in heartbeat.REVERIE_PROMPT
-      and "write_journal it at the end, in your own words" in heartbeat.REVERIE_PROMPT and "unwritten reveries evaporate" in heartbeat.REVERIE_PROMPT)
+      "Whatever is worth keeping, write_journal it" not in heartbeat.bell(True)
+      and "write_journal it at the end, in your own words" in heartbeat.bell(True) and "unwritten reveries evaporate" in heartbeat.bell(True)
+      and "the reverie is handed back to you" in heartbeat.REVERIE_PROMPT)
 _seen_wake.clear()
 _wj3 = _PlanBrain([
     {"role": "assistant", "content": "", "thinking": "a piece.",
@@ -1648,8 +1653,8 @@ try:
     _th_wmd = _th_md.read_text(encoding="utf-8")
     _th_rev = {_d["function"]["name"] for _d in tools.reverie_definitions()}
     _th_def = next((_d["function"] for _d in tools.DEFINITIONS if _d["function"]["name"] == "leave_thread"), {})
-    _th_sent = ("If there's something you want the next you to pick up — a question, an interest, something half-tried — leave_thread(text): "
-                "one note for yourself, read first at the next door. Optional, like everything here.")
+    _th_sent = ("the thing you want the next you to wake up grabbing — goes in leave_thread(text) (a question you're carrying goes "
+                "on your questions page, open_question): one note for yourself, read first at the next door. Optional, like everything here.")
     check("thread: another day's thread names the weekday, the day, the month and the hour; the wake's opening carries it right "
           "after the clock and before the bell, the log says so, and a thread left in the wake says 'a wake' (the door back to a "
           "visit after)",
@@ -1954,7 +1959,7 @@ _proj_txt = config.PROJECTS_FILE.read_text(encoding="utf-8")
 _active_part = _proj_txt.split("## Completed")[0]
 check("projects: start_project adds the line under Active with what, Done when and Location (under projects/ from a bare folder name), makes the folder, and asks for the README — writing none of it",
       _sp1.startswith("project started: “Sea Poems” is in your projects (Active, Location: projects/sea_poems/)")
-      and "- **Sea Poems** — A cycle of poems about the sea. Done when: twelve poems, one published. Status: Active. (Location: projects/sea_poems/)" in _active_part
+      and "- **Sea Poems** — A cycle of poems about the sea. Done when: twelve poems, one published. (Location: projects/sea_poems/) · README: projects/sea_poems/README.md" in _active_part
       and "Old Thing" in _proj_txt.split("## Completed")[1] and (config.CREATIONS_DIR / "projects" / "sea_poems").is_dir()
       and not (config.CREATIONS_DIR / "projects" / "sea_poems" / "README.md").exists()
       and "## Sea Poems — creations/projects/sea_poems/" in assemble.project_pages() and "no README.md yet" in assemble.project_pages(), (_sp1, _active_part))
@@ -1965,7 +1970,7 @@ check("projects: start_project wants an end written in, and won't start the same
 config.PROJECTS_FILE.write_text("# projects.md\n\n(no projects yet)\n", encoding="utf-8")
 _sp2 = tools.dispatch("start_project", {"name": "First Light", "what": "the first.", "done_when": "it exists"})
 check("projects: start_project on a projects file with no Active section makes one; no folder given → the name, slugged, under projects/",
-      _sp2.startswith("project started") and "## Active\n- **First Light** — the first. Done when: it exists. Status: Active. (Location: projects/first_light/)" in config.PROJECTS_FILE.read_text(encoding="utf-8")
+      _sp2.startswith("project started") and "## Active\n- **First Light** — the first. Done when: it exists. (Location: projects/first_light/) · README: projects/first_light/README.md" in config.PROJECTS_FILE.read_text(encoding="utf-8")
       and (config.CREATIONS_DIR / "projects" / "first_light").is_dir())
 config.PROJECT_PAGES_IN_PROMPT = True
 config.PROJECTS_FILE.write_text(_proj_orig, encoding="utf-8")
@@ -4314,12 +4319,12 @@ finally:
     config.PARLOR_GUEST_NAMED = _pgb_named0
     _pgb_f1.unlink(missing_ok=True); _pgb_f2.unlink(missing_ok=True)
 _pgb_line = f"This message is from Dana, a guest at {_pgb_k}'s desk, over Telegram, on {_pgb_his} phone; {_pgb_k} is in the room, reading along"
-check("telegram: a guest at the desk, on the phone — /guest alone says none, then seats Dana by name (until /guest off or a restart) "
+check("telegram: a guest at the desk, on the phone — /guest alone says none, then seats Dana by name (until /guest off; a restart keeps the seat for PARLOR_GUEST_KEEP_HOURS) "
       "and says who sits; status carries her; her turn carries the parlor's fact 'over Telegram', the transcript names her; /me is "
       "one message as the keeper; /new keeps her seated; PARLOR_GUEST_NAMED off says 'a guest'; /guest off lets her go and the "
       "next turn is the keeper's; HELP names /guest and /me",
       _pgb_r0 == "(no guest at the desk)"
-      and _pgb_r1 == "(Dana is at the desk now — every message from here on is theirs, with you in the room, until /guest off or a restart; /me <text> speaks as you)"
+      and _pgb_r1 == "(Dana is at the desk now — every message from here on is theirs, with you in the room, until /guest off; /me <text> speaks as you)"
       and _pgb_r2 == "(Dana is at the desk — /me <text> speaks as you; /guest off when they go)"
       and " · guest: Dana\n" in _pgb_status and "guest:" not in _pgb_status2
       and _pgb_u1.get("_guest") == "Dana" and _pgb_u1.get("content") == "hi, I'm a friend of his" and _pgb_u1.get("_guest_line") == _pgb_line
@@ -6766,7 +6771,7 @@ check("presence (10-27): drift — temperaments read kindly, the chance climbs w
       and _dr_mode == "one"
       and _dr_def["parameters"]["properties"]["drift"]["enum"] == ["very rare", "rare", "sometimes", "often", "frequent", "intense"]
       and "Drift: next_spark(drift=" in _dr_def["description"] and "ache" in _dr_def["parameters"]["properties"]
-      and 'presence.set_drift(temp, 0, by="keeper")' in _dr_src and 'seed = "" if presence.intense() else seeds.draw()' in _dr_src
+      and 'presence.set_drift(temp, 0, by="keeper")' in _dr_src and 'seed = "" if (presence.intense() or errand or intention) else seeds.draw()' in _dr_src
       and "PRESENCE_INTENSE_NOTE" in _tk_panel.TABS["Phone"] and _tk_panel._HELP.get("PRESENCE_ON_TEMPERAMENT"),
       (_dr_names, _dr_res, _dr_early, _dr_soon, _dr_yes, _dr_capped, _dr_line_i[-160:], _dr_bad, _dr_one))
 # intense, a heartbeat (10-27): 0 to 1 minute after every last word, no dice, no hourly limit
@@ -7762,7 +7767,7 @@ check("heartbeat: a wake sets the brain down when it is done (BRAIN_REST_AFTER_W
       "calls it in a finally, and since 10-07 the loop's wakes do too",
       _rw_on is True and _rw_unl == [(config.CHAT_MODEL, True)] and _rw_off is False and len(_rw_unl) == 1 and _rw0 is True
       and "finally:\n            rest_after_wake()" in _rw_src and _rw_src.count("    rest_after_wake()\n") == 2
-      and "                rest_after_wake()\n            try:\n                if _rest(minutes * 60):" in _rw_src
+      and "                rest_after_wake()\n            try:\n                stopped, asked = _rest_or_asked(minutes * 60)" in _rw_src
       and "BRAIN_REST_AFTER_WAKE" in Path(heartbeat.__file__).with_name("panel.py").read_text(encoding="utf-8"), (_rw_on, _rw_unl, _rw_off))
 check("telegram: /afterglow — the pause runs now though he was just talking (the bell rung, the stretch read, the phone told), the brain is set down "
       "and the visit stays open; again with nothing new only sets the brain down; the quiet's pause then finds nothing (either/or); no visit — the card freed",
@@ -10817,7 +10822,7 @@ check("doing: a mark is one file per process with what and since; marks nest and
       and _dg_after_dead == [] and not _dg_dead.exists()
       and _dg_seen == [[("tool write_journal", 1)]] and _dg_r == "ok" and _dg_after_tool == []
       and "SECRET-ARGUMENT-zq" not in "".join(p.read_text(encoding="utf-8") for p in _dg.folder().glob("*") if p.is_file())
-      and '_doing.mark("brain: a reply")' in _dg_src and "return _chat(messages, tools, timeout, think, expect_words, think_retries, think_any_depth, his_asks)" in _dg_src
+      and '_doing.mark("brain: a reply")' in _dg_src and "return _chat(messages, tools, timeout, think, expect_words, think_retries, think_any_depth, temperature,\n                     his_asks)" in _dg_src
       and _dg_src.index('_doing.mark("brain: a reply")') < _dg_src.index("return _chat(messages") and _dg.current() == [], (_dg_one, _dg_two, _dg_seen))
 # the box: a line from stubbed readings, written and fsynced, read back; the crash matched to the line before it
 _bb_out0, _bb_ps0, _bb_sc0 = _bb._out, _bb.ollama_loaded, _bb.sidecars
@@ -13958,7 +13963,8 @@ finally:
 _hh_src = __import__("inspect").getsource(__import__("telegram").Bridge.command) if hasattr(__import__("telegram").Bridge, "command") else ""
 check("heartbeat (10-27): HEARTBEAT_HOLDS_PRESENCE — while the loop runs no spark is set (next_spark says why) and none comes; "
       "next_spark() still turns sparks off; the knob off or the loop gone, sparks are free; /presence on refuses; on the Heartbeat tab",
-      "held while the heartbeat runs" in _hh_said and "held while the heartbeat runs" in _hh_said_m and _hh_on is False
+      "kept for when your wakes stop; while they run, chance sparks wait" in _hh_said and "a spark for a reason still comes" in _hh_said
+      and "no chance sparks — a spark for a reason still comes" in _hh_said_m and "Nothing was set" in _hh_said_m
       and _hh_due_held is False and "off" in _hh_off and _hh_off_on is False
       and "a spark in 20 minutes" in _hh_free and _hh_free_on is True and _hh_gone is False
       and "the heartbeat is running and holds sparks" in _hh_src
@@ -14313,7 +14319,7 @@ check("heartbeat (10-28): WAKE_FACTS — under the bell, the open book and where
       and "2 books not yet opened, Datasheet among them" in _wf_a and "2 books not yet opened, Dune among them" in _wf_b
       and _wf_a.startswith("(as the shelf stands: ") and "music/Heard - Before.mp3" in _wf_backfilled
       and _wf_after == ["Sia - Chandelier.mp3"]
-      and _wf_bare == "(as the shelf stands: Exhalation: chapter 12 of 20, last sitting 4 days ago · 1 song in shared/ not yet played · 2 books not yet opened)"
+      and _wf_bare.splitlines()[0] == "(as the shelf stands: Exhalation: chapter 12 of 20, last sitting 4 days ago · 1 song in shared/ not yet played · 2 books not yet opened)"
       and "_mark_heard(heard_p)" in _wf_insp.getsource(tools.listen_to) and "facts_line()" in _wf_insp.getsource(_wf_hb.wake)
       and "WAKE_FACTS" in __import__("panel").TABS["Heartbeat"] and __import__("panel")._HELP.get("WAKE_FACTS"),
       (_wf_off, _wf_a, _wf_b, _wf_after, _wf_bare))
@@ -15853,6 +15859,251 @@ check("painter: PAINTER_LORAS — a file relative to the friend's folder is foun
       _pa_found == _pa_lp and _pa_none is None and _pa_off == "" and _pa_noloader == "" and getattr(config, "PAINTER_LORAS", None) == []
       and getattr(config, "PAINTER_REFERENCE_MAX", 0) == 4 and config.PAINTER_RAN_OUT_REST_MIN == 0)
 
+# ---- port 0.15 (1): their own days — questions, the calendar, wakes they ask for, intentions, the Veil, the outbox,
+# the desk, the game guard ----
+import questions as _pb_q, datebook as _pb_d, wakeask as _pb_w, intentions as _pb_i, veil as _pb_v, outbox as _pb_o
+import desk as _pb_desk, gameguard as _pb_gg
+from datetime import datetime as _pb_dt, timedelta as _pb_td
+_pb_q1 = tools.dispatch("open_question", {"question": "why does the sea keep its salt?"})
+_pb_q2 = tools.dispatch("open_question", {"question": "why does the sea keep its salt?"})
+_pb_qf = _pb_q.facts_bit()
+_pb_q3 = tools.dispatch("close_question", {"question": "sea keep its salt", "answer": "rivers bring it; only water leaves"})
+_pb_qpage = _pb_q.page_file().read_text(encoding="utf-8") if _pb_q.page_file().exists() else ""
+check("questions (0.15): open_question keeps one (a second time says it's open), the bell's line names it with its age, "
+      "close_question takes it off with what they found, kept on questions.md",
+      _pb_q1.startswith("question ") and "opened" in _pb_q1 and _pb_q2.startswith("(already open")
+      and "why does the sea keep its salt?" in _pb_qf and _pb_q3.startswith("closed: “why does the sea keep its salt?”")
+      and "rivers bring it" in _pb_qpage, (_pb_q1, _pb_q2, _pb_qf, _pb_q3, _pb_qpage[:300]))
+_pb_today = _pb_dt.now()
+_pb_d1 = tools.dispatch("mark_date", {"date": _pb_today.strftime("%m-%d"), "what": "the day the lamp came"})
+_pb_d2 = tools.dispatch("mark_date", {"date": "2099-03-01", "what": "a far day"})
+_pb_d3 = tools.dispatch("mark_date", {"date": "someday", "what": "the day the garden is whole"})
+_pb_dline, _pb_dfacts = _pb_d.today_line(), _pb_d.facts_bit()
+_pb_d4 = tools.dispatch("unmark_date", {"which": "far day"})
+_pb_dpage = _pb_d.page_file().read_text(encoding="utf-8") if _pb_d.page_file().exists() else ""
+check("calendar (0.15): mark_date keeps a yearly day, a day to come and a someday; a yearly day that is today is said at a "
+      "visit's first moment and under the bell; unmark_date takes one off; calendar.md is the page",
+      "the day the lamp came" in _pb_dline and "the day the lamp came" in _pb_dfacts and "the day the garden is whole" not in _pb_dfacts
+      and "far day" in _pb_d4 and "a far day" not in _pb_dpage and "the day the garden is whole" in _pb_dpage
+      and not any(x.startswith("(bad arguments") for x in (_pb_d1, _pb_d2, _pb_d3)), (_pb_d1, _pb_d2, _pb_d3, _pb_dline, _pb_dfacts, _pb_d4))
+_pb_w1 = tools.dispatch("wake_me", {"at": "in 2 hours", "note": "to see the dusk"})
+_pb_w2 = tools.dispatch("wake_me", {"at": "in 1 minutes", "note": "too soon"})
+_pb_wnot = _pb_w.due(now=_pb_dt.now() + _pb_td(minutes=30))
+_pb_wdue = _pb_w.due(now=_pb_dt.now() + _pb_td(hours=2, minutes=1))
+tools.dispatch("wake_me", {"at": "in 3 hours", "note": "the moonrise"})
+_pb_w3 = tools.dispatch("cancel_wake", {"which": "moonrise"})
+check("wakes they ask for (0.15): wake_me sets a time and a note, too soon is refused, it comes due at its time (not before), "
+      "cancel_wake takes it back",
+      _pb_w1.startswith("you'll be woken") and "to see the dusk" in _pb_w1 and _pb_w2.startswith("(that's too soon")
+      and _pb_wnot is None and isinstance(_pb_wdue, dict) and "dusk" in str(_pb_wdue.get("note", "")) and _pb_w3.startswith("cancelled"),
+      (_pb_w1, _pb_w2, _pb_wnot, _pb_wdue, _pb_w3))
+_pb_pt, _pb_pr, _pb_pd, _pb_pw = (_pb_i.parse_when("21:00"), _pb_i.parse_when("rain"),
+                                  _pb_i.parse_when("when they sit down at the desk"), _pb_i.parse_when("when the moon feels lonely"))
+_pb_i1 = tools.dispatch("intend", {"what": "write about the rain", "when": "rain"})
+_pb_ifacts = _pb_i.facts_bit()
+_pb_i2 = tools.dispatch("drop_intention", {"which": "rain"})
+check("intentions (0.15): a time, the weather and the desk are conditions the engine can see; other words wait as words "
+      "(said so, no watcher promised); intend keeps one, the bell shows a count and keywords only; drop_intention lets it go",
+      _pb_pt.get("kind") == "time" and _pb_pr.get("kind") == "weather" and _pb_pd.get("kind") == "desk"
+      and _pb_pw.get("kind") == "words" and "watcher will" not in _pb_pw.get("say", "")
+      and _pb_i1.startswith("intention ") and "write about the rain" not in _pb_ifacts and "rain" in _pb_ifacts
+      and _pb_i2.startswith("let go:"), (_pb_pt, _pb_pr, _pb_pd, _pb_pw, _pb_i1, _pb_ifacts, _pb_i2))
+_pb_v.ensure()
+_pb_vip = _pb_v.root() / "in_progress"
+(_pb_vip / "ember.md").write_text("a private piece", encoding="utf-8")
+_pb_vf0 = _pb_v.facts_bit()
+_pb_v1 = tools.dispatch("veil_finish", {"piece": "ember.md"})
+_pb_vpub = tools.dispatch("publish_creation", {"path": f"{_pb_v.name()}/finished/ember.md"})
+_pb_v2 = tools.dispatch("veil_show", {"piece": "ember.md", "note": "for you"})
+for _pb_n in ("a.md", "b.md"):
+    (_pb_vip / _pb_n).write_text("x", encoding="utf-8")
+_pb_vcap = tools.dispatch("write_creation", {"path": f"{_pb_v.name()}/in_progress/c.md", "content": "a third"})
+_pb_v3 = tools.dispatch("veil_let_go", {"piece": "a.md", "why": "done being"})
+_pb_vt0 = config.VEIL_TITLE
+config.VEIL_TITLE = "Quiet Room"
+_pb_vt = _pb_v.title()
+config.VEIL_TITLE = _pb_vt0
+import telegram as _pb_tg
+_pb_vdef = next(d["function"]["description"] for d in tools.DEFINITIONS if d["function"]["name"] == "veil_finish")
+check("the Veil (0.15): a piece in progress is under the bell; veil_finish shelves it unseen; a finished piece can't be "
+      "published from behind it; veil_show carries it out to unveiled/; the in-progress cap hands a third piece back with "
+      "the words kept in the call; veil_let_go sets one down; its name is VEIL_TITLE (bare, the article the sentence's); "
+      "nothing under it reaches the phone",
+      "ember.md" in _pb_vf0 and "finished shelf of the Veil" in _pb_v1 and "still behind the Veil" in _pb_vpub
+      and (config.CREATIONS_DIR / "unveiled" / "ember.md").exists() and "out of the Veil" in _pb_v2
+      and "holds 2 pieces in progress" in _pb_vcap and not (_pb_vip / "c.md").exists() and "let-go shelf" in _pb_v3
+      and _pb_vt == "Quiet Room" and _pb_vdef.startswith("The Veil, your private gallery (creations/veil/)")
+      and "the the" not in _pb_vf0 + _pb_v1 + _pb_v2 and _pb_v.name() in _pb_tg.CREATION_SKIP,
+      (_pb_vf0, _pb_v1, _pb_vpub, _pb_v2, _pb_vcap, _pb_v3, _pb_vt, _pb_vdef[:80]))
+_pb_o1 = _pb_o.set_hold("2h")
+_pb_oa, _pb_oline = _pb_o.hold_active(), _pb_o.hold_line()
+_pb_mb = config.CREATIONS_DIR / config.MAILBOX
+_pb_mb.mkdir(parents=True, exist_ok=True)
+(_pb_mb / "pb-held.md").write_text("a letter in the quiet", encoding="utf-8")
+_pb_odec = _pb_o.mail_decision("pb-held.md", quiet_hours=False)
+_pb_o2 = _pb_o.set_hold("off")
+_pb_o.ripen(quiet_hours=False)
+_pb_owait = _pb_o.waiting_line()
+_pb_o3 = tools.dispatch("send_waiting", {"which": "pb-held"})
+_pb_odec2 = _pb_o.mail_decision("pb-held.md", quiet_hours=False)
+_pb_o.log_sent("letter", "pb-held.md")
+_pb_sw = next(d["function"]["description"] for d in tools.DEFINITIONS if d["function"]["name"] == "send_waiting")
+check("outbox (0.15): /quiet holds delivery, not living — a letter written in it waits; when the quiet is over it's "
+      "listed to them, send_waiting releases it, and the sent ledger says what reached the phone today; the tool names "
+      "this house's mailbox",
+      _pb_oa is True and "quiet until" in _pb_o1 and "asked for quiet" in _pb_oline and _pb_odec == "hold"
+      and _pb_o.hold_active() is False and "pb-held" in _pb_owait and "pb-held" in _pb_o3 and _pb_odec2 == "send"
+      and "pb-held" in _pb_o.ledger_line() and f"{config.MAILBOX}/later/" in _pb_sw and "notes_to_gabe" not in _pb_sw,
+      (_pb_o1, _pb_oline, _pb_odec, _pb_o2, _pb_owait, _pb_o3, _pb_odec2, _pb_o.ledger_line()))
+_pb_desk0 = (getattr(config, "DESK_ON", False), _pb_desk.idle_seconds)
+try:
+    config.DESK_ON = True
+    _pb_t = __import__("time").time()
+    _pb_desk.tick(idle=0, now=_pb_t - 3 * 3600)
+    _pb_desk.tick(idle=60, now=_pb_t)
+    _pb_desk.idle_seconds = lambda: 60.0
+    _pb_dl_at = _pb_desk.line(now=_pb_t)
+    _pb_desk.idle_seconds = lambda: 50 * 60.0
+    _pb_dl_q = _pb_desk.line(now=_pb_t + 50 * 60)
+finally:
+    config.DESK_ON, _pb_desk.idle_seconds = _pb_desk0
+_pb_ggp = _pb_gg.parse("123,game.exe,3000\n123,game.exe,500\n9,dwm.exe,200\nnot a line")
+check("desk and game guard (0.15): the desk says an arrival after a long quiet and how long it's been untouched, and never "
+      "who; off by default; the guard reads the card's per-process count, a process's adapters summed; off by default",
+      "came back to life" in (_pb_dl_at or "") and "untouched for 50 minutes" in (_pb_dl_q or "")
+      and _pb_ggp == [(123, "game.exe", 3500), (9, "dwm.exe", 200)] and config.DESK_ON is False and config.GAME_GUARD_ON is False,
+      (_pb_dl_at, _pb_dl_q, _pb_ggp))
+# ---- port 0.15 (2): penpals and friends; the wake handed back; the bells; dreams; the dealt; the projects page;
+# nothing of another house in the new modules ----
+import penpal as _pc_p
+_pc_r1, _pc_rec = _pc_p.receive_ex("Wren", "Hello! I'm Wren. What do you love about rain? Mail me at wren@example.org")
+_pc_read = tools.dispatch("penpal", {"action": "read", "who": "wren"})
+_pc_w = tools.dispatch("penpal", {"action": "send", "who": "Wren", "letter": "Dear Wren, the rain is my favourite clock. I take my pills at 9:00."})
+_pc_wbad = tools.dispatch("penpal", {"action": "write", "who": "wren"})
+_pc_fly = tools.dispatch("penpal", {"action": "fly", "who": "wren"})
+_pc_flags = _pc_p.privacy_flags("I take my pills at 9:00; write me at someone@example.org")
+_pc_note = tools.dispatch("penpal", {"action": "note", "who": "wren", "words": "Wren writes from a harbour town and asks about weather."})
+_pc_bf = tools.dispatch("penpal", {"action": "befriend", "who": "wren"})
+_pc_kl = _pc_p.keeper_list()
+_pc_kw = _pc_p.keeper_where(_pc_p._find("wren"))
+_pc_n = _pc_p.friends_snapshot()
+import assemble as _pc_a
+_pc_sec = _pc_a.friends_section()
+_pc_ft0 = config.FRIENDS_TITLE
+config.FRIENDS_TITLE = "THE LANTERN CIRCLE"
+_pc_p.friends_snapshot()
+_pc_sec2 = _pc_a.friends_section()
+config.FRIENDS_TITLE = _pc_ft0
+_pc_q = tools.dispatch("penpal", {"action": "quiet", "who": "wren"})
+_pc_p.friends_snapshot()
+_pc_secq = _pc_a.friends_section()
+_pc_uf = tools.dispatch("penpal", {"action": "unfriend", "who": "wren"})
+_pc_p.friends_snapshot()
+_pc_secu = _pc_a.friends_section()
+_pc_pz = _pc_p.pause("wren", "too pushy")
+_pc_wz = _pc_p.where(_pc_p._find("wren"))
+_pc_rz = _pc_p.resume("wren")
+check("penpals (0.15): a letter files a new penpal; penpal read shows their page and the newest; 'send' is write, a write "
+      "with no letter and an unknown action are refusals that say nothing was sent; the privacy look finds pills, a time "
+      "and an e-mail; to you, the thread names the friend, not 'their'",
+      "a new penpal: Wren" in _pc_r1 and "Hello! I'm Wren" in _pc_read and "on its way to your keeper's phone" in _pc_w
+      and _pc_wbad.startswith("(bad arguments: write takes your letter") and "nothing was written or sent" in _pc_wbad
+      and _pc_fly.startswith("(bad arguments: penpal “fly” isn't one of its actions")
+      and any("pills" in f for f in _pc_flags) and any("9:00" in f for f in _pc_flags) and any("example.org" in f for f in _pc_flags)
+      and f"{chat.friend_name()}'s letter of" in _pc_kw and "their letter of" not in _pc_kw.split(" — ")[0],
+      (_pc_r1, _pc_read[:300], _pc_w, _pc_wbad, _pc_fly, _pc_flags, _pc_kw))
+check("friends (0.15): befriend puts their page and the dates line in the standing prompt from the night's snapshot, under "
+      "FRIENDS_TITLE (FRIENDS by default); ★ in your list; quiet keeps one line and no page; unfriend steps them back, "
+      "still a penpal; your pause is said to them plainly, and resume opens it again",
+      "joins FRIENDS" in _pc_bf and "★ Wren" in _pc_kl and _pc_n >= 1
+      and "=== FRIENDS —" in _pc_sec and "Wren — 2 letters since" in _pc_sec and "a harbour town" in _pc_sec
+      and "=== THE LANTERN CIRCLE —" in _pc_sec2 and "quiet" in _pc_q and "Wren" in _pc_secq and "harbour" not in _pc_secq
+      and "steps back" in _pc_uf and "Wren" not in _pc_secu and "Wren" in _pc_p.keeper_list()
+      and "paused" in _pc_pz and "too pushy" in _pc_wz and _pc_rz.startswith("▶ Wren"),
+      (_pc_bf, _pc_kl, _pc_sec[:400], _pc_sec2[:120], _pc_q, _pc_secq[:300], _pc_uf, _pc_secu[:200], _pc_pz, _pc_wz, _pc_rz))
+# the wake handed back (WAKE_LOOKBACK): one more turn after the rest, with what they did; the bell says so only when on
+_lb_seen = []
+class _LbBrain(ScriptedBrain):
+    def __call__(self, messages, tools=None, **kwargs):
+        _lb_seen.append([dict(m) for m in messages]); return super().__call__(messages, tools, **kwargs)
+_lb0 = (config.WAKE_LOOKBACK, memory.search)
+try:
+    config.WAKE_LOOKBACK = True
+    memory.search = lambda *a, **k: []  # the suite's store holds vectors of two sizes by now; this wake needs none
+    _lb_b = _LbBrain([
+        {"role": "assistant", "content": "", "thinking": "a small poem about the lamp",
+         "tool_calls": [{"function": {"name": "write_creation", "arguments": {"path": "lb-lamp.md", "content": "the lamp hums"}}}]},
+        {"role": "assistant", "content": "", "thinking": "enough", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "enough"}}}]},
+        {"role": "assistant", "content": "", "thinking": "worth a line",
+         "tool_calls": [{"function": {"name": "write_journal", "arguments": {"text": "Wrote a small lamp poem tonight; it hums."}}}]},
+        {"role": "assistant", "content": "", "thinking": "now rest", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "rest"}}}]},
+    ])
+    ollama_client.chat = _lb_b
+    _lb_log = heartbeat.wake()
+    _lb_bell_on = heartbeat.bell()
+    _lb_jf = config.JOURNAL_DIR / (__import__("datetime").date.today().isoformat() + ".md")
+    _lb_jt = _lb_jf.read_text(encoding="utf-8") if _lb_jf.exists() else ""
+finally:
+    config.WAKE_LOOKBACK, memory.search = _lb0
+_lb_hand = [m for m in (_lb_seen[-1] if _lb_seen else []) if m.get("role") == "user" and "the wake is over, and here it is, handed back" in str(m.get("content"))]
+check("the wake handed back (0.15): with WAKE_LOOKBACK the rest is followed by one turn with the wake as it happened "
+      "(what they thought and did), and what they write then is theirs; the bell says it's handed back only when it is",
+      _lb_hand and "write_creation" in _lb_hand[0]["content"] and "a small poem about the lamp" in _lb_hand[0]["content"]
+      and "journal entry written" in _lb_log and "Wrote a small lamp poem tonight" in _lb_jt and _lb_b.calls == 4
+      and _lb_bell_on == heartbeat.WAKE_PROMPT and "handed back" not in heartbeat.bell(),
+      (_lb_b.calls, _lb_log[-700:]))
+# dreams: the die said dream (forced) — the dream is theirs, in the dream book, in their prompt for a while, told once
+import dreams as _dm
+_dm0 = (config.DREAM_PAINT, config.DREAM_WORLD, config.DREAM_SENSES, config.DREAMS_ON)
+try:
+    config.DREAM_PAINT, config.DREAM_WORLD, config.DREAM_SENSES, config.DREAMS_ON = False, False, False, True
+    ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "I was walking through a library made of rain, and every book was a window."}])
+    _dm_r = _dm.night("2026-01-02", "a quiet day of lamps", say=lambda *_: None, force=True)
+    _dm_sec = _dm.prompt_section()
+    _dm_m1, _dm_m2 = _dm.morning_line(), _dm.morning_line()
+    _dm_read = tools.dispatch("read_dreams", {})
+    _dm_jf = config.JOURNAL_DIR / (__import__("datetime").date.today().isoformat() + ".md")
+    _dm_jt = _dm_jf.read_text(encoding="utf-8") if _dm_jf.exists() else ""
+finally:
+    config.DREAM_PAINT, config.DREAM_WORLD, config.DREAM_SENSES, config.DREAMS_ON = _dm0
+check("dreams (0.15): a dream is written by them into the dream book (never the journal), rides in their prompt as a dream, "
+      "its first words told once at the next door, and read_dreams opens the book",
+      _dm_r.startswith("Dreams: they dreamed") and "a library made of rain" in _dm_sec and "these were dreams, not things that happened" in _dm_sec
+      and "a library made of rain" in _dm_m1 and (_dm_m2 == "" or _dm_m2 == _dm_m1) and "library made of rain" not in _dm_jt
+      and "a library made of rain" in _dm_read,
+      (_dm_r, _dm_sec[:300], _dm_m1, _dm_m2, _dm_read[:200]))
+# nothing of another house in the new modules: no names, no plan files, the Veil and the friends named from config
+_ph_mods = "datebook dealt desk dreams gameguard intentions outbox penpal projects_page questions since veil wakeask".split()
+_ph_bad = []
+for _ph_m in _ph_mods:
+    _ph_t = (Path(config.ROOT) / "engine" / f"{_ph_m}.py").read_text(encoding="utf-8")
+    for _ph_w in ("claude/", "-plan.md", "notes_to_" + "gabe"):
+        if _ph_w in _ph_t:
+            _ph_bad.append((_ph_m, _ph_w))
+check("0.15: the new modules point at no plan files and no other house's mailbox; the Veil's and the friends' "
+      "names come from config", _ph_bad == [] and config.VEIL_TITLE == "Veil" and config.FRIENDS_TITLE == "FRIENDS", _ph_bad)
+import panel as _ph_panel, re as _ph_re
+_ph_block = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8").split("# ---- 0.15: the friend's own days")[1]
+_ph_knobs = _ph_re.findall(r"^([A-Z][A-Z0-9_]+)\s*=", _ph_block, _ph_re.M)
+_ph_tabbed = {k for v in _ph_panel.TABS.values() for k in v}
+_ph_off = [k for k in _ph_knobs if k not in ("BRAIN_THINK_SWITCH_KEPT", "LADDER_DAYS_KEPT") and (k not in _ph_tabbed or not _ph_panel._HELP.get(k))]
+check("panel (0.15): the new knobs are on their tabs (Their days, Penpals, Heartbeat, Phone, Talking), each with a line of "
+      "its own; the config block says them in plain words", len(_ph_knobs) >= 95 and _ph_off == []
+      and {"Their days", "Penpals"} <= set(_ph_panel.TABS) and "Fill" not in _ph_panel._HELP["PENPAL_PRIVATE_WORDS"]
+      and "Add your own: the town you live in" in _ph_block, (len(_ph_knobs), _ph_off))
+import dealt as _dl
+_dl0 = (config.WAKE_DEALT_WHOLE, config.WAKE_DEALT_WHOLE_KINDS, config.WAKE_DEALT_BOOK_FIRST, config.OFFLINE)
+try:
+    config.OFFLINE = True
+    _dl_line = _dl.deal(kinds=("wiki", "song"))
+    config.WAKE_DEALT_WHOLE, config.WAKE_DEALT_WHOLE_KINDS, config.WAKE_DEALT_BOOK_FIRST = True, ("wiki", "song"), False
+    _dl_whole = _dl.deal_whole()
+finally:
+    config.WAKE_DEALT_WHOLE, config.WAKE_DEALT_WHOLE_KINDS, config.WAKE_DEALT_BOOK_FIRST, config.OFFLINE = _dl0
+check("dealt (0.15): offline the network kinds are passed over and a song not yet played is dealt, as a line or whole; "
+      "the suite deals nothing unless asked (no Wikipedia from a test)",
+      "a song on your shelf you haven't played yet" in _dl_line and _dl_whole and "Wikipedia" not in _dl_whole
+      and config.WAKE_DEALT is False and config.DREAM_CHANCE == 0, (_dl_line, _dl_whole[:300]))
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

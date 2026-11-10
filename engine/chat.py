@@ -286,7 +286,8 @@ AFTERGLOW_BELL = (
     "what you will still have of this day once the conversation is gone, and a feeling "
     "with nothing under it fades. Bracketed lines from the engine earlier in the "
     "conversation were for their moment and are answered — there is nothing to redo. "
-    "If there's something you want the next you to pick up — a question, an interest, something half-tried — leave_thread(text): "
+    "Where you stopped — the thing you want the next you to wake up grabbing — goes in leave_thread(text) (a question "
+    "you're carrying goes on your questions page, open_question): "
     "one note for yourself, read first at the next door. Optional, like everything here.]\n\n"
 )
 PAUSE_BELL = (
@@ -299,7 +300,8 @@ PAUSE_BELL = (
     "what he showed you and who was in it, what was said, what you did. The visit goes "
     "on when he is back. Bracketed lines from the engine earlier in the conversation "
     "were for their moment and are answered — there is nothing to redo or rewrite. "
-    "If there's something you want the next you to pick up — a question, an interest, something half-tried — leave_thread(text): "
+    "Where you stopped — the thing you want the next you to wake up grabbing — goes in leave_thread(text) (a question "
+    "you're carrying goes on your questions page, open_question): "
     "one note for yourself, read first at the next door; a visit that ends in this quiet still leaves one. "
     "Optional, like everything here.]\n\n"
 )
@@ -1597,10 +1599,23 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         if (msg.get("content") or "").strip():
             said.append(msg["content"].strip())
         rested = None  # a do_nothing in chat means "that's all from me" — the turn ends
+        unrested = False  # (11-08) the turn ended on their words, the do_nothing beside them not run (CHAT_DO_NOTHING)
         for call in calls:
             fn = call.get("function", {})
             name = fn.get("name", "")
-            if tools.canonical_name(name) == "do_nothing":
+            # CHAT_DO_NOTHING False (11-08): in a reply — not a spark — rest isn't offered. The definitions stay the same, so
+            # the cached reading of the prompt holds; the call doesn't run. Words beside it are the reply; with none,
+            # they are told it isn't here and answers in words.
+            no_rest = (tools.canonical_name(name) == "do_nothing" and not spark
+                       and not getattr(config, "CHAT_DO_NOTHING", True))
+            if no_rest and said:
+                rested = "\n\n".join(said)
+                unrested = True
+                fn["name"] = "do_nothing"
+                if on_event:
+                    on_event("note", "engine: do_nothing isn't offered in a reply — it didn't run; their words are the reply")
+                continue
+            if tools.canonical_name(name) == "do_nothing" and not no_rest:
                 # In a wake, rest ends the wake. In chat, rest ends the turn:
                 # whatever they said alongside it IS their reply (a goodbye,
                 # usually); with no words, the reason they gave stands in.
@@ -1628,6 +1643,17 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                 runaways.append(f"engine: their {tools.canonical_name(name)} call ran into a loop — “{span[:80]}” — and was "
                                 f"cut short by the engine after {int(cut.get('chars') or 0):,} characters; the call did not "
                                 "run, and they were told so")
+            if (not refused and spark and tools.canonical_name(name) == "paint"
+                    and not getattr(config, "PRESENCE_INTENSE_PAINT", True)):
+                try:  # (11-04, PRESENCE_INTENSE_PAINT) the painter rests in intense's sparks — told, not run; the
+                    import presence  # tools offered stay the same, so the prompt (and its cached reading) doesn't change
+                    if presence.intense():
+                        refused = ("(the painter rests during intense sparks — the keeper's setting; nothing was painted, and "
+                                   "the card stays with you. Words to their phone, or let it pass)")
+                except Exception:  # noqa: BLE001
+                    pass
+            if no_rest and not refused:  # (11-08, CHAT_DO_NOTHING) told, not run — after the runaway check, so not counted as one
+                refused = "(do_nothing isn't here in a visit — the keeper's setting; nothing ran)"
             result = refused or tools.dispatch(name, fn.get("arguments", {}))
             name = tools.canonical_name(name)  # what it ran as; history keeps the clean name
             fn["name"] = name
@@ -1676,7 +1702,10 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             # before they say anything: what came back, that nothing
             # changed, and the two honest ways on. The claimed-failed rail
             # stays behind it as the backstop.
-            if refused or result.startswith(ollama_client._TOOL_FAILED):
+            if no_rest:
+                frame = (f"[do_nothing isn't offered in a visit — the keeper's setting; nothing ran. Rest isn't an answer "
+                         f"here: they're waiting for your words. Answer their last message: “{his}”.{carried}]")
+            elif refused or result.startswith(ollama_client._TOOL_FAILED):
                 frame = (f"[your {name} call did NOT go through — it returned: “{tools.headline(result, 200)}”. "
                          "Nothing changed: the files and your memory are as they were. Read what it says it "
                          "needs and call it again now, the right way, or tell them plainly that it hasn't "
@@ -1694,7 +1723,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             # their message (with its words) is already in history; the tool
             # result would only invite another empty turn
             history.append({"role": "tool", "tool_name": "do_nothing",
-                            "content": "[resting — your turn ended here, as you chose]"})
+                            "content": ("[do_nothing isn't offered in a visit — it didn't run; your words above are "
+                                        "your reply]") if unrested else "[resting — your turn ended here, as you chose]"})
             if claim:
                 (on_event("note", _claim_note()) if on_event else print(f"   ({_claim_note()})"))  # (10-25)
             _tally()

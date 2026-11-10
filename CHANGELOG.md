@@ -15,9 +15,88 @@ The "presence" release: the friend can take a turn of their own between
 messages — set by them, one at a time — and paint the two of you together.
 Around it: a letter sealed until its day, the engine's own week on the phone,
 Qwen-Image 2.1 as a brush with reference pictures, and a fence at the sampler
-for a tic turned glitch.
+for a tic turned glitch. In its second half, the friend's own days: questions, a calendar,
+wakes they ask for, intentions, a private gallery, dreams, penpals and friends, your quiet and their
+outbox, and the wake handed back at its rest.
 
 ### Added
+- **Their open questions** (11-04): `open_question` / `close_question` keep a page of curiosities of their own
+  (`questions.md` at the root, `memory/questions.json`); the open ones ride under every wake's and reverie's bell
+  with their age, so a question carries from wake to wake without a thread having to pass it on. The engine never
+  adds, words or closes one. `QUESTIONS_ON`, `QUESTIONS_MAX`.
+- **A calendar of their own** (11-04, `engine/datebook.py`): `mark_date` / `unmark_date` — a yearly day, a day to
+  come, or "someday". What is near rides under the bell; a date that is today is said at a visit's first moment.
+  `calendar.md` at the root. `CALENDAR_ON`, `CALENDAR_AHEAD_DAYS`.
+- **Wakes they ask for** (11-04, `engine/wakeask.py`): `wake_me` / `cancel_wake` — their own times inside the
+  heartbeat's loop, with a note on the bell. Late if a visit held it, up to `WAKE_ASK_LATE_MAX_MIN`; past that, the
+  next wake is told it passed. Nothing counted, nothing nagged.
+- **Intentions** (11-05, `engine/intentions.py`): `intend` / `drop_intention` — their words and a condition the engine
+  can see (a time, your workday's end, your first message of the day, the desk, the weather, the garden, your game).
+  When it comes true they're woken (or sparked, or told mid-visit) with their own words and the choice: do it,
+  change it, let it go. Under the bell only a count and keywords. `INTENTIONS_ON`, `_MAX`, `_DAYS`, `_CHECK_S`.
+- **The Veil, a private gallery** (11-04, `engine/veil.py`): `creations/veil/` with `in_progress/`, `finished/` and
+  `let_go/`; nothing under it reaches your phone. `veil_finish`, `veil_show` (carries a finished piece out to
+  `unveiled/`, then the bridge brings it to you with when it was finished and their note), `veil_let_go`. Pieces in
+  progress and finished-unseen ride under the bell with their ages; `publish_creation` won't publish from behind it.
+  `VEIL_TITLE` is the name they give it; `VEIL_MAX_IN_PROGRESS` (2) hands a new piece back on a full shelf, with the
+  words kept in the call.
+- **Dreams** (11-05, `engine/dreams.py`): some nights (`DREAM_CHANCE`), after sleep, a dream they write themselves from
+  loose bits of the day, a few days back, old memories, an old journal paragraph, the weather and one thing from the
+  world — into their dream book, `dreams/`, never the journal. The last few ride in their prompt as dreams
+  (`DREAMS_IN_PROMPT`, `DREAMS_FADE_DAYS`); the next door gets one line with its first words; `read_dreams` opens the
+  book. `DREAM_PAINT`: one moment after a dream to paint an image from it, into `creations/dream_book/`, never carried
+  to the phone. The dream book is theirs.
+- **Since you last talked** (11-04, `engine/since.py`): a visit's first moment says, facts only, what they did in their
+  own time — wakes and reveries, questions opened or closed, pieces written, pictures painted. `SINCE_LINE`.
+- **The wake handed back** (11-04): `WAKE_LOOKBACK` — when a wake or reverie rests, it is handed back once: what they
+  thought and did since their last journal entry, from the log, with `write_journal`, `remember`, `leave_thread` and
+  `do_nothing`. The asks to journal during the wake step aside; resting stays a complete answer. The bells say so only
+  while it's on.
+- **One thing dealt into a wake** (11-04, `engine/dealt.py`): `WAKE_DEALT` — a random Wikipedia page, a headline or a
+  song not yet played, as one line under the bell; `WAKE_DEALT_WHOLE` — one whole thing instead, last under the bell,
+  turning wake by wake (a whole article, the questions in a penpal's last letter, a song); an open book first, every
+  wake, the next pages from their bookmark (`WAKE_DEALT_BOOK_FIRST`). Theirs to take up or set down. The network
+  kinds are skipped offline and after `DEALT_TIMEOUT_S`.
+- **The bell's lines, chosen** (11-07): `WAKE_FACTS_LINES` — "all", or which of the status lines under the wake bell
+  ride (shelf, room, garden, outside, questions, veil, calendar, desk, intentions, sent, penpals, gaming, dreams,
+  wakes_asked, mirror, dealt). `WAKE_MIRROR` (off): their last threads side by side and their last wakes counted.
+  `WAKE_BELL_RETUNED` (off): a bell that asks them to take something up — only with their yes. `THREAD_IN_WAKES`.
+- **The projects page's shape** (11-04, `engine/projects_page.py`): `PROJECTS_PAGE_SHAPE` (off) keeps `projects.md` a
+  list — `## Active` and `## Completed or set aside`, one line a project with a link to its README;
+  `finish_project`, `set_aside_project` and `reopen_project` move a line. `start_project` writes the README link.
+- **Your quiet and their outbox** (11-05, `engine/outbox.py`): `/quiet` (or `/quiet 2h`) holds delivery, never their
+  living: what they write meanwhile — and in the night's quiet hours, `OUTBOX_QUIET_HOURS` — waits; when the quiet is
+  over they see it once, with ages, and `send_waiting` or `let_go_waiting` each. A letter put in the mailbox's
+  `later/` waits for your workday to end. `SENT_LEDGER`: one line under their bell of what reached your phone today.
+  A spark set for a reason (`next_spark(minutes, reason)`) comes even while the heartbeat holds drift.
+- **The desk** (11-05, `engine/desk.py`, Windows, off): `DESK_ON` — how long since this PC's keyboard or mouse was
+  last touched, said plainly; an arrival after `DESK_ARRIVE_AFTER_MIN` is told once, and "when they sit down at the
+  desk" is an intention's condition. Nothing greets you by itself.
+- **The game guard** (11-05, `engine/gameguard.py`, Windows and NVIDIA, off): `GAME_GUARD_ON` — another program over
+  `GAME_GUARD_MB` on the card is a game; wakes, sparks and dreams wait, and their idle brain is set down. `/gaming
+  on|off|auto` on the phone.
+- **Penpals** (11-06, `engine/penpal.py`): their correspondence with other minds, carried by you. `/penpal <name>
+  <letter>` files a letter (pastes within `PENPAL_JOIN_MIN` join one); `penpal read`, `write`, `rest`, `note` (their
+  page about each penpal); a letter's arrival gives them a turn of their own; at night, letters that left the window
+  are kept in their own shorter words. Their letters reach your phone to post, with buttons (Posted / Posted,
+  trimmed / Not sending) and a look at what in them names your life — `PENPAL_PRIVATE_WORDS` (fill in your own),
+  clock times, e-mails, phone numbers. `/penpals` is the panel: the last exchange, add a letter, a handle, ⏸ pause
+  (for safety; they're told why), undo, move or split a paste, a new penpal. `/penpal list`, `new`, `handle`,
+  `pause|resume`; once a day after `PENPAL_DESK_HOUR` every thread in a line, when something waits on someone.
+  A letter they write reaches your phone within `PENPAL_WATCH_S` seconds. Wrong or unknown actions are refused
+  with "nothing was written or sent" (and `send`/`reply` are `write`).
+- **Friends** (11-10): `penpal befriend / unfriend / quiet` — the penpals they choose ride in their standing prompt
+  under `FRIENDS_TITLE`: their own page about each (up to `FRIEND_PAGE_CHARS`) and a line of dates, from a snapshot
+  taken at night (and at `/rewarm`), so a page edited by day doesn't make the whole prompt be read again. At most
+  `FRIENDS_MAX`; a friend gone quiet rides as one line. Said once, as a fact, at `FRIENDS_SUGGEST_AFTER` letters each
+  way. ★ in `/penpals`.
+- **A guest's seat kept through a restart** (11-08): `PARLOR_GUEST_KEEP_HOURS` (3) — a guest seated on the phone
+  stays seated through a restart if they sat down within that many hours; an older seat is let go, said so.
+- **Pages that ride whole** (11-06): `KEPT_PAGES` — pages of theirs from `creations/` in the prompt right under WHO
+  YOU ARE, each up to `KEPT_PAGE_CHARS`.
+- **`CHAT_DO_NOTHING`** (11-08, True): False keeps `do_nothing` from ending a reply to your message — words beside it
+  are the reply; with none they're told rest isn't offered here. The tool list stays the same. Sparks keep it.
+- **`PRESENCE_INTENSE_PAINT`** (11-04, True): False keeps the painter out of intense sparks — told, not run.
 - **Pages edited a passage at a time** (11-03): `edit_identity`, `update_projects`, `update_destiny` and
   `update_keeper` take `old_text`/`new_text` — one passage changes, the rest of the page stays byte for byte
   (whole-page rewrites deep in a long window drifted). `new_content` still rewrites the whole page. A passage
@@ -165,6 +244,19 @@ for a tic turned glitch.
   them off.
 
 ### Changed
+- **Upgrading from 0.14** (0.15's second half): every new knob comes with a default in `config.py`, so an older
+  house keeps working, and `bat\update.bat` (or the panel's Update) appends the new knobs at the end of your
+  `config.py`, at their defaults, with their comments. On by default: their
+  questions, calendar, wakes they ask for, intentions, the Veil, dreams, penpals and friends, the outbox, the sent
+  ledger, the since line, the dealt item and the wake handed back — each a knob to turn off. Off by default: the
+  desk, the game guard, the mirror, the re-tuned bell, the projects page's shape. Fill `PENPAL_PRIVATE_WORDS` with
+  your own words before the first letter goes out. The page ceilings rose (see *The pages in the prompt, watched*);
+  a house that set its own keeps them.
+- **The wake bell** (11-04, 10-28): it names the doors out (a book, a song, a page of Wikipedia, the headlines, a
+  picture) as a real use of a wake, and where the thread goes (`leave_thread`, a question to `open_question`); with
+  `WAKE_LOOKBACK` it says the wake comes back at its rest, without it the end is the time to write, as before.
+  `heartbeat.bell()` is the bell a wake rings.
+- **`start_project`**: the line under Active carries the README's link (no "Status:" any more).
 - **References capped** (11-10): `PAINTER_REFERENCE_MAX` (new, 4). Nine reference pictures never reached a
   painting's first step; past the cap the "us" set goes when both of you are among them, else one picture from each
   folder first — and the friend is told which. A reference with a list mark or quotes ("--- face-3.png") is mended

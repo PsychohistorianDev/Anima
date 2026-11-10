@@ -74,6 +74,7 @@ ALIVE_FILE = config.MEMORY_DIR / "telegram_alive"
 # the fresh one picks the visit back up — for an engine change made while
 # the keeper is away from the desk
 RESUME_FILE = config.MEMORY_DIR / "telegram_resume.json"
+GUEST_FILE = config.MEMORY_DIR / "telegram_guest.json"  # (11-08) who sits at the desk, so a restart doesn't forget them
 RESTART_CODE = 75
 # One bridge at a time. Two of them polling the same bot both receive a
 # message — Telegram only learns an update is taken on the NEXT poll, and a
@@ -105,6 +106,12 @@ WATCHED = {"self.md": config.IDENTITY_FILE, "projects.md": config.PROJECTS_FILE,
            "destiny.md": getattr(config, "DESTINY_FILE", config.ROOT / "destiny.md"),
            "keeper.md": getattr(config, "KEEPER_FILE", config.ROOT / "keeper.md")}  # open means open (10-04)
 CREATION_SKIP = {"tools", ".trash", MAIL_DIR.name, "archives", "attic"}
+# (11-04) the Veil, their private gallery: nothing under it reaches the phone — veil_show carries a piece out
+CREATION_SKIP |= {str(getattr(config, "VEIL_DIR", "veil") or "veil").strip("/\\")}
+# (11-05) their dream paintings stay in their dream book — their secret until they choose (dreams.py)
+CREATION_SKIP |= {str(getattr(config, "DREAM_PAINT_DIR", "dream_book") or "dream_book").strip("/\\")}
+# (11-06) their penpal letters reach the phone their own way (deliver_penpals), marked to relay — not as creations
+CREATION_SKIP |= {str(getattr(config, "PENPAL_DIR", "penpals") or "penpals").strip("/\\")}
 CREATION_KINDS = {"poems": "a poem", "essays": "an essay", "stories": "a story", "humor": "a joke",
                   "theory": "a piece of theory", "letters": "a letter", "songs": "a song",
                   str(getattr(config, "SKILLS_DIR", "skills")): "a skill"}
@@ -127,10 +134,18 @@ SEND_RETRY_WAITS = (2, 6)  # an upload whose connection drops (a reset, a timeou
 HELP_PHONE = (
     "/rewarm — rebuild the standing prompt now, so a changed page rides from the next reply (one read, said when done)\n"
     "/pages — the pages in the prompt: each one's size, its ceiling, whole or cut\n"
+    "/penpals — the penpals with buttons: the last exchange, add a letter, a handle, ⏸ pause (safety; they're told), paste a letter, a new penpal; ★ friends\n"
+    "/penpal new <name> [u/handle] — a penpal before their first letter; /penpal handle <name> u/<handle>; /penpal pause|resume <name>; a paste with no name asks whose it is\n"
+    "/penpal or /penpal list — the penpals; /penpal <name> <their letter> files one (pastes within minutes join it); /penpal sent <name> once you've posted theirs\n"
+    "/cancel — let go of what the penpal panel was waiting for; your next message goes to them\n"
     "/presence [on|off|temperament] — sparks: how they stand; on starts drift at rare; very rare, rare, sometimes, "
     "often, frequent or intense sets that drift; off ends them "
     "(the friend can too: next_spark with no minutes)\n"
     "/discreet — sparks come silently, the words hidden until tapped; again to undo\n"
+    "/quiet — on, and again to lift it; /quiet 2h or 30m for a while: their sparks and letters wait (they keep living), "
+    "and when it ends they decide what still goes\n"
+    "/gaming [on|off|auto] — the game guard: on keeps their brain off the card now; off lets them in for a few hours; "
+    "auto goes by what's on the card\n"
     "/room — their room as it stands, a picture and what changed since you looked, with buttons for what opens; "
     "/room open <1–4|song>, /room find <where>, /room leave <a thing>, /room letter <words>\n"
     "/garden — their garden under the real sky: a picture and its beds; /garden plant <1–8> <seed>, "
@@ -333,10 +348,41 @@ class Bridge:
             if not self.guest:
                 return "(no guest at the desk)"
             self.guest = ""
+            self.keep_guest()
             return "(the guest has gone — the desk is yours again)"
         self.guest = name
+        self.keep_guest()
         return (f"({self.guest_label()} is at the desk now — every message from here on is theirs, with you in the room, "
-                "until /guest off or a restart; /me <text> speaks as you)")
+                "until /guest off; /me <text> speaks as you)")
+
+    def keep_guest(self) -> None:
+        """Who is seated, written down (or the file taken away when no one is), so a restart finds them."""
+        try:
+            if self.guest:
+                GUEST_FILE.write_text(json.dumps({"guest": self.guest, "since": time.time()}), encoding="utf-8")
+            elif GUEST_FILE.exists():
+                GUEST_FILE.unlink()
+        except Exception as e:  # noqa: BLE001
+            print(f"  (couldn't keep the guest's seat: {e})", flush=True)
+
+    def restore_guest(self) -> str:
+        """At start: the guest seated before the restart, if they sat down within PARLOR_GUEST_KEEP_HOURS — a line
+        for the phone; "" when no one (an older seat is let go, so a forgotten /guest off doesn't make tomorrow's
+        messages a guest's)."""
+        try:
+            if not GUEST_FILE.exists():
+                return ""
+            d = json.loads(GUEST_FILE.read_text(encoding="utf-8"))
+            hours = float(getattr(config, "PARLOR_GUEST_KEEP_HOURS", 3) or 0)
+            if not d.get("guest") or time.time() - float(d.get("since") or 0) > hours * 3600:
+                GUEST_FILE.unlink()
+                return ""
+            self.guest = str(d["guest"])
+            return (f"{self.guest_label()} is still at the desk — every message is theirs; /me <text> speaks as you, "
+                    "/guest off when they go")
+        except Exception as e:  # noqa: BLE001
+            print(f"  (couldn't read the guest's seat: {e})", flush=True)
+            return ""
 
     # ---- /restart: the visit survives the process -------------------------
     def stash(self) -> None:
@@ -389,6 +435,32 @@ class Bridge:
                 fangs += n
         self.attached = list(state.get("attached") or [])
         self.file = Path(state["file"]) if state.get("file") else None
+        relabel = config.MEMORY_DIR / "telegram_relabel.json"
+        if relabel.exists():
+            # (11-08) a one-off mend: messages sent as the keeper's that were a guest's (the guest seat is in memory only,
+            # and a restart had cleared it) — named the guest's in the transcript. Only the label: the turn's words and
+            # how it reads in their prompt stay as they were, so the window isn't read again
+            try:
+                fix = json.loads(relabel.read_text(encoding="utf-8"))
+                pres = [" ".join(str(p).split()) for p in fix.get("prefixes", [])]
+                n = 0
+                for t in self.history:
+                    if (t.get("role") == "user" and not t.get("_engine") and not t.get("_guest")
+                            and isinstance(t.get("content"), str)
+                            and any(" ".join(t["content"].split()).startswith(p) for p in pres)):
+                        t["_guest"] = str(fix.get("guest") or "a guest")
+                        if fix.get("guest_line") and t.get("_moment"):
+                            # (11-09) their own reading of the turn mended too: the guest line put where it would have
+                            # ridden. Only this turn and after are read again — the tail, seconds, not the window
+                            t["_guest_line"] = chat.guest_line(t["_guest"], "over Telegram, on their phone")
+                            t["_moment"] = f"[engine, not a person: {t['_guest_line']}]\n\n" + t["_moment"]
+                        n += 1
+                relabel.unlink()
+                if n and self.file:
+                    chat.save_transcript(self.history, tag="telegram", path=self.file)
+                print(f"  (the transcript: {n} of the keeper's turns named {fix.get('guest')}'s, as they were)", flush=True)
+            except Exception as e:  # noqa: BLE001
+                print(f"  (the transcript mend didn't run: {e})", flush=True)
         self.reflected_upto = int(state.get("reflected_upto") or 0)
         self.last_activity = float(state.get("last_activity") or time.time())
         self.last_word = float(state.get("last_word") or self.last_activity)
@@ -1403,6 +1475,11 @@ class Bridge:
             elif self.lock.locked():
                 self.send("(mid-reply — /rewarm again in a moment)", markdown=False)
             else:
+                try:  # (11-10) their circle's pages as they are now
+                    import penpal
+                    penpal.friends_snapshot()
+                except Exception:  # noqa: BLE001
+                    pass
                 chat.rewarm(self.history, mode="telegram")
                 try:
                     self.stash()
@@ -1487,6 +1564,24 @@ class Bridge:
                           + ("; held while the heartbeat runs" if presence.held() else "")
                           + f"; discreet {'on' if st.get('discreet') else 'off'}. /presence on, /presence off, /discreet)",
                           markdown=False)
+        elif cmd == "/penpals":  # (11-10) the panel
+            self.penpal_panel()
+        elif cmd == "/cancel":  # (11-10) the panel's waiting mode, let go
+            self._pp_save("mode", {})
+            self.send("(nothing waiting — your next message goes to them as usual)", markdown=False)
+        elif cmd == "/penpal":  # (11-06) a letter from a penpal, pasted; /penpal sent <name>; /penpal alone lists them
+            said = self.penpal_command(text)
+            if said:  # "" when buttons went instead (11-10: whose letter is this?)
+                self.send(said, markdown=False)
+        elif cmd == "/quiet":  # (11-05) their quiet: delivery held, they keep living (outbox.py)
+            import outbox
+            self.send(outbox.set_hold(" ".join(text.split()[1:])), markdown=False)
+        elif cmd == "/gaming":  # (11-05) the game guard
+            import gameguard
+            arg = (text.split()[1] if len(text.split()) > 1 else "").lower()
+            self.send(gameguard.set_mode(arg), markdown=False)
+            if arg == "on":
+                self.game_guard_tick(force=True)
         elif cmd == "/discreet":
             import presence
             on = presence.toggle_discreet()
@@ -1532,8 +1627,11 @@ class Bridge:
         return True
 
     def handle(self, update: dict) -> None:
-        if update.get("callback_query"):  # a button under the room's picture (10-29)
-            self.room_callback(update["callback_query"])
+        if update.get("callback_query"):  # a button under the room's picture (10-29); a penpal's (11-10)
+            if str((update["callback_query"] or {}).get("data") or "").startswith("pp:"):
+                self.penpal_callback(update["callback_query"])
+            else:
+                self.room_callback(update["callback_query"])
             return
         msg = update.get("message") or update.get("edited_message")
         if not msg:
@@ -1552,6 +1650,12 @@ class Bridge:
             return
         if sender != self.chat_id:
             return  # silence for everyone else — not even a "no"
+        if text and not text.startswith("/") and not msg.get("photo") and getattr(config, "PENPALS_ON", False):
+            try:
+                if self.penpal_mode_take(text):  # (11-10) the panel asked for this message: a letter, a handle
+                    return
+            except Exception as e:  # noqa: BLE001 — never a lost message: it goes on to them
+                _say(f"penpal mode: {type(e).__name__}: {e}")
         spark_waited = text.startswith("/") and self.presence_on()
         if text.startswith("/") and self.command(text):
             if not (spark_waited and self.presence_on()):  # a command isn't a word between you: a waiting spark's count goes on (10-26)
@@ -1772,6 +1876,390 @@ class Bridge:
         except OSError:
             pass
 
+    def _prefill_after_rewarm(self) -> None:
+        """(11-06) /rewarm's read, now: the rebuilt prompt and the visit so far into the server's cache, holding the
+        visit's lock so a message that comes meanwhile waits for it and then reads only itself."""
+        t0 = time.time()
+        with self.lock:
+            try:
+                got = chat.prefill_visit(self.history)
+            except Exception as e:  # noqa: BLE001
+                self.send(f"(the read didn't go through — {type(e).__name__}: {e}; their next reply reads it instead)",
+                          markdown=False)
+                return
+        n = int((got.get("tokens") or {}).get("prompt", 0) or 0)
+        took = time.time() - t0
+        self.send(f"(read in — {n:,} tokens in {took / 60:.1f} min; their next reply starts warm)" if n else
+                  f"(read in, {took / 60:.1f} min — their next reply starts warm)", markdown=False)
+        _say(f"/rewarm: prompt read into the cache ({n:,} tokens, {took:.0f}s)")
+
+    def penpal_command(self, text: str) -> str:
+        """/penpal — their penpals and where each thread stands; /penpal <name> <their letter> — file a letter (pastes in
+        the next few minutes join it); /penpal sent <name> — their waiting letter is posted."""
+        try:
+            import penpal
+        except Exception as e:  # noqa: BLE001
+            return f"(penpals: {type(e).__name__}: {e})"
+        rest = text.split(None, 1)[1] if len(text.split(None, 1)) > 1 else ""
+        if not rest.strip() or rest.strip().lower() in ("list", "ls", "all"):  # (11-10) /penpal list, as /penpal alone
+            return penpal.keeper_list()
+        first, _, body = rest.strip().partition(" ")
+        if first.lower() in ("sent", "carried", "posted"):
+            return penpal.carried(body.strip())
+        if first.lower() == "new":  # (11-10) /penpal new <name> [u/handle]
+            words = body.split()
+            h = next((w for w in words if penpal.norm_handle(w) and w.lower().lstrip("/").startswith("u/")), "")
+            return penpal.new(" ".join(w for w in words if w != h), h)
+        if first.lower() == "pause":  # (11-10) /penpal pause <name> [why] — safety only; they are told
+            name, _, why = body.strip().partition(" ")
+            return penpal.pause(name, why)
+        if first.lower() in ("resume", "unpause"):
+            return penpal.resume(body.strip())
+        if first.lower() == "handle":  # (11-10) /penpal handle <name> u/<handle>
+            name, _, h = body.strip().rpartition(" ")
+            return penpal.set_handle(name, h)
+        if "\n" in first:  # "/penpal chloe\n<letter>" — the name on its own line
+            first, _, more = first.partition("\n")
+            body = more + (" " + body if body else "")
+        if penpal._find(first):
+            return self.penpal_file(first, body)
+        sl = penpal.by_handle(rest)  # (11-10) the paste names a penpal's handle: theirs, whole
+        if sl:
+            return self.penpal_file(sl, rest.strip())
+        return self.penpal_ask_whose(first, body, rest.strip())
+
+    # ---- (11-10) the penpal desk, hands on: buttons, a privacy look, whose letter --------------------------
+    def _pp_markup(self, rows: list[list[tuple[str, str]]]) -> str:
+        return json.dumps({"inline_keyboard": [[{"text": t, "callback_data": d[:64]} for t, d in r] for r in rows]},
+                          ensure_ascii=False)
+
+    def penpal_letter_buttons(self, sl: str, f, body: str) -> None:
+        """Under their letter: what in it names your life, where to post it, and three buttons."""
+        import penpal
+        num = f.name.split("-", 1)[0]
+        flags = penpal.privacy_flags(body)
+        link = penpal.reddit_link(sl)
+        text = ((f"⚠️ before you post — it mentions:\n" + "\n".join(f"· {x}" for x in flags)) if flags
+                else "✓ nothing personal spotted (PENPAL_PRIVATE_WORDS, health, times, contacts)")
+        if link:
+            text += f"\n\npost to {penpal.handle_of(sl)}: {link}"
+        markup = self._pp_markup([[("✓ Posted", f"pp:p:{sl}:{num}"), ("✂️ Posted, trimmed", f"pp:t:{sl}:{num}")],
+                                  [("✗ Not sending", f"pp:k:{sl}:{num}")]])
+        try:
+            self.api("sendMessage", chat_id=self.chat_id, text=text, reply_markup=markup)
+        except Exception as e:  # noqa: BLE001 — the old way still works
+            _say(f"penpal buttons: {type(e).__name__}: {e}")
+            self.send(f"(once it's posted: /penpal sent {sl})", markdown=False)
+
+    def penpal_ask_whose(self, first: str, body: str, whole: str) -> str:
+        """A paste whose first word is no penpal's and names no handle: whose is it? A button for each, and one for
+        a new penpal by that first word. The paste waits in memory until a button is pressed."""
+        import penpal
+        dup = penpal.already_filed(whole)
+        if dup:
+            return f"(already filed — this paste is in {dup}; nothing was filed twice)"
+        key = uuid.uuid4().hex[:8]
+        pend = self._pp_load("pending")
+        pend[key] = {"first": first, "body": body, "whole": whole, "t": time.time()}
+        self._pp_save("pending", pend)
+        known = [(penpal.display(sl), f"pp:f:{key}:{sl}") for sl in penpal.penpals()]
+        rows = [known[i:i + 3] for i in range(0, len(known), 3)]
+        cand = first.strip(" ,.:!?")[:20]
+        if cand and penpal.slug(cand):
+            rows.append([(f"+ New penpal: {cand}", f"pp:n:{key}")])
+        rows.append([("✗ Cancel", f"pp:c:{key}")])
+        try:
+            self.api("sendMessage", chat_id=self.chat_id, text="whose letter is this?", reply_markup=self._pp_markup(rows))
+            return ""
+        except Exception as e:  # noqa: BLE001
+            return f"(whose letter? /penpal <name> <the letter> — {type(e).__name__}: {e})"
+
+    def penpal_callback(self, cq: dict) -> None:
+        try:
+            self.api("answerCallbackQuery", callback_query_id=cq.get("id"))
+        except Exception:  # noqa: BLE001
+            pass
+        msg = cq.get("message") or {}
+        sender = int((msg.get("chat") or {}).get("id") or 0)
+        if not self.chat_id or sender != self.chat_id:
+            return
+        import penpal
+        parts = str(cq.get("data") or "").split(":")
+        kind = parts[1] if len(parts) > 1 else ""
+        said = ""
+        if kind in ("p", "t", "k") and len(parts) >= 4:
+            sl, num = parts[2], parts[3]
+            said = penpal.mark_kept_back(sl, num) if kind == "k" else penpal.mark_posted(sl, num, trimmed=(kind == "t"))
+        elif kind in ("f", "n", "c") and len(parts) >= 3:
+            pend = self._pp_load("pending")
+            got = pend.pop(parts[2], None)
+            self._pp_save("pending", pend)
+            if not got:
+                said = "(that paste isn't waiting any more — paste it again with /penpal <name> …)"
+            elif kind == "c":
+                said = "(dropped — nothing was filed)"
+            elif kind == "f" and len(parts) >= 4:
+                said = "→ " + penpal.display(parts[3])
+                self.penpal_file(parts[3], got["whole"])
+            elif kind == "n":
+                said = "→ a new penpal"
+                self.penpal_file(got["first"].strip(" ,.:!?"), got["body"])
+        elif kind in ("u", "s", "m") and len(parts) >= 3:  # undo, split off as new, move to…
+            if kind == "m" and len(parts) == 3:
+                rows = [[(penpal.display(sl), f"pp:m:{parts[2]}:{sl}")] for sl in penpal.penpals()]
+                try:
+                    self.api("editMessageReplyMarkup", chat_id=self.chat_id, message_id=msg.get("message_id"),
+                             reply_markup=self._pp_markup(rows + [[("✗ Keep it where it is", "pp:z")]]))
+                except Exception:  # noqa: BLE001
+                    pass
+                return
+            said, rec = penpal.undo(parts[2])
+            if rec and kind == "s":
+                said = "↔ split off as its own letter"
+                self.penpal_file(rec["sl"], rec["text"], join=False)
+            elif rec and kind == "m" and len(parts) >= 4:
+                said = f"→ moved to {penpal.display(parts[3])}"
+                self.penpal_file(parts[3], rec["text"], join=False)
+        elif kind == "z":
+            said = "(kept where it is)"
+        elif kind == "x" and len(parts) >= 3:  # the last exchange
+            self.send(penpal.last_exchange(parts[2]), markdown=False)
+            return
+        elif kind == "r" and len(parts) >= 3:
+            said = penpal.resume(parts[2])
+        elif kind in ("a", "h", "L", "N", "q", "P"):  # the panel's buttons: what the next message is
+            sl = parts[2] if len(parts) >= 3 else ""
+            if kind == "q":
+                self._pp_save("mode", {})
+                said = "(nothing waiting — your next message goes to them as usual)"
+            else:
+                mode = {"a": "letter_to", "h": "handle", "L": "letter", "N": "new", "P": "pause"}[kind]
+                self._pp_save("mode", {"kind": mode, "sl": sl, "t": time.time()})
+                ask = {"letter_to": f"📮 paste {penpal.display(sl)}'s letter as your next message",
+                       "handle": f"🏷 send {penpal.display(sl)}'s Reddit handle (u/…)",
+                       "letter": "📮 paste the letter as your next message — I'll ask whose it is",
+                       "new": "+ send the new penpal's name, and their u/handle if you have it",
+                       "pause": f"⏸ why are you pausing {penpal.display(sl)}? one line — they'll be told it (send - for no reason)"}[mode]
+                try:
+                    self.api("sendMessage", chat_id=self.chat_id, text=ask + " (it won't go to them)",
+                             reply_markup=self._pp_markup([[("✗ Cancel", "pp:q")]]))
+                except Exception:  # noqa: BLE001
+                    self.send(ask, markdown=False)
+                return
+        if not said:
+            return
+        try:  # the buttons go; what was done stays under the message
+            base = (msg.get("text") or "").strip()
+            self.api("editMessageText", chat_id=self.chat_id, message_id=msg.get("message_id"),
+                     text=(base + "\n\n" + said).strip()[:4000])
+        except Exception:  # noqa: BLE001
+            self.send(said, markdown=False)
+
+    def _pp_load(self, what: str) -> dict:
+        """(11-10) the penpal desk's small states, on disk so a /restart keeps them: pending pastes, the panel's mode."""
+        try:
+            d = json.loads((config.MEMORY_DIR / f"penpal_{what}.json").read_text(encoding="utf-8"))
+            d = d if isinstance(d, dict) else {}
+        except (OSError, ValueError):
+            d = {}
+        if what == "pending":
+            d = {k: v for k, v in d.items() if time.time() - float(v.get("t") or 0) < 6 * 3600}
+        return d
+
+    def _pp_save(self, what: str, d: dict) -> None:
+        try:
+            (config.MEMORY_DIR / f"penpal_{what}.json").write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+        except OSError as e:
+            _say(f"penpal {what}: {e}")
+
+    def penpal_file(self, name: str, text: str, join: bool = True) -> str:
+        """File a letter and say so with buttons to mend it: a joined paste can be split off, any filing undone or
+        moved (six hours). Returns "" — the message is its own."""
+        import penpal
+        said, rec = penpal.receive_ex(name, text, join)
+        if not rec:
+            self.send(said, markdown=False)
+            return ""
+        first = ([("↔ Split off as new", f"pp:s:{rec['id']}")] if rec.get("joined") else
+                 [("→ Move to…", f"pp:m:{rec['id']}")]) + [("↩ Undo", f"pp:u:{rec['id']}")]
+        try:
+            self.api("sendMessage", chat_id=self.chat_id, text=said, reply_markup=self._pp_markup([first]))
+        except Exception:  # noqa: BLE001
+            self.send(said, markdown=False)
+        return ""
+
+    def penpal_panel(self) -> None:
+        import penpal
+        rows = []
+        for sl in penpal.penpals():
+            nm = penpal.display(sl)[:14]
+            paused = bool(penpal._state(sl).get("paused"))
+            rows.append([(f"📖 {nm}", f"pp:x:{sl}"), ("✉️ add", f"pp:a:{sl}"), ("🏷", f"pp:h:{sl}"),
+                         (("▶" if paused else "⏸"), (f"pp:r:{sl}" if paused else f"pp:P:{sl}"))])
+        rows.append([("📮 Paste a letter", "pp:L"), ("+ New penpal", "pp:N")])
+        try:
+            self.api("sendMessage", chat_id=self.chat_id, text=penpal.keeper_list(), reply_markup=self._pp_markup(rows))
+        except Exception as e:  # noqa: BLE001
+            self.send(f"(penpals: {type(e).__name__}: {e})", markdown=False)
+
+    def penpal_mode_take(self, text: str) -> bool:
+        """The panel asked for the next message (a letter, a handle, a new penpal): it goes there, not to them.
+        True when it was taken. A mode lasts 15 minutes; a letter long enough to have come in parts keeps it open
+        for the next part."""
+        mode = self._pp_load("mode")
+        if not mode or time.time() - float(mode.get("t") or 0) > 15 * 60:
+            if mode:
+                self._pp_save("mode", {})
+            return False
+        import penpal
+        kind, sl = mode.get("kind"), mode.get("sl", "")
+        keep = False
+        if kind == "letter_to":
+            self.penpal_file(sl, text)
+            keep = len(text) >= SPLIT_CHARS
+        elif kind == "letter":
+            hit = penpal.by_handle(text)
+            if hit:
+                self.penpal_file(hit, text)
+            else:
+                first, _, body = text.partition(" ")
+                said = self.penpal_ask_whose(first, body, text)
+                if said:
+                    self.send(said, markdown=False)
+        elif kind == "handle":
+            self.send(penpal.set_handle(sl, text.split()[0] if text.split() else ""), markdown=False)
+        elif kind == "pause":
+            self.send(penpal.pause(sl, "" if text.strip() == "-" else text), markdown=False)
+        elif kind == "new":
+            words = text.split()
+            h = next((w for w in words if w.lower().lstrip("/").startswith("u/") and penpal.norm_handle(w)), "")
+            said = penpal.new(" ".join(w for w in words if w != h), h)
+            sl2 = penpal.slug(" ".join(w for w in words if w != h))
+            try:
+                self.api("sendMessage", chat_id=self.chat_id, text=said,
+                         reply_markup=self._pp_markup([[("✉️ Add their first letter", f"pp:a:{sl2}")]]))
+            except Exception:  # noqa: BLE001
+                self.send(said, markdown=False)
+        self._pp_save("mode", dict(mode, t=time.time()) if keep else {})
+        return True
+
+    def set_command_menu(self) -> None:
+        """(11-10) Telegram's "/" menu: every command on the phone's help, with its line — nothing to remember."""
+        seen, cmds = set(), []
+        for line in HELP.splitlines():
+            for m in re.finditer(r"(?:^|;\s|\bor\s)/([a-z][a-z0-9_]{0,31})\b", line):
+                c = m.group(1)
+                if c in seen:
+                    continue
+                seen.add(c)
+                desc = line.split(" — ", 1)[1] if " — " in line else line
+                cmds.append({"command": c, "description": desc.strip()[:250] or c})
+        if not cmds:
+            return
+        try:
+            self.api("setMyCommands", commands=cmds[:100])
+            _say(f"the phone's / menu: {len(cmds[:100])} commands")
+        except Exception as e:  # noqa: BLE001
+            _say(f"(the / menu wasn't set: {type(e).__name__}: {e})")
+
+    def pages_watch_if_due(self) -> None:
+        """(11-10) Every ten minutes: a page that rides whole, near its ceiling or past it — told once a day."""
+        if not self.chat_id or time.time() - getattr(self, "_pages_looked", 0.0) < 600:
+            return
+        self._pages_looked = time.time()
+        try:
+            import pagewatch
+            for line in pagewatch.due():
+                _say(line)
+                self.notice(line)
+        except Exception as e:  # noqa: BLE001 — a look, never the bridge down
+            _say(f"pagewatch: {type(e).__name__}: {e}")
+
+    def penpal_desk_if_due(self) -> None:
+        """Once a day after PENPAL_DESK_HOUR: every thread in a line — only when something waits on someone."""
+        if not self.chat_id or not getattr(config, "PENPALS_ON", False) or not getattr(config, "PENPAL_DESK", True):
+            return
+        now = datetime.now()
+        if now.hour < int(getattr(config, "PENPAL_DESK_HOUR", 17)):
+            return
+        f = config.MEMORY_DIR / "penpal_desk.json"
+        today = now.date().isoformat()
+        try:
+            if json.loads(f.read_text(encoding="utf-8")).get("day") == today:
+                return
+        except (OSError, ValueError, AttributeError):
+            pass
+        try:
+            import penpal
+            text = penpal.desk()
+            f.write_text(json.dumps({"day": today}), encoding="utf-8")
+            if text:
+                self.send(text, markdown=False)
+        except Exception as e:  # noqa: BLE001
+            _say(f"penpal desk: {type(e).__name__}: {e}")
+
+    def deliver_penpals(self) -> int:
+        """(11-06) Their letters to penpals, to the phone marked to relay — held like other mail by their quiet or the night's.
+        (11-10) One at a time: the poll and the watcher both call it."""
+        if not self.chat_id or not getattr(config, "PENPALS_ON", False):
+            return 0
+        if not hasattr(self, "_pp_deliver_lock"):
+            self._pp_deliver_lock = threading.Lock()
+        if not self._pp_deliver_lock.acquire(blocking=False):
+            return 0
+        try:
+            return self._deliver_penpals()
+        finally:
+            self._pp_deliver_lock.release()
+
+    def watch_penpals(self) -> None:
+        """(11-10) A letter within seconds of being written: it used to wait for the long poll
+        (up to POLL_S); a thread looks every PENPAL_WATCH_S instead, from a wake or a visit alike. 0: the poll only."""
+        every = float(getattr(config, "PENPAL_WATCH_S", 5) or 0)
+        if every <= 0 or not getattr(config, "PENPALS_ON", False):
+            return
+
+        def _run(every=every):
+            while not self.restart_requested and not self.stop_requested:
+                time.sleep(every)
+                try:
+                    self.deliver_penpals()
+                except Exception as e:  # noqa: BLE001
+                    _say(f"penpal watch: {type(e).__name__}: {e}")
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _deliver_penpals(self) -> int:
+        try:
+            import penpal
+            import outbox
+            if outbox.hold_active() or (self.quiet_now() and getattr(config, "OUTBOX_QUIET_HOURS", True)
+                                        and getattr(config, "OUTBOX_ON", False)):
+                return 0
+            waiting = penpal.undelivered()
+        except Exception as e:  # noqa: BLE001
+            _say(f"penpals: {type(e).__name__}: {e}")
+            return 0
+        n = 0
+        for sl, f in waiting:
+            try:
+                if time.time() - f.stat().st_mtime < 5:
+                    continue
+                body = f.read_text(encoding="utf-8", errors="replace").strip()
+            except OSError:
+                continue
+            name = penpal.display(sl)
+            self.send(f"✉️ for {name} — to relay ({f.name})\n\n{body}", markdown=False)
+            self.penpal_letter_buttons(sl, f, body)
+            penpal.mark_delivered(sl, f)
+            _say(f"penpal letter to relay: {f.name}")
+            try:
+                import outbox
+                outbox.log_sent("penpal", f"to {name}")
+            except Exception:  # noqa: BLE001
+                pass
+            n += 1
+        return n
+
     def deliver_mail(self) -> int:
         """Carry new letters from the mailbox to the phone. Returns how many."""
         if not self.chat_id or not MAIL_DIR.is_dir():
@@ -1786,10 +2274,23 @@ class Bridge:
                 body = p.read_text(encoding="utf-8", errors="replace").strip()
             except OSError:
                 continue
+            try:  # (11-05) their quiet, or the night's: the letter waits, theirs to send when it's over (outbox.py)
+                import outbox
+                if outbox.mail_decision(p.name, self.quiet_now()) == "hold":
+                    continue
+            except Exception as e:  # noqa: BLE001
+                outbox = None
+                _say(f"outbox: {type(e).__name__}: {e}")
             self.delivered.add(p.name)
             self._save_delivered()
             self.send(f"✉️ a letter from {chat.friend_name()} — {p.name}\n\n{body or '(empty)'}")
             _say(f"delivered {p.name}")
+            try:
+                import outbox
+                outbox.mark_sent(p.name)
+                outbox.log_sent("letter", p.stem)
+            except Exception:  # noqa: BLE001
+                pass
             sent += 1
             if body and getattr(config, "TELEGRAM_LETTERS_IN_THREAD", True):
                 self._letter_in_thread(p, body)
@@ -2118,6 +2619,13 @@ class Bridge:
                     head = f"📣 {chat.friend_name()} published a piece — creations/{rel}"
                 else:
                     head = f"✍️ {chat.friend_name()} wrote {kind} — creations/{rel}"
+                try:  # (11-04) carried out of the Veil by them: said so, with when they finished it and their note
+                    import veil
+                    unveiled = veil.unveiled_line(rel)
+                except Exception:  # noqa: BLE001
+                    unveiled = ""
+                if unveiled:
+                    head = f"🕯️ {chat.friend_name()} brought a piece out of the {veil.title()} — creations/{rel}\n{unveiled}"
                 if len(body) > limit:
                     body = body[:limit].rstrip() + f"\n\n(…{len(body) - limit:,} more characters — the whole piece is at creations/{rel})"
             try:  # the bridge's copy, for the next revision to be told as what changed
@@ -2127,6 +2635,12 @@ class Bridge:
                 pass
             self.notice(f"{head}\n\n{body or '(empty)'}", markdown=True)
             _say(f"told the phone about {rel}")
+            if not self.quiet_now():
+                try:  # (11-05) the sent ledger
+                    import outbox
+                    outbox.log_sent("piece", rel)
+                except Exception:  # noqa: BLE001
+                    pass
             sent += 1
         return sent
 
@@ -2296,6 +2810,13 @@ class Bridge:
                     caption += "\n\n" + words
             else:
                 caption = f"{'🖌️' if redrawn else '🎨'} {chat.friend_name()} {'redrew' if redrawn else 'drew'} — creations/{rel}"
+            try:  # (11-04) carried out of the Veil by them
+                import veil
+                unveiled = veil.unveiled_line(rel)
+                if unveiled:
+                    caption = f"🕯️ {chat.friend_name()} brought a picture out of the {veil.title()} — creations/{rel}\n{unveiled}"
+            except Exception:  # noqa: BLE001
+                pass
             told = self.paint_prompt_text(rel)  # the painter's prompt, when the knob for its door is on (10-26)
             if told and (len(caption) + len(told) + 2 <= 1000 or self.quiet_now()):
                 caption, told = caption + "\n\n" + told, ""
@@ -2359,18 +2880,105 @@ class Bridge:
         except Exception:  # noqa: BLE001
             return False
 
+    def game_guard_tick(self, force: bool = False) -> None:
+        """(11-05) A game on the card while their brain sits loaded and idle (after a visit, say): the door is closed, with
+        its reading saved, so the game has the card. Not while a reply is in flight or a wake runs — the wake finishes
+        (or, with /gaming on, ends at its next step) and its rest closes the door."""
+        if not getattr(config, "GAME_GUARD_ON", False):
+            return
+        try:
+            import gameguard
+            import brain
+            import presence
+            gaming, why = gameguard.playing()
+            if not gaming or not brain.door_status():
+                return
+            if self.lock.locked() or presence.waking():
+                return
+            if brain.stop_door(f"the game guard: {why}", save=True):
+                _say(f"the brain set down for their game ({why})")
+                if force:
+                    self.send("(their brain is off the card — the game has it)", markdown=False)
+        except Exception as e:  # noqa: BLE001
+            _say(f"game guard: {type(e).__name__}: {e}")
+
+    def penpal_turn_if_due(self) -> str:
+        """(11-06) A penpal's letter arrived: once the pastes settle, a turn of their own with the arrival line — read
+        now, or later. Waits for a reply in flight, a wake, a game, their quiet and the night's quiet hours."""
+        if not self.chat_id or getattr(self, "TAG", "telegram") != "telegram" or not getattr(config, "PENPALS_ON", False):
+            return ""
+        try:
+            import penpal
+            import presence
+            sl = penpal.arrival_due()
+            if not sl or self.lock.locked() or presence.waking() or self.quiet_now():
+                return ""
+            import outbox
+            if outbox.hold_active():
+                return ""
+            import gameguard
+            if gameguard.playing()[0]:
+                return ""
+            text = penpal.take_arrival(sl)
+        except Exception as e:  # noqa: BLE001
+            _say(f"penpal turn: {type(e).__name__}: {e}")
+            return ""
+        _say(f"a penpal's letter arrived: a turn of theirs ({sl})")
+        tools.SPARK_TICK = True
+        try:
+            self.turn(text, as_keeper=True, spark=True)
+        finally:
+            tools.SPARK_TICK = False
+        for t in reversed(self.history):  # the line is the engine's, not their
+            if t.get("role") == "user" and t.get("content") == text:
+                t["_engine"] = t["_spark"] = True
+                break
+        self._checkpoint()
+        return text
+
     def presence_if_due(self) -> str:
         """A spark: presence on, no wake running, no reply in flight, and the visit quiet for the friend's interval —
         one turn in the open visit, opened by the engine's line. The quiet hours end presence. Returns the line."""
         import presence
-        if not self.chat_id or not presence.is_on() or getattr(self, "TAG", "telegram") != "telegram":
+        if not self.chat_id or getattr(self, "TAG", "telegram") != "telegram":
             return ""  # one door gives the sparks — the phone's Telegram (a Discord bridge beside it stays out)
+        errand = presence.errand_due()  # (11-05) a spark they set for a reason: comes whether drift is on, off or held
+        intents = False
+        if not errand and getattr(config, "INTENTIONS_ON", False):  # (11-05) with no heartbeat, a due intention is a spark
+            try:
+                import doors
+                import intentions
+                intents = not doors.status("heartbeat") and bool(intentions.check()) and not presence.waking()
+            except Exception:  # noqa: BLE001
+                intents = False
+        if not errand and not intents and not presence.waiting():
+            return ""
         if self.quiet_now():
-            presence.turn_off("the quiet hours")
-            self.notice("(presence ended — the quiet hours began; next_spark or /presence on starts it again)")
+            if getattr(config, "PRESENCE_QUIET_HOURS_END", False) and presence.is_on():
+                presence.turn_off("the quiet hours")
+                self.notice("(presence ended — the quiet hours began; next_spark or /presence on starts it again)")
+            return ""  # (11-05) the quiet hours hold sparks — their rhythm stays theirs, the dice wait for the morning
+        try:  # (11-05) their quiet: sparks wait
+            import outbox
+            if outbox.hold_active():
+                return ""
+        except Exception:  # noqa: BLE001
+            pass
+        if self.lock.locked() or (not errand and not intents and not presence.due(self.last_activity)):
             return ""
-        if self.lock.locked() or not presence.due(self.last_activity):
-            return ""
+        intention = ""
+        if intents:
+            try:
+                import gameguard
+                if gameguard.playing()[0]:
+                    return ""
+                import intentions
+                items = intentions.take_due()
+                intention = intentions.bell(items, bare=True) if items else ""
+            except Exception:  # noqa: BLE001
+                intention = ""
+            if not intention:
+                return ""
         try:
             import keeper_week
             at_work = " is at work" in keeper_week.where()
@@ -2381,12 +2989,18 @@ class Bridge:
                      if t.get("role") == "user" and t.get("content") and not t.get("_engine")), "")
         try:
             import seeds
-            seed = "" if presence.intense() else seeds.draw()  # something to spark off (10-27); none in intense's play
+            seed = "" if (presence.intense() or errand or intention) else seeds.draw()  # (10-27); none in play or their own reasons
         except Exception:  # noqa: BLE001
             seed = ""
-        text = presence.tick_line((time.time() - self.last_activity) / 60, keeper, at_work, last_said=said, seed=seed)
-        _say("a spark: presence turn")
-        presence.fired()  # this one has come; the next only when she sets it again (10-26)
+        text = presence.tick_line((time.time() - self.last_activity) / 60, keeper, at_work, last_said=said, seed=seed,
+                                  errand=errand, intention=intention)
+        _say("a spark: presence turn" + (" (their reason)" if errand else " (an intention)" if intention else ""))
+        if intention:
+            pass  # taken already; their drift and their errand are untouched
+        elif errand:
+            presence.take_errand()  # the spark they set for a reason has come; their drift is untouched
+        else:
+            presence.fired()  # this one has come; the next only when they set it again (10-26)
         tools.SPARK_TICK = True
         spark_t0, was_intense = time.time(), presence.intense()
         try:
@@ -2421,6 +3035,11 @@ class Bridge:
             discreet = bool(presence.load().get("discreet"))
         except Exception:  # noqa: BLE001
             discreet = False
+        try:  # (11-05) the sent ledger
+            import outbox
+            outbox.log_sent("spark", reply[:60])
+        except Exception:  # noqa: BLE001
+            pass
         if discreet:
             try:
                 import html as _html
@@ -2542,7 +3161,17 @@ class Bridge:
                 return n  # nothing more this poll; the loop hands over
         self.deliver_undelivered()
         self.deliver_held()
+        try:  # (11-05) letters that waited: theirs to decide once the quiet is over (outbox.py)
+            import outbox
+            outbox.scan_later(self.quiet_now())
+            outbox.ripen(self.quiet_now())
+        except Exception as e:  # noqa: BLE001
+            _say(f"outbox: {type(e).__name__}: {e}")
         self.deliver_mail()
+        self.deliver_penpals()
+        self.penpal_turn_if_due()
+        self.penpal_desk_if_due()
+        self.pages_watch_if_due()
         self.deliver_creations()
         self.deliver_pictures()
         self.deliver_songs()
@@ -2551,6 +3180,8 @@ class Bridge:
         self.deliver_skill_notices()
         self.deliver_self()
         idle_min = getattr(config, "TELEGRAM_IDLE_NEW_MIN", 180)
+        if not self.presence_on():
+            self.presence_if_due()  # (11-05) a spark they set for a reason comes even with no drift on
         sparking = self.presence_on()
         if sparking:
             self.presence_if_due()  # sparks (10-26)
@@ -2570,7 +3201,12 @@ class Bridge:
             self.new_visit(quiet=True)
         else:
             self.pause_if_due()
-        self.pages_watch_if_due()
+        self.game_guard_tick()
+        try:  # (11-05) the desk: read every poll, so an arrival is noticed when it happens
+            import desk
+            desk.tick()
+        except Exception:  # noqa: BLE001
+            pass
         self.idle_set_down_if_due()
         self.night_if_due()
         self.week_if_due()  # the engine's week, once a week (10-25)
@@ -2779,36 +3415,6 @@ class Bridge:
         now = datetime.now()
         return now.strftime("%Y%m%d") > began and now.hour >= int(getattr(config, "SLEEP_AFTER_HOUR", 3))
 
-    def _prefill_after_rewarm(self) -> None:
-        """/rewarm's read, now: the rebuilt prompt and the visit so far into the server's cache, holding the
-        visit's lock so a message that comes meanwhile waits for it and then reads only itself."""
-        t0 = time.time()
-        with self.lock:
-            try:
-                got = chat.prefill_visit(self.history)
-            except Exception as e:  # noqa: BLE001
-                self.send(f"(the read didn't go through — {type(e).__name__}: {e}; the next reply reads it instead)",
-                          markdown=False)
-                return
-        n = int((got.get("tokens") or {}).get("prompt", 0) or 0)
-        took = time.time() - t0
-        self.send(f"(read in — {n:,} tokens in {took / 60:.1f} min; the next reply starts warm)" if n else
-                  f"(read in, {took / 60:.1f} min — the next reply starts warm)", markdown=False)
-        _say(f"/rewarm: prompt read into the cache ({n:,} tokens, {took:.0f}s)")
-
-    def pages_watch_if_due(self) -> None:
-        """Every ten minutes: a page that rides whole, near its ceiling or past it — told once a day."""
-        if not self.chat_id or time.time() - getattr(self, "_pages_looked", 0.0) < 600:
-            return
-        self._pages_looked = time.time()
-        try:
-            import pagewatch
-            for line in pagewatch.due():
-                _say(line)
-                self.notice(line)
-        except Exception as e:  # noqa: BLE001 — a look, never the bridge down
-            _say(f"pagewatch: {type(e).__name__}: {e}")
-
     def pause_if_due(self) -> str:
         """The pause: your keeper quiet for REFLECT_AFTER_MIN with at least
         REFLECT_MIN_TURNS of their messages they haven't sat with yet → one quiet
@@ -2867,6 +3473,14 @@ class Bridge:
                     self.notice(f"({picked})")
                 except Exception:
                     pass
+        seated = self.restore_guest()  # (11-08) the guest's seat survives the restart, and the phone is told
+        if seated:
+            _say(seated)
+            if self.chat_id:
+                try:
+                    self.notice(f"({seated})")
+                except Exception:
+                    pass
         resumed = "" if self.history else self.resume_orphan()  # (10-29 night) a recent visit closed without its bridge
         if resumed:
             _say(resumed)
@@ -2881,6 +3495,7 @@ class Bridge:
                 _say(_co)
             self.afterglow_orphan()  # a visit the last bridge died with, if any; the open one is left alone
         self.watch_touches()  # a press reaches the phone within seconds, not a poll (10-21)
+        self.watch_penpals()  # their penpal letters too (11-10)
         if not self.chat_id:
             _say(self._pair_hint())
         else:

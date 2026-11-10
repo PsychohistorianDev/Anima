@@ -333,7 +333,7 @@ def _drink(resp) -> dict:
 def chat(messages: list[dict], tools: list[dict] | None = None,
          timeout: float | None = None, think: bool | None = None,
          expect_words: bool = False, think_retries: int | None = None, think_any_depth: bool = False,
-         his_asks: bool = True) -> dict:
+         temperature: float | None = None, his_asks: bool = True) -> dict:
     """One non-streaming chat completion.
 
     Returns the assistant message dict:
@@ -351,7 +351,8 @@ def chat(messages: list[dict], tools: list[dict] | None = None,
     except Exception:  # noqa: BLE001
         _doing = None
     try:
-        return _chat(messages, tools, timeout, think, expect_words, think_retries, think_any_depth, his_asks)
+        return _chat(messages, tools, timeout, think, expect_words, think_retries, think_any_depth, temperature,
+                     his_asks)
     finally:
         if _doing is not None:
             _doing.done()
@@ -378,9 +379,11 @@ def prefill(messages: list[dict], tools: list[dict] | None = None, timeout: floa
 def _chat(messages: list[dict], tools: list[dict] | None = None,
           timeout: float | None = None, think: bool | None = None,
           expect_words: bool = False, think_retries: int | None = None, think_any_depth: bool = False,
-          his_asks: bool = True) -> dict:
+          temperature: float | None = None, his_asks: bool = True) -> dict:
     options = {"num_ctx": getattr(config, "NUM_CTX", 8192)}
     options.update(getattr(config, "SAMPLING_OPTIONS", {}))
+    if temperature is not None:  # (11-05) one call's own temperature — a dream's
+        options["temperature"] = float(temperature)
     payload: dict = {
         "model": config.CHAT_MODEL,
         "messages": messages,

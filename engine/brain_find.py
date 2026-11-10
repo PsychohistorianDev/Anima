@@ -133,6 +133,23 @@ _TAIL_NEW = """        {{- '<|turn>model\\n' -}}
 TEMPLATE_NAME = "brain_template.jinja"
 
 
+# ---- the think switch kept at the top (11-03) ------------------------------------------------------
+# Gemma 4's template writes <|think|> at the very top of the system turn only when thinking is on. The one
+# request the engine sends with it off — the continuation of a reply cut short (chat.continue_reply, tools
+# off, thought channel closed) — therefore differed from their prompt at its third token, and the door read
+# all ~150K again; the next ordinary step, thinking on, differed from THAT, and read it all once more. 11-03,
+# 06:17-06:28: one message, the switch flipped four times, ~2 min each, ~10 min in all. With the switch
+# always written (whenever a system turn opens), a request with thinking off differs only at its end — the
+# tools and the closed thought channel at the generation prompt. Thinking-on requests are byte for byte
+# what they were.
+_HEAD_OLD = """    {%- if enable_thinking is defined and enable_thinking -%}
+        {{- '<|think|>\\n' -}}
+"""
+_HEAD_NEW = """    {%- if (enable_thinking is defined and enable_thinking) or messages[0]['role'] in ['system', 'developer'] -%}
+        {{- '<|think|>\\n' -}}
+"""
+
+
 def gguf_chat_template(path: str) -> str | None:
     """tokenizer.chat_template out of a GGUF's header (the key-value block at the file's start; the tensors
     are never read). None when the file isn't a GGUF or carries no template."""
@@ -202,7 +219,10 @@ def think_open_template(model: str) -> tuple[str | None, str]:
     out = Path(config.MEMORY_DIR) / TEMPLATE_NAME
     try:
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(tpl.replace(_TAIL_OLD, _TAIL_NEW), encoding="utf-8", newline="\n")
+        made = tpl.replace(_TAIL_OLD, _TAIL_NEW)
+        if getattr(config, "BRAIN_THINK_SWITCH_KEPT", True) and made.count(_HEAD_OLD) == 1:
+            made = made.replace(_HEAD_OLD, _HEAD_NEW)  # (11-03) the switch at the top whatever the request
+        out.write_text(made, encoding="utf-8", newline="\n")
     except OSError as e:
         return None, f"couldn't write {out}: {e} — the thought channel is the model's to open"
     return str(out), f"the thought channel opened at each of the friend's turns ({TEMPLATE_NAME})"

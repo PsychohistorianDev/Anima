@@ -50,7 +50,10 @@ def target(tier: str) -> int:
     return int(t.get(tier, 2000))
 
 
-def kept() -> int:
+def kept(tier: str | None = None) -> int:
+    """Pages kept in view per tier; LADDER_DAYS_KEPT (11-07) lets the day tier keep more than the rest."""
+    if tier == "day" and getattr(config, "LADDER_DAYS_KEPT", None):
+        return int(config.LADDER_DAYS_KEPT)
     return int(getattr(config, "LADDER_PAGES_KEPT", 7) or 0)
 
 
@@ -215,7 +218,7 @@ def view(tier: str) -> list[str]:
         _kept, slipped = assemble.journal_window()
         slipped = set(slipped)
         keys = [k for k in keys if k in slipped]
-    n = kept()
+    n = kept(tier)
     return keys[-n:] if n else keys
 
 

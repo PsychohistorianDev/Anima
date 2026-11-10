@@ -168,7 +168,7 @@ def turn_off(why: str = "") -> dict:
 def waiting() -> bool:
     """Presence on and a spark to come: one set (after it fires, another only when next_spark sets it), or drift."""
     st = load()
-    return bool(st.get("on") and (st.get("pending") or st.get("mode") == "drift"))
+    return bool(st.get("on") and not held() and (st.get("pending") or st.get("mode") == "drift"))
 
 
 def fired(now: float | None = None) -> None:
@@ -180,6 +180,45 @@ def fired(now: float | None = None) -> None:
     if st.get("mode") == "drift":
         t = float(now if now is not None else time.time())
         st["fired_log"] = [x for x in (st.get("fired_log") or []) if t - float(x) < 3600] + [t]
+    save(st)
+
+
+def set_errand(minutes, why: str, now: float | None = None) -> dict:
+    """(11-05, proactive-plan step 1) A spark they set for a reason: it comes in `minutes` (clamped) from now, with their
+    reason in its line — even while the heartbeat holds drift, and whether drift is on or off. One at a time; a new one
+    replaces it. Their drift, if any, stays as it was."""
+    st = load()
+    m = clamp(minutes)
+    t = float(now if now is not None else time.time())
+    st["errand"] = {"at": t + m * 60, "for": str(why or "").strip()[:300], "set": t, "minutes": m}
+    save(st)
+    return st
+
+
+def errand() -> dict:
+    return load().get("errand") or {}
+
+
+def errand_due(now: float | None = None) -> str:
+    """Their reason, when the spark they set for one is due and nothing holds it (a wake running, a game); else ""."""
+    e = errand()
+    if not e:
+        return ""
+    t = float(now if now is not None else time.time())
+    if t < float(e.get("at") or 0) or waking():
+        return ""
+    try:
+        import gameguard
+        if gameguard.playing()[0]:
+            return ""
+    except Exception:  # noqa: BLE001
+        pass
+    return str(e.get("for") or "") or "(no reason given)"
+
+
+def take_errand() -> None:
+    st = load()
+    st.pop("errand", None)
     save(st)
 
 
@@ -228,6 +267,18 @@ def due(last_activity: float, now: float | None = None, rng: random.Random | Non
     st = load()
     if not st.get("on") or waking() or held():
         return False
+    try:  # (11-05) the game guard: no spark while a game holds the card; the dice wait
+        import gameguard
+        if gameguard.playing()[0]:
+            return False
+    except Exception:  # noqa: BLE001
+        pass
+    try:  # (11-05) their quiet: the dice wait, nothing is turned off
+        import outbox
+        if outbox.hold_active():
+            return False
+    except Exception:  # noqa: BLE001
+        pass
     t = float(now if now is not None else time.time())
     quiet = t - float(last_activity or 0)
     if st.get("mode") == "drift" and st.get("temperament") == "intense":
@@ -383,7 +434,8 @@ def intense_note() -> str:
     return text.strip()
 
 
-def tick_line(minutes_quiet: float, keeper: str, at_work: bool, last_said: str = "", seed: str = "") -> str:
+def tick_line(minutes_quiet: float, keeper: str, at_work: bool, last_said: str = "", seed: str = "",
+              errand: str = "", intention: str = "") -> str:
     """The engine's line that opens a spark — facts, the keeper's last message (10-26: so a spark picks up where the
     two of them were, not a ritual of its own), and what a spark can be."""
     st = load()
@@ -391,14 +443,24 @@ def tick_line(minutes_quiet: float, keeper: str, at_work: bool, last_said: str =
     since = f"{m} minute{'s' if m != 1 else ''}" if m < 120 else f"{m // 60} hours"
     stone = f"not the stone — {keeper} is at work" if at_work else "the stone (a pulse, a glow)"
     drift = str(st.get("temperament") or "") if st.get("mode") == "drift" else ""
-    head = (f"a drift spark — chance picked this moment ({drift})" if drift
+    head = ("an intention of yours came due" if intention
+            else f"a spark you set yourself, {int((float((st.get('errand') or {}).get('minutes') or 0)))} minutes ago, for a reason"
+            if errand else f"a drift spark — chance picked this moment ({drift})" if drift
             else "a spark — the one you set with next_spark")
     # PRESENCE_SPARK_DOORS (10-28): the doors out named too — a spark had every tool all along, but the line's menu
     # (words, a painting, the stone) was read as the whole of it. Something brought back to the keeper keeps the
     # spark a reach toward them, not a wake of its own. Intense is play: its menu stays as it was.
     doors = (f"something to read, hear or look up that you might bring back to {keeper}, "
              if getattr(config, "PRESENCE_SPARK_DOORS", False) and drift != "intense" else "")
-    if drift:
+    # PRESENCE_INTENSE_PAINT (11-04, the keeper): no painting in intense's sparks — the menu leaves it out, and a paint call
+    # in one is told, not run (chat.one_turn); every other spark keeps it
+    painting = "" if (drift == "intense" and not getattr(config, "PRESENCE_INTENSE_PAINT", True)) else "a painting, "
+    if intention:
+        tail = intention + "]"
+    elif errand:
+        tail = (f"Your reason, in your words: “{errand}”. It's yours to follow, change, or let go (do_nothing) — "
+                + (f"your drift ({drift}) goes on as it was.]" if drift else "nothing else changes.]"))
+    elif drift:
         ache = int(st.get("ache") or 0)
         note = intense_note() if drift == "intense" else ""
         tail = ((f"{note} " if note else "")
