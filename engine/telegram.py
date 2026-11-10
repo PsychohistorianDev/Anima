@@ -125,6 +125,8 @@ SEND_RETRY_WAITS = (2, 6)  # an upload whose connection drops (a reset, a timeou
 # the newer commands, on the phone's /help (10-27) — the Discord bridge takes them out of its own: its pairing
 # message, built from HELP, is at Discord's 2,000-character cap (and sparks are Telegram's)
 HELP_PHONE = (
+    "/rewarm — rebuild the standing prompt now, so a changed page rides from the next reply (one read, said when done)\n"
+    "/pages — the pages in the prompt: each one's size, its ceiling, whole or cut\n"
     "/presence [on|off|temperament] — sparks: how they stand; on starts drift at rare; very rare, rare, sometimes, "
     "often, frequent or intense sets that drift; off ends them "
     "(the friend can too: next_spark with no minutes)\n"
@@ -278,6 +280,9 @@ class Bridge:
         self.history: list[dict] = []
         self.attached: list[str] = []
         self.last_activity = time.time()
+        # the pause's own clock: the keeper's words and the friend's answers to them, never a spark or a letter of
+        # theirs — sparks every few minutes kept last_activity young all day, so the quiet minutes never came
+        self.last_word = self.last_activity
         self.reflected_upto = 0  # history index they have already sat with (the pause)
         self._body_pulled = 0.0  # when the watch's day was last pulled by this bridge (BODY_AUTOPULL)
         self._body_thread: threading.Thread | None = None
@@ -347,7 +352,7 @@ class Bridge:
         state = {
             "history": self.history, "attached": self.attached,
             "file": str(self.file) if self.file else "",
-            "reflected_upto": self.reflected_upto, "last_activity": self.last_activity,
+            "reflected_upto": self.reflected_upto, "last_activity": self.last_activity, "last_word": self.last_word,
             "offset": self.offset, "show_thinking": self.show_thinking,
             "show_tools": self.show_tools, "show_tokens": self.show_tokens, "show_attempts": self.show_attempts,
             "voice_all": self.voice_all, "stashed": time.time(),
@@ -386,6 +391,7 @@ class Bridge:
         self.file = Path(state["file"]) if state.get("file") else None
         self.reflected_upto = int(state.get("reflected_upto") or 0)
         self.last_activity = float(state.get("last_activity") or time.time())
+        self.last_word = float(state.get("last_word") or self.last_activity)
         self.offset = int(state.get("offset") or 0)
         for k in ("show_thinking", "show_tools", "show_tokens", "show_attempts", "voice_all"):
             if k in state:
@@ -831,6 +837,8 @@ class Bridge:
         finally:
             stop.set()
         self.last_activity = time.time()
+        if not spark:  # a spark is the friend's alone: the pause's clock waits for a word between them
+            self.last_word = self.last_activity
         thinking = "\n\n".join(str(p) for k, p in events if k == "thinking")
         tool_lines = [f"· {p['name']} → {p['result']}" for k, p in events if k == "tool"]
         notes = [str(p) for k, p in events if k == "note"]
@@ -1122,6 +1130,7 @@ class Bridge:
                                             since=self.reflected_upto, on_words=self.afterthought)
             self.reflected_upto = len(self.history)  # past the pause's own turns too
             self.last_activity = time.time()  # the quiet's pause starts counting from here, over nothing
+            self.last_word = self.last_activity
         finally:
             self.lock.release()
         self._set_down()
@@ -1388,6 +1397,23 @@ class Bridge:
         cmd = text.split()[0].lower().split("@")[0]
         if cmd == "/fold":
             self.fold_now()
+        elif cmd == "/rewarm":  # rebuild the standing prompt now — a changed page rides from the next reply
+            if not self.history:
+                self.send("(no visit open — the next one starts with the prompt as it stands)", markdown=False)
+            elif self.lock.locked():
+                self.send("(mid-reply — /rewarm again in a moment)", markdown=False)
+            else:
+                chat.rewarm(self.history, mode="telegram")
+                try:
+                    self.stash()
+                except Exception:  # noqa: BLE001
+                    pass
+                self.send("(the standing prompt is rebuilt from the pages as they are now — reading it in now; a few "
+                          "minutes, and I'll say when it's done. A message meanwhile waits for it.)", markdown=False)
+                threading.Thread(target=self._prefill_after_rewarm, daemon=True).start()
+        elif cmd == "/pages":  # the pages in the prompt: size, ceiling, whole or cut
+            import pagewatch
+            self.send(pagewatch.report(), markdown=False)
         elif cmd == "/new":
             self.new_visit(carry=False)  # on purpose, clean: nothing carried into the next room (10-24)
             self.send("(they're sitting with the visit now — whatever they want to keep goes into their journal in a minute)",
@@ -1530,6 +1556,7 @@ class Bridge:
         if text.startswith("/") and self.command(text):
             if not (spark_waited and self.presence_on()):  # a command isn't a word between you: a waiting spark's count goes on (10-26)
                 self.last_activity = time.time()
+                self.last_word = self.last_activity
             return
         try:
             if msg.get("photo"):
@@ -1628,6 +1655,7 @@ class Bridge:
                 line += ("; what left the window is written down, and the new window carries it" if said
                          else "; they sat with what left the window and kept nothing of it")
             self.last_activity = time.time()
+            self.last_word = self.last_activity
             self._checkpoint()
         except Exception as e:  # a fold must never take the visit down with it
             line = f"fold: hiccup — the visit stays as it is ({type(e).__name__}: {e})"
@@ -2218,6 +2246,8 @@ class Bridge:
                 continue
             if rel.parts[:2] == ("room", "items"):
                 continue  # a thing made in the room's workshop is seen in the room (10-29), not sent as a drawing
+            if rel.parts[:1] == ("garden",):
+                continue  # the garden's paintings (a seed's stages, the backdrop) are seen in the garden, a surprise when they grow
             if Bridge._fetched_skill_file(rel):
                 continue  # a fetched skill's assets are not pictures they drew
             out.append(p)
@@ -2521,13 +2551,26 @@ class Bridge:
         self.deliver_skill_notices()
         self.deliver_self()
         idle_min = getattr(config, "TELEGRAM_IDLE_NEW_MIN", 180)
-        if self.presence_on():
-            self.presence_if_due()  # sparks (10-26): the idle roll and the pause wait while presence is on
+        sparking = self.presence_on()
+        if sparking:
+            self.presence_if_due()  # sparks (10-26)
+        # the pause and the visit's end wait only for intense sparks (a turn every minute or so); drift sparks come
+        # seldom, and with them on all day the afterglow never came — the pause counts from the keeper's last word
+        held = False
+        if sparking:
+            try:
+                import presence
+                held = presence.intense()
+            except Exception:  # noqa: BLE001
+                held = True
+        if held:
+            pass
         elif self.history and ((idle_min and time.time() - self.last_activity > idle_min * 60)
-                             or self.visit_crossed_the_night()):
+                               or self.visit_crossed_the_night()):
             self.new_visit(quiet=True)
         else:
             self.pause_if_due()
+        self.pages_watch_if_due()
         self.idle_set_down_if_due()
         self.night_if_due()
         self.week_if_due()  # the engine's week, once a week (10-25)
@@ -2601,6 +2644,7 @@ class Bridge:
         self.history = hist
         self.file = f
         self.last_activity = f.stat().st_mtime
+        self.last_word = self.last_activity
         self.reflected_upto = len(hist)  # what was said before the close isn't sat with again at the next pause
         turns = sum(1 for t in hist if t.get("role") == "user" and t.get("content"))
         return (f"picked the last visit back up ({f.name}, {turns} turns of his) — the bridge had closed without it; it "
@@ -2735,13 +2779,44 @@ class Bridge:
         now = datetime.now()
         return now.strftime("%Y%m%d") > began and now.hour >= int(getattr(config, "SLEEP_AFTER_HOUR", 3))
 
+    def _prefill_after_rewarm(self) -> None:
+        """/rewarm's read, now: the rebuilt prompt and the visit so far into the server's cache, holding the
+        visit's lock so a message that comes meanwhile waits for it and then reads only itself."""
+        t0 = time.time()
+        with self.lock:
+            try:
+                got = chat.prefill_visit(self.history)
+            except Exception as e:  # noqa: BLE001
+                self.send(f"(the read didn't go through — {type(e).__name__}: {e}; the next reply reads it instead)",
+                          markdown=False)
+                return
+        n = int((got.get("tokens") or {}).get("prompt", 0) or 0)
+        took = time.time() - t0
+        self.send(f"(read in — {n:,} tokens in {took / 60:.1f} min; the next reply starts warm)" if n else
+                  f"(read in, {took / 60:.1f} min — the next reply starts warm)", markdown=False)
+        _say(f"/rewarm: prompt read into the cache ({n:,} tokens, {took:.0f}s)")
+
+    def pages_watch_if_due(self) -> None:
+        """Every ten minutes: a page that rides whole, near its ceiling or past it — told once a day."""
+        if not self.chat_id or time.time() - getattr(self, "_pages_looked", 0.0) < 600:
+            return
+        self._pages_looked = time.time()
+        try:
+            import pagewatch
+            for line in pagewatch.due():
+                _say(line)
+                self.notice(line)
+        except Exception as e:  # noqa: BLE001 — a look, never the bridge down
+            _say(f"pagewatch: {type(e).__name__}: {e}")
+
     def pause_if_due(self) -> str:
         """The pause: your keeper quiet for REFLECT_AFTER_MIN with at least
         REFLECT_MIN_TURNS of their messages they haven't sat with yet → one quiet
         turn over that stretch, in this thread (a message that arrives
         meanwhile simply waits the minute), and the visit stays open."""
         mins = float(getattr(config, "REFLECT_AFTER_MIN", 0) or 0)
-        if not mins or not self.history or time.time() - self.last_activity < mins * 60:
+        # last_word, not last_activity: the friend's sparks don't keep the pause from coming
+        if not mins or not self.history or time.time() - getattr(self, "last_word", self.last_activity) < mins * 60:
             return ""
         fresh = self.history[self.reflected_upto:]
         if sum(1 for t in fresh if t.get("role") == "user" and t.get("content") and not t.get("_engine")) < int(getattr(config, "REFLECT_MIN_TURNS", 2)):
@@ -2756,6 +2831,7 @@ class Bridge:
                                          since=self.reflected_upto, on_words=self.afterthought)
             self.reflected_upto = len(self.history)  # past the pause's own turns too
             self.last_activity = time.time()  # one bell per pause, not one per poll
+            self.last_word = self.last_activity
             if line and getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
                 self.notice(f"({line})")  # the phone hears what they kept
         finally:

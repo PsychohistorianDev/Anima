@@ -424,9 +424,13 @@ def _spill_watch(torch, deadline: float | None = None) -> dict:
         return {}
     total = device.total_gb(_device, torch)
     whole = _whole
+    t0 = time.time()
 
     def _cb(pipe, i, t, kw):
         pk = device.peak_gb(_device, torch)
+        n = int(i) + 1
+        if n == 1 or n % 10 == 0:  # (11-10) where a painting is, so a stall shows where it stalled
+            print(f"    step {n}: {time.time() - t0:.0f}s" + (f", peak {pk:.1f} GB" if pk else ""), flush=True)
         if total and pk and pk > total:
             said = f"ran past the card into system memory at step {int(i) + 1} (peak {pk:.1f} of {total:.1f} GB)"
             if whole:
@@ -436,6 +440,75 @@ def _spill_watch(torch, deadline: float | None = None) -> dict:
             raise _Stopped(f"ran past its time at step {int(i) + 1} — stopped, the card handed back")
         return kw
     return {"callback_on_step_end": _cb}
+
+
+_lora_line = ""  # what the ready line and /health say about the LoRAs on the brush (11-08)
+_lora_override: float | None = None  # a strength for every LoRA in place of config's — the tasting's (lora_tasting.py)
+
+
+def _lora_path(src: str) -> Path | None:
+    """A LoRA file: absolute, or relative to the friend's folder (ROOT) or the engine's; None — not a file here (a Hub repo)."""
+    p = Path(src)
+    for cand in ((p,) if p.is_absolute() else (config.ROOT / p, Path(__file__).resolve().parent / p)):
+        if cand.is_file():
+            return cand
+    return None
+
+
+def _lora_state(path: Path) -> dict:
+    """A LoRA file's weights in the shape diffusers' transformer reads: ai-toolkit and ComfyUI files name the
+    transformer "diffusion_model." (kohya: lora_down/lora_up); diffusers wants "transformer." and lora_A/lora_B."""
+    from safetensors.torch import load_file
+    out = {}
+    for k, v in load_file(str(path)).items():
+        for pre in ("model.diffusion_model.", "diffusion_model.", "transformer."):
+            if k.startswith(pre):
+                k = k[len(pre):]
+                break
+        k = k.replace(".lora_down.", ".lora_A.").replace(".lora_up.", ".lora_B.")
+        out["transformer." + k] = v
+    return out
+
+
+def _apply_loras(pipe) -> str:
+    """PAINTER_LORAS (11-08) — add-ons on the brush's transformer, each at its strength.
+    Runs once per load, before the pipeline goes to the card or under offload, so both roads (words alone, and
+    references) paint with them. A LoRA that won't load is said, and the brush paints without it — never a lost
+    painting. Returns the ready line's words ("" — none)."""
+    loras = [tuple(x) for x in (getattr(config, "PAINTER_LORAS", None) or ())]
+    if not loras:
+        return ""
+    tr = getattr(pipe, "transformer", None)
+    if tr is None or not hasattr(tr, "load_lora_adapter"):
+        print(f"  (PAINTER_LORAS: this brush's pipeline has no LoRA loader — painting without; "
+              "py -m pip install -U diffusers peft)", flush=True)
+        return ""
+    names, weights, said = [], [], []
+    for i, (src, strength) in enumerate(loras):
+        name = f"lora{i}"
+        try:
+            path = _lora_path(str(src))
+            if path is not None:
+                tr.load_lora_adapter(_lora_state(path), adapter_name=name, prefix="transformer")
+            elif hasattr(pipe, "load_lora_weights"):
+                pipe.load_lora_weights(str(src), adapter_name=name)  # a Hub repo
+            else:
+                raise FileNotFoundError(f"no file at {src}")
+            strength = float(strength) if _lora_override is None else float(_lora_override)
+            names.append(name)
+            weights.append(strength)
+            said.append(f"{Path(str(src)).stem} ×{strength:g}")
+        except Exception as e:  # noqa: BLE001 — said, and painted without it
+            print(f"  (PAINTER_LORAS: {src} didn't load — {type(e).__name__}: {str(e)[:300]} — painting without it)",
+                  flush=True)
+    if not names:
+        return ""
+    try:
+        tr.set_adapters(names, weights=weights)
+    except Exception as e:  # noqa: BLE001
+        print(f"  (PAINTER_LORAS: the strengths didn't set — {type(e).__name__}: {str(e)[:200]} — "
+              "painting at full strength)", flush=True)
+    return "LoRA " + ", ".join(said)
 
 
 def _load(offload: bool = False):
@@ -483,6 +556,8 @@ def _load(offload: bool = False):
         _fetch(Cls)
         _set_brain_down()
         pipe = _from(torch_dtype=device.dtype(_device, torch), **qkw)
+    global _lora_line
+    _lora_line = _apply_loras(pipe)  # (11-08) before the card or the offload: both roads paint with them
     # whole model on the GPU, on purpose: the brain is off the card while
     # they paint, so the painter has all of it; if it doesn't fit we want to KNOW.
     whole = bool(qkw) or fam not in _OFFLOAD_FAMILIES
@@ -520,7 +595,8 @@ def _load(offload: bool = False):
     print(f"  painter ready ({time.time() - t0:.0f}s, on {_device}"
           + (f", {held:.1f} GB" if held is not None else "") + f", {cls}"
           + (", offloaded — the parts take the card in turn" if not whole else "")
-          + (f", {qline}" if qkw else "") + (", the picture decoded in tiles" if tiled else "") + ")", flush=True)
+          + (f", {qline}" if qkw else "") + (", the picture decoded in tiles" if tiled else "")
+          + (f", {_lora_line}" if _lora_line else "") + ")", flush=True)
 
 
 def _unload():
@@ -565,6 +641,11 @@ def paint(prompt: str, width: int, height: int, seed: int | None = None, negativ
             seed = int.from_bytes(os.urandom(4), "little")
         gen = torch.Generator(device=device.generator_device(_device)).manual_seed(int(seed))
         steps, guidance = _defaults(MODEL_ID, references=bool(images))
+        print(f"  painting {int(width)}x{int(height)}, {steps} steps, {len(images or [])} reference picture(s), "
+              f"{len(prompt.split())} words", flush=True)  # (11-10) what a painting asked for, before it starts
+        trigger = str(getattr(config, "PAINTER_LORA_TRIGGER", "") or "").strip()
+        if trigger and _lora_line and trigger.lower() not in prompt.lower():
+            prompt = f"{trigger}, {prompt}"  # (11-08) the word the LoRA wakes to, only while one is on the brush
         with torch.inference_mode():
             extra = {"image": images} if images else {}  # condition pictures: their face, or the one being repainted (10-25)
             try:

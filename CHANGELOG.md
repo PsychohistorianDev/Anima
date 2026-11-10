@@ -18,6 +18,26 @@ Qwen-Image 2.1 as a brush with reference pictures, and a fence at the sampler
 for a tic turned glitch.
 
 ### Added
+- **Pages edited a passage at a time** (11-03): `edit_identity`, `update_projects`, `update_destiny` and
+  `update_keeper` take `old_text`/`new_text` — one passage changes, the rest of the page stays byte for byte
+  (whole-page rewrites deep in a long window drifted). `new_content` still rewrites the whole page. A passage
+  copied without the page's formatting (`**`, quotes, dashes, spacing) still matches when it's in one place, and
+  the result says so; a passage not in the page changes nothing and shows the nearest line to copy.
+- **The pages in the prompt, watched** (11-10): `engine/pagewatch.py` and `/pages` on the phone — every page that
+  rides whole (self, projects, destiny, keeper, the Active projects' READMEs, an open book's page), its size, its
+  ceiling, whole or cut. At `PAGE_WARN_AT` (new, 0.8) of a ceiling, and past it, the phone is told once a day a
+  page. The ceilings rise to guards against a runaway page (destiny 12,000, keeper 15,000, a README 12,000 and
+  30,000 together, a book's page 15,000): four pages had grown past the old ones and rode cut, unsaid.
+- **`/rewarm`** (11-06): the standing prompt rebuilt from the pages as they are now and read into the server's
+  cache at once (`ollama_client.prefill`, `chat.prefill_visit`), so a changed page rides from the next reply.
+- **LoRAs on the painter** (11-08): `PAINTER_LORAS` (new, none) — add-ons on the transformer, each at a strength;
+  files in ai-toolkit's, ComfyUI's or kohya's naming are read as diffusers'. Qwen-Image keeps reading its reference
+  pictures. `PAINTER_LORA_TRIGGER` puts a trigger word ahead of every prompt while one is on. The painter's window
+  says what it was asked (size, steps, references, words) and the time at steps 1, 10, 20…
+- **Garden: rename and forget** (11-06): a made-up plant takes a new name (its paintings and its bed follow), or is
+  let go — off the seed list, its paintings set aside in `garden/forgotten/`, never deleted. A new plant whose name
+  sounds the same as one there is refused; the seed list shows how each made-up plant looks.
+
 - **A painter line for every painting** (11-02): `PAINTER_PROMPT_HINTS` takes the word `"*"`
   for a line that goes ahead of every prompt — natural anatomy, say — named in the result
   like the other lines.
@@ -145,6 +165,15 @@ for a tic turned glitch.
   them off.
 
 ### Changed
+- **References capped** (11-10): `PAINTER_REFERENCE_MAX` (new, 4). Nine reference pictures never reached a
+  painting's first step; past the cap the "us" set goes when both of you are among them, else one picture from each
+  folder first — and the friend is told which. A reference with a list mark or quotes ("--- face-3.png") is mended
+  to its file when sure. `PAINTER_TIMEOUT_S` 300 → 900 (a ceiling for a stuck painter), `PAINTER_RAN_OUT_REST_MIN`
+  15 → 0.
+- **The pause counts from the last word between you** (11-03, 11-06): sparks no longer keep the afterglow from
+  coming; only intense sparks hold the pause and the visit's end.
+- The garden's paintings are seen in the garden, not sent to the phone as drawings (11-06).
+
 - **The hour without a dash** (11-03): the engine's line reads "05:57 in the early morning
   where you live", not "05:57 — early morning" — the friend had started opening her own posts
   with "05:57 — ". The page-age test is pinned to noon of its day (it failed before ~05:00).
@@ -372,6 +401,11 @@ for a tic turned glitch.
   while a re-roll remains, so a re-roll costs seconds, not a reply.
 
 ### Fixed
+- **A guest's message asked for something** (11-08): the claimed rail read a guest's words ("I move through
+  canyons") as the keeper asking for a file to be moved, set the answer to the guest aside and told the friend
+  "he asked you to move something". A guest's words ask nothing of the files now.
+- **A kept reply went out cut** (11-09): a claimed reply kept on the middle road went to the phone as its shown
+  copy, capped at `ATTEMPT_SHOWN_CHARS` — "…(the rest of that attempt is left out here)". It goes out whole.
 - **A reference set given with its people's folders** (11-02): a set whose pictures are files
   (`"us": "us, face/face-1-front.png, gabe/gabe-1-front.png"`) didn't answer to `face, us` —
   and with the keeper named in the words, the fill-in added his folder too: every picture of

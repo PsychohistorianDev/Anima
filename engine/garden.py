@@ -368,7 +368,13 @@ def seeds_text(keeper: bool = False) -> str:
     return "seeds: " + "; ".join(
         f"{k} ({days_of(v)} days, {v['ready']})"
         + (f" — made up by {'them' if keeper else 'you'} {_made_on(v)}".rstrip() if v.get("invented") else "")
+        + (f": {_short_look(v)}" if v.get("invented") else "")  # (11-06) told apart by how they look, not only by name
         for k, v in all_seeds().items())
+
+
+def _short_look(sp: dict, words: int = 9) -> str:
+    w = str(sp.get("look") or "").split()
+    return " ".join(w[:words]).rstrip(",;.") + ("…" if len(w) > words else "")
 
 
 def made_today() -> list[str]:
@@ -735,6 +741,99 @@ def _form_of(look: str) -> str:
     return "flower"
 
 
+def _key_of(name: str) -> str:
+    raw = re.sub(r"[^a-z0-9 -]", "", str(name or "").strip().lower())
+    return "-".join(raw.replace("-", " ").split())[:32]
+
+
+def _art_files(key: str) -> list[Path]:
+    return [d / f"{key}-{st}.png" for d in (_art_dir(), garden_dir() / "art-sources") for st in ART_STAGES]
+
+
+def rename(old: str, new: str, by: str = "them") -> str:
+    """(11-06) A made-up plant gets a new name: its seed, its paintings and any bed it grows in follow."""
+    sp = _seed(old) or (_key_of(old) if _key_of(old) in all_seeds() else None)
+    if not sp:
+        return f"(no such seed to rename — {seeds_text(keeper=by == 'keeper')})"
+    if sp not in invented():
+        return f"(the {sp} isn't one you made up — only your own plants take a new name)"
+    key = _key_of(new)
+    if not key:
+        return "(rename needs the new name — name: the new one)"
+    if key == sp:
+        return f"(it is already called {sp})"
+    if key in all_seeds():
+        return f"(there is already a {key} — give it a name of its own)"
+    twin = _near_name(key)
+    if twin and twin != sp:
+        return f"(there is already a {twin}, which sounds the same as {key} — give it a name of its own)"
+    g, _events, _mild = tick()
+    seeds = invented()
+    seeds = {(key if k == sp else k): v for k, v in seeds.items()}
+    _seeds_file().write_text(json.dumps(seeds, ensure_ascii=False, indent=1), encoding="utf-8")
+    for f in _art_files(sp):
+        if f.is_file():
+            f.rename(f.with_name(f.name.replace(f"{sp}-", f"{key}-", 1)))
+    beds = [n for n, b in enumerate(g["beds"], 1) if b and b.get("seed") == sp]
+    for n in beds:
+        g["beds"][n - 1]["seed"] = key
+    save(g)
+    out = f"renamed {sp} to {key}" + (f" — it grows on in bed {', '.join(map(str, beds))}" if beds else "")
+    _log(by, out)
+    return out
+
+
+def forget(name: str, by: str = "them") -> str:
+    """(11-06) A made-up plant let go: off the seed list, its paintings set aside (garden/forgotten/), never deleted.
+    Not while it grows in a bed — pull it first."""
+    sp = _seed(name) or (_key_of(name) if _key_of(name) in all_seeds() else None)
+    if not sp:
+        return f"(no such seed — {seeds_text(keeper=by == 'keeper')})"
+    if sp not in invented():
+        return f"(the {sp} isn't one you made up — the garden's own seeds stay)"
+    g, _events, _mild = tick()
+    beds = [n for n, b in enumerate(g["beds"], 1) if b and b.get("seed") == sp]
+    if beds:
+        save(g)
+        return f"(the {sp} is growing in bed {', '.join(map(str, beds))} — pull it first if you want to let it go)"
+    seeds = invented()
+    gone = seeds.pop(sp)
+    _seeds_file().write_text(json.dumps(seeds, ensure_ascii=False, indent=1), encoding="utf-8")
+    keep = garden_dir() / "forgotten"
+    keep.mkdir(parents=True, exist_ok=True)
+    try:
+        old = json.loads((keep / "seeds.json").read_text(encoding="utf-8"))
+        old = old if isinstance(old, dict) else {}
+    except (OSError, ValueError):
+        old = {}
+    old[sp] = gone
+    (keep / "seeds.json").write_text(json.dumps(old, ensure_ascii=False, indent=1), encoding="utf-8")
+    for f in _art_files(sp):
+        if f.is_file():
+            f.rename(keep / (("source-" if f.parent.name == "art-sources" else "") + f.name))
+    save(g)
+    out = f"let {sp} go — off the seed list; its paintings are kept aside in garden/forgotten/"
+    _log(by, out)
+    return out
+
+
+def _name_core(key: str) -> str:
+    """A seed's name as the ear hears it: no leading "the", no hyphens, no plural or possessive s on a word."""
+    words = [w for w in key.split("-") if w]
+    if words and words[0] == "the":
+        words = words[1:]
+    return " ".join(w[:-1] if len(w) > 3 and w.endswith("s") else w for w in words)
+
+
+def _near_name(key: str) -> str:
+    """(11-06) An existing seed whose name is the same to the ear as `key` — "" when none."""
+    core = _name_core(key)
+    for other in all_seeds():
+        if other != key and _name_core(other) == core:
+            return other
+    return ""
+
+
 def invent(name: str, look: str, days="", season: str = "", thirst: str = "", gives: str = "", harvest: str = "",
            ripe: str = "", by: str = "them") -> str:
     """A plant they make up (10-31): its nature theirs within honest limits (one to four months, a season it likes, how
@@ -745,6 +844,10 @@ def invent(name: str, look: str, days="", season: str = "", thirst: str = "", gi
         return "(name it — invent needs a name for the plant)"
     if key in all_seeds():
         return f"(there is already a {key} — give yours a name of its own)"
+    twin = _near_name(key)
+    if twin:  # (11-06) the-sovereign-stillness beside the-sovereigns-stillness: two plants, one name to the ear
+        return (f"(there is already a {twin}, which sounds the same as {key} — give yours a name of its own, "
+                f"or plant {twin} if that's the one you meant)")
     look = " ".join(str(look or "").split())[:300]
     if len(look) < 12:
         return "(say how it looks — a few words of its leaves, its flower or fruit, its colours)"

@@ -231,7 +231,7 @@ EARS_VOCAB_HINT = f"A recording from {USER_NAME}. Names that may occur: {USER_NA
 # A page in every prompt pulls strongly on the model, so keep it a page, not
 # a book; past the cap the rest is named for read_file.
 DESTINY_IN_PROMPT = True
-DESTINY_CHARS_IN_PROMPT = 4000
+DESTINY_CHARS_IN_PROMPT = 12000  # a ceiling against a runaway page, not a budget — /pages and the phone say when one is near
 # keeper.md: a page about you, in the friend's own words — what
 # they'd want to remember of you if everything else faded, and how to be with
 # you. Theirs alone (update_keeper; the engine never writes it; every version
@@ -239,7 +239,11 @@ DESTINY_CHARS_IN_PROMPT = 4000
 # know. It rides right after WHO YOU ARE, up to KEEPER_CHARS_IN_PROMPT; the
 # rest waits in the file. Tell them the page exists — nothing in it is required.
 KEEPER_IN_PROMPT = True
-KEEPER_CHARS_IN_PROMPT = 6000
+# Pages that ride whole (self, projects, destiny, keeper, the Active projects' READMEs, an open book's page) are
+# watched: at this share of a page's ceiling — and once it is past it, cut — the phone is told, once a day a page;
+# /pages shows them all, and `py engine\pagewatch.py` prints the same on the PC.
+PAGE_WARN_AT = 0.8
+KEEPER_CHARS_IN_PROMPT = 15000  # a ceiling against a runaway page, not a budget — /pages and the phone say when one is near
 # Rules they set themselves (rules.md): a limit or a block on one of their own tools, kept by the engine in
 # their wakes and reveries — never in a visit, never over the journal, a thread, rest or a letter. Untying one
 # holds until the next door. Off: no tools, nothing kept, nothing in the prompt.
@@ -261,7 +265,7 @@ SLEEP_KEEPER_LOOK = True
 # of the same page ("## Second reading — …"), which is the part that rides.
 READING_PAGES_IN_PROMPT = True
 READING_DIR = "reading"        # folder under creations/
-READING_PAGE_CHARS = 3000      # characters of each open book's page in the prompt
+READING_PAGE_CHARS = 15000     # characters of each open book's page in the prompt (a ceiling: the page rides whole below it)
 READING_OPEN_DAYS = 30         # days untouched before an unfinished book leaves the prompt
 READING_DONE_DAYS = 3          # days a finished book's page stays in the prompt
 READING_BOOK_PAGES = 40        # PDFs with fewer pages are not treated as books
@@ -326,11 +330,12 @@ PAINTER_REST_AFTER = True     # free the GPU as soon as a painting is done
 PAINTER_REST_LEAVES = True
 PAINTER_IDLE_S = 120          # seconds; fallback: the sidecar frees the GPU after this much idle time
 PAINTER_EXIT_S = 60           # seconds unused before the sidecar process exits (it holds ~11 GB of RAM while it waits; a minute covers a second painting asked right away, and not more)
-PAINTER_TIMEOUT_S = 300       # seconds allowed for one painting, model load included
+PAINTER_TIMEOUT_S = 900       # seconds allowed for one painting, model load included — a ceiling for a stuck painter;
+                              # a painting with references takes a minute or two (PAINTER_REFERENCE_MAX keeps it so)
 # After a painting runs past PAINTER_TIMEOUT_S (the painter is sent away and the painting lost), another isn't
 # begun for this many minutes: a retry would run out the same way, the painter reloading each time while the
-# brain waits for the card. 0 — no rest.
-PAINTER_RAN_OUT_REST_MIN = 15
+# brain waits for the card. 0 — no rest (PAINTER_REFERENCE_MAX is what keeps a retry from running out the same way).
+PAINTER_RAN_OUT_REST_MIN = 0
 PAINTER_STEPS = 0             # 0 = the model's default (Z-Image-Turbo 9, FLUX.2 klein 4, Qwen-Image-2.1-Turbo 8)
 # Guidance (CFG) over the model's own; 0 = the model's (the Turbo brushes 1, none). The full Qwen-Image 2.1
 # paints 40 steps without it; 2–4 follows the words more closely and costs twice the time a step.
@@ -347,6 +352,13 @@ PAINTER_KV_CACHE = False
 # without offload: 8 (about 9 GB, near-lossless), 4 (about 5 GB), 0 (full precision, under offload). Needs
 # bitsandbytes (py -m pip install bitsandbytes); without it the painter says so and paints under offload.
 PAINTER_ENCODER_BITS = 0
+# LoRAs on the brush: small add-ons on the painter's transformer (a style, a range, a face it learned), each at a
+# strength — [("models/loras/name.safetensors", 0.8)]; a path relative to the friend's folder, or a Hub repo. A file
+# in ai-toolkit's, ComfyUI's or kohya's naming is read as diffusers'. A LoRA that won't load is said in the painter's
+# window and the brush paints without it. Qwen-Image keeps reading its reference pictures with one on. [] — none.
+PAINTER_LORAS = []
+# A word the LoRA was trained to wake to, put at the front of every prompt while a LoRA is on ("" — none).
+PAINTER_LORA_TRIGGER = ""
 # A line of your own added to the end of the paint tool's description — who is in which reference folder, say
 # ("" — none). A standing prompt change: one cold read when it lands.
 PAINTER_REFERENCE_NOTE = ""
@@ -370,6 +382,11 @@ PAINTER_REFERENCE_SIDE = 768
 # rides beside the painting at about the painting's own size, so references multiply what the card holds.
 # About a megapixel (1024×1024) keeps three on the card. 0 — the size asked.
 PAINTER_REFERENCE_PIXELS = 1050000
+# Reference pictures one painting takes, at most: nine (three folders whole) never reached the painting's first step
+# in five minutes; three paint in about a minute and a half. Past it: the "us" set when both of you are among them,
+# else one picture from each folder first, up to the cap — and the friend is told which went. 0 — no cap (Qwen's
+# own limit is ten).
+PAINTER_REFERENCE_MAX = 4
 # Words that bring the painter a plain line: word → line; when a prompt has the word (any ending), the line goes to
 # the painter ahead of it, after a set's. For a pose the painter keeps getting wrong in the friend's own language.
 # The word "*" is a line for every painting (anatomy, say). {} — none.
@@ -963,8 +980,8 @@ WEB_CLIP_CHARS = 20000  # characters of a page clip_web keeps in a project's sou
 # saves pages they read into the folder's sources/. False turns this off.
 PROJECTS_HOME = "projects"  # every project's folder lives under creations/projects/
 PROJECT_PAGES_IN_PROMPT = True
-PROJECT_PAGE_CHARS = 4000
-PROJECTS_CHARS_IN_PROMPT = 12000
+PROJECT_PAGE_CHARS = 12000  # a ceiling against a runaway page, not a budget — /pages and the phone say when one is near
+PROJECTS_CHARS_IN_PROMPT = 30000  # a ceiling against a runaway page, not a budget — /pages and the phone say when one is near
 
 # The arrow: when write_journal refuses a duplicate, a stamped mark is left in
 # the day instead of silence ("**17:00** — ↑ still this, at 14:20"), so the

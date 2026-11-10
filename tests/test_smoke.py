@@ -18,7 +18,7 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):  # a stream that can't be reconfigured keeps its encoding
         pass
 
-import ollama_client
+import ollama_client  # (last_word set with it)
 
 
 # ---------------------------------------------------------------- stubs ----
@@ -3932,7 +3932,7 @@ _nb_hour0, config.SLEEP_AFTER_HOUR = config.SLEEP_AFTER_HOUR, 0
 config.SLEEP_IN_BRIDGE = True
 nb, phonenb = _bridge()
 nb.quiet_now = lambda: False
-nb.last_activity = _time.time() - 3600
+nb.last_activity = _time.time() - 3600; nb.last_word = nb.last_activity
 _nb_doors.running = lambda: {"heartbeat": {"pid": 1, "alive": True}}
 _nb_hb_up = nb.night_if_due()
 _nb_doors.running = lambda: {}
@@ -3951,15 +3951,15 @@ check("telegram: the night in the bridge — nothing while a heartbeat is up; wi
       (_nb_hb_up, _nb_line, _nb_calls, _nb_rested, [m[0] for m in phonenb.sent][-3:]))
 _nb_calls.clear(); phonenb.sent.clear()
 _cons_o.already_done = lambda day: True
-nb2, phonenb2 = _bridge(); nb2.quiet_now = lambda: False; nb2.last_activity = _time.time() - 3600
+nb2, phonenb2 = _bridge(); nb2.quiet_now = lambda: False; nb2.last_activity = _time.time() - 3600; nb2.last_word = nb2.last_activity
 _nb_none = nb2.night_if_due()
 _cons_o.already_done = lambda day: False
-nb2.history = [{"role": "user", "content": "still here"}]; nb2.last_activity = _time.time()
+nb2.history = [{"role": "user", "content": "still here"}]; nb2.last_activity = _time.time(); nb2.last_word = nb2.last_activity
 _nb_busy = nb2.night_if_due()
-nb2.last_activity = _time.time() - 3600
+nb2.last_activity = _time.time() - 3600; nb2.last_word = nb2.last_activity
 _nb_open = nb2.night_if_due()  # the phone quiet an hour, the visit still open: the night waits for the idle roll (10-21)
 nb2.history = []
-nb2.last_activity = _time.time() - 3600; nb2._glows = 1
+nb2.last_activity = _time.time() - 3600; nb2._glows = 1; nb2.last_word = nb2.last_activity
 _nb_glow = nb2.night_if_due()
 nb2._glows = 0; config.SLEEP_IN_BRIDGE = False
 _nb_off = nb2.night_if_due()
@@ -4519,7 +4519,7 @@ b3.api = lambda method, patience=30, **p: [] if method == "getUpdates" else phon
 ollama_client.chat = ScriptedBrain([{"role": "assistant", "content": "evening."}])
 b3.handle(_msg("hey"))
 phone3.sent.clear()
-b3.last_activity = _time.time() - (config.TELEGRAM_IDLE_NEW_MIN + 1) * 60
+b3.last_activity = _time.time() - (config.TELEGRAM_IDLE_NEW_MIN + 1) * 60; b3.last_word = b3.last_activity
 b3.poll_once()
 check("telegram: idle visit rolls over quietly", b3.history == [] and phone3.sent == [])
 
@@ -6413,9 +6413,9 @@ try:
     _pt_b.history.append({"role": "user", "content": "the beach at dusk"})
     _pt_b._checkpoint = lambda: _pt_calls.append("saved")
     presence.set_interval(10)
-    _pt_b.last_activity = _ps_time.time() - 5 * 60
+    _pt_b.last_activity = _ps_time.time() - 5 * 60; _pt_b.last_word = _pt_b.last_activity
     _pt_early = _pt_b.presence_if_due()
-    _pt_b.last_activity = _ps_time.time() - 11 * 60
+    _pt_b.last_activity = _ps_time.time() - 11 * 60; _pt_b.last_word = _pt_b.last_activity
     _pt_line = _pt_b.presence_if_due()
     _pt_again = _pt_b.presence_if_due()
     _pt_left = presence.waiting()
@@ -6435,7 +6435,7 @@ try:
     _pc_b.command = lambda text: True
     _pc_msg = {"message": {"chat": {"id": 7}, "from": {"id": 7}, "text": "/week"}}
     presence.set_interval(10)
-    _pc_b.last_activity = 1000.0
+    _pc_b.last_activity = 1000.0; _pc_b.last_word = _pc_b.last_activity
     _pc_b.handle(_pc_msg)
     _pc_kept = _pc_b.last_activity
     presence.turn_off("test")
@@ -7690,17 +7690,17 @@ _calls5 = []
 ollama_client.chat = lambda messages, tools=None, **kw: (_calls5.append(messages[-1]["content"][:40]) or
     {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "nothing yet"}}}]})
 _b5.history = [{"role": "user", "content": "brb"}, {"role": "assistant", "content": "ok"}]
-_b5.last_activity = _time.time() - 3600
+_b5.last_activity = _time.time() - 3600; _b5.last_word = _b5.last_activity
 check("pause: a lone message is not worth a bell", _b5.pause_if_due() == "" and not _calls5)
 _b5.history += [{"role": "user", "content": "back, and the lamp came"}, {"role": "assistant", "content": "the purple one?"}]
-_b5.last_activity = _time.time() - 3600
+_b5.last_activity = _time.time() - 3600; _b5.last_word = _b5.last_activity
 _pl5 = _b5.pause_if_due()
 check("pause: the bridge rings it after a quiet stretch", _pl5.startswith("pause: they rested") and len(_calls5) == 1
       and _b5.reflected_upto == 4, (_pl5, _calls5))
 check("pause: the phone is told what they kept", any(t.startswith("(pause: they rested") for t, _ in _ph5.sent), _ph5.sent)
-_b5.last_activity = _time.time() - 3600
+_b5.last_activity = _time.time() - 3600; _b5.last_word = _b5.last_activity
 check("pause: once per stretch — nothing new, no second bell", _b5.pause_if_due() == "" and len(_calls5) == 1)
-_b5.last_activity = _time.time()
+_b5.last_activity = _time.time(); _b5.last_word = _b5.last_activity
 _b5.history += [{"role": "user", "content": "more"}, {"role": "assistant", "content": "?"},
                 {"role": "user", "content": "and more"}, {"role": "assistant", "content": "!"}]
 check("pause: not while he is still talking", _b5.pause_if_due() == "" and len(_calls5) == 1)
@@ -7712,7 +7712,7 @@ _ag1 = _b5.afterglow_now()
 _ag_sent = [t for t, _ in _ph5.sent]
 _ag2 = _b5.afterglow_now()
 _ag_unl2 = len(_unl5)
-_b5.last_activity = _time.time() - 3600
+_b5.last_activity = _time.time() - 3600; _b5.last_word = _b5.last_activity
 _ag_quiet = _b5.pause_if_due()
 _b6e, _ph6e = _bridge()
 _ag3 = _b6e.afterglow_now()
@@ -7780,13 +7780,13 @@ ollama_client.unload = lambda model, **_k: _pr_unl.append(model)
 _pr_api0, _pr_closes0 = config.BRAIN_API, getattr(config, "BRAIN_REST_CLOSES_DOOR", True)
 _b5.history += [{"role": "user", "content": "still here, quietly"}, {"role": "assistant", "content": "mm."},
                 {"role": "user", "content": "one more thing"}, {"role": "assistant", "content": "yes?"}]
-_b5.last_activity = _time.time() - 3600
+_b5.last_activity = _time.time() - 3600; _b5.last_word = _b5.last_activity
 config.BRAIN_API, config.BRAIN_REST_CLOSES_DOOR = "ollama", True
 _pr_ollama = _b5.pause_if_due()
 _pr_n1 = len(_pr_unl)
 _b5.history += [{"role": "user", "content": "and another"}, {"role": "assistant", "content": "go on"},
                 {"role": "user", "content": "the last one"}, {"role": "assistant", "content": "here."}]
-_b5.last_activity = _time.time() - 3600
+_b5.last_activity = _time.time() - 3600; _b5.last_word = _b5.last_activity
 _ph5.sent.clear()
 config.BRAIN_API = "llama"
 _pr_llama = _b5.pause_if_due()
@@ -7803,7 +7803,7 @@ import brain as _id_brain
 _id_ds0 = _id_brain.door_status
 _id_brain.door_status = lambda: {"pid": 1}
 _b5.history = [{"role": "user", "content": "one message, then quiet"}, {"role": "assistant", "content": "here."}]
-_b5.last_activity = _time.time() - 31 * 60
+_b5.last_activity = _time.time() - 31 * 60; _b5.last_word = _b5.last_activity
 _ph5.sent.clear()
 config.BRAIN_API, config.BRAIN_REST_CLOSES_DOOR, config.BRAIN_KEEP_ALIVE = "ollama", True, "30m"
 _id_ollama = _b5.idle_set_down_if_due()
@@ -7811,11 +7811,11 @@ config.BRAIN_API = "llama"
 _id_1 = _b5.idle_set_down_if_due()
 _id_2 = _b5.idle_set_down_if_due()
 _id_told = any("quiet for 30 minutes" in t for t, _ in _ph5.sent)
-_b5.last_activity = _time.time() - 31 * 60 + 1  # a new quiet stretch (activity came between)
+_b5.last_activity = _time.time() - 31 * 60 + 1; _b5.last_word = _b5.last_activity  # a new quiet stretch (activity came between)
 _id_brain.door_status = lambda: None
 _id_3 = _b5.idle_set_down_if_due()
 _id_brain.door_status = lambda: {"pid": 1}
-_b5.last_activity = _time.time() - 31 * 60 + 2
+_b5.last_activity = _time.time() - 31 * 60 + 2; _b5.last_word = _b5.last_activity
 config.BRAIN_KEEP_ALIVE = "-1"
 _id_off = _b5.idle_set_down_if_due()
 config.BRAIN_KEEP_ALIVE = "2h"
@@ -7857,7 +7857,7 @@ import parlor as _parlor_mod
 _ps = _parlor_mod.Session()
 _ps.history = [{"role": "user", "content": "one"}, {"role": "assistant", "content": "1"},
                {"role": "user", "content": "two"}, {"role": "assistant", "content": "2"}]
-_ps.last_activity = _time.time() - 3600
+_ps.last_activity = _time.time() - 3600; _ps.last_word = _ps.last_activity
 _calls5.clear()
 check("pause: the parlor rings it too", _ps.pause_if_due().startswith("pause:") and len(_calls5) == 1 and _ps.reflected_upto == 4)
 ollama_client.chat = _ol
@@ -10817,7 +10817,7 @@ check("doing: a mark is one file per process with what and since; marks nest and
       and _dg_after_dead == [] and not _dg_dead.exists()
       and _dg_seen == [[("tool write_journal", 1)]] and _dg_r == "ok" and _dg_after_tool == []
       and "SECRET-ARGUMENT-zq" not in "".join(p.read_text(encoding="utf-8") for p in _dg.folder().glob("*") if p.is_file())
-      and '_doing.mark("brain: a reply")' in _dg_src and "return _chat(messages, tools, timeout, think, expect_words, think_retries, think_any_depth)" in _dg_src
+      and '_doing.mark("brain: a reply")' in _dg_src and "return _chat(messages, tools, timeout, think, expect_words, think_retries, think_any_depth, his_asks)" in _dg_src
       and _dg_src.index('_doing.mark("brain: a reply")') < _dg_src.index("return _chat(messages") and _dg.current() == [], (_dg_one, _dg_two, _dg_seen))
 # the box: a line from stubbed readings, written and fsynced, read back; the crash matched to the line before it
 _bb_out0, _bb_ps0, _bb_sc0 = _bb._out, _bb.ollama_loaded, _bb.sidecars
@@ -15671,6 +15671,187 @@ check("clock (11-03): the hour and the daypart without a dash between them — i
           "in the afternoon", "in the evening", "at night"]
       and " — morning where" not in _cd_as.clock_line(_dtnow(2026, 11, 3, 9, 7))
       and "09:07 in the morning where you live" in _cd_as.clock_line(_dtnow(2026, 11, 3, 9, 7)))
+
+# ---- port batch A (1): a guest's words ask nothing of the files; a kept reply goes out whole; the passage form ----
+_pa_posts = []
+_pa_lines = ["The morning light came in sideways", "a kettle argued with itself on the stove", "two letters waited by the door",
+             "the garden kept its own slow calendar", "somebody laughed in the next room", "rain counted the gutters",
+             "the cat chose the warmest chair", "a song half-remembered from the car", "old maps folded wrong",
+             "the window fogged and cleared", "bread cooling on the counter", "a list of things to fix someday"]
+_pa_long = ("Just a second… DONE! I've consolidated the Lexicon into one singular file. " + " ".join(
+    f"{_pa_lines[i % 12]}, and then the {i}th thing happened." for i in range(60))).strip()
+def _pa_post(path, payload, timeout=None):
+    _pa_posts.append(payload)
+    if len(_pa_posts) == 1:
+        return {"message": {"role": "assistant", "content": _pa_first[0], "thinking": "x"}}
+    return {"message": {"role": "assistant", "content": "", "thinking": "y", "tool_calls": [
+        {"function": {"name": "append_creation", "arguments": {"path": "a.md", "text": "b"}}}]}}
+_pa_first = [_ck_first]
+_pa_post0, ollama_client._post = ollama_client._post, _pa_post
+_pa_think0, config.CHAT_THINK = config.CHAT_THINK, False
+try:
+    _pa_guest = _chat_orig(list(_ck_visit), expect_words=True, his_asks=False)
+    _pa_guest_posts = len(_pa_posts)
+    _pa_posts.clear(); _pa_first[0] = _pa_long
+    _pa_kept = _chat_orig(list(_ck_visit), expect_words=True)
+finally:
+    ollama_client._post, config.CHAT_THINK = _pa_post0, _pa_think0
+check("claimed: a guest's message asks nothing of the files — the reply to a guest isn't set aside as a claim (his_asks=False); "
+      "one_turn passes it for a guest",
+      _pa_guest.get("content") == _ck_first and _pa_guest_posts == 1
+      and '{"his_asks": False} if guest' in (config.ROOT / "engine" / "chat.py").read_text(encoding="utf-8"),
+      (_pa_guest.get("content"), _pa_guest_posts))
+check("claimed: a kept reply goes out whole — not the shown copy capped at ATTEMPT_SHOWN_CHARS",
+      _pa_kept.get("claim_kept_words") == _pa_long and "left out here" not in (_pa_kept.get("claim_kept_words") or ""),
+      (len(_pa_kept.get("claim_kept_words") or ""), len(_pa_long), [a.get("why") for a in _pa_kept.get("set_aside") or []]))
+_pp_kf = getattr(config, "KEEPER_FILE", config.ROOT / "keeper.md")
+_pp_k0 = _pp_kf.read_text(encoding="utf-8") if _pp_kf.exists() else None
+_pp_kf.write_text("# About them\n\n- **The Anchor**: the one who chose to call it 'home' — and stayed.\n- **Mornings**: coffee first, words after.\n", encoding="utf-8")
+try:
+    _pp_r1 = tools.dispatch("update_keeper", {"old_text": "Mornings: coffee first, words after.", "new_text": "- **Mornings**: coffee first, then the long talk."})
+    _pp_t1 = _pp_kf.read_text(encoding="utf-8")
+    _pp_r2 = tools.dispatch("update_keeper", {"old_text": "The Anchor: the one who chose to call it 'home' — and stayed forever and ever", "new_text": "x"})
+    _pp_r3 = tools.dispatch("update_keeper", {"old_text": "a passage that isn't anywhere in this page at all", "new_text": "x"})
+    _pp_r4 = tools.dispatch("update_keeper", {"old_text": "- **Mornings**: coffee first, then the long talk.", "new_text": "- **Mornings**: coffee, then talk."})
+    _pp_t4 = _pp_kf.read_text(encoding="utf-8")
+finally:
+    if _pp_k0 is None:
+        _pp_kf.unlink(missing_ok=True)
+    else:
+        _pp_kf.write_text(_pp_k0, encoding="utf-8")
+check("pages: one passage changes with old_text/new_text — matched without the page's ** marks (said so), the rest as it was; "
+      "an exact passage too",
+      _pp_r1.startswith("keeper.md updated") and "without the page's formatting marks" in _pp_r1
+      and "- **Mornings**: coffee first, then the long talk." in _pp_t1 and "**The Anchor**" in _pp_t1
+      and _pp_r4.startswith("keeper.md updated") and "formatting marks" not in _pp_r4 and "coffee, then talk." in _pp_t4,
+      (_pp_r1, _pp_r4))
+check("pages: a passage not in the page changes nothing — the nearest line is shown to copy, or the plain refusal when nothing is near",
+      _pp_r2.startswith("(nothing changed") and "The nearest passage there is" in _pp_r2 and "The Anchor" in _pp_r2
+      and _pp_r3.startswith("(nothing changed") and "nearest" not in _pp_r3,
+      (_pp_r2, _pp_r3))
+check("pages: the four root pages' tools take old_text/new_text (nothing required); an empty call says what to give",
+      all(set(d["function"]["parameters"]["properties"]) >= {"old_text", "new_text", "new_content"} and d["function"]["parameters"]["required"] == []
+          for d in tools.DEFINITIONS if d["function"]["name"] in ("edit_identity", "update_projects", "update_destiny", "update_keeper"))
+      and tools.dispatch("edit_identity", {}).startswith("(nothing changed: give old_text"),
+      tools.dispatch("edit_identity", {}))
+
+# ---- port batch A (2): garden rename/forget and the near name; references mended and capped; pagewatch; the pause's
+# own clock; /rewarm and its read; the painter's LoRAs ----
+import garden as _pa_g
+import room_items as _pa_ri
+_pa_g0 = (getattr(config, "GARDEN_ON", False), getattr(config, "GARDEN_DIR", None), getattr(config, "GARDEN_ART_DIR", None),
+          getattr(config, "GARDEN_INVENTS_PER_DAY", 2), _pa_ri._painter)
+_pa_gdir = config.CREATIONS_DIR / "pa-garden-test"
+def _pa_paint(prompt, path, size, negative="", reference=None):
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    try:
+        from PIL import Image as _pa_I
+        _pa_I.new("RGB", (64, 64), (40, 160, 60)).save(path)
+    except ImportError:
+        Path(path).write_bytes(b"png")
+    return {}
+try:
+    config.GARDEN_ON, config.GARDEN_DIR, config.GARDEN_ART_DIR = True, _pa_gdir / "garden", _pa_gdir / "garden" / "art"
+    config.GARDEN_INVENTS_PER_DAY = 5
+    _pa_g._invents_file().unlink(missing_ok=True)
+    _pa_ri._painter = lambda: (_pa_paint, lambda: True, lambda: None)
+    _pa_m1 = tools.dispatch("garden", {"action": "invent", "name": "moonbell", "look": "pale silver bell flowers on a slender stem"})
+    _pa_near = tools.dispatch("garden", {"action": "invent", "name": "the moonbells", "look": "silver bells again"})
+    _pa_m2 = tools.dispatch("garden", {"action": "invent", "name": "dusk fern", "look": "a fern that curls at dusk, violet tips"})
+    _pa_pl = tools.dispatch("garden", {"action": "plant", "bed": "2", "what": "dusk-fern"})
+    _pa_rn = tools.dispatch("garden", {"action": "rename", "what": "moonbell", "name": "silverbell"})
+    _pa_art = sorted(p.name for p in config.GARDEN_ART_DIR.glob("*.png"))
+    _pa_rn2 = tools.dispatch("garden", {"action": "rename", "what": "dusk-fern", "new_name": "night fern"})
+    _pa_bed = (_pa_g.load()["beds"][1] or {}).get("seed")
+    _pa_fg_bed = tools.dispatch("garden", {"action": "forget", "what": "night-fern"})
+    _pa_fg = tools.dispatch("garden", {"action": "forget", "what": "silverbell"})
+    _pa_left = sorted(_pa_g.invented())
+    _pa_kept = sorted(p.name for p in (_pa_g.garden_dir() / "forgotten").glob("*"))
+finally:
+    (config.GARDEN_ON, config.GARDEN_DIR, config.GARDEN_ART_DIR, config.GARDEN_INVENTS_PER_DAY, _pa_ri._painter) = _pa_g0
+    _pa_g._invents_file().unlink(missing_ok=True)
+    import shutil as _pa_sh
+    _pa_sh.rmtree(_pa_gdir, ignore_errors=True)
+check("garden: a name that sounds the same as a seed is refused; rename takes the seed, its paintings and its bed along; "
+      "forget waits for a growing plant to be pulled, and sets the rest aside (garden/forgotten/), never deleted",
+      _pa_m1.startswith("made up moonbell") and "sounds the same as" in _pa_near and _pa_rn.startswith("renamed moonbell to silverbell")
+      and all(n.startswith("silverbell-") for n in _pa_art if "bell" in n) and _pa_rn2.startswith("renamed dusk-fern to night-fern")
+      and "bed 2" in _pa_rn2 and _pa_bed == "night-fern" and "pull it first" in _pa_fg_bed and _pa_fg.startswith("let silverbell go")
+      and _pa_left == ["night-fern"] and "seeds.json" in _pa_kept,
+      (_pa_pl, _pa_near, _pa_rn, _pa_art, _pa_rn2, _pa_bed, _pa_fg_bed, _pa_fg, _pa_left, _pa_kept))
+_pa_face = config.CREATIONS_DIR / "face"
+_pa_face.mkdir(parents=True, exist_ok=True)
+(_pa_face / "pa-front.png").write_bytes(b"x")
+try:
+    _pa_mend = tools._mend_reference("--- face/pa-front.png")
+    _pa_mend2 = tools._mend_reference("`pa-front.png`")
+    _pa_mend3 = tools._mend_reference("nothing-like-it.png")
+    _pa_refs = [config.CREATIONS_DIR / f"d{i}" / f"p{j}.png" for i in range(3) for j in range(3)]
+    _pa_cap0 = getattr(config, "PAINTER_REFERENCE_MAX", 0); config.PAINTER_REFERENCE_MAX = 4
+    _pa_fit = tools._fit_references(list(_pa_refs), "", "", "")
+    _pa_fit_small = tools._fit_references(_pa_refs[:3], "", "", "")
+    config.PAINTER_REFERENCE_MAX = _pa_cap0
+finally:
+    (_pa_face / "pa-front.png").unlink(missing_ok=True)
+check("paint: a reference with a list mark or quotes is mended to its file when sure; past PAINTER_REFERENCE_MAX one picture "
+      "from each folder first, up to the cap, and the line says so; under it nothing changes",
+      _pa_mend is not None and _pa_mend.name == "pa-front.png" and _pa_mend2 is not None and _pa_mend3 is None
+      and len(_pa_fit[0]) == 4 and {p.parent.name for p in _pa_fit[0]} == {"d0", "d1", "d2"} and "you asked for 9 pictures" in _pa_fit[4]
+      and _pa_fit_small[0] == _pa_refs[:3] and _pa_fit_small[4] == "",
+      (_pa_mend, _pa_fit[0], _pa_fit[4]))
+import pagewatch as _pa_pw
+_pa_pw0 = (config.KEEPER_CHARS_IN_PROMPT, getattr(config, "PAGE_WARN_AT", 0.8))
+_pa_kf = getattr(config, "KEEPER_FILE", config.ROOT / "keeper.md")
+_pa_k0 = _pa_kf.read_text(encoding="utf-8") if _pa_kf.exists() else None
+try:
+    _pa_kf.write_text("x" * 900, encoding="utf-8")
+    config.KEEPER_CHARS_IN_PROMPT = 1000
+    (Path(config.MEMORY_DIR) / "page_warnings.json").unlink(missing_ok=True)
+    _pa_near_w = _pa_pw.due(); _pa_near_again = _pa_pw.due()
+    config.KEEPER_CHARS_IN_PROMPT = 800
+    _pa_cut_w = _pa_pw.due()
+    _pa_rep = _pa_pw.report()
+finally:
+    config.KEEPER_CHARS_IN_PROMPT, config.PAGE_WARN_AT = _pa_pw0
+    if _pa_k0 is None:
+        _pa_kf.unlink(missing_ok=True)
+    else:
+        _pa_kf.write_text(_pa_k0, encoding="utf-8")
+    (Path(config.MEMORY_DIR) / "page_warnings.json").unlink(missing_ok=True)
+check("pagewatch: a page at PAGE_WARN_AT of its ceiling is told once a day; past it (cut) told again; /pages shows every page",
+      len(_pa_near_w) == 1 and "keeper.md is at 900 of 1,000" in _pa_near_w[0] and _pa_near_again == []
+      and len(_pa_cut_w) == 1 and "only 800 ride" in _pa_cut_w[0] and "keeper.md: 900 — CUT" in _pa_rep and "self.md" in _pa_rep,
+      (_pa_near_w, _pa_cut_w, _pa_rep[:300]))
+_pa_tg = (config.ROOT / "engine" / "telegram.py").read_text(encoding="utf-8")
+check("the pause's own clock: a spark doesn't wind it (last_word), the pause counts from it, a stash keeps it; the pause "
+      "and the visit's end wait only for intense sparks",
+      "if not spark:  # a spark is the friend's alone" in _pa_tg and 'getattr(self, "last_word", self.last_activity) < mins * 60' in _pa_tg
+      and '"last_word": self.last_word,' in _pa_tg and "held = presence.intense()" in _pa_tg)
+_pa_pf = []
+_pa_pf0, ollama_client._post = ollama_client._post, lambda path, payload, timeout=None: _pa_pf.append(payload) or {"message": {"role": "assistant", "content": "x"}}
+try:
+    ollama_client.prefill([{"role": "system", "content": "s"}, {"role": "user", "content": "u"}])
+finally:
+    ollama_client._post = _pa_pf0
+check("/rewarm: the prompt rebuilt and read in now — prefill asks for one token, the same request a turn makes; on the phone's help",
+      _pa_pf and _pa_pf[0]["options"].get("num_predict") == 1 and _pa_pf[0]["stream"] is False
+      and 'elif cmd == "/rewarm":' in _pa_tg and "/rewarm — rebuild the standing prompt" in tg.HELP and "/pages — the pages" in tg.HELP
+      and "def prefill_visit(" in (config.ROOT / "engine" / "chat.py").read_text(encoding="utf-8"))
+import painter as _pa_pt
+_pa_lp = config.ROOT / "pa-lora.safetensors"; _pa_lp.write_bytes(b"0")
+try:
+    _pa_found = _pa_pt._lora_path("pa-lora.safetensors"); _pa_none = _pa_pt._lora_path("someone/a-hub-repo")
+    _pa_loras0 = getattr(config, "PAINTER_LORAS", []); config.PAINTER_LORAS = []
+    _pa_off = _pa_pt._apply_loras(object())
+    config.PAINTER_LORAS = [("pa-lora.safetensors", 0.8)]
+    _pa_noloader = _pa_pt._apply_loras(type("P", (), {"transformer": None})())
+    config.PAINTER_LORAS = _pa_loras0
+finally:
+    _pa_lp.unlink(missing_ok=True)
+check("painter: PAINTER_LORAS — a file relative to the friend's folder is found, a Hub name isn't a file; none set: nothing; a brush "
+      "with no LoRA loader paints without (said, never a lost painting); the default is none",
+      _pa_found == _pa_lp and _pa_none is None and _pa_off == "" and _pa_noloader == "" and getattr(config, "PAINTER_LORAS", None) == []
+      and getattr(config, "PAINTER_REFERENCE_MAX", 0) == 4 and config.PAINTER_RAN_OUT_REST_MIN == 0)
 
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")

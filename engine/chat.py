@@ -414,6 +414,14 @@ def rewarm(history: list[dict], mode: str = "chat") -> None:
     history[0]["_system_day"] = date.today().isoformat()
 
 
+def prefill_visit(history: list[dict]) -> dict:
+    """The visit as its next turn will send it — the standing prompt and every turn so far — read into the
+    server's cache now (ollama_client.prefill). For /rewarm: the slow read when the keeper asks."""
+    tools.refresh_her_tools()
+    system = {"role": "system", "content": history[0].get("_system") or ""}
+    return ollama_client.prefill([system] + [render_turn(t) for t in history], tools=tools.DEFINITIONS)
+
+
 def pause_reflection(history: list[dict], path: Path | None = None, tag: str = "",
                      on_line=None, since: int = 0, on_words=None, opening: str = "") -> str:
     """A pause in a visit: the keeper has gone quiet for REFLECT_AFTER_MIN, so they
@@ -1329,6 +1337,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                                      think=getattr(config, "LIVE_VOICE_THINK", None))
         else:
             msg = ollama_client.chat(messages(), tools=tools.DEFINITIONS, expect_words=True,
+                                     **({"his_asks": False} if guest else {}),  # a guest's words ask nothing of the files
                                      **({"think_retries": think_retries} if think_retries is not None else {}),
                                      **({"think_any_depth": True} if think_any_depth else {}))  # a spark's own budget (10-26, 10-27)
         if spoken and msg.get("content"):

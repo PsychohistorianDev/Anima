@@ -332,7 +332,8 @@ def _drink(resp) -> dict:
 
 def chat(messages: list[dict], tools: list[dict] | None = None,
          timeout: float | None = None, think: bool | None = None,
-         expect_words: bool = False, think_retries: int | None = None, think_any_depth: bool = False) -> dict:
+         expect_words: bool = False, think_retries: int | None = None, think_any_depth: bool = False,
+         his_asks: bool = True) -> dict:
     """One non-streaming chat completion.
 
     Returns the assistant message dict:
@@ -350,15 +351,34 @@ def chat(messages: list[dict], tools: list[dict] | None = None,
     except Exception:  # noqa: BLE001
         _doing = None
     try:
-        return _chat(messages, tools, timeout, think, expect_words, think_retries, think_any_depth)
+        return _chat(messages, tools, timeout, think, expect_words, think_retries, think_any_depth, his_asks)
     finally:
         if _doing is not None:
             _doing.done()
 
 
+def prefill(messages: list[dict], tools: list[dict] | None = None, timeout: float | None = None) -> dict:
+    """Read a prompt into the server's cache now, writing nothing: the same request a turn makes (options,
+    tools, the think switch), with one token to write. /rewarm uses it, so the slow read happens when the keeper asks,
+    not at their next message. Returns the parsed reply (its `tokens` say how much was read)."""
+    options = {"num_ctx": getattr(config, "NUM_CTX", 8192)}
+    options.update(getattr(config, "SAMPLING_OPTIONS", {}))
+    options["num_predict"] = 1
+    payload: dict = {"model": config.CHAT_MODEL, "messages": messages, "options": options, "stream": False}
+    keep = getattr(config, "BRAIN_KEEP_ALIVE", "")
+    if keep:
+        payload["keep_alive"] = keep
+    if tools:
+        payload["tools"] = tools
+    if getattr(config, "CHAT_THINK", True):
+        payload["think"] = True  # the switch sits at the top of the system turn: the same prefix a turn sends
+    return _parse(_post("/api/chat", payload, timeout=timeout))
+
+
 def _chat(messages: list[dict], tools: list[dict] | None = None,
           timeout: float | None = None, think: bool | None = None,
-          expect_words: bool = False, think_retries: int | None = None, think_any_depth: bool = False) -> dict:
+          expect_words: bool = False, think_retries: int | None = None, think_any_depth: bool = False,
+          his_asks: bool = True) -> dict:
     options = {"num_ctx": getattr(config, "NUM_CTX", 8192)}
     options.update(getattr(config, "SAMPLING_OPTIONS", {}))
     payload: dict = {
@@ -477,6 +497,11 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
 
     def _claimed_once(m):
         c = claimed_act(m, messages)
+        if c and c[0] == "claimed" and not his_asks:
+            # a guest's message, not the keeper's: "I move through canyons" read as the keeper asking for a file to
+            # be moved set the friend's answer to the guest aside — a guest's words ask nothing of their files; their
+            # own claims (claimed-self) are still asked after
+            return None
         return None if (c and once.get(c[0])) else c
 
     def _defect(m):
@@ -558,7 +583,11 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
             # the middle road (10-25): the ask says a tool call now sends the reply above as written; whether it
             # goes out is decided by the answer (a call: kept; words only: set aside, as before)
             line = {"role": "user", "content": (CLAIMED_KEPT_NUDGE if kind == "claimed" else CLAIMED_SELF_KEPT_NUDGE).format(what=span)}
-            claim_kept = {"attempt": msg, "cost": tries[-1][0], "words": prior.get("content") or "", "kind": kind,
+            # the words that go out are the reply whole, not its shown head: past ATTEMPT_SHOWN_CHARS the shown copy
+            # ends "…(the rest of that attempt is left out here)", and that went to the phone cut mid-thought
+            claim_kept = {"attempt": msg, "cost": tries[-1][0],
+                          "words": strip_call_tail(msg.get("content") or "").strip() or prior.get("content") or "",
+                          "kind": kind,
                           "upto": len(sent_extra) + 2}
         step = ([prior] if prior else []) + [line]
         nudged["messages"] = list(base) + step

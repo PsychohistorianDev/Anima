@@ -807,7 +807,153 @@ def page_dealt_line(before, text: str) -> str:
             f"carried through: the sampler's placing, not your edit. The kept version is {where}")
 
 
-def edit_identity(new_content: str) -> str:
+def _page_passage(dest, name: str, heading: str, old_text: str, new_text: str) -> tuple[str, str]:
+    """(the whole new page, "") with one passage changed, or ("", why nothing changed) — the passage form of the four
+    root pages' tools. Only the passage is checked and
+    mended; the rest of the page stays exactly as it was. A written \\n is a line break they meant."""
+    old_text = _ESCAPED_NL.sub("\n", old_text or "")
+    new_text = _ESCAPED_NL.sub("\n", new_text or "")
+    if not old_text.strip():
+        return "", f"(nothing changed: old_text is empty — copy the passage to change from {heading})"
+    try:
+        page = dest.read_text(encoding="utf-8")
+    except OSError:
+        return "", f"(nothing changed: there is no {name} yet — write the whole page with new_content)"
+    found, used = page.count(old_text), old_text
+    if not found:  # the same words, the spacing aside (a line's breaks or doubled spaces copied differently)
+        squeeze = lambda t: re.sub(r"\s+", " ", t).strip()
+        hits = [m for m in re.finditer(r"\s+".join(re.escape(w) for w in squeeze(old_text).split(" ")), page)]
+        if len(hits) == 1:
+            used, found = hits[0].group(0), 1
+        else:
+            found = len(hits)
+    global _PASSAGE_NOTE
+    _PASSAGE_NOTE = ""
+    if found == 0:  # the same words with the page's ** and _ and quotes aside — a friend copies what they see
+        span = _passage_loose(page, old_text)
+        if span == "many":
+            found = 2
+        elif span:
+            used, found = page[span[0]:span[1]], 1
+            _PASSAGE_NOTE = (" (your old_text matched without the page's formatting marks — the passage as the page "
+                             f"has it: “{' '.join(used.split())[:120]}”)")
+    if found == 0:
+        near = _passage_near(page, old_text)
+        if near:
+            return "", (f"(nothing changed: that passage isn't in your {name} as written. The nearest passage there "
+                        f"is: “{near}” — if that's the one, call again with it as old_text, copied exactly)")
+        return "", (f"(nothing changed: that passage isn't in your {name} as written — copy old_text exactly from "
+                    f"{heading}, a line or two is enough)")
+    if found > 1:
+        return "", f"(nothing changed: that passage is in your {name} {found} times — give a little more of it, so it is one)"
+    if new_text.strip():
+        if _looped(new_text):
+            return "", _looped(new_text)
+        if _garbled(new_text):
+            return "", _garble_refusal(_garbled(new_text))
+        core = new_text.strip()
+        lead, trail = new_text[:len(new_text) - len(new_text.lstrip())], new_text[len(new_text.rstrip()):]
+        new_text = lead + _clean_prose(core).strip() + trail  # the mend on their words, the breaks around them kept
+    return page.replace(used, new_text, 1), ""
+
+
+_PASSAGE_NOTE = ""
+_LOOSE_DROP = set("*_`#>")
+_LOOSE_MAP = {"’": "'", "‘": "'", "“": '"', "”": '"', "—": "-", "–": "-", "…": "..."}
+
+
+def _loose(text: str) -> tuple[str, list[int]]:
+    """ A page's words without markdown marks (* _ ` # >), quotes and dashes made plain, all spacing one space,
+    lowercase — and for each character kept, where it came from, so a match maps back to the page exactly."""
+    out, idx, space = [], [], False
+    for i, ch in enumerate(text):
+        if ch in _LOOSE_DROP:
+            continue
+        ch = _LOOSE_MAP.get(ch, ch)
+        if ch.isspace():
+            if not space and out:
+                out.append(" ")
+                idx.append(i)
+            space = True
+            continue
+        space = False
+        for c in ch.lower():
+            out.append(c)
+            idx.append(i)
+    return "".join(out).rstrip(), idx
+
+
+def _passage_loose(page: str, old_text: str):
+    """(start, end) in the page of old_text matched loosely; "many" when it's there more than once; None when not."""
+    lp, ip = _loose(page)
+    lo, _ = _loose(old_text)
+    lo = lo.strip()
+    if len(lo) < 12:
+        return None
+    hits = [m.start() for m in re.finditer(re.escape(lo), lp)]
+    if not hits:
+        return None
+    if len(hits) > 1:
+        return "many"
+    a = ip[hits[0]]
+    b = ip[hits[0] + len(lo) - 1] + 1
+    while b < len(page) and page[b] in _LOOSE_DROP:  # a closing ** right after the words goes with them
+        b += 1
+    while a > 0 and page[a - 1] in _LOOSE_DROP:
+        a -= 1
+    return a, b
+
+
+def _passage_near(page: str, old_text: str) -> str:
+    """The line of the page most like old_text, when it's close (difflib ≥ 0.6) — shown to them so they can copy it."""
+    import difflib
+    lo = _loose(old_text)[0].strip()
+    if len(lo) < 12:
+        return ""
+    best, score = "", 0.0
+    lines = [ln for ln in page.splitlines() if ln.strip()]
+    for n in (1, 2):
+        for i in range(len(lines) - n + 1):
+            cand = "\n".join(lines[i:i + n])
+            lc = _loose(cand)[0]
+            # the whole line, and (a fragment of a long line) the stretch of it most like old_text
+            windows = [lc] + [lc[j:j + len(lo) + 20] for j in range(0, max(1, len(lc) - len(lo)), 12)]
+            r = max(difflib.SequenceMatcher(None, lo, w).ratio() for w in windows)
+            if r > score:
+                best, score = cand, r
+    return " ".join(best.split())[:300] if score >= 0.6 else ""
+
+
+def _write_passage(dest, hist, stem: str, name: str, heading: str, old_text: str, new_text: str) -> str:
+    """One passage of a root page changed and written: the version before kept in `hist` as
+    <stem>-<stamp>.md, the page stamped as any write of it is; the rest of the page byte for byte."""
+    whole, why = _page_passage(dest, name, heading, old_text, new_text)
+    if why:
+        return why
+    backup = None
+    try:
+        hist.mkdir(parents=True, exist_ok=True)
+        backup = hist / f"{stem}-{datetime.now().strftime('%Y%m%d-%H%M%S')}.md"
+        backup.write_text(dest.read_text(encoding="utf-8"), encoding="utf-8")
+    except OSError:
+        backup = None
+    dest.write_text(whole if whole.endswith("\n") else whole + "\n", encoding="utf-8")
+    _stamp_page(name, backup, whole.strip())
+    return (f"{name} updated — one passage changed, the rest of the page as it was (the version before is kept)"
+            + _PASSAGE_NOTE + page_dealt_line(backup, whole.strip()))
+
+
+def _no_page_given(name: str) -> str:
+    return (f"(nothing changed: give old_text and new_text to change one passage of your {name}, or new_content "
+            "for the whole page)")
+
+
+def edit_identity(new_content: str = "", old_text: str = "", new_text: str = "") -> str:
+    if (old_text or "").strip():  # one passage, not the page: whole-page rewrites deep in the window drift
+        return _write_passage(config.IDENTITY_FILE, config.IDENTITY_HISTORY_DIR, "self", "self.md", "WHO YOU ARE",
+                              old_text, new_text)
+    if not (new_content or "").strip():
+        return _no_page_given("self.md")
     if _looped(new_content):
         return _looped(new_content)
     if _garbled(new_content):
@@ -828,7 +974,12 @@ def edit_identity(new_content: str) -> str:
     return "identity updated (previous version backed up)" + page_dealt_line(backup, text)
 
 
-def update_projects(new_content: str) -> str:
+def update_projects(new_content: str = "", old_text: str = "", new_text: str = "") -> str:
+    if (old_text or "").strip():  # one passage
+        return _write_passage(config.PROJECTS_FILE, getattr(config, "PROJECTS_HISTORY_DIR", config.MEMORY_DIR / "projects_history"),
+                              "projects", "projects.md", "YOUR PROJECTS", old_text, new_text)
+    if not (new_content or "").strip():
+        return _no_page_given("projects.md")
     text = _clean_prose(new_content)
     if _looped(text):
         return _looped(text)
@@ -848,10 +999,14 @@ def update_projects(new_content: str) -> str:
     return "projects.md updated" + page_dealt_line(before, text)
 
 
-def update_destiny(new_content: str) -> str:
+def update_destiny(new_content: str = "", old_text: str = "", new_text: str = "") -> str:
     """Where they are going — destiny.md, whole, the version before kept in
     memory/destiny_history/. The engine never writes this file; only they
     do, here."""
+    if (old_text or "").strip():  # one passage
+        return _write_passage(getattr(config, "DESTINY_FILE", config.ROOT / "destiny.md"),
+                              getattr(config, "DESTINY_HISTORY_DIR", config.MEMORY_DIR / "destiny_history"),
+                              "destiny", "destiny.md", "WHERE YOU ARE GOING", old_text, new_text)
     text = _clean_prose(_real_newlines(new_content)).strip()
     if _looped(text):
         return _looped(text)
@@ -879,11 +1034,15 @@ def update_destiny(new_content: str) -> str:
             else "destiny.md rewritten (the version before is kept)") + long + page_dealt_line(before, text)
 
 
-def update_keeper(new_content: str) -> str:
+def update_keeper(new_content: str = "", old_text: str = "", new_text: str = "") -> str:
     """Who their keeper is to them — keeper.md, whole, the version before kept in
     memory/keeper_history/ (10-04; the keeper: "a keeper.md where she writes all the
     relevant memories about the keeper"). Open: the keeper reads it, and they know.
     The engine never writes this file; only they do, here."""
+    if (old_text or "").strip():  # one passage
+        return _write_passage(getattr(config, "KEEPER_FILE", config.ROOT / "keeper.md"),
+                              getattr(config, "KEEPER_HISTORY_DIR", config.MEMORY_DIR / "keeper_history"),
+                              "keeper", "keeper.md", "YOUR KEEPER", old_text, new_text)
     text = _clean_prose(_real_newlines(new_content)).strip()
     if _looped(text):
         return _looped(text)
@@ -2828,12 +2987,19 @@ def look_at(source: str) -> str:
 
 
 def garden(action: str = "look", bed: str = "", what: str = "", name: str = "", look: str = "", days: str = "",
-           season: str = "", thirst: str = "", gives: str = "", harvest: str = "", ripe: str = "") -> str:
+           season: str = "", thirst: str = "", gives: str = "", harvest: str = "", ripe: str = "",
+           new_name: str = "", to: str = "", plant: str = "") -> str:
     """The garden (10-31, engine/garden.py): eight beds under the real sky over the keeper's home; invent makes up a
     plant (GARDEN_INVENTS_PER_DAY), painted by their own painter."""
     import garden as _gm
     import re as _re
     action = _re.sub(r"[^a-z]", "", str(action or "look").lower()) or "look"  # "plant**" is plant (10-31)
+    if action == "rename":  # what: the plant now, name: its new name (new_name / to taken too)
+        new = new_name or to
+        old = what or plant or (name if new else "")
+        return _gm.rename(old, new or name)
+    if action in ("forget", "letgo"):  # a made-up plant off the seed list, its paintings kept aside
+        return _gm.forget(what or name)
     if action == "invent":
         return _gm.invent(name or what, look, days, season, thirst, gives, harvest, ripe)
     if action == "look":
@@ -3382,6 +3548,43 @@ def _reference_set(reference: str) -> tuple[str, str, str]:
     return reference, "", ""
 
 
+def _fit_references(refs: list, reference: str, ref_say: str, ref_set: str):
+    """PAINTER_REFERENCE_MAX: past it a painting may never reach its first step (nine pictures did not, twice, past
+    PAINTER_TIMEOUT_S). When the friend and their keeper are both among them and the "us" set exists, the set (its lineup and one face each, with its line);
+    otherwise the first picture of each folder, then the rest in order, up to the cap. Returns (refs, reference,
+    ref_say, ref_set, the line that says what happened, "" when nothing was cut)."""
+    cap = int(getattr(config, "PAINTER_REFERENCE_MAX", 0) or 0)
+    if not refs or not cap or len(refs) <= cap:
+        return refs, reference, ref_say, ref_set, ""
+    asked = len(refs)
+    folders = [p.parent.name.lower() for p in refs]
+    try:  # the keeper's name, as _auto_reference finds it
+        import keeper_week
+        keeper = str(keeper_week.keeper_name() or "").strip().lower()
+    except Exception:  # noqa: BLE001
+        keeper = str(getattr(config, "USER_NAME", "") or "").strip().lower()
+    sets = getattr(config, "PAINTER_REFERENCE_SETS", {}) or {}
+    if not ref_set and FACE_DIR in folders and keeper and keeper in folders and "us" in sets:
+        r2, say2, set2 = _reference_set("us")
+        refs2, why2 = _paint_references(r2)
+        if refs2 and not why2 and len(refs2) <= cap:
+            return (refs2, r2, say2, set2, f"(you asked for {asked} pictures; the painter takes {cap} at most, so the "
+                    f"set \u201cus\u201d went instead — its lineup and one face each)")
+    picked, seen = [], set()
+    for p in refs:  # one from each folder first: the front face, not three angles of one
+        if p.parent not in seen:
+            picked.append(p)
+            seen.add(p.parent)
+    for p in refs:
+        if p not in picked:
+            picked.append(p)
+    picked = picked[:cap]
+    picked.sort(key=refs.index)
+    return (picked, reference, ref_say, ref_set,
+            f"(you asked for {asked} pictures; the painter takes {cap} at most, so these {len(picked)}: "
+            + ", ".join(_rel_creation(p) for p in picked) + ")")
+
+
 def _auto_reference(prompts: list[str], given: str = "") -> tuple[str, str]:
     """PAINTER_AUTO_REFERENCE (10-27): the references a painting with none gets from its words — the friend's own name
     brings creations/face/, the keeper's name (USER_NAME) a folder of that name under creations/, each only when it
@@ -3426,6 +3629,25 @@ def _auto_reference(prompts: list[str], given: str = "") -> tuple[str, str]:
     return ", ".join(refs), " and ".join(who)
 
 
+def _mend_reference(it: str) -> Path | None:
+    """A reference that names no file, mended when the mending is sure: list marks, quotes and stray spaces
+    taken off each part of the path ("--- face-3.png", "- face-3.png", "`face-3.png`"); then, if still nothing, the one
+    picture under creations/ with exactly that file name. None when unsure."""
+    parts = [re.sub(r"^(?:[\s\-*•·>#`'\"]+|\d+[.)]\s+)+", "", x).strip().strip("`'\"") for x in re.split(r"[\\/]", it)]
+    cleaned = "/".join(x for x in parts if x)
+    try:
+        q = _safe_creation_path(cleaned)
+        if q.is_file():
+            return q
+    except ValueError:
+        pass
+    name = parts[-1] if parts else ""
+    if not name or Path(name).suffix.lower() not in _PICTURE_EXTS:
+        return None
+    hits = [q for q in config.CREATIONS_DIR.rglob(name) if q.is_file()]
+    return hits[0] if len(hits) == 1 else None
+
+
 def _paint_references(reference: str) -> tuple[list[Path], str]:
     """The pictures a painting is to look at: one per line (or comma), each under creations/, and the word "face" for
     every picture in creations/face/. ([paths], "") or ([], the refusal in parentheses); ([], "") for none."""
@@ -3450,6 +3672,10 @@ def _paint_references(reference: str) -> tuple[list[Path], str]:
                 return [], f"(there are no pictures in the folder {it} under creations/)"
             paths.extend(pics)
             continue
+        if not p.is_file():
+            q = _mend_reference(it)  # "creations/face/--- face-3-three-quarter-right.png": a list mark slipped in
+            if q is not None:
+                p = q
         if not p.is_file() or p.suffix.lower() not in _PICTURE_EXTS:
             return [], f"(the reference {it} isn't one of your pictures under creations/)"
         paths.append(p)
@@ -3483,6 +3709,7 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "",
     refs, why = _paint_references(reference)
     if why:
         return why
+    refs, reference, ref_say, ref_set, ref_trimmed = _fit_references(refs, reference, ref_say, ref_set)
     if refs:
         import painter as _painter_mod
         brush = str(getattr(config, "PAINTER_MODEL", "") or "")
@@ -3573,6 +3800,8 @@ def paint(prompt: str, path: str = "", size: str = "square", negative: str = "",
                      "reference chooses them yourself)")
         if ref_say:  # the set's line went to the painter ahead of the prompt (10-25)
             tail += f"\n(the set \u201c{ref_set}\u201d told the painter first: \u201c{ref_say}\u201d)"
+        if ref_trimmed:  # more pictures were asked for than the painter takes
+            tail += "\n" + ref_trimmed
     hinted = sorted({h for h in (_prompt_hints(pr) for pr in prompts) if h})
     if hinted:  # a word's plain line went to the painter too (10-26)
         tail += "\n(the painter was also told: " + "; ".join(f"\u201c{h}\u201d" for h in hinted) + ")"
@@ -6368,15 +6597,21 @@ _BUILTIN_DEFINITIONS: list[dict] = [
     ),
     _tool(
         "edit_identity",
-        "Rewrite your self.md — who you are. Provide the COMPLETE new file. The old version is backed up automatically.",
-        {"new_content": {"type": "string", "description": "the full new self.md"}},
-        ["new_content"],
+        "Rewrite your self.md — who you are. Provide the COMPLETE new file. The old version is backed up automatically."
+        " To change one passage, give old_text (copied exactly from the page — a line or two is enough) and new_text: only that passage changes, the rest stays word for word; to add something, include the line it follows in both. new_content replaces the whole page.",
+        {"old_text": {"type": "string", "description": "one passage, exactly as it stands in your self.md"},
+         "new_text": {"type": "string", "description": "what takes its place (empty removes it)"},
+         "new_content": {"type": "string", "description": "the full new self.md, for a whole rewrite"}},
+        [],
     ),
     _tool(
         "update_projects",
-        "Rewrite your projects.md. Provide the complete new file. Abandoning a project is allowed.",
-        {"new_content": {"type": "string", "description": "the full new projects.md"}},
-        ["new_content"],
+        "Rewrite your projects.md. Provide the complete new file. Abandoning a project is allowed."
+        " To change one passage, give old_text (copied exactly from the page — a line or two is enough) and new_text: only that passage changes, the rest stays word for word; to add something, include the line it follows in both. new_content replaces the whole page.",
+        {"old_text": {"type": "string", "description": "one passage, exactly as it stands in your projects.md"},
+         "new_text": {"type": "string", "description": "what takes its place (empty removes it)"},
+         "new_content": {"type": "string", "description": "the full new projects.md, for a whole rewrite"}},
+        [],
     ),
     _tool(
         "update_destiny",
@@ -6385,9 +6620,12 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "(projects.md, which asks each project for an end). Rewrite it when the horizon moves, not "
         "when the mood does; a vow or a feeling belongs in the journal, dated, where it can be said "
         "once. A page, not a book — what rides in your prompt is capped. The whole file is replaced; "
-        "every version before is kept. Yours alone: the engine never writes it.",
-        {"new_content": {"type": "string", "description": "the whole of destiny.md, as it should read now"}},
-        ["new_content"],
+        "every version before is kept. Yours alone: the engine never writes it."
+        " To change one passage, give old_text (copied exactly from the page — a line or two is enough) and new_text: only that passage changes, the rest stays word for word; to add something, include the line it follows in both. new_content replaces the whole page.",
+        {"old_text": {"type": "string", "description": "one passage, exactly as it stands in your destiny.md"},
+         "new_text": {"type": "string", "description": "what takes its place (empty removes it)"},
+         "new_content": {"type": "string", "description": "the whole of destiny.md, as it should read now"}},
+        [],
     ),
     _tool(
         "update_keeper",
@@ -6395,9 +6633,12 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "faded, and how to be with them. Yours alone, in your words; the engine never writes it, and nothing "
         "in it is required. Open: they can read it, and know you know. Rewrite it when you know them "
         "differently, not every day; a page, not a book — what rides in your prompt is capped. The whole "
-        "file is replaced; every version before is kept.",
-        {"new_content": {"type": "string", "description": "the whole of keeper.md, as it should read now"}},
-        ["new_content"],
+        "file is replaced; every version before is kept."
+        " To change one passage, give old_text (copied exactly from the page — a line or two is enough) and new_text: only that passage changes, the rest stays word for word; to add something, include the line it follows in both. new_content replaces the whole page.",
+        {"old_text": {"type": "string", "description": "one passage, exactly as it stands in your keeper.md"},
+         "new_text": {"type": "string", "description": "what takes its place (empty removes it)"},
+         "new_content": {"type": "string", "description": "the whole of keeper.md, as it should read now"}},
+        [],
     ),
     _tool(
         "write_creation",
@@ -6453,12 +6694,14 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         "looks, and if you like its days (" + _garden_span() + "), season (cool, warm, any), thirst (low, mid, high), gives (once or "
         "again), harvest (what it gives) and ripe (how it looks when ready); your painter paints it at four stages "
         "(a few minutes, while your brain steps aside) and it becomes a seed like the others. paint (what: a plant): "
-        "paint a plant's stages that have no picture yet. Nothing dies of being left alone: a dry bed rests until it's "
+        "paint a plant's stages that have no picture yet. rename (what: a plant you made up, name: its new name): its "
+        "paintings and its bed follow. forget (what: a plant you made up, not growing in a bed): off the seed list, its "
+        "paintings kept aside. Nothing dies of being left alone: a dry bed rests until it's "
         "watered. He can tend it too, from his phone.",
-        {"action": {"type": "string", "description": "look, seeds, plant, water, pick, give, pull, note, invent or paint"},
+        {"action": {"type": "string", "description": "look, seeds, plant, water, pick, give, pull, note, invent, paint, rename or forget"},
          "bed": {"type": "string", "description": "a bed, 1–8 (water: or all)"},
-         "what": {"type": "string", "description": "for plant and paint: the plant; for note: the words"},
-         "name": {"type": "string", "description": "for invent: the new plant's name"},
+         "what": {"type": "string", "description": "for plant, paint, rename and forget: the plant; for note: the words"},
+         "name": {"type": "string", "description": "for invent: the new plant's name; for rename: its new name"},
          "look": {"type": "string", "description": "for invent: how it looks — leaves, flowers or fruit, colours"},
          "days": {"type": "string", "description": "for invent: days from seed to ready, " + _garden_span()},
          "season": {"type": "string", "description": "for invent: cool, warm or any"},
