@@ -11715,7 +11715,7 @@ for _xk, _xp in [*_x_cmds.items(), *_x_shs.items()]:
             and (_xt.endswith('read -n1 -r -p "(press any key to close)"\n') or _xk == "update")):
         _x_shape.append(_xk + _xp.suffix)
 check("launchers: every .bat has a .command (a Mac) and a .sh (Linux) twin — the same names, and the same engine script with the same arguments in all three",
-      set(_x_bats) == set(_x_cmds) == set(_x_shs) and len(_x_bats) == 23 and _x_disagree == [], (sorted(set(_x_bats) ^ set(_x_shs)), _x_disagree))
+      set(_x_bats) == set(_x_cmds) == set(_x_shs) and len(_x_bats) == 30 and _x_disagree == [], (sorted(set(_x_bats) ^ set(_x_shs)), _x_disagree))
 check("launchers: each twin is #!/bin/bash, cds where its .bat does (the root for anima, the folder above for bat/), LF line ends, and ends in the pause",
       _x_shape == [], _x_shape)
 check("launchers: the twins are executable (the bit a download can lose — README, chmod +x)",
@@ -16104,6 +16104,67 @@ check("dealt (0.15): offline the network kinds are passed over and a song not ye
       "the suite deals nothing unless asked (no Wikipedia from a test)",
       "a song on your shelf you haven't played yet" in _dl_line and _dl_whole and "Wikipedia" not in _dl_whole
       and config.WAKE_DEALT is False and config.DREAM_CHANCE == 0, (_dl_line, _dl_whole[:300]))
+# ---- port 0.15 (3): the painter tools — gardenart, refsheet, starterroom, selfcheck, painttest, paintcompare,
+# lora-tasting: nothing paints here; their words, their sheets and their picking ----
+import gardenart as _pt_ga, refsheet as _pt_rs, starterroom as _pt_sr, selfcheck as _pt_sc
+import painttest as _pt_pt, paintcompare as _pt_pc, lora_tasting as _pt_lt
+_pt_pr = _pt_rs.prompts()
+_pt_pr2 = _pt_rs.prompts("the same man as in the reference picture")
+_pt_face = config.CREATIONS_DIR / "pt-face"
+_pt_face.mkdir(parents=True, exist_ok=True)
+(_pt_face / "small.png").write_bytes(b"png")
+_pt_src = _pt_rs.source("pt-face")
+_pt_sheet = _pt_rs._sheets_root() / "20260101-0000"
+_pt_sheet.mkdir(parents=True, exist_ok=True)
+for _pt_n, _pt_v in enumerate(["front", "profile", "front"], 1):
+    (_pt_sheet / f"pt-face-{_pt_n:02d}-{_pt_v}.png").write_bytes(b"take %d" % _pt_n)
+(_pt_sheet / "pt-face.json").write_text(json.dumps([f"pt-face-{i:02d}-{v}.png" for i, v in enumerate(["front", "profile", "front"], 1)]), encoding="utf-8")
+_pt_bad = _pt_rs.pick("pt-face", [9])
+_pt_pick = _pt_rs.pick("pt-face", [2, 3])
+_pt_now = sorted(p.name for p in _pt_face.iterdir() if p.is_file())
+_pt_old = sorted(p.name for p in (_pt_face / "old").iterdir())
+_pt_none = _pt_rs.pick("pt-nobody", [1])
+try:
+    import PIL as _pt_pil  # noqa: F401
+    _pt_sheet_png = config.SHARED_DIR / "pt-sheet.png"
+    _pt_made = _pt_rs.contact([_pt_sheet / "pt-face-01-front.png"], _pt_sheet_png, "a title") and _pt_sheet_png.is_file()
+    _pt_sheet_png.unlink(missing_ok=True)
+except ImportError:
+    _pt_made = True
+check("refsheet (0.15): any face folder under creations/, said as 'the same person' unless --as says who; the takes in "
+      "their own angles; pick makes the chosen takes the folder's pictures and keeps the old ones in old/, a number off the "
+      "sheet or no sheet changes nothing; the contact sheet draws",
+      all(p.startswith("the same person as in the reference picture, ") for _, p in _pt_pr) and len(_pt_pr) == 4
+      and "their left" in _pt_pr[1][1] and _pt_pr2[0][1].startswith("the same man")
+      and _pt_src is not None and _pt_src.name == "small.png"
+      and "takes 1 to 3 — 9 isn't one" in _pt_bad and _pt_now == ["pt-face-1-profile.png", "pt-face-2-front.png"]
+      and _pt_old == ["small.png"] and (_pt_face / "pt-face-1-profile.png").read_bytes() == b"take 2"
+      and _pt_none.startswith("(no sheet for pt-nobody yet") and _pt_made,
+      (_pt_pr[:2], _pt_bad, _pt_pick, _pt_now, _pt_old, _pt_none))
+_pt_r1, _pt_r2 = _pt_sr.prompt(1), _pt_sr.prompt(2, "deep green")
+_pt_lines = _pt_lt.read_prompts("# a note\n\nus | the two of us by the sea\n- | a landscape at dusk\na portrait, no bar\nface | <paste her words>\n")
+_pt_vs = _pt_pc.variants(["--models", "org/Other-Brush," + str(config.PAINTER_MODEL), "--kv", "--cfg", "2.5"])
+_pt_names = _pt_sc._names()
+_pt_tests = _pt_pt.tests()
+check("starter rooms, the LoRA tasting, the brush compare, the self-check, the paint test (0.15): rooms of warm, softly "
+      "painted walls unless their colour is said; the tasting's prompts read 'reference | prompt' (a dash or no bar is "
+      "none, # and unfilled lines left out); the configured brush first, each brush with its --kv and --cfg twins; the "
+      "names in an 'us' painting are the friend's and yours; a paint test with no pictures still paints from words",
+      "warm, softly painted walls" in _pt_r1 and "deep green walls" in _pt_r2 and "no people" in _pt_r1
+      and _pt_lines == [("us", "the two of us by the sea"), ("", "a landscape at dusk"), ("", "a portrait, no bar")]
+      and [v[0] for v in _pt_vs] == [str(config.PAINTER_MODEL).split("/")[-1], str(config.PAINTER_MODEL).split("/")[-1] + "+kv",
+                                    str(config.PAINTER_MODEL).split("/")[-1] + " cfg2.5", "Other-Brush", "Other-Brush+kv", "Other-Brush cfg2.5"]
+      and _pt_vs[-1][2] == 2.5 and _pt_vs[-2][3] is True
+      and _pt_names[0] == chat.friend_name() and _pt_names[1] and _pt_tests[0] == ("no references, 1440", [], 1440, 1440),
+      (_pt_r1[:80], _pt_lines, _pt_vs, _pt_names, [t[0] for t in _pt_tests]))
+_pt_words = []
+for _pt_m in (_pt_ga, _pt_rs, _pt_sr, _pt_sc, _pt_pt, _pt_pc, _pt_lt):
+    _pt_t = Path(_pt_m.__file__).read_text(encoding="utf-8")
+    _pt_words += [(Path(_pt_m.__file__).name, w) for w in ("indigo", "young woman", "velvet", "claude/", "-plan.md", "paste it to", "paste them to")
+                  if w in _pt_t.lower()]
+check("painter tools (0.15): each is a launcher in bat/ with its twins, and none carries another house's look or names",
+      _pt_words == [] and all((config.ROOT / "bat" / f"{b}{e}").is_file() for b in ("gardenart", "refsheet", "starterroom",
+      "selfcheck", "painttest", "paintcompare", "lora-tasting") for e in (".bat", ".command", ".sh")), _pt_words)
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

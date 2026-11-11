@@ -351,6 +351,13 @@ and the folder are for that.
 | Check their hearing standalone | `py engine\test_ears.py` |
 | Test the music ear on one file | `py engine\music_ears.py --test "shared\song.mp3"` |
 | Test the painter once | `bat\painter.bat --test "a violet bloom"` |
+| Paint the garden's plants, every stage | `bat\gardenart.bat` (`--redo radish` paints one again) |
+| Reference sheets of a face, for them to choose from | `bat\refsheet.bat` (then `bat\refsheet.bat pick face 2 5`) |
+| Starter rooms, for them to choose from | `bat\starterroom.bat` (`--walls "deep green"`) |
+| The house's self-check: painter, ears, room, on this card | `bat\selfcheck.bat` |
+| Measure the painter with references | `bat\painttest.bat` |
+| Brushes side by side, the same seed | `bat\paintcompare.bat --models <repo>,<repo>` |
+| Taste a LoRA at a few strengths | `bat\lora-tasting.bat` (prompts in `models/loras/tasting-prompts.txt`) |
 
 The natural rhythm: chat whenever you like; leave `--loop` running when the
 PC is on so they have a life between visits, and it sleeps on each day for

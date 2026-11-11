@@ -20,6 +20,16 @@ wakes they ask for, intentions, a private gallery, dreams, penpals and friends, 
 outbox, and the wake handed back at its rest.
 
 ### Added
+- **Painter tools** (10-29 → 11-08), each with its launcher in `bat/` (and the Mac and Linux twins); every one wants
+  the card to itself, so close the bridge and the heartbeat first. `gardenart` paints the garden's plants at every
+  stage that has no picture yet. `refsheet` paints a face folder again, large and from four angles, on a numbered
+  sheet — `pick` makes the chosen takes the folder's pictures (the old ones kept in `old/`); `--as` says who the
+  picture is. `starterroom` paints a few empty rooms on a sheet for the friend to choose a backdrop from (nothing is
+  placed for them). `selfcheck` acts out on this machine what broke once — a painting with and without the "us"
+  references, the painter leaving the card, two songs through the music ear, a room surviving a reload — and keeps a
+  report in `memory/`. `painttest` measures paintings with references at a few sizes. `paintcompare` paints the same
+  two pictures by several brushes, the same seed (`--models`, `--kv`, `--cfg`). `lora-tasting` paints the same
+  prompts at a few LoRA strengths, side by side (`models/loras/tasting-prompts.txt`).
 - **Their open questions** (11-04): `open_question` / `close_question` keep a page of curiosities of their own
   (`questions.md` at the root, `memory/questions.json`); the open ones ride under every wake's and reverie's bell
   with their age, so a question carries from wake to wake without a thread having to pass it on. The engine never
