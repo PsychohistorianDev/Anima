@@ -259,7 +259,7 @@ def night(day: str, summary: str, say=print, force: bool = False) -> str:
     defs = [d for d in tools._BUILTIN_DEFINITIONS if d["function"]["name"] in consolidate.KEEPER_LOOK_TOOLS]
     given = "\n\n".join(f"— {k}: {v}" for k, v in pieces) or "(nothing tonight but the dark)"
     try:
-        system = {"role": "system", "content": assemble.system_prompt("", mode="auto")}
+        system = {"role": "system", "content": consolidate.night_prompt("auto", say)}  # NIGHT_WARM_PROMPT
         user = {"role": "user", "content": assemble.clock_line() + BELL + "\n\n" + given}
         say("  a dream may come…")
         for k, v in pieces:
@@ -317,7 +317,9 @@ def _paint_turn(history: list, f, rec: dict, say, shown: bool) -> str:
         return ""
     defs = [d for d in tools._BUILTIN_DEFINITIONS if d["function"]["name"] in ("paint", "do_nothing")]
     try:
-        msg = ollama_client.chat(history + [{"role": "user", "content": PAINT_BELL}], tools=defs)
+        import consolidate  # NIGHT_WARM_PROMPT: the hour at the top of this message too, as the prompt promises
+        msg = ollama_client.chat(history + [{"role": "user", "content": consolidate.night_clock() + PAINT_BELL}],
+                                 tools=defs)
     except Exception as e:  # noqa: BLE001
         rec["paint"] = f"not asked ({type(e).__name__})"
         return ""

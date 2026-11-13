@@ -2188,6 +2188,7 @@ class Bridge:
                 self.send("(they are mid-reply — say /fold again in a moment)", markdown=False)
             return ""
         game = self._game_fold_before()  # a game mid-session in the window: its pages before the bell
+        folded = False  # FOLD_PREFILL: the new window is read in once the fold is done
         try:
             why = "asked" if asked else ("own" if pending else "bell")  # whose call — the block says
             if not pending:
@@ -2217,13 +2218,88 @@ class Bridge:
             self.last_activity = time.time()
             self.last_word = self.last_activity
             self._checkpoint()
+            folded = self.history is not old_history
         except Exception as e:  # a fold must never take the visit down with it
             line = f"fold: hiccup — the visit stays as it is ({type(e).__name__}: {e})"
         finally:
             self.lock.release()
         _say(line)
         self.notice(f"({line})")
+        if folded:
+            self._prefill_after_fold()  # after the phone heard the fold: nothing new is said to it
         return line
+
+    def _prefill_after_fold(self) -> None:
+        """FOLD_PREFILL: the fold is done — its afterglow sat, the standing prompt rebuilt — and nothing has read the
+        new window yet, so the keeper's next message would read it from the top. The same read /rewarm makes, started
+        now in the background, so it happens while they type. The bridge window says when it starts and when it is
+        done; the phone hears nothing new. Never raises."""
+        if not getattr(config, "FOLD_PREFILL", False):
+            return
+        try:
+            threading.Thread(target=self._fold_prefill, args=(self.history,), daemon=True).start()
+        except Exception as e:  # noqa: BLE001 — the next message reads it then, as before
+            _say(f"the fold's new window wasn't read in ({type(e).__name__}: {e}) — the next message reads it")
+
+    def _fold_prefill_skip(self, hist: list) -> str:
+        """Why the fold's read must not go now ("" — it may): the visit moved on, a game holds the card (the game guard:
+        the friend's brain stays off it), a wake is on the card, or the brain is set down (/release, the guard, a
+        painting — the read would open the door again for nobody). A message never waits for this."""
+        if self.history is not hist or not hist or not hist[0].get("_system"):
+            return "the visit has moved on"
+        try:
+            import gameguard
+            gaming, why = gameguard.playing()
+            if gaming:
+                return f"the game guard holds the card ({why})"
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            import presence
+            if presence.waking():
+                return "a wake is on the card"
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            if config.CHAT_MODEL not in ollama_client._loaded_models():
+                return "the brain is set down"
+        except Exception as e:  # noqa: BLE001
+            return f"the brain didn't say whether it is up ({type(e).__name__})"
+        return ""
+
+    def _fold_prefill(self, hist: list) -> None:
+        """The fold's read, holding the visit's lock as /rewarm's does: a message that comes meanwhile waits for it and
+        then reads only itself. A message already in flight has the lock — its own read is this one, so this one goes.
+        Whether it may go is asked before the lock is taken, so a read that does not go never holds it."""
+        try:
+            why = self._fold_prefill_skip(hist)
+            if why:
+                _say(f"the fold's new window: not read in — {why}; the next message reads it")
+                return
+            if not self.lock.acquire(timeout=3):
+                _say("the fold's new window: not read in — a message is being answered, and that reads it")
+                return
+        except Exception as e:  # noqa: BLE001
+            _say(f"the fold's new window wasn't read in ({type(e).__name__}: {e}) — the next message reads it")
+            return
+        try:
+            if self.history is not hist:
+                _say("the fold's new window: not read in — the visit has moved on; the next message reads it")
+                return
+            _say("the fold's new window: reading it in now, in the background (a message meanwhile waits for it)")
+            t0 = time.time()
+            try:
+                got = chat.prefill_visit(hist)
+            except Exception as e:  # noqa: BLE001 — the brain away, a refusal: the next message reads it, as before
+                _say(f"the fold's new window: the read didn't go through ({type(e).__name__}: {e}); the next message "
+                     "reads it")
+                return
+            n = int(((got or {}).get("tokens") or {}).get("prompt", 0) or 0)
+            _say(f"the fold's new window: read in ({n:,} tokens, {time.time() - t0:.0f}s) — the next message starts warm")
+        except Exception as e:  # noqa: BLE001
+            _say(f"the fold's new window: {type(e).__name__}: {e}")
+        finally:
+            self.lock.release()
 
     # ---- quiet hours ------------------------------------------------------
     # The engine's own notices — the afterglow and pause accounts (a visit

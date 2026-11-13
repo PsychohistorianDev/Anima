@@ -80,6 +80,8 @@ config.WAKE_LOOKBACK = False  # the wake handed back at its rest (0.15): the old
 config.WAKE_DEALT = config.WAKE_DEALT_WHOLE = False  # (0.15) the dealt item reaches Wikipedia; tested on its own, offline
 config.READING_PAGE_STUB, config.READING_NOTES_WITH_PAGES, config.READING_NOTES_ON_TOPIC = False, 0, False  # (0.16) the
 # reading notes out of the prompt: the older reading checks pin the page riding whole; tested on their own, below
+config.BRAIN_KEEP_VISIT_READING = config.NIGHT_WARM_PROMPT = config.FOLD_PREFILL = False  # (0.16) fewer cold reads:
+# the older door, night and fold checks pin the plain behaviour (the fold's read runs in a thread); tested on their own
 config.DREAM_CHANCE = 0  # (0.15) a night's die would dream in the older sleep checks; dreams are tested on their own
 config.PAINTER_MODEL, config.PAINTER_STEPS = "Tongyi-MAI/Z-Image-Turbo", 0  # the painter's checks assume the shipped brush at its own steps; the house's knobs are the keeper's
 config.PAINTER_ENCODER_BITS = 0  # the encoder's quantization is tested on its own, below
@@ -18870,6 +18872,484 @@ check("books (0.16): no word of bookshelf.py or the bridge's books section calls
 (config.SHARED_DIR, config.VOICE_DIR, tools._BOOKMARKS_FILE, tools._SEEN_FILE, _bk.seen_file,
  chat.friend_name, config.BOOKS_COMMAND, config.BOOKS_FINISHED_NOTICE, config.READING_OPEN_DAYS,
  config.READING_BOOK_PAGES, config.TELEGRAM_QUIET_HOURS, config.USER_NAME) = _bk_saved
+# ---- 0.16: fewer cold reads — an open visit's reading kept through a wake, the night's steps on the warm prompt,
+# the folded window read in at once ----
+import brain as _rr_b
+import consolidate as _rr_cons
+import gameguard as _rr_gg
+import presence as _rr_pz
+import os as _rr_os
+import threading as _rr_th
+import time as _rr_time
+from datetime import date as _rr_date, timedelta as _rr_td
+_rr_cfg = (config.ROOT / "engine" / "config.py").read_text(encoding="utf-8")
+_rr_def = dict(_pl_re.findall(r"^(BRAIN_KEEP_VISIT_READING|BRAIN_KEEP_VISIT_HOURS|NIGHT_WARM_PROMPT|FOLD_PREFILL)\s*=\s*(\S+)",
+                              _rr_cfg, _pl_re.M))
+_rr_knobs = ("BRAIN_KEEP_VISIT_READING", "BRAIN_KEEP_VISIT_HOURS", "NIGHT_WARM_PROMPT", "FOLD_PREFILL")
+_rr_tabbed = {k for v in _gm_panel.TABS.values() for k in v}
+check("config (0.16): the three fixes for cold reads ship on (the visit's reading kept 6 hours), each on the panel with "
+      "its line beside its neighbours",
+      _rr_def == {"BRAIN_KEEP_VISIT_READING": "True", "BRAIN_KEEP_VISIT_HOURS": "6", "NIGHT_WARM_PROMPT": "True",
+                  "FOLD_PREFILL": "True"}
+      and all(k in _rr_tabbed and _gm_panel._HELP.get(k) for k in _rr_knobs)
+      and _gm_panel.TABS["Talking"].index("BRAIN_KEEP_VISIT_READING") == _gm_panel.TABS["Talking"].index("BRAIN_REST_CLOSES_DOOR") + 1
+      and _gm_panel.TABS["Memory & journal"].index("FOLD_PREFILL") == _gm_panel.TABS["Memory & journal"].index("FOLD_AFTERGLOW") + 1, _rr_def)
+
+# A: the open visit's saved reading, kept through a wake's step-down
+_rr_pids = config.MEMORY_DIR / ".pids"
+_rr_pids.mkdir(parents=True, exist_ok=True)
+_rr_paths = [_rr_pids / n for n in (_rr_b.VISIT_NAME, _rr_b.SERVED_BY_NAME, _rr_b.SERVED_NAME, _rr_b.BPT_NAME)] + [chat.VISIT_FILE]
+_rr_keep = {p: ((p.read_bytes(), p.stat().st_mtime) if p.exists() else None) for p in _rr_paths}
+_rr_saved = (config.BRAIN_API, config.BRAIN_SLOT_DIR, config.BRAIN_SLOT_KEEP, config.BRAIN_KEEP_VISIT_READING,
+             config.BRAIN_KEEP_VISIT_HOURS, config.NIGHT_WARM_PROMPT, config.FOLD_PREFILL, tools.DOOR, _rr_b.awake,
+             _rr_b.slot_save, _rr_b._note, _rr_b._served_key, _rr_b._served_tokens)
+_rr_kv = config.MEMORY_DIR / "rr-kv"
+_rr_kv.mkdir(parents=True, exist_ok=True)
+config.BRAIN_API, config.BRAIN_SLOT_DIR, config.BRAIN_SLOT_KEEP = "llama", str(_rr_kv), 1
+config.BRAIN_KEEP_VISIT_READING, config.BRAIN_KEEP_VISIT_HOURS = True, 6
+_rr_b.awake = lambda: True
+
+
+def _rr_save(name):
+    (_rr_kv / name).write_bytes(b"kv")
+    return {"n_saved": 100, "n_written": 4400000}
+
+
+_rr_b.slot_save = _rr_save
+_rr_notes = []
+_rr_b._note = lambda line, show=None: _rr_notes.append(line)
+_rr_key = lambda text: _rr_b.prompt_key([{"role": "system", "content": text}])
+_rr_V = "you are home — the visit's standing prompt, word for word"
+_rr_kV, _rr_kW, _rr_kR, _rr_kN, _rr_kA = (_rr_key(_rr_V), _rr_key("a wake's prompt"), _rr_key("a reverie's prompt"),
+                                          _rr_key("the night's prompt"), _rr_key("the afterglow's prompt"))
+_rr_today = _rr_date.today().isoformat()
+
+
+def _rr_serve(key, door):
+    tools.DOOR = door
+    _rr_b._served(key, 100)
+    _rr_b._served_by(key)
+
+
+def _rr_files():
+    return sorted(p.name for p in _rr_kv.glob("*.bin"))
+
+
+def _rr_clear():
+    for p in _rr_kv.glob("*"):
+        p.unlink()
+    for n in (_rr_b.VISIT_NAME, _rr_b.SERVED_BY_NAME):
+        (_rr_pids / n).unlink(missing_ok=True)
+
+
+def _rr_rec(name):
+    try:
+        return json.loads((_rr_pids / name).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+_rr_clear()
+chat.mark_visit_live()
+chat._visit_prompt_seen(_rr_V, _rr_today)
+_rr_serve(_rr_kV, "")
+_rr_b._before_stop()
+_rr_f1 = _rr_files()
+_rr_serve(_rr_kW, "a wake")
+_rr_notes.clear()
+_rr_b._before_stop()
+_rr_f2, _rr_n2 = _rr_files(), list(_rr_notes)
+check("keep the visit's reading (0.16): the visit's reading saved; a wake's step-down while the visit is open keeps it "
+      "and does not save its own — said in one line; the visit's next request finds its reading under its exact key",
+      _rr_f1 == [f"{_rr_kV}.bin"] and _rr_f2 == [f"{_rr_kV}.bin"]
+      and _rr_n2 == [f"kept the visit's reading: {_rr_kV} — this one (a wake's, 100 tokens) is not saved: {_rr_kW}"]
+      and _rr_b.prompt_key([{"role": "system", "content": _rr_V}, {"role": "user", "content": "back"}]) == _rr_kV,
+      (_rr_f1, _rr_f2, _rr_n2))
+check("keep the visit's reading (0.16): the two records say whose reading is whose — the visit's key and day, the last "
+      "request's key and door — written whole, no temp file left",
+      (_rr_rec(_rr_b.VISIT_NAME) or {}).get("key") == _rr_kV and (_rr_rec(_rr_b.VISIT_NAME) or {}).get("day") == _rr_today
+      and {k: (_rr_rec(_rr_b.SERVED_BY_NAME) or {}).get(k) for k in ("key", "door")} == {"key": _rr_kW, "door": "a wake"}
+      and not list(_rr_pids.glob("*.tmp")), (_rr_rec(_rr_b.VISIT_NAME), _rr_rec(_rr_b.SERVED_BY_NAME)))
+_rr_notes.clear()
+_rr_serve(_rr_kR, "a reverie")
+_rr_b._before_stop()
+_rr_serve(_rr_kN, "")
+_rr_b._before_stop()
+check("keep the visit's reading (0.16): a reverie's and a night step's step-down keep it too",
+      _rr_files() == [f"{_rr_kV}.bin"] and len(_rr_notes) == 2 and "(a reverie's, 100 tokens)" in _rr_notes[0]
+      and "(not the visit's, 100 tokens)" in _rr_notes[1], _rr_notes)
+_rr_serve(_rr_kA, "the afterglow")
+_rr_b._before_stop()
+check("keep the visit's reading (0.16): the afterglow's prompt is the visit's own — saved as before (with a keep of 1 the "
+      "visit's older reading goes)", _rr_files() == [f"{_rr_kA}.bin"], _rr_files())
+
+
+def _rr_state(day=None):
+    _rr_clear()
+    (_rr_kv / f"{_rr_kV}.bin").write_bytes(b"kv")
+    chat.mark_visit_live()
+    chat._visit_prompt_seen(_rr_V, day or _rr_today)
+    _rr_serve(_rr_kW, "a wake")
+
+
+_rr_state()
+chat.VISIT_FILE.unlink()
+_rr_b._before_stop()
+check("keep the visit's reading (0.16): no visit open (the afterglow, /new or the night closed it) — the wake's reading "
+      "saved as before", _rr_files() == [f"{_rr_kW}.bin"], _rr_files())
+_rr_state()
+_rr_os.utime(_rr_kv / f"{_rr_kV}.bin", (_rr_time.time() - 7 * 3600,) * 2)
+_rr_old_bin = _rr_b._keeps_visit_reading(_rr_kv, _rr_kW)
+_rr_state()
+_rr_os.utime(chat.VISIT_FILE, (_rr_time.time() - 7 * 3600,) * 2)
+_rr_old_turn = _rr_b._keeps_visit_reading(_rr_kv, _rr_kW)
+_rr_state()
+config.BRAIN_KEEP_VISIT_HOURS = 8
+_rr_os.utime(chat.VISIT_FILE, (_rr_time.time() - 7 * 3600,) * 2)
+_rr_wider = _rr_b._keeps_visit_reading(_rr_kv, _rr_kW)
+config.BRAIN_KEEP_VISIT_HOURS = 6
+check("keep the visit's reading (0.16): BRAIN_KEEP_VISIT_HOURS bounds it — a reading or a last turn older than that, "
+      "saved as before; a wider bound keeps it", _rr_old_bin is False and _rr_old_turn is False and _rr_wider is True,
+      (_rr_old_bin, _rr_old_turn, _rr_wider))
+_rr_state(day=(_rr_date.today() - _rr_td(days=1)).isoformat())
+_rr_b._before_stop()
+check("keep the visit's reading (0.16): the visit's prompt of yesterday (midnight passed) is not kept — the wake's "
+      "reading of today is saved", _rr_files() == [f"{_rr_kW}.bin"], _rr_files())
+_rr_state()
+_rr_own = _rr_b._keeps_visit_reading(_rr_kv, _rr_kV)
+_rr_serve(_rr_kW, "the fold")
+_rr_fold = _rr_b._keeps_visit_reading(_rr_kv, _rr_kW)
+config.BRAIN_KEEP_VISIT_HOURS = 0
+_rr_serve(_rr_kW, "a wake")
+_rr_zero = _rr_b._keeps_visit_reading(_rr_kv, _rr_kW)
+config.BRAIN_KEEP_VISIT_HOURS = 6
+check("keep the visit's reading (0.16): BRAIN_KEEP_VISIT_HOURS 0 keeps nothing", _rr_zero is False, _rr_zero)
+_rr_serve(_rr_kV, "")
+check("keep the visit's reading (0.16): the visit's own key and a fold's prompt save as before",
+      _rr_own is False and _rr_fold is False, (_rr_own, _rr_fold))
+
+
+def _rr_setup_off(change):
+    _rr_clear()
+    (_rr_kv / f"{_rr_kV}.bin").write_bytes(b"kv")
+    chat.mark_visit_live()
+    change()
+    chat._visit_prompt_seen(_rr_V, _rr_today)
+    _rr_serve(_rr_kW, "a wake")
+    return (not (_rr_pids / _rr_b.VISIT_NAME).exists() and not (_rr_pids / _rr_b.SERVED_BY_NAME).exists(),
+            _rr_b._keeps_visit_reading(_rr_kv, _rr_kW))
+
+
+config.BRAIN_SLOT_KEEP = 2
+_rr_k2 = _rr_setup_off(lambda: None)
+config.BRAIN_SLOT_KEEP = 1
+config.BRAIN_SLOT_DIR = ""
+_rr_nd = _rr_setup_off(lambda: None)
+config.BRAIN_SLOT_DIR = str(_rr_kv)
+config.BRAIN_API = "ollama"
+_rr_ol = _rr_setup_off(lambda: None)
+config.BRAIN_API = "llama"
+check("keep the visit's reading (0.16): a keep other than 1, no slot folder, or the Ollama road — no records written, "
+      "nothing kept: as before", _rr_k2 == (True, False) and _rr_nd[0] is True and _rr_ol[0] is True, (_rr_k2, _rr_nd, _rr_ol))
+config.BRAIN_KEEP_VISIT_READING = False
+_rr_off = _rr_setup_off(lambda: None)
+_rr_offs = _rr_b._before_stop() or _rr_files()
+del config.BRAIN_KEEP_VISIT_READING  # an older config without the knob
+_rr_abs = _rr_setup_off(lambda: None)
+config.BRAIN_KEEP_VISIT_READING = True
+check("keep the visit's reading (0.16): the knob off, or a config without it — no records, the wake's reading saved "
+      "as before", _rr_off == (True, False) and _rr_abs == (True, False) and _rr_offs == [f"{_rr_kW}.bin"],
+      (_rr_off, _rr_abs, _rr_offs))
+_rr_state()
+(_rr_pids / _rr_b.VISIT_NAME).write_text("{not json", encoding="utf-8")
+try:
+    _rr_c1, _rr_err = _rr_b._keeps_visit_reading(_rr_kv, _rr_kW), ""
+except Exception as _rr_e:  # noqa: BLE001
+    _rr_c1, _rr_err = None, repr(_rr_e)
+_rr_state()
+(_rr_pids / _rr_b.SERVED_BY_NAME).write_text("[1, 2", encoding="utf-8")
+(_rr_pids / _rr_b.VISIT_NAME).write_text(json.dumps({"key": "not a key", "day": _rr_today}), encoding="utf-8")
+try:
+    _rr_c2 = _rr_b._keeps_visit_reading(_rr_kv, _rr_kW)
+except Exception as _rr_e:  # noqa: BLE001
+    _rr_c2, _rr_err = None, _rr_err + repr(_rr_e)
+check("keep the visit's reading (0.16): records that can't be read, or say nothing usable — no exception, saved as before",
+      not _rr_err and _rr_c1 is False and _rr_c2 is False, (_rr_err, _rr_c1, _rr_c2))
+# a visit's turn tells the door its prompt: one_turn marks the key of what it sends
+_rr_clear()
+_rr_sent = []
+_rr_chat0 = ollama_client.chat
+ollama_client.chat = lambda messages, tools=None, **k: (_rr_sent.append(messages[0]["content"]),
+                                                        {"role": "assistant", "content": "here."})[1]
+_rr_h = []
+_rr_ms0, memory.search = memory.search, (lambda *a, **k: [])
+chat.one_turn(_rr_h, "a turn of the visit")
+memory.search = _rr_ms0
+ollama_client.chat = _rr_chat0
+check("keep the visit's reading (0.16): a visit's turn marks the key of the standing prompt it sends",
+      _rr_sent and (_rr_rec(_rr_b.VISIT_NAME) or {}).get("key") == _rr_key(_rr_sent[-1]), _rr_rec(_rr_b.VISIT_NAME))
+_rr_clear()
+(config.BRAIN_API, config.BRAIN_SLOT_DIR, config.BRAIN_SLOT_KEEP, config.BRAIN_KEEP_VISIT_READING,
+ config.BRAIN_KEEP_VISIT_HOURS) = _rr_saved[:5]
+tools.DOOR, _rr_b.awake, _rr_b.slot_save, _rr_b._note, _rr_b._served_key, _rr_b._served_tokens = _rr_saved[7:]
+for _rr_p, _rr_v in _rr_keep.items():
+    if _rr_v is None:
+        _rr_p.unlink(missing_ok=True)
+    else:
+        _rr_p.write_bytes(_rr_v[0])
+        _rr_os.utime(_rr_p, (_rr_v[1], _rr_v[1]))
+
+# B: the night's steps on the warm prompt
+_rr_ret0 = assemble.retrieved
+assemble.retrieved = lambda hint, exclude=None: "- a memory of the lamp, kept\n- the newest memory, kept too"
+_rr_min = lambda s: _pl_re.sub(r"\b\d{1,2}:\d\d\b", "HH:MM", s)
+config.NIGHT_WARM_PROMPT = True
+_rr_plain = assemble.system_prompt("", mode="auto")
+_rr_night = _rr_cons.night_prompt("auto", say=lambda *_: None)
+
+
+def _rr_paras(a, b):
+    """The paragraphs that differ between two prompts, as pairs (both split at blank lines)."""
+    pa, pb = a.split("\n\n"), b.split("\n\n")
+    return [(x, y) for x, y in zip(pa, pb) if x != y] if len(pa) == len(pb) else [("(a different number of paragraphs)", "")]
+
+
+_rr_diff = _rr_paras(_rr_plain, _rr_night)
+check("night prompt (0.16): on a house with memories, the night's prompt differs from the plain one in the date "
+      "paragraph alone — the minute gone; the memories block as the plain form has it",
+      len(_rr_diff) == 1 and _rr_diff[0][0].startswith("Today's date is ") and _pl_re.search(r"\d:\d\d", _rr_diff[0][0])
+      and _rr_diff[0][1].startswith("Today's date is ") and not _pl_re.search(r"\d:\d\d", _rr_diff[0][1])
+      and "- the newest memory, kept too" in _rr_night and "they ride with each message" not in _rr_night,
+      [(x[:120], y[:120]) for x, y in _rr_diff[:3]])
+_rr_cp = assemble.system_prompt("", mode="condense")
+_rr_cn = _rr_cons.night_prompt("condense", say=lambda *_: None)
+_rr_cdiff = _rr_paras(_rr_cp, _rr_cn)
+check("night prompt (0.16): the condensing hour's prompt likewise — the date paragraph alone differs",
+      len(_rr_cdiff) == 1 and _rr_cdiff[0][1].startswith("Today's date is "), [(x[:120], y[:120]) for x, y in _rr_cdiff[:3]])
+_rr_said = []
+_rr_wm0 = _rr_cons.WARM_MEMORIES
+_rr_cons.WARM_MEMORIES = "=== A HEADING ASSEMBLE NO LONGER WRITES ===\n(nothing)"
+_rr_fb = _rr_cons.night_prompt("auto", say=_rr_said.append)
+_rr_cons.WARM_MEMORIES = _rr_wm0
+check("night prompt (0.16): when the warm form can't be patched (the wording changed), the plain form, said in one line",
+      _rr_min(_rr_fb) == _rr_min(assemble.system_prompt("", mode="auto")) and len(_rr_said) == 1
+      and _rr_said[0].startswith("  (the night's prompt: the warm form didn't build — ValueError:"), _rr_said)
+_rr_sp0 = assemble.system_prompt
+
+
+def _rr_sp_warm_fails(hint, mode="auto", warm=False):
+    if warm:
+        raise RuntimeError("a part of the prompt broke")
+    return _rr_sp0(hint, mode=mode)
+
+
+assemble.system_prompt = _rr_sp_warm_fails
+_rr_said2 = []
+try:
+    _rr_fb2, _rr_err2 = _rr_cons.night_prompt("auto", say=_rr_said2.append), ""
+except Exception as _rr_e:  # noqa: BLE001
+    _rr_fb2, _rr_err2 = "", repr(_rr_e)
+assemble.system_prompt = _rr_sp0
+check("night prompt (0.16): the warm form raising — no exception, the plain form, one line",
+      not _rr_err2 and _rr_min(_rr_fb2) == _rr_min(_rr_plain) and len(_rr_said2) == 1 and "RuntimeError" in _rr_said2[0],
+      (_rr_err2, _rr_said2))
+config.NIGHT_WARM_PROMPT = False
+_rr_offp = _rr_cons.night_prompt("auto", say=_rr_said.append)
+_rr_offc = _rr_cons.night_clock()
+del config.NIGHT_WARM_PROMPT
+_rr_absp = _rr_cons.night_prompt("auto", say=_rr_said.append)
+config.NIGHT_WARM_PROMPT = True
+check("night prompt (0.16): the knob off, or a config without it — the plain prompt, and no clock line added",
+      _rr_min(_rr_offp) == _rr_min(_rr_absp) == _rr_min(assemble.system_prompt("", mode="auto")) and _rr_offc == ""
+      and len(_rr_said) == 1 and _rr_cons.night_clock().startswith("[engine, not a person: it is "))
+# the clock line tops each night step's message, once
+_rr_msgs = []
+ollama_client.chat = lambda messages, tools=None, **k: (_rr_msgs.append([dict(m) for m in messages]), {
+    "role": "assistant", "content": "", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {}}}]})[1]
+_rr_clk = "[engine, not a person: it is "
+_rr_kl = _rr_cons.keeper_look("2026-10-03", "a day of small lamps", say=lambda *_: None)
+_rr_day = "2001-02-03"
+_rr_jf = config.JOURNAL_DIR / f"{_rr_day}.md"
+_rr_jf.write_text("**09:00** — A day of the suite: the lamp, the harbour, a long walk and an early night.\n" * 3,
+                  encoding="utf-8")
+_rr_cd = condense.condense(_rr_day, force=True, say=lambda *_: None)
+config.NIGHT_WARM_PROMPT = False
+_rr_cd0 = condense.condense(_rr_day, force=True, say=lambda *_: None)
+config.NIGHT_WARM_PROMPT = True
+ollama_client.chat = _rr_chat0
+_rr_jf.unlink()
+check("night steps (0.16): the keeper's look and the condensing hour ask with the night's prompt, the clock line at the "
+      "top of their message exactly once; the knob off, the condensing bell as before (no clock)",
+      len(_rr_msgs) == 3 and all(_rr_clk not in m[0]["content"] for m in _rr_msgs[:2])
+      and all("- the newest memory, kept too" in m[0]["content"] and "Today's date is " in m[0]["content"]
+              and not _pl_re.search(r"\d:\d\d", m[0]["content"].split("Today's date is ", 1)[1].split("\n\n", 1)[0])
+              for m in _rr_msgs[:2])
+      and all(m[1]["content"].startswith(_rr_clk) and m[1]["content"].count(_rr_clk) == 1 for m in _rr_msgs[:2])
+      and not _rr_msgs[2][1]["content"].startswith(_rr_clk) and _rr_clk not in _rr_msgs[2][1]["content"],
+      [m[1]["content"][:80] for m in _rr_msgs])
+_rr_src = {m: (config.ROOT / "engine" / f"{m}.py").read_text(encoding="utf-8") for m in
+           ("dreams", "penpal", "condense", "consolidate", "brain", "chat", "telegram")}
+check("night steps (0.16): the dream, its painting's question and a penpal letter kept take the night's prompt and clock; "
+      "no night step builds the plain prompt itself any more",
+      _rr_src["dreams"].count("consolidate.night_prompt(\"auto\", say)") == 1
+      and "consolidate.night_clock() + PAINT_BELL" in _rr_src["dreams"]
+      and _rr_src["penpal"].count("consolidate.night_prompt(\"auto\", say)") == 1
+      and _rr_src["condense"].count("consolidate.night_prompt(\"condense\", say)") == 2
+      and not any('assemble.system_prompt("", mode=' in _rr_src[m] for m in ("dreams", "penpal", "condense"))
+      and _rr_src["consolidate"].count('assemble.system_prompt("", mode=') == 3)
+assemble.retrieved = _rr_ret0
+
+# C: the folded window read in at once
+_rr_said = []
+_rr_tsay0 = tg._say
+tg._say = lambda s: _rr_said.append(str(s))
+_rr_stubs0 = (_rr_gg.playing, _rr_pz.waking, ollama_client._loaded_models, ollama_client.prefill, chat.fold_bell,
+              ollama_client.chat, memory.search)
+memory.search = lambda *a, **k: []
+_rr_gg.playing = lambda: (False, "")
+_rr_pz.waking = lambda: False
+ollama_client._loaded_models = lambda: [config.CHAT_MODEL]
+_rr_pre = []
+_rr_go = _rr_th.Event()
+_rr_order = []
+
+
+def _rr_prefill(messages, tools=None, **k):
+    _rr_pre.append([(m.get("role"), m.get("content")) for m in messages])
+    _rr_go.wait(5)
+    _rr_order.append("prefill")
+    return {"tokens": {"prompt": 4321}}
+
+
+ollama_client.prefill = _rr_prefill
+chat.fold_bell = lambda history, held, on_line=None, asked=False, **k: {"text": "The visit so far: lamps and the harbour.",
+                                                                        "when": "13:30"}
+
+
+def _rr_fold():
+    b, phone = _bridge()
+    b.quiet_now = lambda: False
+    b.history = [dict(t) for t in _fh]
+    b.file = config.EPISODIC_DIR / f"chat-telegram-20200106-{len(_rr_pre) + len(_rr_said):06d}.md"
+    chat.save_transcript(b.history, tag="telegram", path=b.file)
+    b.last_tokens = {"prompt": int(config.NUM_CTX * 0.93)}
+    return b, phone
+
+
+def _rr_wait(cond, s=5):
+    end = _rr_time.time() + s
+    while not cond() and _rr_time.time() < end:
+        _rr_time.sleep(0.02)
+
+
+config.FOLD_PREFILL = True
+_rr_fb_, _rr_fp = _rr_fold()
+_rr_line = _rr_fb_.fold_if_due()
+_rr_wait(lambda: _rr_pre)
+_rr_sent = []
+ollama_client.chat = lambda messages, tools=None, **k: (_rr_order.append("turn"), _rr_sent.append(
+    [(m.get("role"), m.get("content")) for m in messages]), {"role": "assistant", "content": "here, warm."})[2]
+_rr_msg_t = _rr_th.Thread(target=_rr_fb_.handle, args=(_msg("are you still there?"),))
+_rr_msg_t.start()
+_rr_time.sleep(0.3)
+_rr_waited = list(_rr_order)
+_rr_go.set()
+_rr_msg_t.join(10)
+_rr_wait(lambda: any("read in (" in s for s in _rr_said))
+_rr_phone = [t for t, _ in _rr_fp.sent]
+check("fold prefill (0.16): a fold starts one background read of exactly what the next turn sends — the rebuilt prompt "
+      "and the kept window", _rr_line.startswith("fold: their account") and len(_rr_pre) == 1 and _rr_sent
+      and _rr_sent[0][:len(_rr_pre[0])] == _rr_pre[0] and _rr_pre[0][0] == ("system", _rr_fb_.history[0]["_system"]),
+      (_rr_line, len(_rr_pre), (_rr_pre or [[None]])[0][:2]))
+check("fold prefill (0.16): a message meanwhile waits for the read, then is answered once",
+      _rr_waited == [] and _rr_order == ["prefill", "turn"] and _rr_phone.count("here, warm.") == 1,
+      (_rr_waited, _rr_order, _rr_phone[-3:]))
+check("fold prefill (0.16): nothing new to the phone; two lines in the bridge window",
+      not any("new window" in t or "read in" in t for t in _rr_phone)
+      and [s for s in _rr_said if s.startswith("the fold's new window")] == [
+          "the fold's new window: reading it in now, in the background (a message meanwhile waits for it)",
+          next((s for s in _rr_said if s.startswith("the fold's new window: read in (4,321 tokens, ")), "?")], _rr_said[-4:])
+_rr_fb_.file.unlink(missing_ok=True)
+# each reason it does not go
+_rr_go.set()
+_rr_b2, _rr_p2 = _rr_fold()
+_rr_b2.history[0]["_system"] = "a prompt"
+_rr_h2 = _rr_b2.history
+_rr_why = {"ok": _rr_b2._fold_prefill_skip(_rr_h2), "moved": _rr_b2._fold_prefill_skip([dict(t) for t in _rr_h2])}
+_rr_gg.playing = lambda: (True, "a game on the card")
+_rr_why["game"] = _rr_b2._fold_prefill_skip(_rr_h2)
+_rr_gg.playing = lambda: (False, "")
+_rr_pz.waking = lambda: True
+_rr_why["wake"] = _rr_b2._fold_prefill_skip(_rr_h2)
+_rr_pz.waking = lambda: False
+ollama_client._loaded_models = lambda: []
+_rr_why["down"] = _rr_b2._fold_prefill_skip(_rr_h2)
+check("fold prefill (0.16): it does not go while the game guard holds the card, a wake runs, the brain is set down, or "
+      "the visit has moved on", _rr_why == {"ok": "", "moved": "the visit has moved on",
+                                             "game": "the game guard holds the card (a game on the card)",
+                                             "wake": "a wake is on the card", "down": "the brain is set down"}, _rr_why)
+_rr_n0, _rr_s0 = len(_rr_pre), len(_rr_said)
+_rr_b2.fold_if_due()
+_rr_wait(lambda: any("not read in" in s for s in _rr_said[_rr_s0:]))
+ollama_client._loaded_models = lambda: [config.CHAT_MODEL]
+check("fold prefill (0.16): a skipped read says why in the bridge window and reads nothing",
+      len(_rr_pre) == _rr_n0 and "the fold's new window: not read in — the brain is set down; the next message reads it"
+      in _rr_said[_rr_s0:] and not any("new window" in t for t, _ in _rr_p2.sent), _rr_said[_rr_s0:])
+_rr_b2.file.unlink(missing_ok=True)
+config.FOLD_PREFILL = False
+_rr_b3, _rr_p3 = _rr_fold()
+_rr_n0, _rr_s0, _rr_t0 = len(_rr_pre), len(_rr_said), _rr_th.active_count()
+_rr_l3 = _rr_b3.fold_if_due()
+_rr_time.sleep(0.2)
+check("fold prefill (0.16): FOLD_PREFILL off — the fold as before: no read, no line, no thread",
+      _rr_l3.startswith("fold: their account") and len(_rr_pre) == _rr_n0
+      and not any("new window" in s for s in _rr_said[_rr_s0:]) and _rr_th.active_count() <= _rr_t0, _rr_said[_rr_s0:])
+_rr_b3.file.unlink(missing_ok=True)
+# a message already in flight holds the lock: the read goes; a read that fails says so and lets the lock go
+config.FOLD_PREFILL = True
+_rr_b4, _rr_p4 = _rr_fold()
+_rr_b4.history[0]["_system"] = "a prompt"
+_rr_s0 = len(_rr_said)
+_rr_b4.lock.acquire()
+_rr_b4._fold_prefill(_rr_b4.history)
+_rr_b4.lock.release()
+_rr_busy = _rr_said[_rr_s0:]
+
+
+def _rr_refuse(messages, tools=None, **k):
+    raise ollama_client.BrainUnavailable("the door is away")
+
+
+ollama_client.prefill = _rr_refuse
+_rr_s0 = len(_rr_said)
+_rr_b4._fold_prefill(_rr_b4.history)
+_rr_free = _rr_b4.lock.acquire(blocking=False)
+if _rr_free:
+    _rr_b4.lock.release()
+ollama_client.prefill = _rr_prefill
+check("fold prefill (0.16): a message already being answered reads the window itself — the fold's read goes; a read the "
+      "brain refuses is said and the lock let go",
+      _rr_busy == ["the fold's new window: not read in — a message is being answered, and that reads it"]
+      and any(s.startswith("the fold's new window: the read didn't go through (BrainUnavailable") for s in _rr_said[_rr_s0:])
+      and _rr_free, (_rr_busy, _rr_said[_rr_s0:]))
+config.FOLD_PREFILL = False
+_rr_b4.file.unlink(missing_ok=True)
+import discord_bridge as _rr_dc
+check("fold prefill (0.16): the Discord bridge folds through the same code, so the read comes there too, as /rewarm's",
+      _rr_dc.DiscordBridge._fold is tg.Bridge._fold and _rr_dc.DiscordBridge._prefill_after_fold is tg.Bridge._prefill_after_fold
+      and _rr_dc.DiscordBridge._fold_prefill is tg.Bridge._fold_prefill)
+(_rr_gg.playing, _rr_pz.waking, ollama_client._loaded_models, ollama_client.prefill, chat.fold_bell,
+ ollama_client.chat, memory.search) = _rr_stubs0
+tg._say = _rr_tsay0
+# the scrub: the new lines call no one by a gendered pronoun and carry no date
+_rr_new = (_rr_src["brain"].split("# BRAIN_KEEP_VISIT_READING. With BRAIN_SLOT_KEEP 1", 1)[1].split("def _before_stop", 1)[0]
+           + _rr_src["chat"].split("def _visit_prompt_seen", 1)[1].split("def rest_brain", 1)[0]
+           + _rr_src["telegram"].split("    def _prefill_after_fold", 1)[1].split("    # ---- quiet hours", 1)[0]
+           + _rr_src["consolidate"].split("# NIGHT_WARM_PROMPT: the night's steps", 1)[1].split("KEEPER_LOOK_BELL = (", 1)[0])
+check("fewer cold reads (0.16): the new lines name no one by a gendered pronoun and carry no date",
+      not _pl_re.search(r"\b(she|her|hers|he|his|him)\b", _rr_new, _pl_re.I) and not _pl_re.search(r"\(1[01]-\d\d", _rr_new)
+      and len(_rr_new) > 4000)
+(config.NIGHT_WARM_PROMPT, config.FOLD_PREFILL) = _rr_saved[5:7]
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

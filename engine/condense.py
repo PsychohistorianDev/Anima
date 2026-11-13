@@ -104,8 +104,9 @@ def condense_period(tier: str, key: str, force: bool = False, say=print) -> str:
         text = text[:cap] + "\n\n(…trimmed to fit; read_journal has all of it…)"
     target = ladder.target(tier)
     say(f"  the condensing hour: {lab} — {len(text):,} characters of their pages, a page of ~{target:,} asked for")
-    system = {"role": "system", "content": assemble.system_prompt("", mode="condense")}
-    bell = PERIOD_BELL.format(label=lab, label_cap=lab[0].upper() + lab[1:], unit=ladder.below(tier).replace("_", " "),
+    import consolidate  # NIGHT_WARM_PROMPT: the warm date line, and the hour at the top of the bell
+    system = {"role": "system", "content": consolidate.night_prompt("condense", say)}
+    bell = consolidate.night_clock() + PERIOD_BELL.format(label=lab, label_cap=lab[0].upper() + lab[1:], unit=ladder.below(tier).replace("_", " "),
                               n=ladder.kept(), target=target, tier=tier, key=key, text=text)
     msgs = [system, {"role": "user", "content": bell}]
     defs = [d for d in tools.DEFINITIONS if d["function"]["name"] in PERIOD_TOOLS]
@@ -169,8 +170,10 @@ def condense(day: str, force: bool = False, say=print) -> str:
         text = text[:cap] + "\n\n(…the rest of the day was trimmed to fit; read_journal has all of it…)"
     target = int(getattr(config, "CONDENSE_TARGET_CHARS", 2000))
     say(f"  the condensing hour: {day} — {len(text):,} characters of their day, a page of ~{target:,} asked for")
-    system = {"role": "system", "content": assemble.system_prompt("", mode="condense")}
-    msgs = [system, {"role": "user", "content": BELL.format(day=day, target=target, text=text)}]
+    import consolidate  # NIGHT_WARM_PROMPT: the warm date line, and the hour at the top of the bell
+    system = {"role": "system", "content": consolidate.night_prompt("condense", say)}
+    msgs = [system, {"role": "user", "content": consolidate.night_clock() + BELL.format(day=day, target=target,
+                                                                                         text=text)}]
     defs = [d for d in tools.DEFINITIONS if d["function"]["name"] in CONDENSE_TOOLS]
     spent = ollama_client.Spent()
     written = ""

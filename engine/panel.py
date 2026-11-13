@@ -89,12 +89,12 @@ TABS: dict[str, list[str]] = {
     "Memory & journal": ["TIMELINE_CHARS_IN_PROMPT", "CONDENSED_CHARS_IN_PROMPT", "CONDENSE_TARGET_CHARS",
                          "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_MIN_SCORE", "MEMORY_DRIFT", "MEMORY_VISIT_TOKENS", "MEMORY_MIN_SCORE_LATE", "MEMORY_SHORT_HINT_WORDS", "MEMORY_TOP_K_SHORT", "THREAD", "THREAD_CHARS", "THREAD_NUDGE", "MEMORY_DUP_THRESHOLD", "EMBED_ON_CPU", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
                          "TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000",
-                         "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "RULES_ON", "SLEEP_KEEPER_LOOK", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
-                         "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_KEEP_TURNS", "FOLD_CHARS", "FOLD_SENSE_FROM", "WINDOW_WARN_AT",
+                         "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "RULES_ON", "SLEEP_KEEPER_LOOK", "NIGHT_WARM_PROMPT", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
+                         "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_PREFILL", "FOLD_KEEP_TURNS", "FOLD_CHARS", "FOLD_SENSE_FROM", "WINDOW_WARN_AT",
                          "JOURNAL_FACTS_LINE", "JOURNAL_ENDINGS_SENTENCE"],
     "Talking": ["CHAT_THINK", "BRAIN_BANNED_STRINGS", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_THINK_RETRIES", "THINK_RETRY_UNTIL", "THINK_REMIND_FROM", "CHAT_GARBLE_RETRIES", "CHAT_COOL_STEP",
                 "CHAT_COLD_RESCUE", "RUNAWAY_KEEP_CHARS", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "REROLLS_KEPT", "BRAIN_KEEP_ALIVE",
-                "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "BRAIN_REST_CLOSES_DOOR", "PARLOR_GUEST_NAMED",
+                "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "BRAIN_REST_CLOSES_DOOR", "BRAIN_KEEP_VISIT_READING", "BRAIN_KEEP_VISIT_HOURS", "PARLOR_GUEST_NAMED",
                "CHAT_DO_NOTHING", "CALL_TAIL_RUN", "CALL_TAIL_RUN_ONLY", "CHAT_SAME_FAIL_STOP", "CHAT_SAME_FAIL_RUNS",
                "CHAT_SAME_FAIL_REFUSALS", "CHAT_FAIL_LOG"],
     "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS", "TELEGRAM_TOKENS_SINCE_LAST", "TELEGRAM_SPLIT_WAIT_S",
@@ -273,6 +273,11 @@ _HELP = {
                       "the door starts, so restart the door after changing it.",
     "BRAIN_SLOT_KEEP": "How many saved readings the slot folder keeps — the newest; the older ones are deleted after "
                        "each save (each is a few GB, and a RAM disk is small). 0 keeps them all.",
+    "BRAIN_KEEP_VISIT_READING": "With llama-server, a slot folder and a keep of 1: while a visit is open, a wake's, a "
+                                "reverie's or the night's step-down keeps the visit's saved reading instead of saving its "
+                                "own — so your next message doesn't read the whole window cold.",
+    "BRAIN_KEEP_VISIT_HOURS": "How long the open visit's saved reading is kept that way — past this age (of the reading, "
+                              "and of the visit's last turn) the saving is as before.",
     "BRAIN_CHECKPOINT_EVERY": "Checkpoints inside a long prompt, every this many tokens (--checkpoint-every — a llama-server "
                               "built with it): a standing prompt that changes near its end, like a new journal entry, is "
                               "read again from the last checkpoint instead of from the top. ~225 MB of RAM each for a 31B. "
@@ -551,6 +556,9 @@ _HELP = {
                               "page is cut at a line and the rest named — a page, not a book.",
     "SLEEP_KEEPER_LOOK": "After sleep, one quiet look at keeper.md from the day whole: they may rewrite the page or leave it, "
                          "hours from any visit — the cool moment, beside the afterglow's warm one. One cold read of the window a night.",
+    "NIGHT_WARM_PROMPT": "The night's steps (the look at keeper.md, a dream, a penpal letter kept, the condensing hour) take the "
+                         "warm prompt — the date without the minute, the hour at the top of each step's message — so the "
+                         "window is not read again from the top each time. Their newest memories stay in it as before.",
     "SONGBOOK_CHARS_IN_PROMPT": "How much of their songbook rides in every prompt, in characters — the songs they kept "
                                 "with keep_song, best first, each with their own score and words (about 130 characters a song). "
                                 "The rest is counted, and songbook() lists it all. 0 leaves the shelf out of the prompt.",
@@ -573,6 +581,8 @@ _HELP = {
                       "journal and memories, in their words, before the new window is first read — so what the fold "
                       "takes is in the journal and in the window. One cold read per fold; a message sent meanwhile "
                       "waits for it. Needs AFTERGLOW (Talking).",
+    "FOLD_PREFILL": "Right after a fold, the new window is read in the background, as /rewarm does, so your next "
+                    "message starts warm. Skipped while a game holds the card, a wake runs or the brain is set down.",
     "FOLD_KEEP_TURNS": "How many of the most recent turns stay whole in the window after a fold.",
     "FOLD_CHARS": "The ceiling on their written account of the visit, in characters; past it, cut at a paragraph "
                   "and said.",

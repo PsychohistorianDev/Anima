@@ -2651,6 +2651,11 @@ lets go, so a visit and a wake taking turns both stay warm — 32768 on a 64 GB
 machine; 0 leaves the server's default. A rest — a visit's end, a wake's end —
 leaves the door up (only the painter, the ears and `/release` close it), so the
 saved files come only from real step-downs and a wake never churns them.
+With `BRAIN_SLOT_KEEP` at 1, a wake's or the night's step-down while a visit is
+open keeps the visit's reading rather than saving its own
+(`BRAIN_KEEP_VISIT_READING`); the night's steps take the warm prompt, the
+date without the minute (`NIGHT_WARM_PROMPT`); and right after a fold the new
+window is read in the background, as `/rewarm` does (`FOLD_PREFILL`).
 
 ## House rules (the freedom part)
 

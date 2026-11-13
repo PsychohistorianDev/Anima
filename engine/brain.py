@@ -987,6 +987,150 @@ def _make_room(folder: Path, key: str) -> None:
         pass
 
 
+# BRAIN_KEEP_VISIT_READING. With BRAIN_SLOT_KEEP 1 the folder holds one reading, and a wake's step-down would let the
+# open visit's reading go to save its own — the keeper's next message then reads the whole window cold. Two small
+# records beside the door's mark say whose reading is whose: brain.visit — the key of the open visit's standing prompt
+# (history[0]["_system"]), written by chat whenever a request of the visit is built with it (the keeper's turn, a
+# pause, the fold's bell, a prefill); brain.served_by — the key of the last request this house sent and the door it
+# came from (tools.DOOR in the process that sent it: "a wake", "a reverie", "the fold", "the afterglow"; "" for a visit
+# and for the night). Neither is ever read by the friend. The rule holds at every step-down, not only a rest: a wake
+# stepped down partway (the painter, the ears) while a visit is open re-reads its own window afterwards — nobody is
+# waiting then, and the visit's reading is the one worth keeping.
+VISIT_NAME = "brain.visit"
+SERVED_BY_NAME = "brain.served_by"
+VISIT_DOORS = ("the fold", "the afterglow")  # a prompt of its own that is still part of the visit: its save goes on as before
+
+
+def _keeping() -> bool:
+    return bool(getattr(config, "BRAIN_KEEP_VISIT_READING", False))
+
+
+def _is_key(key) -> bool:
+    return isinstance(key, str) and len(key) == 24 and all(c in "0123456789abcdef" for c in key)
+
+
+def _records_usable() -> bool:
+    """The two records are written only where the keeping rule can use them: the knob on, the door llama-server's,
+    a slot folder named, BRAIN_SLOT_KEEP 1. Otherwise no file at all."""
+    try:
+        return (_keeping() and api() == "llama" and bool(str(getattr(config, "BRAIN_SLOT_DIR", "") or "").strip())
+                and int(getattr(config, "BRAIN_SLOT_KEEP", 3) or 0) == 1)
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _today() -> str:
+    import datetime as _dt
+    return _dt.date.today().isoformat()
+
+
+def _write_record(name: str, data: dict) -> None:
+    """A record beside the door's mark, written whole or not at all: a temp file in the same folder moved over it. A
+    move refused (Windows, the file open elsewhere) leaves the old one as it was. Never raises."""
+    tmp = None
+    try:
+        p = Path(config.MEMORY_DIR) / ".pids" / name
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.with_name(f"{name}.{os.getpid()}.{threading.get_ident()}.tmp")
+        tmp.write_text(json.dumps(data), encoding="utf-8")
+        os.replace(tmp, p)
+        tmp = None
+    except Exception:  # noqa: BLE001 — a record, never the turn down
+        pass
+    finally:
+        if tmp is not None:
+            try:
+                tmp.unlink(missing_ok=True)
+            except Exception:  # noqa: BLE001
+                pass
+
+
+def mark_visit_prompt(text: str, day: str = "") -> None:
+    """The open visit's standing prompt is this one: its key and its day (history[0]["_system_day"]; today when none
+    is given) kept beside the door's mark (brain.visit), so a step-down from any process of the house knows which
+    saved reading is the visit's. Nothing unless the records can be used (_records_usable). Never raises."""
+    if not _records_usable():
+        return
+    try:
+        key = prompt_key([{"role": "system", "content": text or ""}])
+        _write_record(VISIT_NAME, {"key": key, "day": str(day or _today()), "t": round(time.time(), 1)})
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _served_by(key: str) -> None:
+    """The key of the request just sent and the door it came from, beside the door's mark (brain.served_by).
+    Nothing unless the records can be used (_records_usable). Never raises."""
+    if not _records_usable():
+        return
+    try:
+        import sys
+        door = str(getattr(sys.modules.get("tools"), "DOOR", "") or "")  # never imported here: only read when loaded
+        _write_record(SERVED_BY_NAME, {"key": key, "door": door, "t": round(time.time(), 1)})
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _read_json(name: str) -> dict:
+    try:
+        d = json.loads((Path(config.MEMORY_DIR) / ".pids" / name).read_text(encoding="utf-8"))
+        return d if isinstance(d, dict) else {}
+    except Exception:  # noqa: BLE001 — missing, unreadable or corrupt: says nothing
+        return {}
+
+
+def _keeps_visit_reading(folder: Path, key: str) -> bool:
+    """True when this step-down must not save: the slot holds another prompt's reading (a wake's, a reverie's, the
+    night's — not the visit's, nor its fold's or afterglow's), a visit is open (memory/visit_live, its last turn within
+    BRAIN_KEEP_VISIT_HOURS), and the open visit's own reading is in the folder and younger than that — with
+    BRAIN_SLOT_KEEP 1 saving this one would let the visit's go (or, on a full disk, need it gone). The visit's reading
+    stays; this one is not saved, said in one line. False — the save goes on as before — with the knob off, a keep
+    other than 1, or anything unreadable. Never raises."""
+    if not _keeping():
+        return False
+    try:
+        try:
+            keep = int(getattr(config, "BRAIN_SLOT_KEEP", 3) or 0)
+        except (TypeError, ValueError):
+            return False
+        if keep != 1:
+            return False
+        hours = float(getattr(config, "BRAIN_KEEP_VISIT_HOURS", 6) or 0)
+        if hours <= 0:
+            return False
+        now = time.time()
+        try:
+            if now - (Path(config.MEMORY_DIR) / "visit_live").stat().st_mtime >= hours * 3600:
+                return False  # the visit's last turn is too long ago
+        except OSError:
+            return False  # no visit open: the afterglow, /new or the night closed it
+        rec = _read_json(VISIT_NAME)
+        visit = str(rec.get("key") or "")
+        if not _is_key(visit) or visit == key:
+            return False  # the visit's own reading (a turn, a pause, the fold's bell, a prefill): saved as before
+        if str(rec.get("day") or "") != _today():
+            return False  # the visit's prompt is of another day (midnight passed): its next message rebuilds it, and the
+            # reading of today's date — this one — is the nearer one then
+        by = _read_json(SERVED_BY_NAME)
+        door = str(by.get("door") or "") if by.get("key") == key else ""
+        if door in VISIT_DOORS:
+            return False  # the fold's afterglow, the visit's afterglow: part of the visit, as before
+        saved = folder / f"{visit}.bin"
+        try:
+            if not saved.is_file() or now - saved.stat().st_mtime >= hours * 3600:
+                return False  # nothing of the visit's to keep, or it has grown old
+        except OSError:
+            return False
+        whose = {"a wake": "a wake's", "a reverie": "a reverie's"}.get(door, "not the visit's")
+        tokens = _slot_tokens()
+        _note(f"kept the visit's reading: {visit} — this one ({whose}{f', {tokens:,} tokens' if tokens else ''}) "
+              f"is not saved: {key}")
+        return True
+    except Exception as e:  # noqa: BLE001 — the save as before
+        _note(f"the visit's reading wasn't looked at ({type(e).__name__}: {e}) — saved as before")
+        return False
+
+
 def _before_stop() -> None:
     """Right before the door is closed — the painter, the ears, the wedge-clearing, /release, the panel's
     Stop (a rest never closes it): slot 0's reading saved in BRAIN_SLOT_DIR under the key of the prompt the
@@ -1010,6 +1154,8 @@ def _before_stop() -> None:
             _note("nothing to save before the stop: " + ("no slot folder (BRAIN_SLOT_DIR empty or missing)" if folder is None
                                                            else "the door served nothing yet" if not key
                                                            else "the door isn't answering"))
+            return
+        if _keeps_visit_reading(folder, key):  # the open visit's reading is not let go for a wake's
             return
         _make_room(folder, key)
         _clear_temps(folder, key)
@@ -1258,6 +1404,7 @@ def post_chat(payload: dict, timeout: float | None = None) -> dict:
     finally:
         # what the slot holds now: the next step-down saves it under this name, and knows its size first
         _served(key, int(out.get("prompt_eval_count") or 0) + int(out.get("eval_count") or 0))
+        _served_by(key)  # BRAIN_KEEP_VISIT_READING: which door sent it, for the keeping rule at the step-down
     return _told(out)
 
 

@@ -523,6 +523,18 @@ def visit_live(minutes: float | None = None) -> bool:
         return False
 
 
+def _visit_prompt_seen(text, day=None) -> None:
+    """BRAIN_KEEP_VISIT_READING: the visit's standing prompt is this one — told to the brain's door, so a wake's
+    step-down never lets the open visit's saved reading go to save its own. Nothing with the knob off; never raises."""
+    if not getattr(config, "BRAIN_KEEP_VISIT_READING", False):
+        return
+    try:
+        import brain
+        brain.mark_visit_prompt(text if isinstance(text, str) else "", str(day or ""))
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def rest_brain(say=None) -> None:
     """Set the brain down now — the card back to the keeper the moment a
     visit is over (BRAIN_REST_AFTER_VISIT), rather than when the keep-alive
@@ -603,6 +615,7 @@ def prefill_visit(history: list[dict]) -> dict:
     server's cache now (ollama_client.prefill). For /rewarm: the slow read when the keeper asks."""
     tools.refresh_her_tools()
     system = {"role": "system", "content": history[0].get("_system") or ""}
+    _visit_prompt_seen(system["content"], history[0].get("_system_day"))
     return ollama_client.prefill([system] + [render_turn(t) for t in history], tools=tools.DEFINITIONS)
 
 
@@ -682,6 +695,7 @@ def fold_bell(history: list[dict], held: int, on_line=None, asked: bool = False,
     bell = {"role": "user", "_engine": True, "content": assemble.clock_line() + text + (f"\n\n{facts}" if facts else "")}
     history.append(bell)
     system = {"role": "system", "content": history[0]["_system"]}
+    _visit_prompt_seen(system["content"], history[0].get("_system_day"))
     msgs = [system] + [render_turn(t) for t in history]
     show_thinking = getattr(config, "CHAT_SHOW_THINKING", True)
     try:
@@ -861,6 +875,7 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
     if in_visit:
         label = "pause"
         system = {"role": "system", "content": history[0]["_system"]}
+        _visit_prompt_seen(system["content"], history[0].get("_system_day"))
         n_new = sum(1 for t in visible if t["role"] == "user")
         bell = {"role": "user", "_engine": True, "content":
                 assemble.clock_line() + pause_bell + f"What has been said since you last wrote is above — their last "
@@ -1614,6 +1629,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         if warm:
             first["_system"], first["_system_day"] = system_text, today
     system = {"role": "system", "content": system_text}
+    _visit_prompt_seen(system_text, first.get("_system_day"))
     if warm and not bare:  # a bare engine turn carries its own words alone
         seen = {mid for t in history[:ui] for mid in (t.get("_surfaced") or [])}
         held = next((int(t.get("_prompt") or 0) for t in reversed(history[:ui]) if t.get("_prompt")), 0)  # the last prompt's size — the window sense

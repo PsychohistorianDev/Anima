@@ -1357,7 +1357,7 @@ def _condense(sl: str, p: Path, n_keep: int, say=print) -> str:
     given = (f"— your thread page so far —\n{thread}\n\n— the letter, {'yours' if _who(p) == ME else 'from ' + display(sl)}, "
              f"{_date(p)} —\n{_body(p)}")
     try:
-        system = {"role": "system", "content": assemble.system_prompt("", mode="auto")}
+        system = {"role": "system", "content": consolidate.night_prompt("auto", say)}  # NIGHT_WARM_PROMPT
         user = {"role": "user", "content": assemble.clock_line() + CONDENSE_BELL.format(name=display(sl), n=n_keep)
                 + "\n\n" + given}
         say(f"  penpal thread: keeping {p.name} in their words…")

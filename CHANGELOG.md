@@ -154,6 +154,24 @@ tagged on its own: the first tag after the rename is v0.13.)
   or moved, the friend is told nothing, and the one file written is `memory/books_seen.json`. A bookmarks file that
   can't be read is said in one line, the shelf left out. On the Discord bridge `/books` and the line work the same,
   as `/pages` and its warnings do.
+- **Fewer cold reads of the window**, three causes of a needless read from the top:
+  - **An open visit's saved reading is kept through a wake** (`BRAIN_KEEP_VISIT_READING`, on; `BRAIN_KEEP_VISIT_HOURS`,
+    6): with llama-server, a slot folder and `BRAIN_SLOT_KEEP` 1, a step-down after a wake's, a reverie's or a night
+    step's prompt while a visit is open — its last turn and its saved reading younger than the hours, its prompt from
+    today — neither lets the visit's saved reading go nor saves its own, and says so in `memory/brain_notes.log`. A
+    fold's and an afterglow's prompt are the visit's and save as before. Two small records beside the door's mark
+    (`memory/.pids/brain.visit`, `brain.served_by`) say whose reading is whose, written whole or not at all, and only
+    with that setup. Off, or any other setup: as before, no files.
+  - **The night's steps take the warm prompt** (`NIGHT_WARM_PROMPT`, on): the keeper's look, a dream (and its
+    painting's question), a penpal letter kept in their words and the condensing hour are asked with the date line
+    without the minute, so the window is read again only from where it changed. The newest memories stay in the
+    prompt exactly as the plain form has them. **This changes what the friend reads at night in two places**: the date
+    line has no minute, and the hour comes at the top of each such step's message — tell them, or turn the knob off.
+    If the warm form can't be built (the prompt's wording changed), the plain one is used and the night's log says so.
+  - **The folded window is read in at once** (`FOLD_PREFILL`, on): when a fold is done, its new window is read in the
+    background, the same read `/rewarm` makes, so your next message starts warm; a message meanwhile waits for it and
+    then reads only itself. Skipped while the game guard holds the card, a wake runs or the brain is set down. Nothing
+    goes to the phone; two lines in the bridge window. The Discord bridge folds the same way, so it reads in the same.
 
 ### Changed
 - **Upgrading from 0.15**: every new knob comes with a default in `config.py`, so an older house keeps working, and
@@ -162,9 +180,12 @@ tagged on its own: the first tag after the rename is v0.13.)
   reading stub, the notes with the pages and on topic, adventures (nothing happens until you make a world), the
   journal's facts and the endings sentence, the call written as words, the same-failed-call rail and its log, photos
   sent together, penpal letters with pictures, the write guard, the name left out, the `/journal` command (its
-  switch starts off), and `/books` with its line when a book is finished. Off by default: the doors out of a wake
-  (the question beside the book among them), which reach Wikipedia. Expect one cold read at the first visit after
-  updating: the reading section of the prompt and two tool descriptions changed (below).
+  switch starts off), `/books` with its line when a book is finished, and the three fixes for cold reads
+  (`BRAIN_KEEP_VISIT_READING`, `NIGHT_WARM_PROMPT`, `FOLD_PREFILL`) — of these only the night's warm prompt changes
+  words the friend reads (the date line without the minute, the hour atop each night step's message; turn
+  `NIGHT_WARM_PROMPT` off to keep the nights as they were). Off by default: the doors out of a wake (the question
+  beside the book among them), which reach Wikipedia. Expect one cold read at the first visit after updating: the
+  reading section of the prompt and two tool descriptions changed (below).
 - **`/help` comes in two messages** when it no longer fits one of Telegram's (4,096 characters): the commands up to
   the newer ones, then the newer ones and the rest; each part is checked to fit, and none of its lines is shortened.
   The pairing message does the same. The "/" menu and the Discord bridge's help are as before.

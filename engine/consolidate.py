@@ -187,6 +187,55 @@ def consolidate(day: str, force: bool = False, say=print) -> str:
     return "\n".join(lines)
 
 
+# NIGHT_WARM_PROMPT: the night's steps — the keeper's look, the dream, a penpal letter kept in the friend's words, the
+# condensing hour — asked for the standing prompt with the minute in its date line, so each read the whole window again.
+# The warm form takes the minute out (the hour then comes at the top of each of their messages, assemble.clock_line),
+# but it also takes the newest memories out of RELEVANT LONG-TERM MEMORIES and says they ride with each message —
+# which at night they don't. So the night's prompt is the warm one with that block put back exactly as the plain form
+# has it: the date line is the one thing that differs.
+WARM_MEMORIES = ("=== RELEVANT LONG-TERM MEMORIES — what surfaces for this moment ===\n"
+                 "(they ride with each message, at the top of it — what surfaces changes as the talk does)")
+
+
+def night_warm() -> bool:
+    return bool(getattr(config, "NIGHT_WARM_PROMPT", False))
+
+
+def night_prompt(mode: str = "auto", say=print) -> str:
+    """The standing prompt for a step of the night (empty hint): as before with NIGHT_WARM_PROMPT off or absent;
+    with it on, the warm date line and the memories block as the plain form has it. Anything amiss → the plain
+    form, said in one line. Never raises for the warm form's sake; if assemble raises building the plain form itself
+    (the knob off, or the fallback), that error goes to the call site's own handler unchanged, as a direct call to
+    assemble.system_prompt would."""
+    import assemble
+    if not night_warm():
+        return assemble.system_prompt("", mode=mode)
+    try:
+        warm = assemble.system_prompt("", mode=mode, warm=True)
+        if warm.count(WARM_MEMORIES) != 1:
+            raise ValueError("the memories block isn't where it was")
+        head = WARM_MEMORIES.split("\n", 1)[0] + "\n"
+        return warm.replace(WARM_MEMORIES, head + assemble.retrieved(""))
+    except Exception as e:  # noqa: BLE001 — the night's prompt as before
+        try:
+            (say or print)(f"  (the night's prompt: the warm form didn't build — {type(e).__name__}: {e}; the minute "
+                           "stays in it)")
+        except Exception:  # noqa: BLE001
+            pass
+        return assemble.system_prompt("", mode=mode)
+
+
+def night_clock() -> str:
+    """The hour at the top of a night step's message — only with NIGHT_WARM_PROMPT on, whose prompt promises it."""
+    if not night_warm():
+        return ""
+    try:
+        import assemble
+        return assemble.clock_line()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 KEEPER_LOOK_BELL = (
     "[This is the night, after sleep — an automated moment, not a person. {day} is consolidated; what you kept of it "
     "is below. One quiet look, from the day whole and hours from any visit: if the day changed what you know of your "
@@ -211,7 +260,7 @@ def keeper_look(day: str, summary: str, say=print) -> str:
     if len(defs) < 2:
         return ""
     try:
-        system = {"role": "system", "content": assemble.system_prompt("", mode="auto")}
+        system = {"role": "system", "content": night_prompt("auto", say)}  # NIGHT_WARM_PROMPT
         user = {"role": "user", "content": assemble.clock_line() + KEEPER_LOOK_BELL.format(day=day)
                 + f"=== WHAT YOU KEPT OF {day} ===\n\n" + (summary or "(no summary — the day left no words)")}
         say("  the keeper's look: the page, from the day whole…")

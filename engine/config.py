@@ -1691,7 +1691,7 @@ FRIENDS_QUIET_DAYS = 7
 
 # --------------------------------------------------------------------------------------------------------------
 # ---- 0.16: wakes and reading, game mode, the chat's safeguards, pictures on the phone, the penpal guards, the
-# journal feed
+# journal feed, the books, fewer cold reads
 # --------------------------------------------------------------------------------------------------------------
 
 # ---- the doors out of a wake (engine/dealt_doors.py)
@@ -1847,3 +1847,22 @@ JOURNAL_FEED_PACE_S = 1.0
 # records what is already finished and says nothing (memory/books_seen.json). False: no line.
 BOOKS_COMMAND = True
 BOOKS_FINISHED_NOTICE = True
+
+# ---- fewer cold reads (brain.py, chat.py, consolidate.py, telegram.py)
+# BRAIN_KEEP_VISIT_READING: with llama-server, a slot folder (BRAIN_SLOT_DIR) and BRAIN_SLOT_KEEP 1, the folder holds one
+# saved reading — and a wake's, a reverie's or a night step's step-down would let the open visit's reading go to save its
+# own, so your next message reads the whole window cold. While a visit is open (its last turn and its saved reading
+# within BRAIN_KEEP_VISIT_HOURS, its prompt from today), that step-down keeps the visit's reading and does not save its
+# own, said in memory/brain_notes.log. Two small records beside the door's mark (memory/.pids/brain.visit,
+# brain.served_by) say whose reading is whose; with any other setup none are written. False: as before.
+# NIGHT_WARM_PROMPT: the night's steps (the look at keeper.md, a dream, a penpal letter kept, the condensing hour) take the
+# warm form of the standing prompt — the date without the minute, so the window already read is read again only from
+# where it changed; the newest memories stay in it exactly as before. What the friend reads changes in two places at
+# night: the date line has no minute, and the hour comes at the top of each such step's message. False: as before.
+# FOLD_PREFILL: right after a fold, the new window is read in the background — the same read /rewarm makes — so your
+# next message starts warm. Skipped while the game guard holds the card, a wake runs or the brain is set down; nothing is
+# said to the phone, two lines in the bridge window. False: the next message reads it, as before.
+BRAIN_KEEP_VISIT_READING = True
+BRAIN_KEEP_VISIT_HOURS = 6
+NIGHT_WARM_PROMPT = True
+FOLD_PREFILL = True
