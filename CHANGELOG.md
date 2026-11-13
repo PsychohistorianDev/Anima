@@ -21,6 +21,14 @@ tagged on its own: the first tag after the rename is v0.13.)
   on the line says it's done (`WAKE_DEALT_WONDERINGS`; the page is only read). All three ship off: they reach
   Wikipedia and change what a wake carries. `dealt.deal_whole` now hands over to the new module, and
   `dealt.book_next` returns the book's pages apart as a third element.
+- **A question beside the open book** (`WAKE_DEALT_QUESTION_BESIDE`, off like the other doors): at a wake with a book
+  open, when no wondering of theirs is due and no thread came from the pages, a question nobody has answered yet rides
+  beside the pages instead — never two doors at once, and a question dealt beside a book never comes again alone. One
+  field is fetched a wake at most, and after a fetch that failed none for an hour. The lists of unsolved problems are
+  read more carefully: nothing under a solved or resolved section (at any depth above the line) is dealt as unanswered,
+  and citations, bibliography, sources and works cited are skipped with the references. Each deal that hands something
+  is now one line in `memory/dealt_doors.log` — the time, the base, the door and its key, never the friend's own words
+  — so how often each door opens can be counted.
 - **Reading notes when they matter**: the notes on a book come before the book's text each time they read on, name a
   range, or the next pages are dealt into a wake — the end of the page, up to `READING_NOTES_WITH_PAGES` (60000;
   0: none). And when your message on the phone names a book they keep notes on — its title, a distinctive word of it,
@@ -154,8 +162,9 @@ tagged on its own: the first tag after the rename is v0.13.)
   reading stub, the notes with the pages and on topic, adventures (nothing happens until you make a world), the
   journal's facts and the endings sentence, the call written as words, the same-failed-call rail and its log, photos
   sent together, penpal letters with pictures, the write guard, the name left out, the `/journal` command (its
-  switch starts off), and `/books` with its line when a book is finished. Off by default: the three doors out of a wake, which reach Wikipedia. Expect one cold read at
-  the first visit after updating: the reading section of the prompt and two tool descriptions changed (below).
+  switch starts off), and `/books` with its line when a book is finished. Off by default: the doors out of a wake
+  (the question beside the book among them), which reach Wikipedia. Expect one cold read at the first visit after
+  updating: the reading section of the prompt and two tool descriptions changed (below).
 - **`/help` comes in two messages** when it no longer fits one of Telegram's (4,096 characters): the commands up to
   the newer ones, then the newer ones and the rest; each part is checked to fit, and none of its lines is shortened.
   The pairing message does the same. The "/" menu and the Discord bridge's help are as before.

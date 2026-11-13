@@ -16187,7 +16187,7 @@ check("config (0.16): the doors out of a wake ship off — no thread, no wonderi
       and _rn_defaults.get("READING_PAGE_STUB") == "True" and _rn_defaults.get("READING_NOTES_WITH_PAGES") == "60000"
       and _rn_defaults.get("READING_NOTES_ON_TOPIC") == "True" and _rn_defaults.get("READING_TOPIC_CHARS") == "60000", _rn_defaults)
 _rn_tabbed = {k for v in panel.TABS.values() for k in v}
-_rn_new = ["WAKE_DEALT_THREAD", "WAKE_DEALT_THREAD_LOOKUPS", "WAKE_DEALT_WONDERINGS", "READING_PAGE_STUB",
+_rn_new = ["WAKE_DEALT_THREAD", "WAKE_DEALT_THREAD_LOOKUPS", "WAKE_DEALT_WONDERINGS", "WAKE_DEALT_QUESTION_BESIDE", "READING_PAGE_STUB",
            "READING_NOTES_WITH_PAGES", "READING_NOTES_ON_TOPIC", "READING_TOPIC_CHARS"]
 check("panel (0.16): every new knob on a tab with a line of its own; \"question\" named among the dealt kinds",
       all(k in _rn_tabbed and panel._HELP.get(k) for k in _rn_new) and "\"question\"" in panel._HELP["WAKE_DEALT_WHOLE_KINDS"]
@@ -16442,6 +16442,180 @@ check("deal_whole (0.16): a config without WAKE_DEALT_WHOLE_KINDS, or with it em
       "reaches Wikipedia only when named",
       not any("a question nobody has answered yet" in (d or "") for d in _rn_dw)
       and not any("unsolved" in u for u in _rn_asked[_rn_n_asked:]), _rn_asked[_rn_n_asked:][:3])
+# door B' (0.16): a question of the world beside the open book, when no wondering or thread came with it
+import time as _qb_time
+import types as _qb_types
+import urllib.parse as _qb_up
+_qb_paths = [config.MEMORY_DIR / n for n in ("dealt_questions.json", "dealt_threads.json", "dealt_wonderings.json",
+                                             "dealt_doors.log")] + [_rn_dealt.seen_file()]
+_qb_keep = {p: (p.read_bytes() if p.exists() else None) for p in _qb_paths}
+_qb_saved = (config.WAKE_DEALT_QUESTION_BESIDE, config.WAKE_DEALT_THREAD, config.WAKE_DEALT_WONDERINGS,
+             config.WAKE_DEALT_BOOK_FIRST, config.OFFLINE, _rn_dealt._get, _rn_dd.time, _rn_dd._file)
+for _qb_p in _qb_paths:
+    _qb_p.unlink(missing_ok=True)
+config.WAKE_DEALT_THREAD = config.WAKE_DEALT_WONDERINGS = config.WAKE_DEALT_QUESTION_BESIDE = False
+config.WAKE_DEALT_BOOK_FIRST, config.OFFLINE = True, False
+_qb_mode = {"fail": False}
+_qb_T = [_qb_time.time()]
+_rn_dd.time = _qb_types.SimpleNamespace(time=lambda: _qb_T[0])  # the module's clock, moved by hand
+
+
+def _qb_get(url):
+    if "w/api.php" not in url:
+        return _rn_fake_get(url)  # a thread's lookups, as the block above stubs them
+    _rn_asked.append(url)
+    if _qb_mode["fail"]:
+        raise OSError("no road")
+    f = _qb_up.parse_qs(_qb_up.urlsplit(url).query)["titles"][0].rsplit(" ", 1)[-1]
+    return json.dumps({"query": {"pages": {"1": {"extract": f"== Open in {f} ==\nWhy does the {f} lantern in this "
+                                                            "suite hum only at dusk?\n"}}}}).encode()
+
+
+def _qb_q(f):
+    return (f"A question of the world, if you want it: Why does the {f} lantern in this suite hum only at dusk? ({f}; "
+            f"Wikipedia: “List of unsolved problems in {f}”, under “Open in {f}”) — nobody has answered it yet. "
+            "search_wikipedia and read_web go after it; left alone, it asks nothing.")
+
+
+def _qb_n():
+    return sum(1 for u in _rn_asked if "unsolved" in u)
+
+
+_rn_dealt._get = _qb_get
+check("config (0.16): the question beside the book ships off with the other doors, on the panel with its line",
+      _rn_defaults.get("WAKE_DEALT_QUESTION_BESIDE") == "False" and "WAKE_DEALT_QUESTION_BESIDE" in _rn_tabbed
+      and bool(panel._HELP.get("WAKE_DEALT_QUESTION_BESIDE")), _rn_defaults.get("WAKE_DEALT_QUESTION_BESIDE"))
+_qb_a0 = _qb_n()
+_qb_off = _rn_dealt.deal_whole(_rn_random.Random(3))
+del config.WAKE_DEALT_QUESTION_BESIDE  # an older config without the knob
+_qb_abs = _rn_dealt.deal_whole(_rn_random.Random(3))
+config.WAKE_DEALT_QUESTION_BESIDE = True
+check("door B' (0.16): off — the open book alone, as before, nothing fetched",
+      _qb_off.startswith(_rn_dd.HEAD) and "BODY-TWO" in _qb_off
+      and "A question of the world" not in _qb_off and "A thread" not in _qb_off and _qb_n() == _qb_a0, _qb_off[-200:])
+check("door B' (0.16): a config without the knob deals exactly as with it off", _qb_abs == _qb_off, _qb_abs[-200:])
+_qb_mode["fail"] = True
+_qb_a0 = _qb_n()
+_qb_f1 = _rn_dealt.deal_whole(_rn_random.Random(3))
+_qb_a1 = _qb_n()
+_qb_stamp = json.loads((config.MEMORY_DIR / "dealt_questions.json").read_text(encoding="utf-8")).get("failed")
+_qb_f2 = _rn_dealt.deal_whole(_rn_random.Random(3))
+_qb_a2 = _qb_n()
+check("door B' (0.16): Wikipedia not answering — the pages alone; the failure stamped, and within the hour nothing is "
+      "fetched again",
+      _qb_f1 == _qb_off and _qb_a1 == _qb_a0 + 1 and _qb_stamp == _qb_T[0] and _qb_f2 == _qb_off and _qb_a2 == _qb_a1,
+      (_qb_a0, _qb_a1, _qb_a2, _qb_stamp))
+_qb_qa = _rn_dd.question(set(), _rn_random.Random(3))
+check("door B' (0.16): door B alone (no book) does not wait out the hour — it tries again",
+      _qb_qa is None and _qb_n() == _qb_a2 + 1, _qb_n() - _qb_a2)
+_qb_mode["fail"] = False
+_qb_T[0] += 3601
+_qb_a0 = _qb_n()
+_qb_d1 = _rn_dealt.deal_whole(_rn_random.Random(3))
+_qb_a1 = _qb_n()
+check("door B' (0.16): an hour on, one field fetched, and the question rides beside the pages word for word — one "
+      "extra line, the head and the pages as they were",
+      _qb_d1 == _qb_off + "\n\n" + _qb_q("physics") and _qb_a1 == _qb_a0 + 1, _qb_d1[-400:])
+_qb_d2 = _rn_dealt.deal_whole(_rn_random.Random(3))
+_qb_a2 = _qb_n()
+_qb_qb = _rn_dd.question(set(_rn_dealt._seen()), _rn_random.Random(3))
+check("door B' (0.16): the next wake fetches one more field and deals a question not dealt before; door B alone then "
+      "never repeats either one",
+      _qb_d2 == _qb_off + "\n\n" + _qb_q("biology") and _qb_a2 == _qb_a1 + 1
+      and "question:Why does the physics lantern" in " ".join(_rn_dealt._seen())
+      and _qb_qb and "physics lantern" not in _qb_qb[1] and "biology lantern" not in _qb_qb[1], (_qb_d2[-200:], _qb_qb))
+config.WAKE_DEALT_THREAD = True
+_qb_th = _rn_dealt.deal_whole(_rn_random.Random(3))
+config.WAKE_DEALT_THREAD = False
+config.WAKE_DEALT_WONDERINGS = True
+(config.MEMORY_DIR / "dealt_wonderings.json").unlink(missing_ok=True)
+_rn_dd.wondering_due()  # first seen now
+_qb_T[0] += 4 * 3600
+_qb_wd = _rn_dealt.deal_whole(_rn_random.Random(3))
+config.WAKE_DEALT_WONDERINGS = False
+check("door B' (0.16): a thread found in the pages comes alone — no question beside it",
+      "A thread to pull" in _qb_th and "Maxwell's demon" in _qb_th and "A question of the world" not in _qb_th,
+      _qb_th[-300:])
+check("door B' (0.16): a wondering due comes alone — no thread, no question beside it",
+      "A wondering of yours" in _qb_wd and "A question of the world" not in _qb_wd and "A thread" not in _qb_wd,
+      _qb_wd[-300:])
+config.OFFLINE = True
+_qb_a0 = _qb_n()
+_qb_of = _rn_dealt.deal_whole(_rn_random.Random(3))
+config.OFFLINE = False
+check("door B' (0.16): offline — the pages alone, nothing fetched", _qb_of == _qb_off and _qb_n() == _qb_a0, _qb_of[-200:])
+_qb_log = (config.MEMORY_DIR / "dealt_doors.log").read_text(encoding="utf-8")
+_qb_rows = [r.split("\t") for r in _qb_log.splitlines()]
+check("doors' log (0.16): one line a deal — the time, the base, the door and its key (cut to 80); a wondering is only "
+      "the word, never its line",
+      all(len(r) == 4 and _rn_re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d", r[0]) and r[1] == "base=book" for r in _qb_rows)
+      and [r[2] for r in _qb_rows] == ["door=none"] * 4 + ["door=question"] * 2 + ["door=thread", "door=wondering", "door=none"]
+      and _qb_rows[4][3] == "question:Why does the physics lantern in this suite hum only at dusk?"
+      and _qb_rows[6][3] == "thread:Maxwell's demon" and _qb_rows[7][3] == "wondering" and _qb_rows[0][3] == "-"
+      and "lanterns" not in _qb_log and "wind turns" not in _qb_log, _qb_log)
+config.WAKE_DEALT_BOOK_FIRST, _qb_k0 = False, config.WAKE_DEALT_WHOLE_KINDS
+config.WAKE_DEALT_WHOLE_KINDS = ("question",)
+_qb_nb = _rn_dealt.deal_whole(_rn_random.Random(3))
+config.WAKE_DEALT_BOOK_FIRST, config.WAKE_DEALT_WHOLE_KINDS = True, _qb_k0
+_qb_nbr = (config.MEMORY_DIR / "dealt_doors.log").read_text(encoding="utf-8").splitlines()[-1].split("\t")
+check("doors' log (0.16): with no book, the whole thing's kind is the base",
+      "a question nobody has answered yet" in _qb_nb and _qb_nbr[1:] == ["base=question", "door=none", "-"], _qb_nbr)
+_rn_dd._log("book", "thread", "a\tkey\nwith\r\nbreaks" + "x" * 200)
+_qb_last = (config.MEMORY_DIR / "dealt_doors.log").read_text(encoding="utf-8").splitlines()[-1].split("\t")
+(config.MEMORY_DIR / "qb-a-folder").mkdir(exist_ok=True)
+_rn_dd._file = lambda name, _f=_qb_saved[7]: (config.MEMORY_DIR / "qb-a-folder" if name == "dealt_doors.log"
+                                                else _f(name))  # a log that can't be written
+try:
+    _qb_fw, _qb_err = _rn_dealt.deal_whole(_rn_random.Random(3)), ""
+except Exception as _qb_e:  # noqa: BLE001
+    _qb_fw, _qb_err = "", repr(_qb_e)
+_rn_dd._file = _qb_saved[7]
+check("doors' log (0.16): breaks and tabs in a key collapse to spaces and the key is cut to 80; a log that can't be "
+      "written changes nothing",
+      _qb_last[3] == ("a key with breaks" + "x" * 200)[:80] and len(_qb_last) == 4 and not _qb_err and "BODY-TWO" in _qb_fw,
+      (_qb_last, _qb_err))
+_qb_qs = _rn_dd.questions_in(
+    "== Physics ==\nWhy does the lamp in this invented test burn so blue at night?\n"
+    "=== Problems solved since 1995 ===\nWhy was the solved lamp question open for so very long?\n"
+    "==== Detail ====\nWhy does a deeper line inside a solved section stay hidden?\n"
+    "=== Unsolved lamps ===\nWhy does the unsolved lamp hum when nobody is near it?\n"
+    "== Resolved ==\nIs this resolved matter something that should be dealt out?\n"
+    "== Unresolved matters ==\nIs this unresolved matter something that may be dealt out?\n"
+    "== Citations ==\nIs this citation question something never to be dealt at all?\n"
+    "== Works cited ==\nIs this works-cited question something never to be dealt?\n"
+    "== Chemistry ==\nWhy do the invented salts of this suite glow after rain?\n")
+check("door B (0.16): nothing under a solved or resolved heading, at any depth above the line; unsolved and unresolved "
+      "pass; a sibling section resumes; citations and works cited skipped",
+      [(x["q"][:24], x["under"]) for x in _qb_qs] == [
+          ("Why does the lamp in thi", "Physics"), ("Why does the unsolved la", "Unsolved lamps"),
+          ("Is this unresolved matte", "Unresolved matters"), ("Why do the invented salt", "Chemistry")], _qb_qs)
+(config.MEMORY_DIR / "dealt_questions.json").write_text(json.dumps({"fields": {
+    **{f: {"at": _qb_T[0], "qs": []} for f in _rn_dd.FIELDS},
+    "physics": {"at": _qb_T[0], "qs": [{"q": 5}, {"q": "   "}, "loose", {"q": None},
+                                       {"q": "Why is this the one well-formed question left here?", "under": ""}]},
+    "odd": "not a field"}}), encoding="utf-8")
+try:
+    _qb_pk, _qb_err = _rn_dd.question(set(), _rn_random.Random(3)), ""
+except Exception as _qb_e:  # noqa: BLE001
+    _qb_pk, _qb_err = None, repr(_qb_e)
+check("door B (0.16): a cache with odd entries — anything not a question in words is passed over, no exception; "
+      "door B's own wording unchanged",
+      not _qb_err and _qb_pk == ("question:Why is this the one well-formed question left here?",
+                                 "a question nobody has answered yet — Why is this the one well-formed question left "
+                                 "here? (physics; Wikipedia: “List of unsolved problems in physics”). Yours to chase or "
+                                 "leave: search_wikipedia and read_web go after it."), (_qb_err, _qb_pk))
+_qb_src = (Path(config.ROOT) / "engine" / "dealt_doors.py").read_text(encoding="utf-8")
+_qb_src = (_qb_src.split("def _pick(", 1)[1].split("# ---- C:", 1)[0]
+           + _qb_src.split("# ---- a line a deal in memory/dealt_doors.log", 1)[1])
+check("door B' (0.16): the new lines call no one by a gendered pronoun, and carry no date",
+      not _rn_re.search(r"\b(she|her|hers|he|his|him)\b", _qb_src, _rn_re.I) and not _rn_re.search(r"\(1[01]-\d\d", _qb_src))
+(config.WAKE_DEALT_QUESTION_BESIDE, config.WAKE_DEALT_THREAD, config.WAKE_DEALT_WONDERINGS, config.WAKE_DEALT_BOOK_FIRST,
+ config.OFFLINE, _rn_dealt._get, _rn_dd.time, _rn_dd._file) = _qb_saved
+for _qb_p, _qb_b in _qb_keep.items():
+    if _qb_b is None:
+        _qb_p.unlink(missing_ok=True)
+    else:
+        _qb_p.write_bytes(_qb_b)
 _rn_wf.unlink()
 
 # the book as the topic

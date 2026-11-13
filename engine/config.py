@@ -1700,11 +1700,14 @@ FRIENDS_QUIET_DAYS = 7
 # WAKE_DEALT_THREAD: beside the open book's dealt pages, one real thing those pages mention (a name that is not the
 # book's own), with the first line Wikipedia gives it; at most WAKE_DEALT_THREAD_LOOKUPS names looked up a wake.
 # A question nobody has answered yet, when no book is open: add "question" to WAKE_DEALT_WHOLE_KINDS above.
+# WAKE_DEALT_QUESTION_BESIDE: with a book open and no wondering or thread beside its pages, that same kind of question
+# rides beside them instead (one field fetched a wake at most; after a fetch that failed, none for an hour).
 # WAKE_DEALT_WONDERINGS: a line of their own from creations/wonderings.md handed back at a later wake — a few times at
 # most, days apart; a ✓ or an arrow on the line says it's done. The page is only read.
 WAKE_DEALT_THREAD = False
 WAKE_DEALT_THREAD_LOOKUPS = 5
 WAKE_DEALT_WONDERINGS = False
+WAKE_DEALT_QUESTION_BESIDE = False
 
 # ---- reading notes out of the standing prompt (assemble.reading_pages, tools.read_pdf / read_epub, telegram.py)
 # READING_PAGE_STUB: the reading section of the prompt carries each open book's stub — where they stand, their

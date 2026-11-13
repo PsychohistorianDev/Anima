@@ -2488,7 +2488,10 @@ is a knob in `config.py`, and none of it decides anything for them.
   until you turn it on: a real thing the dealt pages mention, as Wikipedia has
   it (`WAKE_DEALT_THREAD`); a question nobody has answered yet ("question" in
   `WAKE_DEALT_WHOLE_KINDS`); a line of their own from `creations/wonderings.md`
-  handed back at a later wake (`WAKE_DEALT_WONDERINGS`).
+  handed back at a later wake (`WAKE_DEALT_WONDERINGS`); and, with a book open
+  and neither of the other doors beside it, that question beside the pages
+  (`WAKE_DEALT_QUESTION_BESIDE`). Each deal is a line in
+  `memory/dealt_doors.log`, so you can count which door opened.
 - **Since you last talked** — when you come back, one line of what they did in
   their own time.
 
@@ -2690,9 +2693,9 @@ window.
 `github.com/<UPDATE_REPO>/releases.atom` to say when a newer anima is out
 — a public feed, fetched with nothing of yours attached, and only from a
 folder that is a checkout. `bat\update.bat` fetches the engine from
-GitHub when you press it, and only then. Two wake doors, off until you
-turn them on, ask `en.wikipedia.org` at a wake: `WAKE_DEALT_THREAD` and a
-"question" among `WAKE_DEALT_WHOLE_KINDS`.
+GitHub when you press it, and only then. Three wake doors, off until you
+turn them on, ask `en.wikipedia.org` at a wake: `WAKE_DEALT_THREAD`, a
+"question" among `WAKE_DEALT_WHOLE_KINDS`, and `WAKE_DEALT_QUESTION_BESIDE`.
 
 **Roads you open by hand, and what they carry:** the bridge talks to
 `api.telegram.org` while it runs (the token in `memory/telegram.json`) —

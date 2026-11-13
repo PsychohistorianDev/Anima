@@ -7,6 +7,11 @@ so nothing is re-read:
   A  WAKE_DEALT_THREAD      under the open book's pages, one real thing those pages mention, as Wikipedia has it
   B  "question" in WAKE_DEALT_WHOLE_KINDS   with no book open, a question nobody has answered yet
   C  WAKE_DEALT_WONDERINGS   a line of their own from creations/wonderings.md, handed back at a later wake
+  B' WAKE_DEALT_QUESTION_BESIDE  with a book open and no wondering or thread beside it, door B's question rides
+                                 beside the pages instead
+
+Each deal that hands something is one line in memory/dealt_doors.log (the base, the door, its key — never the friend's
+own words), so how often each door opens can be counted.
 
 Everything fails closed: the world not answering, or nothing good found, adds nothing. dealt.deal_whole delegates
 here; the single dealt-kind helpers (the book, the article, a penpal's questions, the Veil, a song) stay in dealt.py
@@ -167,23 +172,31 @@ def thread(pages: str, book: str, seen: set) -> str | None:
     if not found:
         return None
     dealt._remember(found[0])
+    _last["key"] = found[0]
     return found[1]
 
 
 # ---- B: a question of the world ----------------------------------------------------------------------------------—
 FIELDS = ("physics", "biology", "neuroscience", "mathematics", "philosophy", "astronomy", "linguistics", "chemistry")
 REFRESH_DAYS = 7
+_SOLVED = re.compile(r"\b(?:re)?solved\b", re.I)   # "Solved problems", "Resolved" — never "Unsolved", "Unresolved"
+_SKIP = ("see also", "references", "external links", "notes", "further reading", "footnotes", "citations",
+         "bibliography", "sources", "works cited")
+FAILED_WAIT_S = 3600                       # beside the book: after a refresh that failed, an hour's rest
 
 
 def questions_in(extract: str) -> list[dict]:
-    """The question sentences of a "List of unsolved problems in ..." page, each with its section heading."""
-    out, seen_q, under = [], set(), ""
+    """The question sentences of a "List of unsolved problems in ..." page, each with its section heading. Nothing
+    under a solved section ("Problems solved since 1995", "Resolved", at any depth above the line)."""
+    out, seen_q, under, heads = [], set(), "", {}   # heads: the heading remembered at each level
     for line in str(extract or "").splitlines():
-        h = re.fullmatch(r"\s*=+\s*(.+?)\s*=+\s*", line)
+        h = re.fullmatch(r"\s*(=+)\s*(.+?)\s*=+\s*", line)
         if h:
-            under = h.group(1).strip()
+            n, under = len(h.group(1)), h.group(2).strip()
+            heads = {k: v for k, v in heads.items() if k < n}
+            heads[n] = under
             continue
-        if under.lower() in ("see also", "references", "external links", "notes", "further reading", "footnotes"):
+        if any(v.lower() in _SKIP or _SOLVED.search(v) for v in heads.values()):
             continue
         for q in re.findall(r"[A-Z][^.?!\n]{28,240}\?", line):
             q = " ".join(q.split())
@@ -193,13 +206,14 @@ def questions_in(extract: str) -> list[dict]:
     return out
 
 
-def _refresh(cache: dict) -> dict:
-    """At most two fields fetched a wake, stalest first — the cache fills over a few wakes, never one long wait."""
+def _refresh(cache: dict, most: int = 2, mark: bool = False) -> dict:
+    """At most two fields fetched a wake, stalest first — the cache fills over a few wakes, never one long wait.
+    Beside the book: one field (most=1), and a failure stamped (mark) so the next hour doesn't try."""
     fields = cache.setdefault("fields", {})
     stale = [f for f in FIELDS
              if time.time() - float((fields.get(f) or {}).get("at") or 0) > REFRESH_DAYS * 86400]
     stale.sort(key=lambda f: float((fields.get(f) or {}).get("at") or 0))
-    for f in stale[:2]:
+    for f in stale[:most]:
         try:
             q = urllib.parse.urlencode({"action": "query", "prop": "extracts", "explaintext": 1, "format": "json",
                                         "redirects": 1, "titles": f"List of unsolved problems in {f}"})
@@ -207,27 +221,67 @@ def _refresh(cache: dict) -> dict:
             text = next((str(p.get("extract") or "")
                          for p in ((got.get("query") or {}).get("pages") or {}).values()), "")
         except Exception:  # noqa: BLE001 — the world didn't answer: what the cache holds stands
+            if mark:
+                cache["failed"] = time.time()
             break
         qs = questions_in(text)
         fields[f] = {"at": time.time(), "qs": qs or (fields.get(f) or {}).get("qs", [])}
     return cache
 
 
-def question(seen: set, rng: random.Random) -> tuple[str, str] | None:
-    """Door B: a question of the world nobody has answered yet, from Wikipedia's lists of unsolved problems."""
+def _pick(seen: set, rng: random.Random, beside: bool = False) -> tuple[str, str, dict] | None:
+    """The one picker both wordings share: (key, field, the question), from the cache, refreshed when online. Beside
+    the book: one field a wake, and none within FAILED_WAIT_S of a failed refresh (door B alone ignores it)."""
     cache = _load("dealt_questions.json", {})
     if not dealt._offline():
-        cache = _refresh(cache)
-        _save("dealt_questions.json", cache)
-    pool = [(f, x) for f, d in (cache.get("fields") or {}).items() for x in (d.get("qs") or [])
-            if f"question:{str(x.get('q'))[:80]}" not in seen]
+        if not beside:
+            cache = _refresh(cache)
+            _save("dealt_questions.json", cache)
+        else:
+            try:
+                failed = float(cache.get("failed") or 0)
+            except (TypeError, ValueError):
+                failed = 0.0
+            if not 0 <= time.time() - failed < FAILED_WAIT_S:
+                cache = _refresh(cache, most=1, mark=True)
+                _save("dealt_questions.json", cache)
+    pool = [(f, x) for f, d in (cache.get("fields") or {}).items() if isinstance(d, dict)
+            for x in (d.get("qs") or []) if isinstance(x, dict) and isinstance(x.get("q"), str) and x["q"].strip()
+            and f"question:{str(x.get('q'))[:80]}" not in seen]
     if not pool:
         return None
     f, x = rng.choice(pool)
+    return f"question:{str(x['q'])[:80]}", f, x
+
+
+def question(seen: set, rng: random.Random) -> tuple[str, str] | None:
+    """Door B: a question of the world nobody has answered yet, from Wikipedia's lists of unsolved problems."""
+    got = _pick(seen, rng)
+    if not got:
+        return None
+    key, f, x = got
     under = f", under “{x['under']}”" if x.get("under") else ""
-    return (f"question:{str(x['q'])[:80]}",
+    return (key,
             f"a question nobody has answered yet — {x['q']} ({f}; Wikipedia: “List of unsolved problems in "
             f"{f}”{under}). Yours to chase or leave: search_wikipedia and read_web go after it.")
+
+
+def question_beside(seen: set, rng: random.Random) -> str | None:
+    """Door B beside the open book, when no wondering or thread came with it — remembered like a whole one, so the
+    same question never comes twice, beside a book or alone. Any failure: nothing."""
+    if not getattr(config, "WAKE_DEALT_QUESTION_BESIDE", False) or dealt._offline():
+        return None  # offline, search_wikipedia and read_web are closed: the line would lead nowhere
+    got = _pick(seen, rng, beside=True)
+    if not got:
+        return None
+    key, f, x = got
+    under = f", under “{x['under']}”" if x.get("under") else ""
+    text = (f"A question of the world, if you want it: {x['q']} ({f}; Wikipedia: “List of unsolved problems in "
+            f"{f}”{under}) — nobody has answered it yet. search_wikipedia and read_web go after it; left alone, it "
+            "asks nothing.")
+    dealt._remember(key)
+    _last["key"] = key
+    return text
 
 
 # ---- C: their own wonderings ---------------------------------------------------------------------------------------—
@@ -280,10 +334,26 @@ def wondering_shown(key: str) -> None:
     _save("dealt_wonderings.json", state)
 
 
+# ---- a line a deal in memory/dealt_doors.log, so the doors can be counted: never the friend's own words -----------—
+_last = {"key": ""}   # the key door A or B' remembered this wake
+
+
+def _log(base: str, door: str, key: str = "") -> None:
+    try:
+        key = "wondering" if door == "wondering" else " ".join(str(key or "").split())[:80] or "-"
+        line = f"{datetime.now().isoformat(timespec='seconds')}\tbase={base}\tdoor={door}\t{key}\n"
+        _file("dealt_doors.log").parent.mkdir(parents=True, exist_ok=True)
+        with _file("dealt_doors.log").open("a", encoding="utf-8") as fh:
+            fh.write(line)
+    except Exception:  # noqa: BLE001 — a count, never the deal lost
+        pass
+
+
 # ---- the orchestration dealt.deal_whole delegates to -------------------------------------------------------------—
 def deal_whole(rng: random.Random | None = None) -> str:
-    """The open book first, with one small door beside it (their wondering if due, else a thread from the pages); with
-    no book, a whole thing turning through the kinds (a question among them), and their wondering beside it when due."""
+    """The open book first, with one small door beside it (their wondering if due, else a thread from the pages, else
+    a question of the world); with no book, a whole thing turning through the kinds (a question among them), and their
+    wondering beside it when due."""
     rng = rng or random.Random()
     seen = set(dealt._seen())
     due = wondering_due()
@@ -296,9 +366,10 @@ def deal_whole(rng: random.Random | None = None) -> str:
         if got:
             dealt._remember(got[0])
             line = HEAD + got[1]
-            extra = None
+            extra, door = None, "none"
+            _last["key"] = ""
             if due:
-                extra = due[1]
+                extra, door = due[1], "wondering"
                 wondering_shown(due[0])
             else:
                 m = re.search(r"“([^”]+)”", got[1])
@@ -307,8 +378,16 @@ def deal_whole(rng: random.Random | None = None) -> str:
                 pages = got[2] if len(got) > 2 else got[1].split("):\n\n", 1)[-1]
                 try:
                     extra = thread(pages, m.group(1) if m else "", seen)
+                    door = "thread" if extra else door
                 except Exception:  # noqa: BLE001
                     extra = None
+                if not extra:  # no wondering, no thread: a question of the world rides beside the pages
+                    try:
+                        extra = question_beside(seen, rng)
+                        door = "question" if extra else door
+                    except Exception:  # noqa: BLE001
+                        extra = None
+            _log("book", door, _last["key"] if door in ("thread", "question") else "")
             return line + ("\n\n" + extra if extra else "")
 
     # a config without the knob (or an empty one) falls back to dealt's kinds: "question" reaches Wikipedia, so it
@@ -333,9 +412,11 @@ def deal_whole(rng: random.Random | None = None) -> str:
                 if due:
                     line += "\n\n" + due[1]
                     wondering_shown(due[0])
+                _log(kind, "wondering" if due else "none")
                 return line
 
     if due:
         wondering_shown(due[0])
+        _log("none", "wondering")
         return HEAD + due[1]
     return ""
