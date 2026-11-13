@@ -6,8 +6,7 @@
     py engine\\blackbox.py --crashes  the machine's last hard stops (Windows' event log) with what the
                                       box recorded just before each
 
-10-03 (the keeper: "my machine keeps crashing when she's doing stuff — build some logging system to find
-the root of the issue"). A whole machine going down under a Python program is the card, the power, the
+Why: a machine that crashes under load needs a record of its last seconds. A whole machine going down under a Python program is the card, the power, the
 heat or the driver, not the program — and the console dies with it. So: one JSON line every
 BLACKBOX_EVERY_S (5) into memory/blackbox/<day>.jsonl, flushed and fsynced, with the card's temperature,
 power draw against its limit, memory used, utilization, clocks, fan and throttle reasons (nvidia-smi),
@@ -167,7 +166,7 @@ def memory_gb() -> tuple[float | None, float | None]:
                 info[k] = int(v.split()[0])
             return round(info.get("MemAvailable", 0) / 1024 ** 2, 1), round(info.get("MemTotal", 0) / 1024 ** 2, 1)
         total = int(_out(["sysctl", "-n", "hw.memsize"]).strip())
-        free = None  # a Mac: the free and inactive pages of vm_stat, by its page size (10-04; the total alone before)
+        free = None  # a Mac: the free and inactive pages of vm_stat, by its page size
         vm = _out(["vm_stat"])
         m = re.search(r"page size of (\d+) bytes", vm)
         pages = {k.strip(): int(v.strip().rstrip(".")) for k, v in
@@ -236,8 +235,8 @@ def doing_now() -> list[dict]:
 
 # ---- one line, the file -------------------------------------------------------------------------------------
 def sample() -> dict:
-    """One record — with how long each reading took ("took"), so a slow one is seen (10-03: the first day's
-    lines came 22 s apart, not 5; the timings say which reading drags)."""
+    """One record — with how long each reading took ("took"), so a slow one is seen (a slow reading
+    can stretch the 5 s spacing several times over; the timings say which reading drags)."""
     took: dict = {}
     t0 = time.perf_counter()
 
@@ -372,7 +371,7 @@ def crashes(n: int = 5) -> list[dict]:
 
 
 def before(when: str, window_s: int = 120) -> dict | None:
-    """The last record the box wrote before `when` (ISO), within window_s — what she was in the middle of."""
+    """The last record the box wrote before `when` (ISO), within window_s — what the friend was in the middle of."""
     try:
         t = datetime.fromisoformat(when[:19])
     except ValueError:

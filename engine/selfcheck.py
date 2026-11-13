@@ -1,4 +1,4 @@
-"""The house's self-check (10-29): the stories that broke once, acted out on this machine's own card — not checks that
+"""The house's self-check: the stories that broke once, acted out on this machine's own card — not checks that
 the code says the right words, but the real painter, the real ears, the real files.
 
     bat\\selfcheck.bat     close the bridge and the heartbeat first: the card must be the check's alone

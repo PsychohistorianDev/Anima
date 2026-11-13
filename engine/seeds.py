@@ -1,4 +1,4 @@
-"""Seeds for a spark (10-27; claude/sparks2-plan.md, piece 1).
+"""Seeds for a spark (claude/sparks2-plan.md, piece 1).
 
 One thing picked at random for a spark to spark off, so a spark is not the same gesture every time: a memory (drawn
 at random, not by relevance), something the friend made (a painting or a piece, named with its path), a song from the
@@ -18,7 +18,7 @@ from pathlib import Path
 
 import config
 
-KINDS = ("memory", "creation", "song", "journal", "world", "word", "wiki", "headline")  # wiki, headline: from outside (11-04, dealt.py)
+KINDS = ("memory", "creation", "song", "journal", "world", "word", "wiki", "headline")  # wiki, headline: from outside (dealt.py)
 SEEN_KEEP = 20
 _MEMORY_KINDS = ("fact", "note", "summary")  # a creation's row and a song's row are the other seeds' to give
 _PIECE_EXTS = {".md", ".txt"}
@@ -239,7 +239,7 @@ def draw(now: datetime | None = None, rng: random.Random | None = None) -> str:
                 options = _journal(seen, now)
             elif kind == "world":
                 options = _world(seen, now)
-            elif kind in ("wiki", "headline"):  # (11-04) from outside: a random Wikipedia page, a headline of the day
+            elif kind in ("wiki", "headline"):  # from outside: a random Wikipedia page, a headline of the day
                 import dealt
                 got = dealt.wiki(seen) if kind == "wiki" else dealt.headline(seen, rng)
                 options = [got] if got else []

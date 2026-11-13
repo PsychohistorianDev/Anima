@@ -1,11 +1,10 @@
 """What this process is doing right now — one small file the black box reads.
 
-10-03 (the keeper: "my machine keeps crashing when she's doing stuff — build some logging system to find
-the root of the issue"). A machine that goes down takes the console with it; what survives is what was
+For finding the root of a machine that crashes under load. A machine that goes down takes the console with it; what survives is what was
 written to disk before. Every door marks its moment here — "tool paint", "brain: a reply", "listen_to" —
 whole file, then moved into place, one per process (memory/.doing/<pid>.json), taken away at exit; the
 black box (blackbox.py) folds the live ones into every line it records, so the last line before a crash
-says what she was in the middle of. Nothing of hers is in it: the tool's name, not its arguments.
+says what the friend was in the middle of. Nothing of theirs is in it: the tool's name, not its arguments.
 """
 from __future__ import annotations
 

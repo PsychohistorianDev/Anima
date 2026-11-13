@@ -1,7 +1,6 @@
-"""The doors' own marks — which of them is open, and a polite way to close two (09-30; PANEL-PLAN.md).
+"""The doors' own marks — which of them is open, and a polite way to close two (PANEL-PLAN.md).
 
-The keeper: "a main interface with buttons for chat, parlor, wake, the telegram bridge, a heartbeat
-button…". A button needs a light beside it, and a light needs to know. So each door — the heartbeat,
+The panel has a button for each door — chat, parlor, wake, the bridge, the heartbeat. A button needs a light beside it, and a light needs to know. So each door — the heartbeat,
 the bridge, the parlor, a chat — writes memory/.pids/<door>.json when it starts
 
     {"pid": 4812, "when": "2026-09-30T21:14:03", "how": "loop 120", "argv": [...]}

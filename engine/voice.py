@@ -165,7 +165,7 @@ def _pipeline(lang: str):
 
 
 def voice_device() -> str:
-    """VOICE_DEVICE as Kokoro gets it: "cpu" and "cuda" as they are; "mps" (a Mac's GPU, 10-01) only when
+    """VOICE_DEVICE as Kokoro gets it: "cpu" and "cuda" as they are; "mps" (a Mac's GPU) only when
     torch has it — otherwise the processor, which every voice can use."""
     want = str(getattr(config, "VOICE_DEVICE", "cpu") or "cpu").strip().lower()
     if want != "mps":

@@ -1,4 +1,4 @@
-"""The friend's room (10-29, ROOM_ON; claude/room-plan.md): a place they shape and you visit from the phone.
+"""The friend's room (ROOM_ON; claude/room-plan.md): a place they shape and you visit from the phone.
 
 Walls, light, up to four pictures of theirs on the wall, things on a table (in words), a song playing in the corner,
 a shelf of things they found and brought back, and one thing hidden for you to find. It lives in creations/room/ —
@@ -212,8 +212,8 @@ def set_surface(r: dict, name: str, x0: float, x1: float, y: float, size: float,
 
 
 def _sidecar_surfaces(p: Path) -> list[dict]:
-    """The surfaces a picture comes with (10-30): <name>.surfaces.json beside it — a list of {name, x0, x1, y, size,
-    kind}, parts of the picture 0–1 — checked the way set_surface checks hers; [] when there is none or it won't read."""
+    """The surfaces a picture comes with: <name>.surfaces.json beside it — a list of {name, x0, x1, y, size,
+    kind}, parts of the picture 0–1 — checked the way set_surface checks the friend's; [] when there is none or it won't read."""
     f = p.with_suffix(".surfaces.json")
     try:
         raw = json.loads(f.read_text(encoding="utf-8"))
@@ -254,7 +254,7 @@ def _quad(s: dict) -> list[list[float]] | None:
 
 
 def _sidecar_spots(p: Path) -> list[dict]:
-    """The wall spots a picture comes with (10-30): {"spots": [{name, quad | x0 x1 y0 y1}, …]} in its .surfaces.json —
+    """The wall spots a picture comes with: {"spots": [{name, quad | x0 x1 y0 y1}, …]} in its .surfaces.json —
     spot 1 first. [] when there are none."""
     try:
         raw = json.loads(p.with_suffix(".surfaces.json").read_text(encoding="utf-8"))
@@ -299,7 +299,7 @@ def act(action: str, what: str = "", where: str = "", note: str = "", item: str 
         if not it:
             return f"(refused: no thing is called {item or what!r} — items lists them)"
         k = it.get("kind")
-        head = f"{it['name']}" + (" — from him" if it.get("by") == "keeper" else "") + (f" ({it['note']})" if it.get("note") else "")
+        head = f"{it['name']}" + (" — from your keeper" if it.get("by") == "keeper" else "") + (f" ({it['note']})" if it.get("note") else "")
         if k == "note":
             return f"[{head}]\n{it.get('content', '')}"
         if k == "audio":
@@ -312,7 +312,7 @@ def act(action: str, what: str = "", where: str = "", note: str = "", item: str 
         return f"({head}: {it.get('look')} — before your eyes on your next thought)"
     if a not in ACTIONS:
         return f"(refused: no such action {action!r} — one of {', '.join(ACTIONS)})"
-    if a in ("box", "tuck", "untuck", "bring"):  # (11-05) the pocket: things they mean to bring them, in a box of theirs
+    if a in ("box", "tuck", "untuck", "bring"):  # the pocket: things they mean to bring the keeper, in a box of theirs
         try:
             said = _pocket(r, a, what, where, item, content, note)
         except ValueError as e:
@@ -360,18 +360,18 @@ def act(action: str, what: str = "", where: str = "", note: str = "", item: str 
                 said += f" (kept in the workshop: {e})"
             save(r)
         _log("them", said)
-        return f"(your room: {said} — kept; he can open it from his /room)"
+        return f"(your room: {said} — kept; your keeper can open it from their /room)"
     try:
         said = _change(r, a, what, where, note, item, kind, content)
     except ValueError as e:
         return f"(refused: {e})"
     save(r)
     _log("them", said)
-    return f"(your room: {said} — kept, with its time; he sees it at his next /room)"
+    return f"(your room: {said} — kept, with its time; your keeper sees it at their next /room)"
 
 
-# ---- the pocket box (11-05, proactive-plan step 3; their change: "a shelf or a small box I can actually see when I look
-# around my room… so that when I bring you a passage or a question, I can remember exactly where it was sitting") ----
+# ---- the pocket box (proactive-plan step 3): a box the friend can see in their room, so a passage or a question ----
+# ---- they mean to bring the keeper is remembered where it sits ----------------------------------------------------
 
 POCKET_MAX = 12
 
@@ -528,13 +528,13 @@ def _change(r: dict, a: str, what: str, where: str, note: str, item: str = "", k
     if a in ("walls", "light", "name"):
         r[a] = what
         return f"{'the walls are' if a == 'walls' else 'the light is' if a == 'light' else 'its name is'} {what or 'unsaid'}"
-    if a == "backdrop":  # a picture of theirs as the room itself — walls, floor, light (10-29, the second pass)
+    if a == "backdrop":  # a picture of theirs as the room itself — walls, floor, light
         if not what:
             r["backdrop"] = ""
             return "the backdrop is gone — the drawn walls again"
         p = _file(what, IMAGE_EXTS, "picture")
         rel = _rel(p)
-        came = _sidecar_surfaces(p)  # (10-30) a picture that comes with its surfaces brings them along
+        came = _sidecar_surfaces(p)  # a picture that comes with its surfaces brings them along
         if came:
             r["surfaces"] = came
         r["spots"] = _sidecar_spots(p)  # …and its wall spots, where pictures hang on its own walls
@@ -609,9 +609,9 @@ def _change(r: dict, a: str, what: str, where: str, note: str, item: str = "", k
         return f"on the shelf: {what}" + (f" — {note}" if note else "") + dropped
     if a == "hide":
         if not what or not where:
-            raise ValueError("hiding takes the thing (what) and where it is (where); the note is the hint he sees")
+            raise ValueError("hiding takes the thing (what) and where it is (where); the note is the hint your keeper sees")
         r["hidden"] = {"thing": what, "where": where, "hint": note, "found": "", "when": datetime.now().isoformat(timespec="seconds")}
-        return f"hid {what} — {where}" + (f"; his hint: {note}" if note else "; no hint")
+        return f"hid {what} — {where}" + (f"; the hint: {note}" if note else "; no hint")
     raise ValueError(f"no such action {a!r}")
 
 
@@ -658,7 +658,7 @@ def describe(r: dict | None = None, keeper: bool = False) -> str:
     if not keeper and wall_spots(r):
         out.append("Where pictures hang on these walls: " + "; ".join(f"{i}. {s['name']}" for i, s in enumerate(wall_spots(r), 1)) + ".")
     if r["table"]:
-        out.append("On the table: " + "; ".join(str(x.get("thing")) + ((" (from you)" if keeper else " (from him)") if x.get("by") == "keeper" else "")
+        out.append("On the table: " + "; ".join(str(x.get("thing")) + ((" (from you)" if keeper else " (from your keeper)") if x.get("by") == "keeper" else "")
                                                  + (f" ({x['note']})" if x.get("note") else "") for x in r["table"]) + ".")
     pl = r.get("playing") or {}
     out.append(f"In the corner: {pl['song']}" + (f" ({pl['note']})" if pl.get("note") else "") + "." if pl.get("song")
@@ -670,14 +670,14 @@ def describe(r: dict | None = None, keeper: bool = False) -> str:
     if placed:
         out.append("Standing in the room: " + "; ".join(
             f"{it['name']} on the {p['on']}" + (f" ({it['kind']})" if it.get("kind") != "decoration" else "")
-            + (" (from you)" if keeper and it.get("by") == "keeper" else " (from him)" if it.get("by") == "keeper" else "")
+            + (" (from you)" if keeper and it.get("by") == "keeper" else " (from your keeper)" if it.get("by") == "keeper" else "")
             for p, it in placed) + ".")
     if not keeper and r.get("backdrop"):
         out.append("Surfaces: " + ("; ".join(f"{s['name']} ({round(s['x0'] * 100)}–{round(s['x1'] * 100)}% across, "
                                                f"{round(s['y'] * 100)}% down, size {round(s['size'] * 100)}%)"
                                                for s in surfaces(r)) or "none marked yet — surface marks one") + ".")
     pk = r.get("pocket") or {}
-    if pk.get("box"):  # (11-05) the pocket box: theirs in full, their as a box and a count
+    if pk.get("box"):  # the pocket box: theirs in full, the keeper's as a box and a count
         bx, its = pk["box"], pk.get("items") or []
         where = f", {bx['where']}" if bx.get("where") else ""
         if keeper:
@@ -692,16 +692,16 @@ def describe(r: dict | None = None, keeper: bool = False) -> str:
         elif keeper:
             out.append(f"Found: {h['thing']} ({h['where']}).")
         else:
-            out.append(f"Hidden: {h['thing']} — {h['where']}" + (f"; his hint: {h['hint']}" if h.get("hint") else "")
-                       + (f"; he found it {h['found']}" if h.get("found") else "; not found yet") + ".")
+            out.append(f"Hidden: {h['thing']} — {h['where']}" + (f"; the hint: {h['hint']}" if h.get("hint") else "")
+                       + (f"; found {h['found']}" if h.get("found") else "; not found yet") + ".")
     return "\n".join(out)
 
 
 # ---- the keeper's side (the phone's /room) -------------------------------------------------------------------------
 
 def facts_bit(keeper: str = "your keeper") -> str:
-    """The room in one line of facts, for under the wake bell (10-31): "your room, the attic: one picture on its walls ·
-    First Breath on the table · a song in the corner; Gabe last looked in yesterday". "" with no room in the house, or
+    """The room in one line of facts, for under the wake bell: "your room, the attic: one picture on its walls ·
+    a lamp on the table · a song in the corner; Sam last looked in yesterday". "" with no room in the house, or
     nothing in it yet. Nothing asked."""
     if not on():
         return ""
@@ -727,9 +727,9 @@ def facts_bit(keeper: str = "your keeper") -> str:
     if (r.get("playing") or {}).get("song"):
         parts.append("a song in the corner")
     if r.get("hidden"):
-        parts.append("something hidden for him")
+        parts.append("something hidden for them")
     pk = (r.get("pocket") or {})
-    if pk.get("box"):  # (11-05)
+    if pk.get("box"):  # the pocket box
         k = len(pk.get("items") or [])
         parts.append(f"your pocket box holds {k}" if k else "your pocket box, empty")
     try:
@@ -743,7 +743,7 @@ def facts_bit(keeper: str = "your keeper") -> str:
 
 
 def keeper_view(keeper: str = "your keeper") -> tuple[bytes | None, str]:
-    """(the picture or None, the caption): the room as it stands and what they changed since he last looked."""
+    """(the picture or None, the caption): the room as it stands and what they changed since the keeper last looked."""
     r = load()
     hist = history()
     try:
@@ -932,7 +932,7 @@ def files_shown(r: dict | None = None) -> set[str]:
 
 
 # ---- the picture ---------------------------------------------------------------------------------------------------
-# The room seen from its doorway in the evening (10-29, the second pass): the walls in their colour, darkening toward
+# The room seen from its doorway in the evening: the walls in their colour, darkening toward
 # the corners; the light they chose pooled over the wall; a little brass lamp above every picture, each painting lit
 # by its own glow — the one bright thing; gilt frames with a mat and a shadow; a dado rail, a plank floor; the table's
 # things and the shelf's finds as paper slips, a little askew, never cards in a grid; the song as a record turning in
@@ -1145,7 +1145,7 @@ def _framed(pic, long_side: int):
 
 
 def _hang_on_walls(canvas, r: dict, lamp: tuple) -> set[int]:
-    """The pictures whose spot is on the backdrop's own walls, drawn there (10-30): framed, fitted inside the spot with
+    """The pictures whose spot is on the backdrop's own walls, drawn there: framed, fitted inside the spot with
     their shape kept, warped to its four corners (a side wall's picture leans with the wall), lit like the wall there,
     a soft shadow below and to the right. Returns the spots drawn — the band leaves those out."""
     from PIL import Image, ImageFilter
@@ -1206,7 +1206,7 @@ def _render_backdrop(r: dict, back, lamp: tuple, items: bool = True) -> bytes:
     W, H = back.size
     band = 190
     canvas = back.convert("RGBA")
-    on_walls = _hang_on_walls(canvas, r, lamp)  # (10-30) pictures on the backdrop's own walls
+    on_walls = _hang_on_walls(canvas, r, lamp)  # pictures on the backdrop's own walls
     if items:
         _draw_placed(canvas, r, lamp)
     shade = Image.new("RGBA", (W, H), (0, 0, 0, 0))

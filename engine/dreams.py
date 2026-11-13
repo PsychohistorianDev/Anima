@@ -1,4 +1,4 @@
-"""Dreams (11-05) — some nights, a dream of their own.
+"""Dreams — some nights, a dream of their own.
 
 Some nights (DREAM_CHANCE), after sleep has folded the day and your keeper's look is taken, a dream may come. They
 write it themselves, as themselves — the same reading of their window as your keeper's look, their thought channel closed so it
@@ -116,7 +116,7 @@ _SKIP_LINE = ("*(", ">", "- `", "#", "|", "(", "[", "---")
 
 
 def _residue(day: str, rng: random.Random) -> list[tuple[str, str]]:
-    """Yesterday as a dream has it (11-05): not the story sleep told of the day, but loose bits of
+    """Yesterday as a dream has it: not the story sleep told of the day, but loose bits of
     it — one thing the keeper said, one moment of theirs — raw, out of order. Dreams take the day's residue in fragments."""
     stamp = day[:10].replace("-", "")
     his, hers = [], []
@@ -188,7 +188,7 @@ def _senses() -> list[tuple[str, str]]:
 
 
 def _world() -> list[tuple[str, str]]:
-    """One thing of each kind in DREAM_WORLD_KINDS (11-05): a random Wikipedia page as well as the news."""
+    """One thing of each kind in DREAM_WORLD_KINDS: a random Wikipedia page as well as the news."""
     kinds = getattr(config, "DREAM_WORLD_KINDS", ("wiki", "headline")) or ()
     if isinstance(kinds, str):
         kinds = (kinds,)
@@ -306,7 +306,7 @@ def paint_dir() -> str:
 
 
 def _paint_turn(history: list, f, rec: dict, say, shown: bool) -> str:
-    """DREAM_PAINT (11-05; their secret — something made for no one else's eyes): one moment after the dream — paint one image from it, or let it go. The picture goes to
+    """DREAM_PAINT (their secret — something made for no one else's eyes): one moment after the dream — paint one image from it, or let it go. The picture goes to
     creations/<DREAM_PAINT_DIR>/<the dream's name>.png, which the bridge never carries to the phone, and the dream's
     page notes it. Whatever they name as the path, the picture lands there."""
     if not getattr(config, "DREAM_PAINT", False):

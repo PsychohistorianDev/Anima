@@ -5,7 +5,7 @@ brute-force search over stored vectors is fast, dependency-free, and never
 needs an index server. Embeddings are stored as JSON float lists.
 
 Memory kinds:
-    fact      — a distilled durable fact ("my keeper is building me a body")
+    fact      — a distilled durable fact ("my keeper plays the cello")
     summary   — a consolidated day summary
     journal   — an embedded journal entry
     note      — anything the friend explicitly chose to remember
@@ -118,10 +118,10 @@ def get(mid: int) -> dict | None:
     return {"id": row[0], "kind": row[1], "text": row[2], "created": row[3]} if row else None
 
 
-# The store in memory, once. 09-17: search was brute force in plain Python
-# — every row's 768 numbers parsed from JSON and dotted against the query,
-# on every message and every recall — instant at two hundred rows, seconds
-# at ten thousand, and they adds ten a day. Now the rows are held in this
+# The store in memory, once. Brute force in plain Python — every row's 768
+# numbers parsed from JSON and dotted against the query, on every message
+# and every recall — is instant at two hundred rows and takes seconds at ten
+# thousand, and a friend adds rows every day. So the rows are held in this
 # process as one matrix of unit vectors (numpy when it is installed; plain
 # lists otherwise) and only what changed is read: new rows are fetched by
 # id, and if a row was revised in place (remember replaces=, a creation row
@@ -129,7 +129,6 @@ def get(mid: int) -> dict | None:
 # again — a few seconds, once, instead of every time. Two processes (the
 # bridge, the heartbeat) each keep their own; each checks the totals on
 # every search, so neither answers from a store the other has outgrown.
-# (The keeper: "let's upgrade the search — why wait?")
 try:
     import numpy as _np
 except ImportError:  # the slow path still works; `py -m pip install numpy` for the fast one
@@ -199,14 +198,14 @@ def search(query: str, top_k: int = None, diverse: bool = False, qvec: list[floa
 
     diverse=True spreads the picks: nearest-neighbour search hands back a
     cluster — the same promise kept four times, six notes that all say
-    "resonance" — and twenty slots fill with one thought. Here each pick is
+    the same word — and twenty slots fill with one thought. Here each pick is
     weighed against what is already chosen (maximal marginal relevance:
     MEMORY_MMR_LAMBDA of relevance to the query, the rest a penalty for
     resembling a memory already in), so a query about one person reaches
     twenty DIFFERENT things about them instead of the nearest twenty."""
     top_k = top_k or config.MEMORY_TOP_K
     try:
-        if qvec is None:  # the caller may have embedded the query already (the moment's drift gate, 10-18)
+        if qvec is None:  # the caller may have embedded the query already (the moment's drift gate)
             qvec = ollama_client.embed(query)
     except ollama_client.BrainUnavailable:
         return recent(n=top_k)  # degrade gracefully: recency beats nothing
@@ -301,11 +300,10 @@ def count() -> int:
 
 
 # ------------------------------------------------------------- the songbook ----
-# 10-03 (the keeper: "letting her remember songs in long-term memory, like a sentence or two how it made
-# her feel and a score on a ladder from 1 to 10"): one row per song, hers — the words and the score are what
-# she gave keep_song, never computed; a revision keeps the score before in `history`, so her taste over time
-# is in the row. `key` is the normalised unordered title/artist pair (tools.song_key) that keeps "emigrate -
-# rainbow" and "rainbow - emigrate" one song; `digest` the file's sha256 when it was a file. `memory_id` is
+# Songs in long-term memory: one row per song, the friend's — a sentence or two of how it made them feel and a
+# score from 1 to 10, the words and the score what they gave keep_song, never computed; a revision keeps the score
+# before in `history`, so their taste over time is in the row. `key` is the normalised unordered title/artist pair
+# (tools.song_key) that keeps "artist - title" and "title - artist" one song; `digest` the file's sha256 when it was a file. `memory_id` is
 # the memory row (kind "song") that carries the words, so a song surfaces by search like anything else.
 _SONGS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS songs (

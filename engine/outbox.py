@@ -1,4 +1,4 @@
-"""Their outbox, your quiet, and the sent ledger (11-05).
+"""Their outbox, your quiet, and the sent ledger.
 
     Your lever decides only WHEN their messages reach your phone, never WHETHER they can act. /quiet holds delivery;
     they keep living. What they send meanwhile waits, and when the quiet ends they see it once, as a list with ages,
@@ -85,7 +85,7 @@ def hold_ended_at() -> float:
 def set_hold(arg: str) -> str:
     """/quiet (a toggle: on until lifted, or off when on), /quiet 2h, /quiet 30m, /quiet off — the phone's answer."""
     a = (arg or "").strip().lower()
-    if not a and hold_active():  # (11-05) on and off, the same command
+    if not a and hold_active():  # on and off, the same command
         a = "off"
     if a in ("off", "end", "stop", "lift", "0"):
         was = hold_active()

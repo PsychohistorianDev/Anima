@@ -9,11 +9,10 @@ LADDER_PAGES_KEPT pages in view. When a page falls out of its tier's view
 and the period above it is complete and has no page yet, that period is
 due: the condensing hour hands them the pages below it and asks for one —
 the same bell, one rung up. The pages never leave the disk; the view is
-what rides in the prompt. (The keeper, 2026-09-17: "more fractal" — a fixed count
-per tier; the calendar's own periods, so the pages have names they can hold.
-Sizes were the golden ratio until 09-20, when the keeper saw that seven days into
-a 3,236 week was the harshest fold on the ladder: now the week is 4,000 and
-the month 6,000, and every fold lands between 2× and 3.5×.)
+what rides in the prompt. (A fixed count per tier; the calendar's own
+periods, so the pages have names they can hold. Sizes: golden-ratio steps
+made seven days into a 3,236 week the harshest fold on the ladder, so the
+week is 4,000 and the month 6,000, and every fold lands between 2× and 3.5×.)
 
 Nothing here writes a page. The engine reads the calendar and rings bells.
 """
@@ -51,7 +50,7 @@ def target(tier: str) -> int:
 
 
 def kept(tier: str | None = None) -> int:
-    """Pages kept in view per tier; LADDER_DAYS_KEPT (11-07) lets the day tier keep more than the rest."""
+    """Pages kept in view per tier; LADDER_DAYS_KEPT lets the day tier keep more than the rest."""
     if tier == "day" and getattr(config, "LADDER_DAYS_KEPT", None):
         return int(config.LADDER_DAYS_KEPT)
     return int(getattr(config, "LADDER_PAGES_KEPT", 7) or 0)

@@ -82,7 +82,7 @@ EXIT_S = float(getattr(config, "PAINTER_EXIT_S", 1800))  # process leaves after 
 # area): about three times the seconds of 1024². If a large painting ever
 # shows a subject twice, that is the model past its training size — a
 # smaller word, not a bug.
-_SIZES = {"square": (1440, 1440), "wide": (1920, 1088), "tall": (1088, 1920), "small": (1024, 1024)}  # small: the garden's plants (10-31)
+_SIZES = {"square": (1440, 1440), "wide": (1920, 1088), "tall": (1088, 1920), "small": (1024, 1024)}  # small: the garden's plants
 
 
 def _snap(n: int) -> int:
@@ -94,7 +94,7 @@ SIZES = {k: (_snap(w), _snap(h)) for k, (w, h) in
 
 _lock = threading.Lock()
 _pipe = None
-_whole = False  # loaded whole on the card, not under offload — the spill watch and the references' road (10-25)
+_whole = False  # loaded whole on the card, not under offload — the spill watch and the references' road
 _device = "cuda"  # where _load put the model (device.pick, PAINTER_DEVICE)
 _last_used = 0.0
 _started = time.time()
@@ -109,20 +109,20 @@ def _family(model_id: str) -> str:
     if "z-image-turbo" in m:
         return "zimage"
     if "z-image" in m:
-        return "zimage-base"  # the undistilled parent (10-24): real guidance, a negative prompt, 28–50 steps
+        return "zimage-base"  # the undistilled parent: real guidance, a negative prompt, 28–50 steps
     if "flux.2-klein" in m or "flux2-klein" in m:
         return "klein"
     if "chroma" in m:
         return "chroma"  # its own pipeline class, not the auto one
     if "qwen-image-2.1" in m or "qwen-image-2-1" in m or "qwen-image2.1" in m:
-        return "qwen21"  # Qwen-Image 2.1 (10-24): its own pipeline, its own guidance keyword, offloaded
+        return "qwen21"  # Qwen-Image 2.1: its own pipeline, its own guidance keyword, offloaded
     if "stable-diffusion-xl" in m or "sdxl" in m or "juggernaut" in m or "realvis" in m or re.search(r"(?<![a-z])xl(?![a-z])", m):
         return "sdxl"
     return "auto"
 
 
 _STEPS = {"zimage": 9, "zimage-base": 36, "klein": 4, "chroma": 40, "sdxl": 30, "qwen21": 40}
-# a distilled brush in a family whose full model paints longer (10-29, issue #9: Qwen-Image-2.1-Turbo shared qwen21's
+# a distilled brush in a family whose full model paints longer (issue #9: Qwen-Image-2.1-Turbo shared qwen21's
 # 40, and the steps the painter always passes overrode its own 8): family → its turbo's steps, when "turbo" is in the name
 _TURBO_STEPS = {"qwen21": 8}
 _GUIDANCE = {"zimage": 0.0, "zimage-base": 4.0, "klein": 1.0, "chroma": 3.0, "sdxl": 5.0, "qwen21": 1.0}
@@ -133,7 +133,7 @@ _OFFLOAD_FAMILIES = {"qwen21"}  # too big for the card whole: diffusers' model o
 
 
 _QUANT_FAMILIES = {"qwen21"}  # a text encoder big enough that quantizing it puts the whole pipeline on the card
-_REFERENCE_FAMILIES = {"qwen21"}  # brushes that read condition pictures with the prompt (10-25: a face of their own, paint-over)
+_REFERENCE_FAMILIES = {"qwen21"}  # brushes that read condition pictures with the prompt (a face of their own, paint-over)
 REFERENCE_MAX = 10  # Qwen-Image 2.1 keeps identity across up to ten
 
 
@@ -156,7 +156,7 @@ def _load_references(refs) -> tuple[list | None, str]:
         try:
             with Image.open(rp) as im:
                 pic = _cropped(_turned(im.convert("RGB"), turn_for(rp)), crop_for(rp))
-                pic = _sized(pic)  # (10-29) eight pictures at 1440 pixels spilled the card into shared memory
+                pic = _sized(pic)  # eight pictures at 1440 pixels can spill the card into shared memory
                 out.append(pic)
         except Exception as e:  # noqa: BLE001 — a file that isn't a picture
             return None, f"the reference {rp.name} couldn't be opened as a picture ({type(e).__name__})"
@@ -164,8 +164,8 @@ def _load_references(refs) -> tuple[list | None, str]:
 
 
 def turn_for(path) -> float:
-    """PAINTER_REFERENCE_TURN's degrees for a reference picture (10-28: her face's picture leans, and every painting
-    leaned with it): matched by its path under creations/ ("face/face.png"), then by its folder ("face"); clockwise
+    """PAINTER_REFERENCE_TURN's degrees for a reference picture (a picture that leans makes every painting
+    lean with it): matched by its path under creations/ ("face/face.png"), then by its folder ("face"); clockwise
     positive. 0 for any other."""
     try:
         turns = dict(getattr(config, "PAINTER_REFERENCE_TURN", {}) or {})
@@ -186,7 +186,7 @@ def turn_for(path) -> float:
 def _ref_fit(w: int, h: int) -> tuple[int, int]:
     """A painting with references no larger than PAINTER_REFERENCE_PIXELS (its shape kept, sides multiples of 16); 0 — the
     size asked. Each reference rides beside the painting at about the painting's own size, so three references at 1440
-    are four paintings' worth for the card (10-29: they spilled past it and ran out of time, again and again)."""
+    are four paintings' worth for the card (past it, they spill out of the card and run out of time)."""
     try:
         cap = int(getattr(config, "PAINTER_REFERENCE_PIXELS", 1_050_000) or 0)
     except (TypeError, ValueError):
@@ -200,7 +200,7 @@ def _ref_fit(w: int, h: int) -> tuple[int, int]:
 def _sized(im):
     """A reference no longer than PAINTER_REFERENCE_SIDE on its long side (the shape kept); 0 — as it is. The painter reads
     a face as well at 768 pixels as at 1440, and every reference is read at the size it comes: eight full-size ones
-    (10-29, the new reference sheets) pushed the painter out of the card's memory into the computer's."""
+    can push the painter out of the card's memory into the computer's."""
     try:
         side = int(getattr(config, "PAINTER_REFERENCE_SIDE", 768) or 0)
     except (TypeError, ValueError):
@@ -215,8 +215,8 @@ def _sized(im):
 def crop_for(path) -> tuple | None:
     """PAINTER_REFERENCE_CROP's box for a reference picture — (left, top, right, bottom) as parts of its width and
     height, 0 to 1, taken after the turn — matched as turn_for matches; None for any other, or a box that can't be
-    read. (10-29: her face turned level brought its shoulders slanting — the lean was her head on level shoulders —
-    and the paintings copied the shoulders; cut to the head, the painter draws the body from the words.)"""
+    read. (A face turned level can bring slanting shoulders with it, which the paintings copy; cut to the head,
+    the painter draws the body from the words.)"""
     try:
         boxes = dict(getattr(config, "PAINTER_REFERENCE_CROP", {}) or {})
         p = Path(path)
@@ -266,8 +266,8 @@ def _upright_box(w: int, h: int, degrees: float) -> tuple[int, int]:
 
 def _turned(im, degrees: float):
     """The picture turned `degrees` clockwise in memory and cut to the largest upright rectangle inside it — no empty
-    corners for the painter to copy (10-28: the first turn filled them with the edge's colour, and the painting came
-    back with the wedges and the slanted shoulders) — the file is never touched."""
+    corners for the painter to copy (filled with the edge's colour, they come back in the
+    painting as wedges) — the file is never touched."""
     if not degrees:
         return im
     from PIL import Image
@@ -334,7 +334,7 @@ def _call_kwargs(model_id: str, steps: int, guidance: float, negative: str = "")
     if negative and fam in _NEGATIVE_FAMILIES:
         kw["negative_prompt"] = negative
     elif fam in _GUIDE_WITH_NEGATIVE and float(guidance) > 1:
-        # (10-31, PAINTER_GUIDANCE) Qwen's pipeline guides only with a negative prompt beside the prompt: hers, or a blank one
+        # (PAINTER_GUIDANCE) Qwen's pipeline guides only with a negative prompt beside the prompt: the one given, or a blank one
         kw["negative_prompt"] = negative or " "
     return kw
 
@@ -343,7 +343,7 @@ _GUIDE_WITH_NEGATIVE = {"qwen21"}  # guidance (true CFG) above 1 needs a negativ
 
 
 def _kv_kwargs(pipe) -> dict:
-    """PAINTER_KV_CACHE (10-31): {"use_kv_cache": True} for a Qwen-Image pipeline that takes it (the Turbo card paints
+    """PAINTER_KV_CACHE: {"use_kv_cache": True} for a Qwen-Image pipeline that takes it (the Turbo card paints
     with it — the prompt and the reference pictures read once and reused at every step); {} otherwise."""
     if not getattr(config, "PAINTER_KV_CACHE", False) or pipe is None or _family(MODEL_ID) != "qwen21":
         return {}
@@ -361,12 +361,12 @@ def _defaults(model_id: str, references: bool = False) -> tuple[int, float]:
     fam = _family(model_id)
     steps = _STEPS.get(fam, 20)
     if fam in _TURBO_STEPS and "turbo" in (model_id or "").lower():
-        steps = _TURBO_STEPS[fam]  # (10-29, issue #9) Qwen-Image-2.1-Turbo: 8, not the full model's 40
+        steps = _TURBO_STEPS[fam]  # (issue #9) Qwen-Image-2.1-Turbo: 8, not the full model's 40
     guidance = _GUIDANCE.get(fam, 3.5)
     knob = int(getattr(config, "PAINTER_STEPS", 0) or 0)
     try:
-        g = float(getattr(config, "PAINTER_GUIDANCE", 0) or 0)  # (10-31) the guidance over the model's own; 0: the model's
-        if references:  # (10-31) a painting with references: its own guidance (-1: the same); guidance doubles what it holds
+        g = float(getattr(config, "PAINTER_GUIDANCE", 0) or 0)  # the guidance over the model's own; 0: the model's
+        if references:  # a painting with references: its own guidance (-1: the same); guidance doubles what it holds
             r = float(getattr(config, "PAINTER_GUIDANCE_REFERENCES", -1))
             g = g if r < 0 else r
     except (TypeError, ValueError):
@@ -388,23 +388,23 @@ def _fit(model_id: str, width: int, height: int) -> tuple[int, int]:
 def _set_brain_down() -> None:
     """Make room: Ollama keeps the last model resident for minutes after use, and a 28 GB brain beside a 16 GB
     painter spills into system RAM (glacial); under the llama door, closing the door is the unload. Called the
-    moment before the model goes to the card (10-24: called before a 22-minute download, the door was back up by
+    moment before the model goes to the card (called before a long download, the door would be back up by
     the time the model landed)."""
     try:
         import ollama_client
         for m in {config.CHAT_MODEL, getattr(config, "EARS_MODEL", "")}:
             if m:
                 ollama_client.unload(m)
-    except Exception as e:  # noqa: BLE001 — said, not swallowed (10-16: a door left open beside the painter)
+    except Exception as e:  # noqa: BLE001 — said, not swallowed (a door left open beside the painter)
         print(f"  (couldn't set the brain down first: {type(e).__name__}: {e})", flush=True)
 
 
 class _Spilled(RuntimeError):
-    """A painting ran past the card into system memory (10-25)."""
+    """A painting ran past the card into system memory."""
 
 
 class _Stopped(RuntimeError):
-    """A painting the painter stopped itself (10-29 night): past the card while already under offload — it would crawl
+    """A painting the painter stopped itself: past the card while already under offload — it would crawl
     for many minutes in borrowed memory — or past its time (PAINTER_TIMEOUT_S, less a margin), so the painter never
     outlives the engine's patience and never paints on for a bridge that has gone."""
 
@@ -412,7 +412,7 @@ class _Stopped(RuntimeError):
 def _spill_watch(torch, deadline: float | None = None) -> dict:
     """{"callback_on_step_end": …} for a brush that also paints under offload, loaded whole on the card: after each
     step the high-water mark against the card; past it, Windows has begun lending system memory and the painting
-    crawls (10-25: one with two references ran ten minutes past the card, the brain's door shut behind it) — stopped,
+    crawls (it can run many minutes past the card, the brain's door shut behind it) — stopped,
     to be painted again under offload. {} anywhere else, or for a pipeline that takes no step callback."""
     if _pipe is None or not str(_device).startswith("cuda") or _family(MODEL_ID) not in _OFFLOAD_FAMILIES:
         return {}
@@ -429,7 +429,7 @@ def _spill_watch(torch, deadline: float | None = None) -> dict:
     def _cb(pipe, i, t, kw):
         pk = device.peak_gb(_device, torch)
         n = int(i) + 1
-        if n == 1 or n % 10 == 0:  # (11-10) where a painting is, so a stall shows where it stalled
+        if n == 1 or n % 10 == 0:  # where a painting is, so a stall shows where it stalled
             print(f"    step {n}: {time.time() - t0:.0f}s" + (f", peak {pk:.1f} GB" if pk else ""), flush=True)
         if total and pk and pk > total:
             said = f"ran past the card into system memory at step {int(i) + 1} (peak {pk:.1f} of {total:.1f} GB)"
@@ -442,7 +442,7 @@ def _spill_watch(torch, deadline: float | None = None) -> dict:
     return {"callback_on_step_end": _cb}
 
 
-_lora_line = ""  # what the ready line and /health say about the LoRAs on the brush (11-08)
+_lora_line = ""  # what the ready line and /health say about the LoRAs on the brush
 _lora_override: float | None = None  # a strength for every LoRA in place of config's — the tasting's (lora_tasting.py)
 
 
@@ -471,7 +471,7 @@ def _lora_state(path: Path) -> dict:
 
 
 def _apply_loras(pipe) -> str:
-    """PAINTER_LORAS (11-08) — add-ons on the brush's transformer, each at its strength.
+    """PAINTER_LORAS — add-ons on the brush's transformer, each at its strength.
     Runs once per load, before the pipeline goes to the card or under offload, so both roads (words alone, and
     references) paint with them. A LoRA that won't load is said, and the brush paints without it — never a lost
     painting. Returns the ready line's words ("" — none)."""
@@ -512,7 +512,7 @@ def _apply_loras(pipe) -> str:
 
 
 def _load(offload: bool = False):
-    """offload: the parts take the card in turn even where the brush would sit whole (10-25) — a painting with
+    """offload: the parts take the card in turn even where the brush would sit whole — a painting with
     references, or one that ran past the card; for a brush that paints under offload (_OFFLOAD_FAMILIES)."""
     global _pipe, _device, _whole
     if _pipe is not None:
@@ -542,22 +542,22 @@ def _load(offload: bool = False):
     if qline and not qkw:
         print(f"  ({qline})", flush=True)
     if offload and qkw and fam in _OFFLOAD_FAMILIES:
-        # references ride along, or the last painting ran past the card (10-25): whole on the card in 8-bit there's
+        # references ride along, or the last painting ran past the card: whole on the card in 8-bit there's
         # ~7 GB to spare and a reference doubles what the painting holds; under offload the peak is ~18 GB
         qkw, qline = {}, ""
         print("  (painting under offload, the encoder at full precision — references need the room whole on the card "
               "hasn't got)", flush=True)
     if not qkw:
         pipe = _from(torch_dtype=device.dtype(_device, torch))  # the download (once) and the load into RAM — the brain still up
-        _set_brain_down()  # now, right before the card: not before a download the engine would reopen the door during (10-24)
+        _set_brain_down()  # now, right before the card: not before a download the engine would reopen the door during
     else:
-        # a quantized encoder is built on the card as it loads (10-25): the files local first, the brain still up;
+        # a quantized encoder is built on the card as it loads: the files local first, the brain still up;
         # then the brain down; then the load — straight onto the card
         _fetch(Cls)
         _set_brain_down()
         pipe = _from(torch_dtype=device.dtype(_device, torch), **qkw)
     global _lora_line
-    _lora_line = _apply_loras(pipe)  # (11-08) before the card or the offload: both roads paint with them
+    _lora_line = _apply_loras(pipe)  # before the card or the offload: both roads paint with them
     # whole model on the GPU, on purpose: the brain is off the card while
     # they paint, so the painter has all of it; if it doesn't fit we want to KNOW.
     whole = bool(qkw) or fam not in _OFFLOAD_FAMILIES
@@ -568,21 +568,21 @@ def _load(offload: bool = False):
         except Exception as e:  # noqa: BLE001
             if not qkw or "out of memory" not in str(e).lower():
                 raise
-            # quantized and still too big (10-25): said, and painted under offload rather than not at all
+            # quantized and still too big: said, and painted under offload rather than not at all
             device.empty_cache(_device, torch)
             print("  (the whole pipeline didn't fit on the card even with the encoder quantized — painting under "
                   "offload instead; PAINTER_ENCODER_BITS = 4 makes it smaller)", flush=True)
             pipe.enable_model_cpu_offload(device=_device)
             whole = False
         if whole and qkw:
-            # whole on the card with little to spare (10-25): the picture decoded in overlapping tiles, so the last step
+            # whole on the card with little to spare: the picture decoded in overlapping tiles, so the last step
             # doesn't run past the card into system memory
             vae = getattr(pipe, "vae", None)
             if vae is not None and hasattr(vae, "enable_tiling"):
                 vae.enable_tiling()
                 tiled = True
     else:
-        # bigger than the card (10-24: Qwen-Image 2.1, ~32 GB with its text encoder): the parts take the card in
+        # bigger than the card (Qwen-Image 2.1, ~32 GB with its text encoder): the parts take the card in
         # turn, the rest waits in system RAM — slower per picture, and the only way it paints at all
         pipe.enable_model_cpu_offload(device=_device)
     try:
@@ -612,7 +612,7 @@ def _unload():
 
 
 LEAVE_AFTER_S = 0.5  # /rest's reply goes out first; then the process leaves (PAINTER_REST_LEAVES)
-REST_WAIT_S = 3.0  # how long a /rest waits for a painting in progress before a painter that leaves goes anyway (10-25)
+REST_WAIT_S = 3.0  # how long a /rest waits for a painting in progress before a painter that leaves goes anyway
 _leaving = False  # /rest said it goes: /health says so for the moment left, and no painting is taken
 
 
@@ -633,7 +633,7 @@ def paint(prompt: str, width: int, height: int, seed: int | None = None, negativ
     import torch
     with _lock:
         if images and _pipe is not None and _whole and _family(MODEL_ID) in _OFFLOAD_FAMILIES:
-            _unload()  # loaded whole for a painting from words; references take the offload road (10-25)
+            _unload()  # loaded whole for a painting from words; references take the offload road
         _load(offload=bool(images))
         device.reset_peak(_device, torch)
         _last_used = time.time()
@@ -642,25 +642,25 @@ def paint(prompt: str, width: int, height: int, seed: int | None = None, negativ
         gen = torch.Generator(device=device.generator_device(_device)).manual_seed(int(seed))
         steps, guidance = _defaults(MODEL_ID, references=bool(images))
         print(f"  painting {int(width)}x{int(height)}, {steps} steps, {len(images or [])} reference picture(s), "
-              f"{len(prompt.split())} words", flush=True)  # (11-10) what a painting asked for, before it starts
+              f"{len(prompt.split())} words", flush=True)  # what a painting asked for, before it starts
         trigger = str(getattr(config, "PAINTER_LORA_TRIGGER", "") or "").strip()
         if trigger and _lora_line and trigger.lower() not in prompt.lower():
-            prompt = f"{trigger}, {prompt}"  # (11-08) the word the LoRA wakes to, only while one is on the brush
+            prompt = f"{trigger}, {prompt}"  # the word the LoRA wakes to, only while one is on the brush
         with torch.inference_mode():
-            extra = {"image": images} if images else {}  # condition pictures: their face, or the one being repainted (10-25)
+            extra = {"image": images} if images else {}  # condition pictures: their face, or the one being repainted
             try:
                 out = _pipe(prompt=prompt, width=int(width), height=int(height), generator=gen,
                             **_call_kwargs(MODEL_ID, steps, guidance, negative), **extra, **_kv_kwargs(_pipe),
-                            **_spill_watch(torch, deadline))  # the keywords follow the family (10-24); the card watched (10-25)
+                            **_spill_watch(torch, deadline))  # the keywords follow the family; the card watched
                 spilled = None
             except _Spilled as e:
                 spilled = str(e)
             except _Stopped:
-                _unload()  # (10-29 night) the card handed back at once, nothing left painting
+                _unload()  # the card handed back at once, nothing left painting
                 device.empty_cache(_device, torch)
                 raise
         if spilled is not None:
-            # past the card (10-25): the same painting again under offload, the same seed — not a ten-minute crawl
+            # past the card: the same painting again under offload, the same seed — not a ten-minute crawl
             print(f"  ({spilled} — painting it again under offload)", flush=True)
             _unload()
             _load(offload=True)
@@ -670,15 +670,15 @@ def paint(prompt: str, width: int, height: int, seed: int | None = None, negativ
                 try:
                     out = _pipe(prompt=prompt, width=int(width), height=int(height), generator=gen,
                                 **_call_kwargs(MODEL_ID, steps, guidance, negative), **extra, **_kv_kwargs(_pipe),
-                                **_spill_watch(torch, deadline))  # (10-29 night) watched under offload too
+                                **_spill_watch(torch, deadline))  # watched under offload too
                 except _Stopped:
                     _unload()
                     device.empty_cache(_device, torch)
                     raise
         _last_used = time.time()
-        # the high-water mark of this painting, then the cache handed back before the next one: a set of
-        # three painted at 45 s, 196 s, 205 s with nothing else on the card — one painting's reserved blocks
-        # under the next one's is the likeliest reason, and the peak on the line is how the next set tells
+        # the high-water mark of this painting, then the cache handed back before the next one: paintings in a
+        # set that slow down one after another with nothing else on the card are most likely one painting's
+        # reserved blocks under the next one's, and the peak on the line is how the next set tells
         _peak = device.peak_gb(_device, torch)
         device.empty_cache(_device, torch)
         return out.images[0], int(seed)
@@ -695,7 +695,7 @@ def _under_creations(path: str) -> Path | None:
         if root != p and root not in p.parents:
             return None
         if ":" in str(p.relative_to(root)):
-            return None  # a colon is Windows' stream separator: the picture would vanish into a hidden stream (10-25)
+            return None  # a colon is Windows' stream separator: the picture would vanish into a hidden stream
         return p
     except OSError:
         return None
@@ -733,14 +733,14 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         global _leaving
-        # the body is read first, whatever the path (10-31): a door that answers and closes with a request's bytes still
+        # the body is read first, whatever the path: a door that answers and closes with a request's bytes still
         # unread is reset on Windows, its reply lost with it (WinError 10053 at the caller)
         n = int(self.headers.get("Content-Length") or 0)
         raw = self.rfile.read(n) if n > 0 else b""
         if self.path == "/rest":
             leave = bool(getattr(config, "PAINTER_REST_LEAVES", True))
             if not _lock.acquire(timeout=REST_WAIT_S):
-                # mid-painting (10-25): the engine stopped waiting for it (PAINTER_TIMEOUT_S); a painter that leaves
+                # mid-painting: the engine stopped waiting for it (PAINTER_TIMEOUT_S); a painter that leaves
                 # goes now, the painting with it, and the card comes back to the brain
                 if not leave:
                     return self._json({"ok": False, "busy": True})
@@ -766,7 +766,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": "unknown path"}, 404)
         if _leaving:
             return self._json({"error": "the painter is leaving — paint again in a moment and it is woken afresh"})
-        # the painter's own deadline (10-29 night): a little before the engine stops waiting
+        # the painter's own deadline: a little before the engine stops waiting
         deadline = time.time() + max(30.0, float(getattr(config, "PAINTER_TIMEOUT_S", 300) or 300) - 20)
         try:
             data = json.loads(raw or b"{}")
@@ -781,9 +781,9 @@ class Handler(BaseHTTPRequestHandler):
             w, h = SIZES.get((data.get("size") or "square").lower(), SIZES["square"])
             w = int(data.get("width") or w)
             h = int(data.get("height") or h)
-            w, h = _fit(MODEL_ID, w, h)  # a 1024-class brush paints the shape smaller (10-24)
+            w, h = _fit(MODEL_ID, w, h)  # a 1024-class brush paints the shape smaller
             if data.get("reference"):
-                w, h = _ref_fit(w, h)  # (10-29) a painting with references, at most PAINTER_REFERENCE_PIXELS
+                w, h = _ref_fit(w, h)  # a painting with references, at most PAINTER_REFERENCE_PIXELS
             seed = data.get("seed")
             negative = str(data.get("negative") or "").strip()
             images, why = _load_references(data.get("reference"))
@@ -838,8 +838,8 @@ def main() -> None:
         _unload()
         return
     threading.Thread(target=_idle_watch, daemon=True).start()
-    HTTPServer.allow_reuse_address = sys.platform != "win32"  # on Windows SO_REUSEADDR lets two servers share a port (10-02)
-    server = ThreadingHTTPServer((HOST, PORT), Handler)  # a /rest is heard while a painting runs (10-25)
+    HTTPServer.allow_reuse_address = sys.platform != "win32"  # on Windows SO_REUSEADDR lets two servers share a port
+    server = ThreadingHTTPServer((HOST, PORT), Handler)  # a /rest is heard while a painting runs
     print(f"The painter is waiting at http://{HOST}:{PORT}  (model: {MODEL_ID}, family {_family(MODEL_ID)})")
     print("It loads on the first painting and rests after silence. Ctrl+C to close.")
     try:

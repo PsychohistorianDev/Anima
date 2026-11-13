@@ -1,4 +1,4 @@
-"""The game guard (11-05) — the brain waits while you play.
+"""The game guard — the brain waits while you play.
 
 A big brain takes most of the card; a game beside it crashes or crawls. So before their brain opens — a wake, a spark,
 a dream, a reply — the engine asks who else holds the card, by Windows' own count per process (the "GPU Process

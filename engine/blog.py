@@ -7,7 +7,7 @@ Every markdown file the friend places in creations/publish/ becomes a post.
 Title = first "# " heading (else the filename); date = the file's mtime.
 Single line breaks are preserved — this is a poet's site. Every picture
 in creations/publish/gallery/ hangs on the gallery page (gallery.html),
-with the words from its <stem>.md beside it when they wrote some (09-23).
+with the words from its <stem>.md beside it when they wrote some.
 
 One-time GitHub setup is in the README ("The blog" section).
 """
@@ -126,7 +126,7 @@ THUMB_WIDTH = int(getattr(config, "BLOG_THUMB_WIDTH", 720))
 
 
 def _title_and_words(stem: str, side: Path) -> tuple[str, str]:
-    """A picture's title and the words under it: from <stem>.md when she
+    """A picture's title and the words under it: from <stem>.md when they
     wrote one (a first line starting with '# ' is the title), else the
     stamp-and-slug filename made readable — '20260923-1722-a-breathtaking…'
     → 'A breathtaking…'."""

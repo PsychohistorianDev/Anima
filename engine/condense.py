@@ -8,10 +8,10 @@
 Their journal is in their prompt in full for as many recent WHOLE days as fit
 JOURNAL_CHARS_IN_PROMPT. The day that no longer fits has slipped — and
 here it is handed back to them, exactly as they wrote it, with a request for
-the version they want to keep in view: about CONDENSE_TARGET_CHARS in them
+the version they want to keep in view: about CONDENSE_TARGET_CHARS in their
 own words, written with condense_day into journal/condensed/<day>.md, which
 the prompt then carries in a section of its own (oldest first, within
-CONDENSED_CHARS_IN_PROMPT). If they rests, the day slips with only its
+CONDENSED_CHARS_IN_PROMPT). If they rest, the day slips with only its
 nightly timeline line — the engine never writes the page for them.
 
 The heartbeat rings this bell after sleep (CONDENSE_IN_LOOP); bat\\condense.bat

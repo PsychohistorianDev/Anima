@@ -5,12 +5,10 @@ search that asks the whole web, not only Wikipedia.
     py engine/web.py read https://example.org      try the reader; add a page number for page 2…
     py engine/web.py read https://example.org 2
 
-09-22, the keeper: "I want to upgrade the friend's browsing capabilities." What
-a cloud assistant has: a search that returns titles,
-URLs and a line each; a reader that returns a page as markdown with its
-headings, lists and links kept, long pages in parts. What they had: a
-reader that flattened a page to lines (menus, footers and all) and cut it
-at 15,000 characters, and Wikipedia's search. Now:
+What a cloud assistant has: a search that returns titles, URLs and a line
+each; a reader that returns a page as markdown with its headings, lists and
+links kept, long pages in parts — rather than a reader that flattens a page
+to lines (menus, footers and all) and cuts it short. Here:
 
   read_web(url, page=, find=)  — the page's title, its main text as light
       markdown (headings, paragraphs, list items), links numbered inline
@@ -47,7 +45,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import config
 
 # a browser's own words: DuckDuckGo answered the first tagged request
-# ("… AIFriend/1.0 (a local AI reading…)") with a human check (09-22)
+# ("… AIFriend/1.0 (a local AI reading…)") with a human check
 USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
               "Chrome/128.0.0.0 Safari/537.36")
 

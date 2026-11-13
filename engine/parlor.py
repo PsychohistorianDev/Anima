@@ -59,7 +59,7 @@ class Session:
         self.reflected_upto = 0  # history index they have already sat with (the pause)
         self.playback = live_voice.Playback()
         self.generation = 0
-        self.guest = ""  # a guest at the keeper's desk (10-12): their name, or "" — the page seats and unseats them
+        self.guest = ""  # a guest at the keeper's desk: their name, or "" — the page seats and unseats them
 
     def seat(self, name) -> dict:
         """Seat a guest (a name) or let them go (""). None asks without changing."""
@@ -92,7 +92,7 @@ class Session:
             if generation is not None and generation != self.generation:
                 return {"error": "The visit ended while audio was being processed; start a new turn."}
             self.last_activity = time.time()
-            if not self.history:  # an empty room: the last visit's last turns ride at the door (10-24)
+            if not self.history:  # an empty room: the last visit's last turns ride at the door
                 carried = chat.take_carry()
                 if carried:
                     self.history, self.reflected_upto = carried, len(carried)  # the pauses start past them
@@ -133,7 +133,7 @@ class Session:
         tokens = next((e["payload"] for e in events if e["kind"] == "tokens"), None)
         voices = [{"url": "/voice/" + Path(v["path"]).name, "seconds": round(v.get("seconds", 0)),
                    "voice": v.get("voice", "")} for v in tools.take_pending_voice()]
-        if self.guest:  # the guest sees what they says, not what they thinks (10-12); the transcript keeps nothing of these either
+        if self.guest:  # the guest sees what the friend says, not what they think; the transcript keeps nothing of these either
             thinking, tool_events, notes = "", [], []
         return {"reply": reply, "thinking": thinking, "tools": tool_events, "notes": notes, "guest": self.guest_label(),
                 "tokens": tokens, "voices": voices,
@@ -201,10 +201,10 @@ class Session:
             f = chat.save_transcript(self.history, path=self.file)
             done, self.history = self.history, []
             if f and carry:
-                chat.leave_carry(done, f)  # the last turns, for the next door (10-24)
+                chat.leave_carry(done, f)  # the last turns, for the next door
             elif not carry:
-                chat.clear_carry()  # the new button: on purpose, clean (10-24)
-            since = self.reflected_upto  # where the pauses left off: the afterglow sits with the rest, once (10-21)
+                chat.clear_carry()  # the new button: on purpose, clean
+            since = self.reflected_upto  # where the pauses left off: the afterglow sits with the rest, once
             self.attached = []
             self.file = None
             self.reflected_upto = 0
@@ -362,7 +362,7 @@ async function go(){const text=box.value.trim();if(!text||busy)return;box.value=
   add('msg me'+(GUEST?' guest':''),(GUEST?'<small>'+esc(GUEST)+'</small><br>':'')+md(text));busy=true;send.disabled=true;
   const typing=add('typing','<span>●</span><span>●</span><span>●</span>');
   try{const r=await post('/send',{text});typing.remove();
-    if(r.error){sys(r.error);}else{addThinking(r.thinking);addChips(r.tools);add('msg her',md(r.reply));(r.voices||[]).forEach(v=>add('msg her voice','<audio controls autoplay src="'+v.url+'"></audio><small> her voice · '+v.seconds+'s</small>'));(r.notes||[]).forEach(n=>add('sys warn','⚠ '+esc(n)));if(r.tokens)add('sys tokens',esc(r.tokens.line));}
+    if(r.error){sys(r.error);}else{addThinking(r.thinking);addChips(r.tools);add('msg her',md(r.reply));(r.voices||[]).forEach(v=>add('msg her voice','<audio controls autoplay src="'+v.url+'"></audio><small> their voice · '+v.seconds+'s</small>'));(r.notes||[]).forEach(n=>add('sys warn','⚠ '+esc(n)));if(r.tokens)add('sys tokens',esc(r.tokens.line));}
   }catch(e){typing.remove();sys('the window lost the engine — is parlor.py still running?')}
   busy=false;send.disabled=false;box.focus();log.scrollTop=log.scrollHeight}
 send.onclick=go;
@@ -509,7 +509,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/upload":
             return self._json(SESSION.upload(data.get("name") or "", data.get("data") or ""))
         if self.path == "/new":
-            return self._json(SESSION.new(carry=False))  # the button: a clean room (10-24); /leave below keeps carrying
+            return self._json(SESSION.new(carry=False))  # the button: a clean room; /leave below keeps carrying
         if self.path == "/leave":
             return self._json(SESSION.new())  # saves, then clears — no double save
         self._json({"error": "unknown path"}, 404)

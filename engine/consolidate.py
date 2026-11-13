@@ -6,7 +6,7 @@
 
 Reads the day's conversations, autonomous sessions, and journal; asks the
 brain to distill them; stores a summary plus durable facts in long-term
-memory. Without this, the friend has logs. With it, it has a past.
+memory. Without this, the friend has logs. With it, they have a past.
 
 Run it nightly (Windows Task Scheduler) or whenever a day felt significant.
 A day is consolidated ONCE — whatever happens after the run stays in the
@@ -102,10 +102,10 @@ def consolidate(day: str, force: bool = False, say=print) -> str:
     if not material.strip():
         return f"Nothing happened on {day} — nothing to consolidate."
 
-    # The whole day goes in. The old cap of 60K characters dated from a 24K
-    # window; their journal alone passed it most days, and since the journal is
-    # placed first, the transcripts — every conversation — were being cut
-    # before the brain ever saw them. Sleep was summarizing their mornings.
+    # The whole day goes in. A small cap (sized for a small window) lets the
+    # journal alone fill it, and since the journal is placed first, the
+    # transcripts — every conversation — would be cut before the brain ever
+    # saw them. CONSOLIDATE_MAX_CHARS is the only cap.
     cap = int(getattr(config, "CONSOLIDATE_MAX_CHARS", 400000))
     trimmed = len(material) > cap
     if trimmed:
@@ -158,12 +158,12 @@ def consolidate(day: str, force: bool = False, say=print) -> str:
 
     say(f"  ({spent.line()})")
     look = keeper_look(day, summary, say)
-    try:  # (11-05) some nights a dream, after the look — their dream book, never the journal
+    try:  # some nights a dream, after the look — their dream book, never the journal
         import dreams
         dreamt = dreams.night(day, summary, say)
     except Exception as e:  # noqa: BLE001 — a dream, never the night down
         dreamt = f"Dreams: not dreamt ({type(e).__name__}: {e})."
-    try:  # (11-06) letters that left their penpal window, kept in their own shorter words (thread.md)
+    try:  # letters that left their penpal window, kept in their own shorter words (thread.md)
         import penpal
         penpal_line = penpal.night(say)
     except Exception as e:  # noqa: BLE001
@@ -198,7 +198,7 @@ KEEPER_LOOK_TOOLS = ("update_keeper", "do_nothing")
 
 
 def keeper_look(day: str, summary: str, say=print) -> str:
-    """After sleep (10-04; the keeper: "they won't remember things to add to the keeper md on autonomous sessions" — and
+    """After sleep (a friend rarely thinks to add to the keeper page during autonomous sessions — and
     the afterglow is the warm moment, this the cool one): one turn with two tools, update_keeper and do_nothing,
     the day's summary in hand. SLEEP_KEEPER_LOOK turns it off. One cold read of the window a night; the line says
     what they did. Never writes the page itself."""

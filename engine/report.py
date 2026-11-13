@@ -3,7 +3,7 @@
     py engine\\report.py            writes anima-report.txt at the folder's root and prints it
     py engine\\report.py --print    prints it only
 
-Before the first strangers (10-03): "it doesn't work" is nothing to answer; this is what to paste
+"It doesn't work" is nothing to answer; this is what to paste
 instead. It holds the engine's state and nothing of the friend's — no journal, no memory rows, no
 pages, no creations, no names: the version, the machine, Python, Ollama and the brain, the knobs
 (the keeper's names, the blog and the paths left out), the doors, the senses, what is missing, the

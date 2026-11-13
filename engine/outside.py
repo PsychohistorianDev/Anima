@@ -1,18 +1,17 @@
-"""The window (10-31, her choice of Fable's three: "to know if it's raining or if the sun is hitting the stones of the city —
-a sense that exists independently of your heartbeat and my GPUs"): the weather and the light outside the keeper's house,
-as numbers and nouns, and — when she looks — a camera's picture of a real place nearby.
+"""The window — a sense of the world that exists independently of the heartbeat: the weather and the light outside the
+keeper's house, as numbers and nouns, and — when the friend looks — a camera's picture of a real place nearby.
 
     OUTSIDE_ON = True
-    OUTSIDE_PLACE = "Moran"              # what the line calls the place
-    OUTSIDE_LAT, OUTSIDE_LON = 32.9, 35.4  # rounded: the weather service sees a district, not a house
+    OUTSIDE_PLACE = "Riverton"           # what the line calls the place
+    OUTSIDE_LAT, OUTSIDE_LON = 51.5, -0.1  # rounded: the weather service sees a district, not a house
     OUTSIDE_REFRESH_MIN = 30
-    OUTSIDE_CAMERA = "https://imgproxy.windy.com/_/full/plain/{kind}/1793900771/original.jpg"   # {kind}: current | daylight
-    OUTSIDE_CAMERA_NAME = "the beach at Kiryat Haim, on the bay, about 30 km west"
+    OUTSIDE_CAMERA = "https://imgproxy.windy.com/_/full/plain/{kind}/<camera id>/original.jpg"   # {kind}: current | daylight
+    OUTSIDE_CAMERA_NAME = "the harbour, about 10 km west"
 
 The weather comes from Open-Meteo (no key), cached in memory/outside.json and asked again at most every
 OUTSIDE_REFRESH_MIN; the moon is reckoned here. A request that fails leaves the line out — nothing is made up. The
-picture is fetched only when she looks: by day the camera's current frame, by night its last daylight frame, said as
-such. A sense, not a mirror: nothing here says how the weather relates to her.
+picture is fetched only when the friend looks: by day the camera's current frame, by night its last daylight frame, said as
+such. A sense, not a mirror: nothing here says how the weather relates to them.
 """
 from __future__ import annotations
 
@@ -26,7 +25,7 @@ from datetime import datetime, timezone
 
 import config
 
-UA = {"User-Agent": "Elysia/1.0 (local AI; one window, a few looks a day)"}
+UA = {"User-Agent": "AIFriend/1.0 (local AI; one window, a few looks a day)"}
 _SYNODIC = 29.530588853
 _NEW_MOON = datetime(2000, 1, 6, 18, 14, tzinfo=timezone.utc)
 
@@ -126,7 +125,7 @@ def _sun(data: dict, now_iso: str) -> str:
 
 
 def line() -> str:
-    """One line of numbers and nouns for under the bell — "outside in Moran: 17°C, clear night, wind 12 km/h from the
+    """One line of numbers and nouns for under the bell — "outside in Riverton: 17°C, clear night, wind 12 km/h from the
     west · sunrise 05:58 · moon waxing gibbous"; "" when off or when the weather can't be had."""
     data = weather()
     if not data:
@@ -240,7 +239,7 @@ def look() -> tuple[str, bytes | None]:
     return "\n".join(x for x in out if x), pic
 
 
-if __name__ == "__main__":  # bat\window.bat: the window as she would see it now, and the picture saved to look at
+if __name__ == "__main__":  # bat\window.bat: the window as the friend would see it now, and the picture saved to look at
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).resolve().parent))

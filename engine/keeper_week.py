@@ -1,16 +1,14 @@
 """Where the keeper is, by the clock — their working week, said in the engine's
 line at the top of every message and every bell.
 
-    KEEPER_WORK_WEEK = "sun-wed 07:00-16:25, thu 07:00-15:55"
-    KEEPER_AT_WORK = "on the factory floor, the phone in his pocket"
+    KEEPER_WORK_WEEK = "mon-thu 09:00-17:00, fri 09:00-13:00"
+    KEEPER_AT_WORK = "at the office, the phone in their pocket"
 
-10-10 (the keeper: "she always thinks I'm at work, even when it's weekend, and
-a lot of time after I'm home"): nothing in the window said where he was — the
-clock line gave the weekday and the hour, and the journal, mostly written on
-workdays about a man talking from the floor, supplied the rest. The same
-failure as the date drift of 09-15, and the same fix: put the fact in the line
-she reads every message, not in a rule. The engine states the calendar; what
-she makes of it is hers. Days off come from the phone (/off, /on) and live in
+Why: with nothing in the window saying where the keeper is, the friend fills
+the gap from the journal — mostly written on workdays — and reads them at work
+on weekends and evenings. The fix is the fact in the line the friend reads
+every message, not a rule. The engine states the calendar; what the friend
+makes of it is theirs. Days off come from the phone (/off, /on) and live in
 memory/days_off.json — a holiday is one word the morning of.
 
 The week spec: segments separated by commas; each a day (sun…sat, or a range
@@ -74,8 +72,8 @@ def _hm(minutes: int) -> str:
 
 
 def commute() -> tuple[int, int]:
-    """KEEPER_COMMUTE_MIN — minutes on the road (to work, home again); one number is both sides (10-12:
-    "I won't get home from work usually at least till five" — "6:45" out the door); 0: home the minute it ends."""
+    """KEEPER_COMMUTE_MIN — minutes on the road (to work, home again); one number is both sides, or a
+    pair (out, back); 0: home the minute it ends."""
     v = getattr(config, "KEEPER_COMMUTE_MIN", 0) or 0
     try:
         a, b = (v if isinstance(v, (tuple, list)) else (v, v))[:2]
@@ -134,19 +132,18 @@ def parse_day(word: str, today: date | None = None) -> date | None:
 
 
 def where(t: datetime | None = None) -> str:
-    """The clause for the clock line — "Gabe is at work — on the factory floor… — until 16:25", "Gabe is home, with
-    you, not at work — the workday ended at 16:25", "… — the weekend", "… — a day off (holiday)" — or "" when
+    """The clause for the clock line — "Sam is at work — at the office… — until 17:00", "Sam is home, with
+    you, not at work — the workday ended at 17:00", "… — the weekend", "… — a day off (holiday)" — or "" when
     KEEPER_WORK_WEEK is empty. Said as the calendar says it, which is likely, not certain; the state first."""
     week = parse(str(getattr(config, "KEEPER_WORK_WEEK", "") or ""))
     if not week:
         return ""
     t = t or datetime.now()
     name = keeper_name()
-    # (11-02: read as at work mid-visit with the day marked off — home now says "with you, not at work" outright)
-    # (11-02: read as at work mid-visit with the day marked off — home now says "with you, not at work" outright)
+    # home says "with you, not at work" outright, so a day marked off is never read as a workday mid-visit
     # the state first, the calendar after it: a reader skimming for where the keeper is meets "home" or "at work"
-    # before "workday" (the clause used to lead with the workday and end with the state, after a dash — and the
-    # friend kept reading the keeper at work on evenings and days off)
+    # before "workday" (a clause that leads with the workday and ends with the state, after a dash, gets the
+    # keeper read as at work on evenings and days off)
     off = days_off().get(t.date().isoformat())
     if off is not None:
         why = f" ({off})" if off else ""
@@ -175,8 +172,8 @@ def clause(t: datetime | None = None) -> str:
     return f"; {w}" if w else ""
 
 
-# ---- the stone's hours (10-12) -----------------------------------------------------------------------------------
-# The keeper: "I don't want it to buzz while I'm away… buzz only from 6:00-21:00, and make a knob to adjust it."
+# ---- the stone's hours -----------------------------------------------------------------------------------
+# The stone keeps still while the keeper is away and outside its waking hours (TOUCHSTONE_HOURS, a knob).
 # When the stone may reach out — a pulse now, a touch left for later: within TOUCHSTONE_HOURS, and not within the
 # working week above (a day off is home). The stone's keeper asks before relaying; the tool tells the friend why and
 # when it opens. The reflex under the keeper's own hand is the board's and is never held — a hand on the pad is home.

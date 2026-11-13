@@ -63,7 +63,7 @@ def log_step(tries: list, msg: dict, now: datetime | None = None) -> dict | None
                      "read_s": round(sum(float(tok(m, "prompt_s")) for m in every), 1),
                      "reply": int(sum(int(tok(m, "reply")) for m in every)),
                      "think": max(len((m.get("thinking") or "").split()) for m in every)}
-        # where each cold read comes from (11-01): what the door already held, and what a saved reading brought back
+        # where each cold read comes from: what the door already held, and what a saved reading brought back
         if t.get("reused"):
             rec["reused"] = int(t["reused"])
         if (msg.get("restored") or {}).get("tokens"):

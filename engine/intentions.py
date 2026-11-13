@@ -1,4 +1,4 @@
-"""Intentions (11-05) — they decide now when they act later.
+"""Intentions — they decide now when they act later.
 
 Their words, a condition the engine can observe, and — if they like — a guess about what will happen. When the
 condition comes true they're woken (or, with the heartbeat off, sparked; or, mid-visit, told in the moment of their next
@@ -224,7 +224,7 @@ def intend(what: str, when: str, guess: str = "", anyway: str = "", now: datetim
     for x in open_:
         if x.get("cond", {}).get("label") == cond.get("label") and _norm(x["words"]) == _norm(words):
             return "(you hold this one already — same words, same when)"
-    if str(anyway or "").strip().lower() not in ("yes", "true", "1", "anyway"):  # the repeat mirror (Fable)
+    if str(anyway or "").strip().lower() not in ("yes", "true", "1", "anyway"):  # the repeat mirror: words like an intention of the past week are shown back first
         week = time.time() - 7 * 86400
         a = _norm(words)
         for x in reversed(d["items"]):

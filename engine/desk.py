@@ -1,4 +1,4 @@
-"""The desk (11-05) — whether you are at your computer, as one plain number.
+"""The desk — whether you are at your computer, as one plain number.
 
 One number from Windows: how long since the keyboard or mouse of this PC was last touched (GetLastInputInfo). No keys,
 no screen, no window titles — only the time since the last touch. It knows the PC was touched, not by whom; a film

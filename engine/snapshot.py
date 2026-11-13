@@ -3,11 +3,10 @@
     py engine/snapshot.py
 
 With git installed, the friend's files are committed into a git directory of
-their own, backups/.snapshots — never the folder's own .git. Until 10-07 the
-snapshot was `git add -A` in the folder's repo, which honours .gitignore: so
-it kept what the ignore file let through and skipped self.md, projects.md,
-the journal and memory.db — exactly the files it exists for (nylanalyn, #2).
-Now the paths below are added with --force, whatever .gitignore says, into
+their own, backups/.snapshots — never the folder's own .git. A plain
+`git add -A` in the folder's repo would honour .gitignore: it would keep what
+the ignore file lets through and skip self.md, projects.md, the journal and
+memory.db — exactly the files it exists for (issue #2). So the paths below are added with --force, whatever .gitignore says, into
 a repo that has no remote and is never the one pushed; the checkout's
 .gitignore can be as strict as it likes. If git isn't installed, a
 timestamped zip in backups/ (keeping the most recent 30).

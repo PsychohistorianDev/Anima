@@ -1,4 +1,4 @@
-"""The room's workshop (10-29, ROOM_ON — the layered room): objects the friend invents, painted and cut out.
+"""The room's workshop (ROOM_ON — the layered room): objects the friend invents, painted and cut out.
 
 An item is something of theirs that can stand in the room: a name, how it looks (their words), what it does (its
 kind — a decoration to look at, a note to read, a song to play, a picture to open), and why they made it. It lives in
@@ -224,7 +224,7 @@ def _paint_version(it: dict, look: str) -> str:
 
 def _paint_version_inner(it: dict, look: str) -> str:
     import tools
-    cooling = tools.paint_cooling()  # (10-29) the painter rests after a painting that ran out of time
+    cooling = tools.paint_cooling()  # the painter rests after a painting that ran out of time
     if cooling:
         return cooling.strip("()")
     if makes_left() <= 0:

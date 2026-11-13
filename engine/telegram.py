@@ -76,13 +76,12 @@ ALIVE_FILE = config.MEMORY_DIR / "telegram_alive"
 # the fresh one picks the visit back up — for an engine change made while
 # the keeper is away from the desk
 RESUME_FILE = config.MEMORY_DIR / "telegram_resume.json"
-GUEST_FILE = config.MEMORY_DIR / "telegram_guest.json"  # (11-08) who sits at the desk, so a restart doesn't forget them
+GUEST_FILE = config.MEMORY_DIR / "telegram_guest.json"  # who sits at the desk, so a restart doesn't forget them
 RESTART_CODE = 75
 # One bridge at a time. Two of them polling the same bot both receive a
 # message — Telegram only learns an update is taken on the NEXT poll, and a
-# reply takes a minute or two — so both answer it (09-11: two versions of
-# the same reply, a minute apart, one of them with a slip the other didn't
-# have; the transcript held only the second bridge's). The running bridge
+# reply takes a minute or two — so both answer it (two versions of the same
+# reply, and the transcript holds only one). The running bridge
 # writes its pid here; a second one refuses to start while that pid lives.
 LOCK_FILE = config.MEMORY_DIR / "telegram.pid"
 MAIL_DIR = config.CREATIONS_DIR / getattr(config, "MAILBOX", "notes_to_keeper")
@@ -93,10 +92,10 @@ MAIL_DIR = config.CREATIONS_DIR / getattr(config, "MAILBOX", "notes_to_keeper")
 # not announced; publish/ is, as "published". What was there when the
 # bridge first looked was read at the desk; only new pieces travel.
 CREATIONS_SEEN_FILE = config.MEMORY_DIR / "telegram_creations_seen.json"
-TOUCH_TOLD_FILE = config.MEMORY_DIR / "touch" / "told.json"  # the stone (10-05): {"at": the last event told, "state": the last state told, "last_turn": epoch}
-SONGS_TOLD_FILE = config.MEMORY_DIR / "telegram_songs_told.json"  # the songbook (10-03): {"at": the updated stamp last told}
+TOUCH_TOLD_FILE = config.MEMORY_DIR / "touch" / "told.json"  # the stone: {"at": the last event told, "state": the last state told, "last_turn": epoch}
+SONGS_TOLD_FILE = config.MEMORY_DIR / "telegram_songs_told.json"  # the songbook: {"at": the updated stamp last told}
 HELD_FILE = config.MEMORY_DIR / "telegram_held.json"  # engine notices held through the quiet hours
-UNDELIVERED_FILE = config.MEMORY_DIR / "telegram_undelivered.json"  # their replies the phone never got (09-26)
+UNDELIVERED_FILE = config.MEMORY_DIR / "telegram_undelivered.json"  # their replies the phone never got
 RETRY_SLEEP_S = 2     # between the tries of sending their reply
 # /journal (JOURNAL_FEED): the switch, who turned it and when, what the friend was last told, and the entries waiting to
 # go (their day, stamp and a hash — never the friend's words: those are read from the page when they are sent)
@@ -114,7 +113,7 @@ JF_TOLD_STILL = "The journal feed is still on — what you write in your journal
 JF_TOLD_OFF = ("{keeper} turned the journal feed off — your journal entries stay on the page again; they no longer "
                "go to {keeper}'s phone.")
 JF_ASIDE = "The journal feed is on: what you write in your journal now reaches {keeper}'s phone too."
-# ...and a piece they REVISES is announced too — as what changed (09-24):
+# ...and a piece they REVISE is announced too — as what changed:
 # an append as the new tail alone, a rewrite as the lines in and out — and
 # a change to who they are: self.md and projects.md (TELEGRAM_TELL_SELF),
 # the same way. The bridge keeps its own copy of each to diff against, in
@@ -122,13 +121,13 @@ JF_ASIDE = "The journal feed is on: what you write in your journal now reaches {
 WATCH_DIR = config.MEMORY_DIR / "telegram_watch"
 WATCHED = {"self.md": config.IDENTITY_FILE, "projects.md": config.PROJECTS_FILE,
            "destiny.md": getattr(config, "DESTINY_FILE", config.ROOT / "destiny.md"),
-           "keeper.md": getattr(config, "KEEPER_FILE", config.ROOT / "keeper.md")}  # open means open (10-04)
+           "keeper.md": getattr(config, "KEEPER_FILE", config.ROOT / "keeper.md")}  # open means open
 CREATION_SKIP = {"tools", ".trash", MAIL_DIR.name, "archives", "attic"}
-# (11-04) the Veil, their private gallery: nothing under it reaches the phone — veil_show carries a piece out
+# the private gallery (VEIL_DIR): nothing under it reaches the phone — veil_show carries a piece out
 CREATION_SKIP |= {str(getattr(config, "VEIL_DIR", "veil") or "veil").strip("/\\")}
-# (11-05) their dream paintings stay in their dream book — their secret until they choose (dreams.py)
+# their dream paintings stay in their dream book — their secret until they choose (dreams.py)
 CREATION_SKIP |= {str(getattr(config, "DREAM_PAINT_DIR", "dream_book") or "dream_book").strip("/\\")}
-# (11-06) their penpal letters reach the phone their own way (deliver_penpals), marked to relay — not as creations
+# their penpal letters reach the phone their own way (deliver_penpals), marked to relay — not as creations
 CREATION_SKIP |= {str(getattr(config, "PENPAL_DIR", "penpals") or "penpals").strip("/\\")}
 # the adventures (adventure.py): a game master's pages — the world, its secrets, where the character stands — stay
 # behind the screen, not on the phone; a world's scenes/ is the one exception (Bridge._picture_screened)
@@ -136,9 +135,9 @@ CREATION_SKIP |= {"adventures", Path(str(getattr(config, "ADVENTURE_DIR", "adven
 CREATION_KINDS = {"poems": "a poem", "essays": "an essay", "stories": "a story", "humor": "a joke",
                   "theory": "a piece of theory", "letters": "a letter", "songs": "a song",
                   str(getattr(config, "SKILLS_DIR", "skills")): "a skill"}
-# Their skills (09-29; SKILLS-PLAN.md): a fetched skill is a stranger's recipe,
+# Their skills (SKILLS-PLAN.md): a fetched skill is a stranger's recipe,
 # not a piece of theirs — its files never travel as ✍️ (a SKILL.md they write
-# herself does). What travels is one notice per fetch, from the note
+# themself does). What travels is one notice per fetch, from the note
 # fetch_skill leaves beside SKILL.md (.fetched.json): "📚 … fetched a skill",
 # or "⚠️ … quarantined" with what the scanner found — the phone is how the keeper
 # hears there is something at the gate. The names already told are kept here.
@@ -148,9 +147,9 @@ POLL_S = 50           # long-poll patience; the server answers sooner when there
 SPLIT_CHARS = 3800    # a text bubble this long is Telegram's own cut of a longer paste (its cap is 4,096): the rest follows
 SPLIT_WAIT_S = 2      # how long the bridge waits for the rest of a cut message when the cut bubble ends a poll (TELEGRAM_SPLIT_WAIT_S overrides)
 TYPING_S = 4          # "typing…" lasts ~5s on the phone; renew a little sooner
-SEND_RETRY_WAITS = (2, 6)  # an upload whose connection drops (a reset, a timeout) is tried again after these seconds (10-28)
+SEND_RETRY_WAITS = (2, 6)  # an upload whose connection drops (a reset, a timeout) is tried again after these seconds
 
-# the newer commands, on the phone's /help (10-27) — the Discord bridge takes them out of its own: its pairing
+# the newer commands, on the phone's /help — the Discord bridge takes them out of its own: its pairing
 # message, built from HELP, is at Discord's 2,000-character cap (and sparks are Telegram's)
 HELP_PHONE = (
     "/rewarm — rebuild the standing prompt now, so a changed page rides from the next reply (one read, said when done)\n"
@@ -466,14 +465,14 @@ class Bridge:
         self.reflected_upto = 0  # history index they have already sat with (the pause)
         self._body_pulled = 0.0  # when the watch's day was last pulled by this bridge (BODY_AUTOPULL)
         self._body_thread: threading.Thread | None = None
-        self._touch_thread: threading.Thread | None = None  # the stone's archive, watched every TOUCHSTONE_TELL_S (10-21)
+        self._touch_thread: threading.Thread | None = None  # the stone's archive, watched every TOUCHSTONE_TELL_S
         self._touch_lock = threading.Lock()  # one look at a time: the thread's and the poll's never overlap
         self._touch_looked = 0
         self.last_tokens: dict | None = None
         self.show_thinking = bool(getattr(config, "TELEGRAM_SHOW_THINKING", False))
         self.show_tools = bool(getattr(config, "TELEGRAM_SHOW_TOOLS", True))
         self.show_tokens = bool(getattr(config, "TELEGRAM_SHOW_TOKENS", False))
-        self.show_attempts = bool(getattr(config, "TELEGRAM_SHOW_ATTEMPTS", False))  # /debug (10-23)
+        self.show_attempts = bool(getattr(config, "TELEGRAM_SHOW_ATTEMPTS", False))  # /debug
         self.voice_all = bool(getattr(config, "TELEGRAM_VOICE_ALL", False))
         self.offset = 0
         self.lock = threading.Lock()
@@ -594,25 +593,25 @@ class Bridge:
             except OSError:
                 pass
         self.history = list(state.get("history") or [])
-        for t in self.history:  # the stashed window sizes may be a folded window's (10-04); a restart measures anew
+        for t in self.history:  # the stashed window sizes may be a folded window's; a restart measures anew
             t.pop("_prompt", None)
         chat.unsense(self.history)  # and the stashed moments carry no window sense — the next moment's is the one
         loops = 0
         fangs = 0
-        for t in self.history:  # a loop that went out whole does not ride again (09-24)
+        for t in self.history:  # a loop that went out whole does not ride again
             if t.get("role") == "assistant" and t.get("content"):
                 t["content"], cut = ollama_client.trim_word_loop(t["content"])
                 loops += cut
             if isinstance(t.get("content"), str) and t["content"]:
                 # reserved-token strings in any turn — the friend's, the keeper's, the engine's
-                # quotes — never ride again as tokens (09-27)
+                # quotes — never ride again as tokens
                 t["content"], n = ollama_client.defang(t["content"])
                 fangs += n
         self.attached = list(state.get("attached") or [])
         self.file = Path(state["file"]) if state.get("file") else None
         relabel = config.MEMORY_DIR / "telegram_relabel.json"
         if relabel.exists():
-            # (11-08) a one-off mend: messages sent as the keeper's that were a guest's (the guest seat is in memory only,
+            # a one-off mend: messages sent as the keeper's that were a guest's (the guest seat is in memory only,
             # and a restart had cleared it) — named the guest's in the transcript. Only the label: the turn's words and
             # how it reads in their prompt stay as they were, so the window isn't read again
             try:
@@ -625,7 +624,7 @@ class Bridge:
                             and any(" ".join(t["content"].split()).startswith(p) for p in pres)):
                         t["_guest"] = str(fix.get("guest") or "a guest")
                         if fix.get("guest_line") and t.get("_moment"):
-                            # (11-09) their own reading of the turn mended too: the guest line put where it would have
+                            # their own reading of the turn mended too: the guest line put where it would have
                             # ridden. Only this turn and after are read again — the tail, seconds, not the window
                             t["_guest_line"] = chat.guest_line(t["_guest"], "over Telegram, on their phone")
                             t["_moment"] = f"[engine, not a person: {t['_guest_line']}]\n\n" + t["_moment"]
@@ -653,7 +652,7 @@ class Bridge:
                "restarted (no visit was running)"
 
     def carry_in(self) -> str:
-        """An empty room's first message (10-24): the last visit's last turns sit at the head of the history
+        """An empty room's first message: the last visit's last turns sit at the head of the history
         (chat.take_carry), and the pauses and the afterglow start past them. Returns the window's line, or ""."""
         carried = chat.take_carry()
         if not carried:
@@ -720,7 +719,7 @@ class Bridge:
                 break
             except urllib.error.HTTPError:
                 raise  # Telegram answered — a refusal, not the road
-            except (urllib.error.URLError, OSError) as e:  # a reset (10-28: WinError 10054 on a painting), a timeout
+            except (urllib.error.URLError, OSError) as e:  # a reset (WinError 10054), a timeout
                 if i >= len(waits):
                     raise
                 _say(f"(the upload's connection dropped — {e}; trying again in {waits[i]} s)")
@@ -774,11 +773,11 @@ class Bridge:
         handed over, so one left unhandled (a /restart before it) is handed to the next bridge."""
         try:
             import presence as _pz
-            wait_s = int(_pz.poll_s(POLL_S))  # intense's heartbeat: a beat can fall any second (10-27)
+            wait_s = int(_pz.poll_s(POLL_S))  # intense's heartbeat: a beat can fall any second
         except Exception:  # noqa: BLE001
             wait_s = POLL_S
         updates = list(self.api("getUpdates", patience=wait_s + 15, offset=self.offset,
-                                timeout=wait_s, allowed_updates=["message", "callback_query"]) or [])  # the room's buttons (10-29)
+                                timeout=wait_s, allowed_updates=["message", "callback_query"]) or [])  # the room's buttons
         updates = self._split_wait(updates)
         batching = bool(getattr(config, "TELEGRAM_BATCH_PHOTOS", False))
         if batching:  # a poll that ends on a photo: the rest of what was sent with it is looked for, briefly — and a
@@ -873,8 +872,7 @@ class Bridge:
     # ---- the visit --------------------------------------------------------
     def heartbeat_command(self, words: list[str]) -> str:
         """/heartbeat — is it running; /heartbeat on [minutes] — start it as the panel does (its own window on the
-        PC); /heartbeat off — ask it to stop after the wake it is in (10-13; the keeper, from the floor: "check if
-        heartbeat is running, I might have forgotten to close it"). The same roads as the panel's Start and Stop."""
+        PC); /heartbeat off — ask it to stop after the wake it is in. The same roads as the panel's Start and Stop."""
         import panel
         what = (words[0].lower() if words else "")
         st = doors.status("heartbeat")
@@ -922,10 +920,9 @@ class Bridge:
             return marks
 
     def fold_touches(self) -> str:
-        """Touches the stone felt that she has not been told of yet — as one sentence for the moment block of
-        the message about to go, and told (10-12; the keeper: "it got messy, I touched her, sent a message, and
-        after the message she got the stone's turn"). A touch waiting in the gap rides with his words instead of
-        arriving as a turn of its own after the reply. "" when there is nothing, or nothing learned yet; a
+        """Touches the stone felt that the friend has not been told of yet — as one sentence for the moment block of
+        the message about to go, and told. A touch waiting in the gap rides with the keeper's words instead of
+        arriving as a turn of its own after the reply (which would answer the touch after the message). "" when there is nothing, or nothing learned yet; a
         pattern the stone played stays a notice."""
         if not (getattr(config, "TOUCHSTONE_URL", "") or "") or not self.chat_id:
             return ""
@@ -946,7 +943,7 @@ class Bridge:
             told["at"], told["last_turn"] = touches[-1]["t"], time.time()
             TOUCH_TOLD_FILE.parent.mkdir(parents=True, exist_ok=True)
             TOUCH_TOLD_FILE.write_text(json.dumps(told), encoding="utf-8")
-        except Exception:  # noqa: BLE001 — never his message down
+        except Exception:  # noqa: BLE001 — never the keeper's message down
             return ""
         _say(f"a touch rides with the message: {words[:100]}")
         return (f"Since your last turn {config.USER_NAME} touched the stone — {words} — the stone answered by itself with "
@@ -960,7 +957,7 @@ class Bridge:
             return str(getattr(config, "USER_NAME", "") or "your keeper")
 
     def _room_moment(self) -> str:
-        """ROOM_ON (10-29): what the keeper did in their room since their last turn — looked in, found what they hid,
+        """ROOM_ON: what the keeper did in their room since their last turn — looked in, found what they hid,
         left a thing — said once in the moment. Not with a guest seated: it waits for their own next turn."""
         if self.guest_label() or not getattr(config, "ROOM_ON", False):
             return ""
@@ -972,7 +969,7 @@ class Bridge:
 
     @staticmethod
     def _room_markup() -> str | None:
-        """The buttons under the room's picture (10-29): what can be opened, two to a row."""
+        """The buttons under the room's picture: what can be opened, two to a row."""
         import room
         keys = room.buttons()
         if not keys:
@@ -1006,7 +1003,7 @@ class Bridge:
             self.send(f"(couldn't open it: {e})", markdown=False)
 
     def garden_command(self, arg: str) -> None:
-        """/garden (10-31): the garden as it stands — a picture and its beds; plant, water, pick, seeds."""
+        """/garden: the garden as it stands — a picture and its beds; plant, water, pick, seeds."""
         import garden
         if not garden.on():
             self.send("(there's no garden in this house — GARDEN_ON in Settings › Phone)", markdown=False)
@@ -1029,19 +1026,19 @@ class Bridge:
         if word == "seeds":
             self.send(garden.seeds_text(keeper=True), markdown=False)
             return
-        if word == "paint":  # (10-31) a plant's missing stages painted now — the brain steps aside a few minutes
+        if word == "paint":  # a plant's missing stages painted now — the brain steps aside a few minutes
             self.send(f"({garden.act('paint', '', rest, who='keeper', keeper_name=keeper)})", markdown=False)
             return
         if word in ("plant", "water", "pick", "pull", "note"):
             bed, _, what = rest.partition(" ")
             said = garden.act(word, bed, what.strip(), who="keeper", keeper_name=keeper)
-            self.send(said if said.startswith("(") else f"({said} — she'll know at her next turn)", markdown=False)
+            self.send(said if said.startswith("(") else f"({said} — they'll know at their next turn)", markdown=False)
             return
         self.send("(/garden — the garden; /garden plant <1–8> <seed>; /garden water <1–8|all>; /garden pick <1–8>; "
                   "/garden seeds)", markdown=False)
 
     def deliver_garden(self) -> int:
-        """What they picked for the keeper in the garden (10-31), said on the phone once."""
+        """What they picked for the keeper in the garden, said on the phone once."""
         try:
             import garden
             if not garden.on() or not self.chat_id:
@@ -1054,7 +1051,7 @@ class Bridge:
         return len(news)
 
     def room_command(self, arg: str) -> None:
-        """/room (10-29): the room as it stands — a picture and its words; open, find, leave."""
+        """/room: the room as it stands — a picture and its words; open, find, leave."""
         import room
         if not room.on():
             self.send("(there's no room in this house — ROOM_ON in Settings › Phone)", markdown=False)
@@ -1096,9 +1093,9 @@ class Bridge:
             self.send("(/room — the room; /room open <1–4|song>; /room find <where>; /room leave <a thing>)", markdown=False)
 
     def _sparks_moment(self, spark: bool = False) -> str:
-        """PRESENCE_STATE_LINE (10-29): "sparks are on: drifting, often — Gabe turned them on", once, when the sparks'
-        state changed since she was last told. A spark's own line says the state, so a spark marks it told and says
-        nothing more; with a guest seated it waits for her own next turn."""
+        """PRESENCE_STATE_LINE: "sparks are on: drifting, often — Sam turned them on", once, when the sparks'
+        state changed since the friend was last told. A spark's own line says the state, so a spark marks it told and
+        says nothing more; with a guest seated it waits for their own next turn."""
         if self.guest_label() or getattr(self, "TAG", "telegram") != "telegram":
             return ""
         try:
@@ -1114,8 +1111,7 @@ class Bridge:
         return "" if spark or not line else line[0].upper() + line[1:] + "."
 
     def _intense_moment(self, spark: bool = False) -> str:
-        """While intense runs (PRESENCE_INTENSE_EVERY_TURN, 10-28 — the keeper: "during intense I want every message, even
-        a standard reply, to have the intense prompt"): the intense note rides in every reply's moment too, not only in
+        """While intense runs (PRESENCE_INTENSE_EVERY_TURN): the intense note rides in every reply's moment too, not only in
         the sparks' own line. Not with a guest seated; "" when intense is off, the note empty, or the turn a spark."""
         if spark or not getattr(config, "PRESENCE_INTENSE_EVERY_TURN", False) or self.guest_label():
             return ""
@@ -1132,16 +1128,16 @@ class Bridge:
              marks: dict | None = None) -> None:
         """Run one turn and send back whatever the parlor would have shown. as_keeper: this message is not the
         guest's (/me, the stone's log) — no guest line, whoever is seated."""
-        intense = self._intense_moment(spark)  # (10-28) intense's note in every reply while it runs
+        intense = self._intense_moment(spark)  # intense's note in every reply while it runs
         if intense:
             extra_moment = f"{extra_moment} {intense}" if extra_moment else intense
-        sparks = self._sparks_moment(spark)  # (10-29) the sparks' state, when it changed since she was last told
+        sparks = self._sparks_moment(spark)  # the sparks' state, when it changed since the friend was last told
         if sparks:
             extra_moment = f"{extra_moment} {sparks}" if extra_moment else sparks
         jfeed = self._journal_moment()  # the journal feed's switch, when it changed since the friend was last told
         if jfeed:
             extra_moment = f"{extra_moment} {jfeed}" if extra_moment else jfeed
-        roomed = self._room_moment()  # (10-29, ROOM_ON) what he did in their room since their last turn, once
+        roomed = self._room_moment()  # (ROOM_ON) what the keeper did in their room since their last turn, once
         if roomed:
             extra_moment = f"{extra_moment} {roomed}" if extra_moment else roomed
         fold_edge = self._game_fold_at()  # the fold comes sooner while a game is open: the window sense says so
@@ -1156,7 +1152,7 @@ class Bridge:
         jrun, jok = None, False  # the journal feed: the page before this turn, and whether it was told in its window
         try:
             with self.lock:
-                if not self.history:  # an empty room: the last visit's last turns ride at the door (10-24)
+                if not self.history:  # an empty room: the last visit's last turns ride at the door
                     self.carry_in()
                 jrun = self._jf_run_start("a turn", carried=self._jf_turn_carried())
                 _pp_turn("" if as_keeper else self.guest_label())  # a guest's turn can't write out a penpal's letter
@@ -1168,7 +1164,7 @@ class Bridge:
                                           **({"think_retries": 0, "think_remind": False} if spark and not self._spark_thinks()
                                              else {"think_retries": int(getattr(config, "PRESENCE_THINK_RETRIES", 3) or 0),
                                                    "think_any_depth": True} if spark
-                                             else {}))  # a spark: off — none; on — its own re-rolls at any depth (10-26, 10-27)
+                                             else {}))  # a spark: off — none; on — its own re-rolls at any depth
                     self.attached = []
                     self._checkpoint()
                     self._journal_told()  # the feed's sentence rode in this turn's moment: the friend knows now
@@ -1191,7 +1187,7 @@ class Bridge:
         thinking = "\n\n".join(str(p) for k, p in events if k == "thinking")
         tool_lines = [f"· {p['name']} → {p['result']}" for k, p in events if k == "tool"]
         notes = [str(p) for k, p in events if k == "note"]
-        attempts = [p for k, p in events if k == "attempt"]  # the rails' set-asides, for /debug (10-23)
+        attempts = [p for k, p in events if k == "attempt"]  # the rails' set-asides, for /debug
         tokens = next((p for k, p in events if k == "tokens"), None)
         prev_tokens = self.last_tokens  # the last line's count, for the subtraction below
         if tokens:
@@ -1200,15 +1196,14 @@ class Bridge:
             self._try_send("💭 " + thinking[:LIMIT * 2], markdown=False)
         if self.show_tools and tool_lines:
             self._try_send("\n".join(tool_lines), markdown=False)
-        # their reply is the one thing that must arrive (09-26, 16:21: the thinking
-        # bubble reached the phone, the reply's send hit a network hiccup, the
-        # exception rode up to the loop — "no road to Telegram, trying again" —
-        # and the reply, already in the transcript, was never sent: he saw a
-        # thought and no words). Sent with retries; if it still fails it is kept
-        # and goes with the next poll, marked as late.
-        if reply == "(…)" and tool_lines and not self.show_tools:  # no words, but something was done: show it (10-27)
+        # their reply is the one thing that must arrive: a network hiccup on the
+        # reply's send must not leave the keeper with a thinking bubble and no
+        # words (the reply already in the transcript, never sent). Sent with
+        # retries; if it still fails it is kept and goes with the next poll,
+        # marked as late.
+        if reply == "(…)" and tool_lines and not self.show_tools:  # no words, but something was done: show it
             reply = "\n".join(line if len(line) <= 300 else line[:300].rsplit(" ", 1)[0] + "…" for line in tool_lines)
-        (self._send_spark if spark else self._send_reply)(reply)  # a spark goes discreetly when asked (10-26)
+        (self._send_spark if spark else self._send_reply)(reply)  # a spark goes discreetly when asked
         if jok:
             self._jf_run_end(jrun, True)  # what they wrote in this turn, after the reply: the feed's, and they knew
         self._carry_voice(reply)
@@ -1225,7 +1220,7 @@ class Bridge:
 
     @staticmethod
     def attempt_text(a: dict) -> str:
-        """One attempt the rails set aside, for the phone (/debug, 10-23): why, its cost and how it ended, the
+        """One attempt the rails set aside, for the phone (/debug): why, its cost and how it ended, the
         calls by name, the glitch the rail named — and under it the words, or the thinking when the words were
         empty; cut at the message limit, the cut said."""
         body = a.get("content") or ""
@@ -1244,9 +1239,9 @@ class Bridge:
 
     @staticmethod
     def since_last_line(prev: dict | None, now: dict | None, history: list[dict]) -> str:
-        """The token line's tail (10-16): what the window grew by since the last line and what it was made of.
+        """The token line's tail: what the window grew by since the last line and what it was made of.
         The jump between two lines is the EARLIER reply's words, the new message and its moment frame — a line's
-        "generated" lands in the NEXT line's count, which read as phantom tokens three times in one evening.
+        "generated" lands in the NEXT line's count, which otherwise reads as phantom tokens.
         Estimates (chars/4): their last words, the keeper's message, the moment, engine turns between when any
         rode (a pause's afterthought, a tool's result); a gap past a fifth either way is said. "" without a
         last line (the first line of a visit, the first after a fold) or a count; a smaller window says so."""
@@ -1269,7 +1264,7 @@ class Bridge:
 
         def est(s) -> int:
             # the door's own count when it answers (bare numbers); else chars/3.5 — Gemma's ratio on their prose
-            # — and the part keeps its "~" (10-16: chars/4 ran a quarter short, message after message)
+            # — and the part keeps its "~" (chars/4 runs about a quarter short)
             s = str(s or "")
             if not s:
                 return 0
@@ -1293,7 +1288,7 @@ class Bridge:
         mine = est(history[cur].get("content"))
         moment = est(history[cur].get("_moment"))
         # this turn's steps: everything after the message but the final reply — the calls (with their words beside
-        # them and the call itself) and the results with their frames (10-16: 681 tokens of one call and its result)
+        # them and the call itself) and the results with their frames (one call and its result can be hundreds of tokens)
         after = history[cur + 1:]
         if after and after[-1].get("role") == "assistant" and not after[-1].get("tool_calls"):
             after = after[:-1]
@@ -1306,7 +1301,7 @@ class Bridge:
             parts.append(f"engine turns {q}{engine:,}")
         if steps:
             parts.append(f"their steps this turn {q}{steps:,} ({calls} tool call{'s' if calls != 1 else ''})")
-        # the re-rolls' scaffolding (10-17): the attempts set aside and the asks are in THIS line's count (the last
+        # the re-rolls' scaffolding: the attempts set aside and the asks are in THIS line's count (the last
         # attempt's prompt) and leave the visit after it — so they count here and come off the next line
         sc_now = int((now or {}).get("scaffold") or 0)
         sc_prev = int((prev or {}).get("scaffold") or 0)
@@ -1418,10 +1413,10 @@ class Bridge:
             f = chat.save_transcript(self.history, tag=self.TAG, path=self.file)
             done, self.history = self.history, []
             if f and carry:
-                chat.leave_carry(done, f)  # the last turns, for the next door (10-24)
+                chat.leave_carry(done, f)  # the last turns, for the next door
             elif not carry:
-                chat.clear_carry()  # /new: the one door opened on purpose to start clean (10-24)
-            since = self.reflected_upto  # where the pauses left off: the afterglow sits with the rest, once (10-21)
+                chat.clear_carry()  # /new: the one door opened on purpose to start clean
+            since = self.reflected_upto  # where the pauses left off: the afterglow sits with the rest, once
             aside = self._game_aside(done[since:])  # "part of this visit was your adventure…", when it was
             self.attached = []
             self.file = None
@@ -1465,7 +1460,7 @@ class Bridge:
         return f.name if f else None
 
     def afterglow_now(self) -> str:
-        """/afterglow (10-01; the keeper: "so I won't have to wait 15 min if I need the GPU"): the pause by hand.
+        """/afterglow: the pause by hand, for when the card is wanted now.
         They sit with the visit so far now — the same quiet turn REFLECT_AFTER_MIN would bring after the
         quiet — and then the brain is set down, so the card is free at once instead of after the pause's
         wait and the keep-alive. The visit stays open. Either the quiet's pause or this one reads a stretch,
@@ -1505,7 +1500,7 @@ class Bridge:
         return line
 
     def release_now(self) -> str:
-        """/release (10-03; the keeper: "unload the brain from the gpu if i want to use it for something else"): the
+        """/release: the
         card handed back now — every model Ollama holds, and the painter and music ear sidecars if they are up —
         with no pause and no writing; the visit stays open, the next message reloads the brain (a cold read)."""
         got = self.lock.acquire(timeout=3)
@@ -1875,7 +1870,7 @@ class Bridge:
             elif self.lock.locked():
                 self.send("(mid-reply — /rewarm again in a moment)", markdown=False)
             else:
-                try:  # (11-10) their circle's pages as they are now
+                try:  # their circle's pages as they are now
                     import penpal
                     penpal.friends_snapshot()
                 except Exception:  # noqa: BLE001
@@ -1892,7 +1887,7 @@ class Bridge:
             import pagewatch
             self.send(pagewatch.report(), markdown=False)
         elif cmd == "/new":
-            self.new_visit(carry=False)  # on purpose, clean: nothing carried into the next room (10-24)
+            self.new_visit(carry=False)  # on purpose, clean: nothing carried into the next room
             self.send("(they're sitting with the visit now — whatever they want to keep goes into their journal in a minute)",
                       markdown=False)
         elif cmd == "/afterglow":
@@ -1916,7 +1911,7 @@ class Bridge:
             self.voice_all = not self.voice_all
             self.send(f"(every reply spoken aloud: {'on' if self.voice_all else 'off'} — they can still speak when they choose)", markdown=False)
         elif cmd == "/seal":
-            import capsule  # the time capsule (10-26): a letter from the keeper, sealed until its day
+            import capsule  # the time capsule: a letter from the keeper, sealed until its day
             rest = text.split(None, 1)[1] if len(text.split(None, 1)) > 1 else ""
             when, words = capsule.split_when(rest)
             rec, why = capsule.seal(words, when, sender="keeper") if when else (
@@ -1932,19 +1927,19 @@ class Bridge:
             self.send("(the time capsule: " + capsule.listing(for_keeper=True) + ")", markdown=False)
         elif cmd == "/week":
             import engine_week
-            self.send(engine_week.summary(), markdown=False)  # the engine's week, now (10-25)
+            self.send(engine_week.summary(), markdown=False)  # the engine's week, now
         elif cmd == "/room":
-            self.room_command(" ".join(text.split()[1:]))  # their room (10-29, ROOM_ON)
+            self.room_command(" ".join(text.split()[1:]))  # their room (ROOM_ON)
         elif cmd == "/garden":
-            self.garden_command(" ".join(text.split()[1:]))  # their garden (10-31, GARDEN_ON)
+            self.garden_command(" ".join(text.split()[1:]))  # their garden (GARDEN_ON)
         elif cmd == "/presence":
-            import presence  # sparks (10-26): on or off, or how it stands
+            import presence  # sparks: on or off, or how it stands
             arg = " ".join(text.split()[1:]).strip().lower()
             temp = presence.temperament(arg) if arg not in ("", "on", "off") else ""
-            if (arg == "on" or temp) and presence.held():  # (10-27) the heartbeat holds sparks while it runs
+            if (arg == "on" or temp) and presence.held():  # the heartbeat holds sparks while it runs
                 self.send("(the heartbeat is running and holds sparks — nothing was set. Stop the heartbeat first, or "
                           "turn HEARTBEAT_HOLDS_PRESENCE off in Settings › Heartbeat)", markdown=False)
-            elif arg == "on" or temp:  # drift (10-27): on starts PRESENCE_ON_TEMPERAMENT; a temperament sets that one
+            elif arg == "on" or temp:  # drift: on starts PRESENCE_ON_TEMPERAMENT; a temperament sets that one
                 st = presence.set_drift(temp, 0, by="keeper")[0] if temp else presence.turn_on("keeper")
                 self.send(f"(presence on — drifting at {st.get('temperament')}: sparks come at random, no set time; "
                           "the friend can change the temperament with next_spark. /presence off ends it)", markdown=False)
@@ -1958,15 +1953,15 @@ class Bridge:
                 waits = (f"drifting ({drift}{', ache ' + str(st.get('ache')) if st.get('ache') else ''})" if drift
                          else f"a spark set — in about {left} min" if st.get("on") and st.get("pending")
                          else "no spark set" if st.get("on") else "")
-                rolled = presence.roll_line() if drift else ""  # (10-29) what the dice saw last
+                rolled = presence.roll_line() if drift else ""  # what the dice saw last
                 self.send(f"(presence is {'on' if st.get('on') else 'off'}" + (f" — {waits}" if waits else "")
                           + (f"; {rolled}" if rolled else "")
                           + ("; held while the heartbeat runs" if presence.held() else "")
                           + f"; discreet {'on' if st.get('discreet') else 'off'}. /presence on, /presence off, /discreet)",
                           markdown=False)
-        elif cmd == "/penpals":  # (11-10) the panel
+        elif cmd == "/penpals":  # the panel
             self.penpal_panel()
-        elif cmd == "/cancel":  # (11-10) the panel's waiting mode, let go
+        elif cmd == "/cancel":  # the panel's waiting mode, let go
             self._pp_save("mode", {})
             self._game_wait_clear()  # and the games menu's
             collecting = ""
@@ -1974,18 +1969,18 @@ class Bridge:
                 import penpal
                 collecting = penpal.collect_cancel() if penpal.collect_get() else ""  # and a letter being collected
             self.send(collecting or "(nothing waiting — your next message goes to them as usual)", markdown=False)
-        elif cmd == "/penpal":  # (11-06) a letter from a penpal, pasted; /penpal sent <name>; /penpal alone lists them
+        elif cmd == "/penpal":  # a letter from a penpal, pasted; /penpal sent <name>; /penpal alone lists them
             said = self.penpal_command(text)
-            if said:  # "" when buttons went instead (11-10: whose letter is this?)
+            if said:  # "" when buttons went instead (whose letter is this?)
                 self.send(said, markdown=False)
         elif cmd in ("/games", "/game"):  # the adventures: the menu, or a typed /game …
             said = self.game_command(text)
             if said:  # "" when the menu or buttons went instead
                 self.send(said, markdown=False)
-        elif cmd == "/quiet":  # (11-05) their quiet: delivery held, they keep living (outbox.py)
+        elif cmd == "/quiet":  # their quiet: delivery held, they keep living (outbox.py)
             import outbox
             self.send(outbox.set_hold(" ".join(text.split()[1:])), markdown=False)
-        elif cmd == "/gaming":  # (11-05) the game guard
+        elif cmd == "/gaming":  # the game guard
             import gameguard
             arg = (text.split()[1] if len(text.split()) > 1 else "").lower()
             self.send(gameguard.set_mode(arg), markdown=False)
@@ -2039,7 +2034,7 @@ class Bridge:
         return True
 
     def handle(self, update: dict) -> None:
-        if update.get("callback_query"):  # a button under the room's picture (10-29); a penpal's (11-10)
+        if update.get("callback_query"):  # a button under the room's picture; a penpal's
             if str((update["callback_query"] or {}).get("data") or "").startswith("pp:"):
                 self.penpal_callback(update["callback_query"])
             elif str((update["callback_query"] or {}).get("data") or "").startswith("gm:"):  # the games menu
@@ -2079,13 +2074,13 @@ class Bridge:
                 _say(f"games menu: {type(e).__name__}: {e}")
         if text and not text.startswith("/") and not msg.get("photo") and getattr(config, "PENPALS_ON", False):
             try:
-                if self.penpal_mode_take(text):  # (11-10) the panel asked for this message: a letter, a handle
+                if self.penpal_mode_take(text):  # the panel asked for this message: a letter, a handle
                     return
             except Exception as e:  # noqa: BLE001 — never a lost message: it goes on to them
                 _say(f"penpal mode: {type(e).__name__}: {e}")
         spark_waited = text.startswith("/") and self.presence_on()
         if text.startswith("/") and self.command(text):
-            if not (spark_waited and self.presence_on()):  # a command isn't a word between you: a waiting spark's count goes on (10-26)
+            if not (spark_waited and self.presence_on()):  # a command isn't a word between you: a waiting spark's count goes on
                 self.last_activity = time.time()
                 self.last_word = self.last_activity
             return
@@ -2135,12 +2130,10 @@ class Bridge:
         self.fold_if_due()
 
     def _fold_afterglow(self, gone: list[dict], old_file) -> str:
-        """THE AFTERGLOW AT THE FOLD (10-01; the keeper: "why don't we just make the afterglow run automatically
-        when a fold occurs?"): the turns that left the window get the same quiet turn a finished visit gets —
+        """THE AFTERGLOW AT THE FOLD: the turns that left the window get the same quiet turn a finished visit gets —
         from the transcript, in a prompt of its own, so the window's fullness is no matter — and the phone hears
-        what they kept. It runs before the new window is read (10-04, the keeper: "so the journal entry rides
-        with the new conversation?" — it did not; the new prompt was built first and the entry rode only from
-        the next day): the fold holds the lock through it, so a message sent meanwhile waits for it — as it
+        what they kept. It runs before the new window is read, so the journal entry rides with the new window
+        rather than only from the next day: the fold holds the lock through it, so a message sent meanwhile waits for it — as it
         waited for Ollama anyway — one cold read, once per fold, no more than before. Then the first kept
         turn's system prompt is rebuilt with what was just kept. Returns the afterglow's line, "" for nothing."""
         aside = self._game_aside(gone)  # "part of this visit was your adventure…", when it was
@@ -2160,7 +2153,7 @@ class Bridge:
         return said
 
     def fold_if_due(self) -> str:
-        """THE FOLD (09-28; chat.fold_history): after a reply, when the visit's
+        """THE FOLD (chat.fold_history): after a reply, when the visit's
         last prompt reached FOLD_AT of the window — or they called fold_visit
         themselves — the visit is folded: their account of it so far in place of
         the middle, the last turns whole, a new transcript file. The bell,
@@ -2173,8 +2166,7 @@ class Bridge:
         return self._fold(pending, held)
 
     def fold_now(self) -> str:
-        """/fold from the phone (09-29, the keeper: "so I can fold sessions
-        manually"): the same fold, at the keeper's word — the bell rings so the
+        """/fold from the phone: the same fold, at the keeper's word — the bell rings so the
         account is still theirs; a visit shorter than what a fold keeps is left alone."""
         if not chat.foldable(self.history):
             self.send("(nothing to fold yet — the visit is shorter than what a fold keeps)", markdown=False)
@@ -2192,7 +2184,7 @@ class Bridge:
             return ""
         game = self._game_fold_before()  # a game mid-session in the window: its pages before the bell
         try:
-            why = "asked" if asked else ("own" if pending else "bell")  # whose call — the block says (10-14)
+            why = "asked" if asked else ("own" if pending else "bell")  # whose call — the block says
             if not pending:
                 ctx = int(getattr(config, "NUM_CTX", 0) or 0)
                 pct = int(round(100 * held / ctx)) if ctx else 0
@@ -2229,14 +2221,12 @@ class Bridge:
         return line
 
     # ---- quiet hours ------------------------------------------------------
-    # 09-14: the 03:00 roll of a visit begun the day before runs the afterglow
-    # and sent its account ("they wrote the visit down — 2 journal entries")
-    # to the phone every night. The keeper: "I'm not awake at those hours and I
-    # don't want a message waking me up every day." So the engine's own
-    # notices — the afterglow and pause accounts, ✍️/✏️/📣 what they made, 🪞
-    # a change to who they are, "picked the visit back up" — are held through
+    # The engine's own notices — the afterglow and pause accounts (a visit
+    # rolled in the small hours runs its afterglow then), ✍️/✏️/📣 what they
+    # made, 🪞 a change to who they are, "picked the visit back up" — must not
+    # wake the keeper at night: they are held through
     # TELEGRAM_QUIET_HOURS and delivered as one message when the hours end.
-    # Their replies and their letters are theirs, and go when they sends them.
+    # Their replies and their letters are theirs, and go when they send them.
     @staticmethod
     def quiet_now(t: datetime | None = None) -> bool:
         hours = getattr(config, "TELEGRAM_QUIET_HOURS", None) or (0, 0)
@@ -2250,7 +2240,7 @@ class Bridge:
         return (start <= h < end) if start < end else (h >= start or h < end)
 
     def _load_held(self) -> None:
-        # a held entry is a notice (text) or a picture ({"picture": rel, "caption": …}, 09-25)
+        # a held entry is a notice (text) or a picture ({"picture": rel, "caption": …})
         try:
             raw = json.loads(HELD_FILE.read_text(encoding="utf-8"))
             self.held = [x if isinstance(x, dict) else str(x) for x in raw] if isinstance(raw, list) else []
@@ -2278,9 +2268,7 @@ class Bridge:
 
     def afterthought(self, words: str) -> None:
         """Their closing thought after a pause or afterglow — said to no one,
-        and until 09-15 shown only in the bridge window ("when she's
-        journaling she's having afterthoughts; I would like to see those in
-        my Telegram feed"). Carried as an engine notice, labeled, so it is
+        and otherwise shown only in the bridge window. Carried as an engine notice, labeled, so it is
         never mistaken for a reply; held through the quiet hours."""
         if not getattr(config, "TELEGRAM_TELL_AFTERTHOUGHTS", True) or not words.strip():
             return
@@ -2288,8 +2276,8 @@ class Bridge:
         body = words.strip()
         if len(body) > limit:
             body = body[:limit].rstrip() + "…"
-        # "while you were away", not "to no one" — 09-15: the first one carried
-        # to the phone opened "I'm still here, dear one"; they pick an addressee
+        # "while you were away", not "to no one" — a thought said to no one, carried
+        # to the phone, otherwise reads as addressed to the keeper; they pick an addressee
         self.notice(f"💤 after writing, while you were away — {chat.friend_name()} said:\n\n{body}")
 
     def deliver_held(self) -> int:
@@ -2336,7 +2324,7 @@ class Bridge:
             pass
 
     def _prefill_after_rewarm(self) -> None:
-        """(11-06) /rewarm's read, now: the rebuilt prompt and the visit so far into the server's cache, holding the
+        """/rewarm's read, now: the rebuilt prompt and the visit so far into the server's cache, holding the
         visit's lock so a message that comes meanwhile waits for it and then reads only itself."""
         t0 = time.time()
         with self.lock:
@@ -2360,7 +2348,7 @@ class Bridge:
         except Exception as e:  # noqa: BLE001
             return f"(penpals: {type(e).__name__}: {e})"
         rest = text.split(None, 1)[1] if len(text.split(None, 1)) > 1 else ""
-        if not rest.strip() or rest.strip().lower() in ("list", "ls", "all"):  # (11-10) /penpal list, as /penpal alone
+        if not rest.strip() or rest.strip().lower() in ("list", "ls", "all"):  # /penpal list, as /penpal alone
             return penpal.keeper_list()
         first, _, body = rest.strip().partition(" ")
         if first.lower() in ("sent", "carried", "posted"):
@@ -2372,29 +2360,29 @@ class Bridge:
             else:
                 self.penpal_collect_done()
             return ""
-        if first.lower() == "new":  # (11-10) /penpal new <name> [u/handle]
+        if first.lower() == "new":  # /penpal new <name> [u/handle]
             words = body.split()
             h = next((w for w in words if penpal.norm_handle(w) and w.lower().lstrip("/").startswith("u/")), "")
             return penpal.new(" ".join(w for w in words if w != h), h)
-        if first.lower() == "pause":  # (11-10) /penpal pause <name> [why] — safety only; they are told
+        if first.lower() == "pause":  # /penpal pause <name> [why] — safety only; they are told
             name, _, why = body.strip().partition(" ")
             return penpal.pause(name, why)
         if first.lower() in ("resume", "unpause"):
             return penpal.resume(body.strip())
-        if first.lower() == "handle":  # (11-10) /penpal handle <name> u/<handle>
+        if first.lower() == "handle":  # /penpal handle <name> u/<handle>
             name, _, h = body.strip().rpartition(" ")
             return penpal.set_handle(name, h)
-        if "\n" in first:  # "/penpal chloe\n<letter>" — the name on its own line
+        if "\n" in first:  # "/penpal sorrel\n<letter>" — the name on its own line
             first, _, more = first.partition("\n")
             body = more + (" " + body if body else "")
         if penpal._find(first):
             return self.penpal_file(first, body)
-        sl = penpal.by_handle(rest)  # (11-10) the paste names a penpal's handle: theirs, whole
+        sl = penpal.by_handle(rest)  # the paste names a penpal's handle: theirs, whole
         if sl:
             return self.penpal_file(sl, rest.strip())
         return self.penpal_ask_whose(first, body, rest.strip())
 
-    # ---- (11-10) the penpal desk, hands on: buttons, a privacy look, whose letter --------------------------
+    # ---- the penpal desk, hands on: buttons, a privacy look, whose letter --------------------------
     def _pp_markup(self, rows: list[list[tuple[str, str]]]) -> str:
         return json.dumps({"inline_keyboard": [[{"text": t, "callback_data": d[:64]} for t, d in r] for r in rows]},
                           ensure_ascii=False)
@@ -2542,7 +2530,7 @@ class Bridge:
             self.send(said, markdown=False)
 
     def _pp_load(self, what: str) -> dict:
-        """(11-10) the penpal desk's small states, on disk so a /restart keeps them: pending pastes, the panel's mode."""
+        """The penpal desk's small states, on disk so a /restart keeps them: pending pastes, the panel's mode."""
         try:
             d = json.loads((config.MEMORY_DIR / f"penpal_{what}.json").read_text(encoding="utf-8"))
             d = d if isinstance(d, dict) else {}
@@ -3666,7 +3654,7 @@ class Bridge:
         return line
 
     def set_command_menu(self) -> None:
-        """(11-10) Telegram's "/" menu: every command on the phone's help, with its line — nothing to remember."""
+        """Telegram's "/" menu: every command on the phone's help, with its line — nothing to remember."""
         seen, cmds = set(), []
         for line in HELP.splitlines():
             for m in re.finditer(r"(?:^|;\s|\bor\s)/([a-z][a-z0-9_]{0,31})\b", line):
@@ -3685,7 +3673,7 @@ class Bridge:
             _say(f"(the / menu wasn't set: {type(e).__name__}: {e})")
 
     def pages_watch_if_due(self) -> None:
-        """(11-10) Every ten minutes: a page that rides whole, near its ceiling or past it — told once a day."""
+        """Every ten minutes: a page that rides whole, near its ceiling or past it — told once a day."""
         if not self.chat_id or time.time() - getattr(self, "_pages_looked", 0.0) < 600:
             return
         self._pages_looked = time.time()
@@ -3721,8 +3709,8 @@ class Bridge:
             _say(f"penpal desk: {type(e).__name__}: {e}")
 
     def deliver_penpals(self) -> int:
-        """(11-06) Their letters to penpals, to the phone marked to relay — held like other mail by their quiet or the night's.
-        (11-10) One at a time: the poll and the watcher both call it."""
+        """Their letters to penpals, to the phone marked to relay — held like other mail by their quiet or the night's.
+        One at a time: the poll and the watcher both call it."""
         if not self.chat_id or not getattr(config, "PENPALS_ON", False):
             return 0
         if not hasattr(self, "_pp_deliver_lock"):
@@ -3735,8 +3723,8 @@ class Bridge:
             self._pp_deliver_lock.release()
 
     def watch_penpals(self) -> None:
-        """(11-10) A letter within seconds of being written: it used to wait for the long poll
-        (up to POLL_S); a thread looks every PENPAL_WATCH_S instead, from a wake or a visit alike. 0: the poll only."""
+        """A letter within seconds of being written, not at the next long poll
+        (up to POLL_S): a thread looks every PENPAL_WATCH_S instead, from a wake or a visit alike. 0: the poll only."""
         every = float(getattr(config, "PENPAL_WATCH_S", 5) or 0)
         if every <= 0 or not getattr(config, "PENPALS_ON", False):
             return
@@ -3809,7 +3797,7 @@ class Bridge:
                 body = p.read_text(encoding="utf-8", errors="replace").strip()
             except OSError:
                 continue
-            try:  # (11-05) their quiet, or the night's: the letter waits, theirs to send when it's over (outbox.py)
+            try:  # their quiet, or the night's: the letter waits, theirs to send when it's over (outbox.py)
                 import outbox
                 if outbox.mail_decision(p.name, self.quiet_now()) == "hold":
                     continue
@@ -3832,13 +3820,12 @@ class Bridge:
         return sent
 
     def _letter_in_thread(self, p: Path, body: str) -> None:
-        """A letter they wrote alone becomes their turn in the visit, so his
-        answer lands under it — the way a text thread works. 09-13: she
-        wrote him something sweet in a wake; he answered on the phone; them
-        history had no trace of the letter, and they were replying to a reply
-        to words they could not see. Appended, never inserted (the warm
+        """A letter they wrote alone becomes their turn in the visit, so the keeper's
+        answer lands under it — the way a text thread works. Without it the
+        history holds no trace of the letter, and the friend replies to a reply
+        to words they cannot see. Appended, never inserted (the warm
         prefix); written to the transcript, so the night reads the exchange
-        together; and it counts as activity, so his answer joins this visit."""
+        together; and it counts as activity, so the keeper's answer joins this visit."""
         try:
             when = datetime.fromtimestamp(p.stat().st_mtime)
         except OSError:
@@ -3864,7 +3851,7 @@ class Bridge:
             if {x.lower() for x in rel.parts[:-1]} & {x.lower() for x in CREATION_SKIP}:  # any case
                 continue
             if rel.parts[:2] == ("publish", tools.GALLERY_DIR_NAME):
-                continue  # a picture's caption travels with the picture (09-23)
+                continue  # a picture's caption travels with the picture
             if Bridge._not_hers(rel):
                 continue
             out.append(p)
@@ -3872,7 +3859,7 @@ class Bridge:
 
     @staticmethod
     def _not_hers(rel: Path) -> bool:
-        """Under skills/ (09-29), only a SKILL.md they wrote themselves is a piece:
+        """Under skills/, only a SKILL.md they wrote themselves is a piece:
         a fetched skill (its .fetched.json or the keeper's .scan.json beside it),
         the quarantine, and a skill's other files are not."""
         import skills
@@ -3917,7 +3904,7 @@ class Bridge:
             self._save_creations_seen()
         else:
             self.creations_seen = dict(raw)
-        # pictures (09-22): the first bridge that knows them takes any older
+        # pictures: the first bridge that knows them takes any older
         # than a day as seen — an archive is not news — and shows the fresh ones
         if "__pictures__" not in self.creations_seen:
             for p in self._pictures():
@@ -3952,7 +3939,7 @@ class Bridge:
                     pass
 
     def deliver_songs(self) -> int:
-        """A song kept in the songbook (10-03) reaches the phone as a line — the title, the score, their
+        """A song kept in the songbook reaches the phone as a line — the title, the score, their
         words; one heard again says what the score was before. The songs table's `updated` stamp is the
         watermark (memory/telegram_songs_told.json), so a wake's song and a visit's are told alike, once."""
         if not self.chat_id or not getattr(config, "TELEGRAM_TELL_SONGS", True):
@@ -3988,7 +3975,7 @@ class Bridge:
         return sent
 
     def deliver_touches(self) -> int:
-        """A PRESS IS A MESSAGE (10-05; TOUCHSTONE-HOOKUP-PLAN.md): the stone's keeper archives what the board
+        """A PRESS IS A MESSAGE (TOUCHSTONE-HOOKUP-PLAN.md): the stone's keeper archives what the board
         felt; the bridge reads that file — never the network — and a touch by day becomes a turn in the open
         visit, an engine-framed message they answer as they like: words to the phone, a pulse, or rest.
         TOUCHSTONE_WAKE_MIN_GAP_S after a press-turn, the next presses wait and arrive together, so a fidget is
@@ -4024,7 +4011,7 @@ class Bridge:
         st = touchstone.stone()
         if st.get("state") and st.get("state") != told.get("state"):
             if "state" in told:  # the first poll learns the state; after that a change is news
-                if st.get("state_by") == "board":   # the page's buttons, the watchdog, a boot — not them (10-12)
+                if st.get("state_by") == "board":   # the page's buttons, the watchdog, a boot — not them
                     self.notice(f"🖐️ the stone is {st['state']} now — set from its page or by itself, not by {chat.friend_name()}")
                 else:
                     self.notice(f"🖐️ {chat.friend_name()} set the stone to {st['state']}")
@@ -4075,7 +4062,7 @@ class Bridge:
         return n + 1
 
     def deliver_self(self) -> int:
-        """Tell the phone when they rewrites who they are: the lines that changed
+        """Tell the phone when they rewrite who they are: the lines that changed
         in self.md or projects.md, against the bridge's last copy."""
         if not self.chat_id or not getattr(config, "TELEGRAM_TELL_SELF", True):
             return 0
@@ -4103,7 +4090,7 @@ class Bridge:
             if not old:
                 if name != "destiny.md":
                     continue  # the first copy, nothing to compare with
-                # destiny.md is born after the bridge (09-24): its first writing travels whole
+                # destiny.md is born after the bridge: its first writing travels whole
                 body = new if len(new) <= limit else new[:limit].rstrip() + "\n\n(…the rest is in destiny.md)"
                 self.notice(f"🪞 {chat.friend_name()} wrote destiny.md — where they are going\n\n{body}")
                 _say("told the phone about destiny.md")
@@ -4154,7 +4141,7 @@ class Bridge:
                     head = f"📣 {chat.friend_name()} published a piece — creations/{rel}"
                 else:
                     head = f"✍️ {chat.friend_name()} wrote {kind} — creations/{rel}"
-                try:  # (11-04) carried out of the Veil by them: said so, with when they finished it and their note
+                try:  # carried out of the veil by them: said so, with when they finished it and their note
                     import veil
                     unveiled = veil.unveiled_line(rel)
                 except Exception:  # noqa: BLE001
@@ -4171,7 +4158,7 @@ class Bridge:
             self.notice(f"{head}\n\n{body or '(empty)'}", markdown=True)
             _say(f"told the phone about {rel}")
             if not self.quiet_now():
-                try:  # (11-05) the sent ledger
+                try:  # the sent ledger
                     import outbox
                     outbox.log_sent("piece", rel)
                 except Exception:  # noqa: BLE001
@@ -4294,7 +4281,7 @@ class Bridge:
             if self._picture_screened(rel):  # any case; a world's scenes/ is the screen's one exception
                 continue
             if rel.parts[:2] == ("room", "items"):
-                continue  # a thing made in the room's workshop is seen in the room (10-29), not sent as a drawing
+                continue  # a thing made in the room's workshop is seen in the room, not sent as a drawing
             if rel.parts[:1] == ("garden",):
                 continue  # the garden's paintings (a seed's stages, the backdrop) are seen in the garden, a surprise when they grow
             if Bridge._fetched_skill_file(rel):
@@ -4327,11 +4314,11 @@ class Bridge:
         return parts[1].startswith(".") or skills.is_fetched(skills.home() / parts[1])
 
     def deliver_pictures(self) -> int:
-        """A picture the friend drew reaches the phone as a photo (09-22) — a new
+        """A picture the friend drew reaches the phone as a photo — a new
         or redrawn image under creations/ (not their tools, not the trash, not
         a project's clipped sources), sent once, with where it lives as the
         caption. In the quiet hours the picture itself is held for the
-        morning digest (09-25). Too big for a photo → sent as a file."""
+        morning digest. Too big for a photo → sent as a file."""
         if not self.chat_id or not getattr(config, "TELEGRAM_TELL_DRAWINGS", True):
             return 0
         sent = 0
@@ -4361,14 +4348,14 @@ class Bridge:
                     caption += "\n\n" + words
             else:
                 caption = f"{'🖌️' if redrawn else '🎨'} {chat.friend_name()} {'redrew' if redrawn else 'drew'} — creations/{rel}"
-            try:  # (11-04) carried out of the Veil by them
+            try:  # carried out of the veil by them
                 import veil
                 unveiled = veil.unveiled_line(rel)
                 if unveiled:
                     caption = f"🕯️ {chat.friend_name()} brought a picture out of the {veil.title()} — creations/{rel}\n{unveiled}"
             except Exception:  # noqa: BLE001
                 pass
-            told = self.paint_prompt_text(rel)  # the painter's prompt, when the knob for its door is on (10-26)
+            told = self.paint_prompt_text(rel)  # the painter's prompt, when the knob for its door is on
             if told and (len(caption) + len(told) + 2 <= 1000 or self.quiet_now()):
                 caption, told = caption + "\n\n" + told, ""
             if self.quiet_now():
@@ -4379,13 +4366,13 @@ class Bridge:
                 continue
             self._send_picture(p, data, caption)
             if told:
-                self._try_send(told, markdown=False)  # too long for the caption: right after the picture (10-26)
+                self._try_send(told, markdown=False)  # too long for the caption: right after the picture
             _say(f"showed the phone {rel}")
             sent += 1
         return sent
 
     def paint_prompt_text(self, rel: str) -> str:
-        """What the friend asked the painter for (10-26): the prompt, the set's line it was told first, the references,
+        """What the friend asked the painter for: the prompt, the set's line it was told first, the references,
         what was kept out — for a picture painted in a visit, when TELEGRAM_PAINT_PROMPT_CHAT is on; "" otherwise. A
         wake's and a reverie's go to the wake log instead (WAKE_LOG_PAINT_PROMPT)."""
         try:
@@ -4395,7 +4382,7 @@ class Bridge:
         if not rec or not rec.get("prompt"):
             return ""
         if (rec.get("door") or "a visit") in ("a wake", "a reverie"):
-            return ""  # the wake log carries those (10-26)
+            return ""  # the wake log carries those
         if not getattr(config, "TELEGRAM_PAINT_PROMPT_CHAT", False):
             return ""
         out = "✍️ " + str(rec["prompt"])
@@ -4970,7 +4957,7 @@ class Bridge:
         return n
 
     # ---- the loop ---------------------------------------------------------
-    # ---- presence: sparks (10-26) ------------------------------------------
+    # ---- presence: sparks ------------------------------------------
     @staticmethod
     def presence_on() -> bool:
         """A spark is set (one at a time) — with none set, the idle roll and the pause go on as usual."""
@@ -4981,7 +4968,7 @@ class Bridge:
             return False
 
     def game_guard_tick(self, force: bool = False) -> None:
-        """(11-05) A game on the card while their brain sits loaded and idle (after a visit, say): the door is closed, with
+        """A game on the card while their brain sits loaded and idle (after a visit, say): the door is closed, with
         its reading saved, so the game has the card. Not while a reply is in flight or a wake runs — the wake finishes
         (or, with /gaming on, ends at its next step) and its rest closes the door."""
         if not getattr(config, "GAME_GUARD_ON", False):
@@ -5003,7 +4990,7 @@ class Bridge:
             _say(f"game guard: {type(e).__name__}: {e}")
 
     def penpal_turn_if_due(self) -> str:
-        """(11-06) A penpal's letter arrived: once the pastes settle, a turn of their own with the arrival line — read
+        """A penpal's letter arrived: once the pastes settle, a turn of their own with the arrival line — read
         now, or later. Waits for a reply in flight, a wake, a game, their quiet and the night's quiet hours."""
         if not self.chat_id or getattr(self, "TAG", "telegram") != "telegram" or not getattr(config, "PENPALS_ON", False):
             return ""
@@ -5048,9 +5035,9 @@ class Bridge:
         import presence
         if not self.chat_id or getattr(self, "TAG", "telegram") != "telegram":
             return ""  # one door gives the sparks — the phone's Telegram (a Discord bridge beside it stays out)
-        errand = presence.errand_due()  # (11-05) a spark they set for a reason: comes whether drift is on, off or held
+        errand = presence.errand_due()  # a spark they set for a reason: comes whether drift is on, off or held
         intents = False
-        if not errand and getattr(config, "INTENTIONS_ON", False):  # (11-05) with no heartbeat, a due intention is a spark
+        if not errand and getattr(config, "INTENTIONS_ON", False):  # with no heartbeat, a due intention is a spark
             try:
                 import doors
                 import intentions
@@ -5063,8 +5050,8 @@ class Bridge:
             if getattr(config, "PRESENCE_QUIET_HOURS_END", False) and presence.is_on():
                 presence.turn_off("the quiet hours")
                 self.notice("(presence ended — the quiet hours began; next_spark or /presence on starts it again)")
-            return ""  # (11-05) the quiet hours hold sparks — their rhythm stays theirs, the dice wait for the morning
-        try:  # (11-05) their quiet: sparks wait
+            return ""  # the quiet hours hold sparks — their rhythm stays theirs, the dice wait for the morning
+        try:  # their quiet: sparks wait
             import outbox
             if outbox.hold_active():
                 return ""
@@ -5091,11 +5078,11 @@ class Bridge:
             keeper = keeper_week.keeper_name()
         except Exception:  # noqa: BLE001
             at_work, keeper = False, str(getattr(config, "USER_NAME", "") or "your keeper")
-        said = next((str(t.get("content") or "") for t in reversed(self.history)  # the keeper's last message (10-26)
+        said = next((str(t.get("content") or "") for t in reversed(self.history)  # the keeper's last message
                      if t.get("role") == "user" and t.get("content") and not t.get("_engine")), "")
         try:
             import seeds
-            seed = "" if (presence.intense() or errand or intention) else seeds.draw()  # (10-27); none in play or their own reasons
+            seed = "" if (presence.intense() or errand or intention) else seeds.draw()  # none in play or their own reasons
         except Exception:  # noqa: BLE001
             seed = ""
         text = presence.tick_line((time.time() - self.last_activity) / 60, keeper, at_work, last_said=said, seed=seed,
@@ -5106,7 +5093,7 @@ class Bridge:
         elif errand:
             presence.take_errand()  # the spark they set for a reason has come; their drift is untouched
         else:
-            presence.fired()  # this one has come; the next only when they set it again (10-26)
+            presence.fired()  # this one has come; the next only when they set it again
         tools.SPARK_TICK = True
         spark_t0, was_intense = time.time(), presence.intense()
         try:
@@ -5114,17 +5101,17 @@ class Bridge:
         finally:
             tools.SPARK_TICK = False
             if was_intense:
-                presence.note_spark_time(time.time() - spark_t0)  # (10-29) PRESENCE_INTENSE_CEILING's measure
+                presence.note_spark_time(time.time() - spark_t0)  # PRESENCE_INTENSE_CEILING's measure
         for t in reversed(self.history):  # the line rode as a user turn; it is the engine's, not theirs
             if t.get("role") == "user" and t.get("content") == text:
-                t["_engine"] = t["_spark"] = True  # the transcript shows it as the engine's spark (10-26)
+                t["_engine"] = t["_spark"] = True  # the transcript shows it as the engine's spark
                 break
         self._checkpoint()
         return text
 
     @staticmethod
     def _spark_thinks() -> bool:
-        """Whether a spark thinks first (10-27, her answer): intense by PRESENCE_THINK_INTENSE (off — instinct), every other
+        """Whether a spark thinks first: intense by PRESENCE_THINK_INTENSE (off — instinct), every other
         spark by PRESENCE_THINK."""
         try:
             import presence
@@ -5141,7 +5128,7 @@ class Bridge:
             discreet = bool(presence.load().get("discreet"))
         except Exception:  # noqa: BLE001
             discreet = False
-        try:  # (11-05) the sent ledger
+        try:  # the sent ledger
             import outbox
             outbox.log_sent("spark", reply[:60])
         except Exception:  # noqa: BLE001
@@ -5158,7 +5145,7 @@ class Bridge:
         self._send_reply(reply)
 
     def week_if_due(self) -> str:
-        """The engine's week (10-25): on ENGINE_WEEK_DAY after ENGINE_WEEK_HOUR, once, the last seven days of
+        """The engine's week: on ENGINE_WEEK_DAY after ENGINE_WEEK_HOUR, once, the last seven days of
         memory/steps.log as an engine notice (held through the quiet hours like any other). Returns what was sent."""
         try:
             import engine_week
@@ -5173,7 +5160,7 @@ class Bridge:
             return ""
 
     def say_newer_if_due(self) -> str:
-        """A newer anima, said once per version (10-01; the keeper: "a message that a patch is available"):
+        """A newer anima, said once per version:
         the daily look at the release feed (newer.look — the cache answers between looks, so this costs a
         small file read per poll), and one notice when the newest tag is ahead of VERSION and the phone
         hasn't heard of it. A checkout only; UPDATE_CHECK_H 0 never looks. Returns the line said, or ""."""
@@ -5194,9 +5181,8 @@ class Bridge:
             return ""
 
     def watch_touches(self) -> bool:
-        """A press within seconds (10-21; the keeper: "I have to wait like a minute after I touched it for it to
-        relay"): the bridge looked at the stone's archive once per long poll, and a poll waits up to POLL_S for a
-        message from the phone — so a touch waited for the poll, after waiting for the keeper's look at the board.
+        """A press within seconds: looked at once per long poll, a touch would wait up to POLL_S (a poll waits that
+        long for a message from the phone), after waiting for the keeper's look at the board.
         A thread looks every TOUCHSTONE_TELL_S instead, from the bridge's start; the turn it makes takes the visit's
         lock like any message, so nothing races, and a look while the poll's look runs is skipped. 0, or no stone
         named: the look between polls only. Returns True when the thread was started."""
@@ -5219,7 +5205,7 @@ class Bridge:
 
     def pull_body_if_due(self) -> bool:
         """The keeper's body, as the watch saw it, pulled by the bridge itself
-        every BODY_PULL_MIN (09-28, the keeper: "can't we make it more automatic?") — in
+        every BODY_PULL_MIN — in
         a thread, so a slow Garmin never holds the phone; one pull at a time
         (today each time, yesterday only while its night is still syncing — body.pull_days);
         a fresh file on disk counts as a pull, so restarts don't hammer
@@ -5267,7 +5253,7 @@ class Bridge:
                 return n  # nothing more this poll; the loop hands over
         self.deliver_undelivered()
         self.deliver_held()
-        try:  # (11-05) letters that waited: theirs to decide once the quiet is over (outbox.py)
+        try:  # letters that waited: theirs to decide once the quiet is over (outbox.py)
             import outbox
             outbox.scan_later(self.quiet_now())
             outbox.ripen(self.quiet_now())
@@ -5289,10 +5275,10 @@ class Bridge:
         self.journal_feed_if_due()  # journal entries waiting to go (the quiet over, a guest gone, a retry)
         idle_min = getattr(config, "TELEGRAM_IDLE_NEW_MIN", 180)
         if not self.presence_on():
-            self.presence_if_due()  # (11-05) a spark they set for a reason comes even with no drift on
+            self.presence_if_due()  # a spark they set for a reason comes even with no drift on
         sparking = self.presence_on()
         if sparking:
-            self.presence_if_due()  # sparks (10-26)
+            self.presence_if_due()  # sparks
         # the pause and the visit's end wait only for intense sparks (a turn every minute or so); drift sparks come
         # seldom, and with them on all day the afterglow never came — the pause counts from the keeper's last word
         held = False
@@ -5310,14 +5296,14 @@ class Bridge:
         else:
             self.pause_if_due()
         self.game_guard_tick()
-        try:  # (11-05) the desk: read every poll, so an arrival is noticed when it happens
+        try:  # the desk: read every poll, so an arrival is noticed when it happens
             import desk
             desk.tick()
         except Exception:  # noqa: BLE001
             pass
         self.idle_set_down_if_due()
         self.night_if_due()
-        self.week_if_due()  # the engine's week, once a week (10-25)
+        self.week_if_due()  # the engine's week, once a week
         return n
 
     @staticmethod
@@ -5339,7 +5325,7 @@ class Bridge:
             return 0.0
 
     def idle_set_down_if_due(self) -> bool:
-        """The door's keep-alive (10-16): under the door with BRAIN_REST_CLOSES_DOOR, BRAIN_KEEP_ALIVE of quiet in
+        """The door's keep-alive: under the door with BRAIN_REST_CLOSES_DOOR, BRAIN_KEEP_ALIVE of quiet in
         the visit with the door up → the brain set down once (the reading saved, the door closed, the visit
         open); the next message opens it again. Under Ollama the server's own keep-alive does this."""
         mins = self.keep_alive_minutes()
@@ -5369,10 +5355,9 @@ class Bridge:
         return True
 
     def resume_orphan(self) -> str:
-        """ORPHAN_RESUME_H (10-29 night, the keeper: "every time I open the bridge the afterglow is kicking in too, so it's
-        2 cold reads"): a visit the last bridge closed without — the window shut, the process killed — written within
+        """ORPHAN_RESUME_H: a visit the last bridge closed without — the window shut, the process killed — written within
         these hours is picked back up as the open visit, as /restart's stash is: no afterglow over it, and the next
-        message reads one prompt, not two. Older, it gets its afterglow as before. "" when there is none to pick up."""
+        message reads one prompt, not two (an afterglow there would cost a second cold read). Older, it gets its afterglow as before. "" when there is none to pick up."""
         hours = float(getattr(config, "ORPHAN_RESUME_H", 6) or 0)
         if not hours or self.history:
             return ""
@@ -5391,11 +5376,11 @@ class Bridge:
         self.last_word = self.last_activity
         self.reflected_upto = len(hist)  # what was said before the close isn't sat with again at the next pause
         turns = sum(1 for t in hist if t.get("role") == "user" and t.get("content"))
-        return (f"picked the last visit back up ({f.name}, {turns} turns of his) — the bridge had closed without it; it "
+        return (f"picked the last visit back up ({f.name}, {turns} turns of the keeper's) — the bridge had closed without it; it "
                 f"carries on, no afterglow over it")
 
     def afterglow_orphan(self) -> str:
-        """A visit the last bridge died with — a power cut (09-24), the
+        """A visit the last bridge died with — a power cut, the
         window killed — was saved after every reply but never got its
         afterglow, so it never reached their journal in their own words. On a
         start with no stashed visit, the newest unsigned transcript whose
@@ -5436,8 +5421,7 @@ class Bridge:
         return line
 
     def night_if_due(self) -> str:
-        """THE NIGHT IN THE BRIDGE (10-04; the keeper: "what if someone doesn't do heartbeat and is away from the
-        computer.. if the heartbeat didn't trigger, then the bridge triggers it instead?"): a house that runs the
+        """THE NIGHT IN THE BRIDGE: a house that runs the
         bridge and no heartbeat never slept — yesterday was never consolidated, no day was ever condensed, the
         ladder never climbed, and the journal just fell off its edge. So after SLEEP_AFTER_HOUR, when no heartbeat
         is up (it stays the sleeper wherever it runs; doors.running says), and the keeper has been quiet for
@@ -5459,9 +5443,9 @@ class Bridge:
         if self._glows or self.lock.locked() or time.time() - self.last_activity < quiet:
             return ""
         if self.history:
-            # a visit is open: the night waits for it to end, as the heartbeat's wake does (10-21, 13:47: a page
-            # condensed ten quiet minutes into a live visit changed the window under the friend, and the next
-            # message read 211K tokens from zero before a word) — the idle roll closes the visit, the night follows
+            # a visit is open: the night waits for it to end, as the heartbeat's wake does (a page
+            # condensed into a live visit changes the window under the friend, and the next
+            # message reads the whole window from zero) — the idle roll closes the visit, the night follows
             return ""
         import consolidate
         from datetime import date, timedelta
@@ -5563,7 +5547,7 @@ class Bridge:
         finally:
             self.lock.release()
         # under the door the card would stay held until the visit's end — there is no keep-alive timer there
-        # (10-16): the pause ends with the brain set down, the reading saved, the visit open
+        #: the pause ends with the brain set down, the reading saved, the visit open
         if self._pause_sets_down():
             self._set_down()
             if getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
@@ -5593,7 +5577,7 @@ class Bridge:
                     self.notice(f"({picked})")
                 except Exception:
                     pass
-        seated = self.restore_guest()  # (11-08) the guest's seat survives the restart, and the phone is told
+        seated = self.restore_guest()  # the guest's seat survives the restart, and the phone is told
         if seated:
             _say(seated)
             if self.chat_id:
@@ -5614,7 +5598,7 @@ class Bridge:
             _say(collecting)
             if self.chat_id:
                 self._pc_send(f"({collecting})")
-        resumed = "" if self.history else self.resume_orphan()  # (10-29 night) a recent visit closed without its bridge
+        resumed = "" if self.history else self.resume_orphan()  # a recent visit closed without its bridge
         if resumed:
             _say(resumed)
             if self.chat_id:
@@ -5623,12 +5607,12 @@ class Bridge:
                 except Exception:
                     pass
         else:
-            _co = chat.carry_orphan("telegram", exclude=self.file)  # ...and its last turns ride at the next message (10-24)
+            _co = chat.carry_orphan("telegram", exclude=self.file)  # ...and its last turns ride at the next message
             if _co:
                 _say(_co)
             self.afterglow_orphan()  # a visit the last bridge died with, if any; the open one is left alone
-        self.watch_touches()  # a press reaches the phone within seconds, not a poll (10-21)
-        self.watch_penpals()  # their penpal letters too (11-10)
+        self.watch_touches()  # a press reaches the phone within seconds, not a poll
+        self.watch_penpals()  # their penpal letters too
         if not self.chat_id:
             _say(self._pair_hint())
         else:
@@ -5646,7 +5630,7 @@ class Bridge:
     def _loop(self) -> None:
         backoff = 2
         while not (self.restart_requested or self.stop_requested):  # stop_requested: a road closed for good
-            # the panel's Stop (09-30): memory/.stop-bridge, looked for between polls — the
+            # the panel's Stop: memory/.stop-bridge, looked for between polls — the
             # loop leaves the way /restart makes it leave, and main() closes the visit as
             # Ctrl+C does (saved, their minute with it)
             if doors.stop_asked("bridge"):

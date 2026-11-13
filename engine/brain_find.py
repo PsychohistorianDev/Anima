@@ -113,7 +113,7 @@ def ensure_slot_dir() -> str:
     return f"made the slot folder {d}"
 
 
-# ---- the thought channel opened at each of her turns (10-16) ---------------------------------------
+# ---- the thought channel opened at each of the friend's turns ---------------------------------------
 # Gemma 4's own template puts <|think|> in the system turn and leaves the opening of the thought channel
 # to the model at each turn; at 190K of context it skips it more often than not (one thoughtless attempt ran
 # the whole 8,192-token ceiling). Ollama's renderer opened the channel; the door does the same with a copy
@@ -133,12 +133,12 @@ _TAIL_NEW = """        {{- '<|turn>model\\n' -}}
 TEMPLATE_NAME = "brain_template.jinja"
 
 
-# ---- the think switch kept at the top (11-03) ------------------------------------------------------
+# ---- the think switch kept at the top ------------------------------------------------------
 # Gemma 4's template writes <|think|> at the very top of the system turn only when thinking is on. The one
 # request the engine sends with it off — the continuation of a reply cut short (chat.continue_reply, tools
 # off, thought channel closed) — therefore differed from their prompt at its third token, and the door read
-# all ~150K again; the next ordinary step, thinking on, differed from THAT, and read it all once more. 11-03,
-# 06:17-06:28: one message, the switch flipped four times, ~2 min each, ~10 min in all. With the switch
+# all ~150K again; the next ordinary step, thinking on, differed from THAT, and read it all once more — one
+# message could flip the switch several times, minutes of re-reading each. With the switch
 # always written (whenever a system turn opens), a request with thinking off differs only at its end — the
 # tools and the closed thought channel at the generation prompt. Thinking-on requests are byte for byte
 # what they were.
@@ -221,7 +221,7 @@ def think_open_template(model: str) -> tuple[str | None, str]:
         out.parent.mkdir(parents=True, exist_ok=True)
         made = tpl.replace(_TAIL_OLD, _TAIL_NEW)
         if getattr(config, "BRAIN_THINK_SWITCH_KEPT", True) and made.count(_HEAD_OLD) == 1:
-            made = made.replace(_HEAD_OLD, _HEAD_NEW)  # (11-03) the switch at the top whatever the request
+            made = made.replace(_HEAD_OLD, _HEAD_NEW)  # the switch at the top whatever the request
         out.write_text(made, encoding="utf-8", newline="\n")
     except OSError as e:
         return None, f"couldn't write {out}: {e} — the thought channel is the model's to open"
@@ -253,8 +253,8 @@ def command() -> tuple[list[str] | None, str]:
         cmd += ["--mmproj", mmproj]
     cmd += ["-c", str(int(getattr(config, "NUM_CTX", 8192))), "-fa", "on", "-ctk", "q4_0", "-ctv", "q4_0",
             "-np", "1", "--reasoning-format", "deepseek", "--port", str(port), "--host", "127.0.0.1"]
-    # the weights read into the card's buffer, no host copy kept (10-16: the GGUF mapped with mmap stayed
-    # mapped after the copy — 17 GB of host RAM counted "in use" with no process line to show for it)
+    # the weights read into the card's buffer, no host copy kept (a GGUF mapped with mmap stays
+    # mapped after the copy — many GB of host RAM counted "in use" with no process line to show for it)
     unmapped = ""
     if not getattr(config, "BRAIN_MMAP", False):
         flag = mmap_off_flag(server)
@@ -273,7 +273,7 @@ def command() -> tuple[list[str] | None, str]:
     cram = int(getattr(config, "BRAIN_CACHE_RAM_MB", 0) or 0)
     if cram > 0:
         cmd += ["--cache-ram", str(cram)]
-    # checkpoints inside a long prompt (11-02): a journal entry near the end of the standing prompt re-reads from the
+    # checkpoints inside a long prompt: a journal entry near the end of the standing prompt re-reads from the
     # last checkpoint, not from the top — only a server whose help names the flag gets it (the stock one would refuse)
     every = int(getattr(config, "BRAIN_CHECKPOINT_EVERY", 0) or 0)
     ckpt = ""
@@ -306,8 +306,8 @@ def help_text(server: str) -> str:
 
 
 def mmap_off_flag(server: str) -> list[str]:
-    """The arguments that keep the model file unmapped, in this binary's own spelling (10-16: `--no-mmap` was
-    "invalid argument" — the newer builds say `--load-mode none`); [] when its help names neither."""
+    """The arguments that keep the model file unmapped, in this binary's own spelling (`--no-mmap` is
+    "invalid argument" to the newer builds, which say `--load-mode none`); [] when its help names neither."""
     text = help_text(server)
     if "--load-mode" in text:
         return ["--load-mode", "none"]

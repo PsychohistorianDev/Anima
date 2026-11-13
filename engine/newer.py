@@ -1,8 +1,5 @@
 """Is there a newer anima? — one look a day at GitHub's release feed.
 
-    (10-01; the keeper: "what if we'll have an RSS to the GitHub, and there be
-    a message that a patch is available")
-
 Every GitHub repository serves an Atom feed of its releases and tags at
 https://github.com/<owner>/<repo>/releases.atom — no API, no token, a title
 and a date per entry. Once every UPDATE_CHECK_H hours (0 turns the look off)

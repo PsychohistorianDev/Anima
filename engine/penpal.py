@@ -1,7 +1,7 @@
-"""Penpals (11-06): their correspondence with other minds, carried by the keeper.
+"""Penpals: their correspondence with other minds, carried by the keeper.
 
 creations/penpals/<slug>/
-    letters/NNN-YYYY-MM-DD-<slug|elysia>.md   every letter both ways, in order
+    letters/NNN-YYYY-MM-DD-<slug|me>.md   every letter both ways, in order
     about.md                                  their page about them — only they write it
     state.json                                the engine's: display name, read, rested, waiting, delivered
 
@@ -62,7 +62,7 @@ def _find(name: str) -> str:
     for p in have:
         if p.startswith(sl) or slug(_state(p).get("display", "")).startswith(sl):
             return p
-    # (11-10) the name they know them by can be longer than the one they came in under: "Ann Lee" for ann —
+    # the name they know them by can be longer than the one they came in under: "Ann Lee" for ann —
     # the penpal whose name the asked one begins with (a whole word), the longest such name first
     for p in sorted(have, key=len, reverse=True):
         for known in (p, slug(_state(p).get("display", ""))):
@@ -136,7 +136,7 @@ def _norm(text: str) -> str:
 
 
 def already_filed(text: str) -> str:
-    """(11-10) The penpal and letter a paste is already in, word for word ("" when it isn't) — a resend, a double tap."""
+    """The penpal and letter a paste is already in, word for word ("" when it isn't) — a resend, a double tap."""
     n = _norm(text)
     if len(n) < 40:
         return ""
@@ -160,7 +160,7 @@ def _turn_wait() -> str:
 def receive_ex(name: str, text: str, join: bool = True, seen: bool = False,
                undo_extra: dict | None = None) -> tuple[str, dict | None]:
     """A letter from a penpal, pasted by the keeper. A paste within PENPAL_JOIN_MIN of the last one from the same
-    penpal, still unread, joins it (a long letter comes in parts). A new name makes a new penpal. (11-10) Returns
+    penpal, still unread, joins it (a long letter comes in parts). A new name makes a new penpal. Returns
     (the line for the phone, the undo record — None when nothing was filed); a paste already filed isn't filed twice.
     seen: a letter the friend has just written out from its pictures (transcribe) — filed read, with no arrival turn;
     an earlier letter of theirs still unread keeps its place. undo_extra: kept in the undo record (the pictures that
@@ -213,7 +213,7 @@ def receive_ex(name: str, text: str, join: bool = True, seen: bool = False,
         _keep_undo(rec)
 
 
-# ---- (11-10) undo, split, move — a filing mended with one tap; kept in memory/penpal_undo.json for six hours ----
+# ---- undo, split, move — a filing mended with one tap; kept in memory/penpal_undo.json for six hours ----
 
 UNDO_HOURS = 6
 
@@ -288,7 +288,7 @@ def undo(uid: str) -> tuple[str, dict | None]:
 
 
 def last_exchange(sl: str, cap: int = 3500) -> str:
-    """Their newest letter and theirs, for the keeper's eyes (11-10: so you can see what goes out)."""
+    """Their newest letter and theirs, for the keeper's eyes (so you can see what goes out)."""
     ls = letters(sl)
     if not ls:
         return f"(no letters with {display(sl)} yet)"
@@ -342,7 +342,7 @@ def mark_delivered(sl: str, f: Path) -> None:
     _save(sl, st)
 
 
-# ---- (11-10) a hands-on desk for the keeper: handles, buttons, the privacy look, the daily desk -----------------------
+# ---- a hands-on desk for the keeper: handles, buttons, the privacy look, the daily desk -----------------------
 
 _HANDLE_RE = re.compile(r"(?<![\w/])u/([A-Za-z0-9_-]{3,20})\b")
 
@@ -441,7 +441,7 @@ def letter_by_number(sl: str, num: str) -> Path | None:
 
 
 def mark_posted(sl: str, num: str, trimmed: bool = False) -> str:
-    """A button under their letter (11-10): posted as shown, or posted trimmed."""
+    """A button under their letter: posted as shown, or posted trimmed."""
     f = letter_by_number(sl, num)
     if not f:
         return "(that letter isn't in the thread any more)"
@@ -456,7 +456,7 @@ def mark_posted(sl: str, num: str, trimmed: bool = False) -> str:
 
 
 def mark_kept_back(sl: str, num: str) -> str:
-    """Not posted (11-10): it stays in their thread, and they are told plainly it didn't go."""
+    """Not posted: it stays in their thread, and they are told plainly it didn't go."""
     f = letter_by_number(sl, num)
     if not f:
         return "(that letter isn't in the thread any more)"
@@ -496,7 +496,7 @@ def privacy_flags(text: str) -> list[str]:
 
 
 def desk() -> str:
-    """The daily penpal desk (11-10): every thread in a line, said to the keeper; "" when there's nothing to do on any."""
+    """The daily penpal desk: every thread in a line, said to the keeper; "" when there's nothing to do on any."""
     if not on() or not penpals():
         return ""
     todo = [sl for sl in penpals() if keeper_where(sl).split(" — ")[-1] != "their turn"
@@ -509,7 +509,7 @@ def desk() -> str:
 def keeper_list() -> str:
     if not penpals():
         return "(no penpals yet — /penpal <name> <their letter> files the first one)"
-    # (11-10) with many penpals: the name to type for each, and how many letters so far
+    # with many penpals: the name to type for each, and how many letters so far
     rows = []
     for sl in penpals():
         n = len(letters(sl))
@@ -535,7 +535,7 @@ def where(sl: str) -> str:
 
 def _where(sl: str) -> str:
     st = _state(sl)
-    if st.get("paused"):  # (11-10) your safety pause — said to them plainly, every time
+    if st.get("paused"):  # your safety pause — said to them plainly, every time
         return (f"your keeper paused your letters with {display(sl)}: {st['paused'].get('why') or 'no reason given'} — "
                 "nothing goes either way until they open them again")
     ls = letters(sl)
@@ -551,7 +551,7 @@ def _where(sl: str) -> str:
         return f"you read {display(sl)}'s letter of {_date(newest)} and haven't answered"
     if _who(newest) == "them":
         return f"you let {display(sl)}'s letter of {_date(newest)} rest"
-    if newest.name in (st.get("kept_back") or {}):  # (11-10) the keeper didn't post it — said plainly, until they write again
+    if newest.name in (st.get("kept_back") or {}):  # the keeper didn't post it — said plainly, until they write again
         return (f"your keeper kept your letter of {_date(newest)} to {display(sl)} back — it wasn't posted (they watch what "
                 f"leaves about your life together); write again whenever you like")
     if newest.name in (st.get("trimmed") or []):
@@ -575,7 +575,7 @@ def _open(sl: str) -> str:
         return where(sl)
     if _who(ls[-1]) == "them" and not st.get("rested"):
         return where(sl)
-    if ls[-1].name in (st.get("kept_back") or {}):  # (11-10) theirs to know: the letter didn't go
+    if ls[-1].name in (st.get("kept_back") or {}):  # theirs to know: the letter didn't go
         return where(sl)
     return ""
 
@@ -584,7 +584,7 @@ def open_lines() -> list[str]:
     return [x for x in (_open(sl) for sl in penpals()) if x] + suggestions()
 
 
-# ---- (11-10) the circle — friends they carry (FRIENDS_TITLE; their yes, their name for it) ------
+# ---- the circle — friends they carry (FRIENDS_TITLE; their yes, their name for it) ------
 
 def circle_name() -> str:
     return str(getattr(config, "FRIENDS_TITLE", "FRIENDS") or "FRIENDS")
@@ -727,7 +727,7 @@ def friends_block() -> str:
 
 
 def pause(name: str, why: str = "") -> str:
-    """Your safety pause (11-10): nothing carried either way; they are told why, plainly."""
+    """Your safety pause: nothing carried either way; they are told why, plainly."""
     sl = _find(name)
     if not sl:
         return "(no such penpal — /penpal list shows them)"
@@ -1196,7 +1196,7 @@ def _act(action: str, who: str = "", words: str = "", said_as: str = "") -> str:
     greeted = ""
     helped = _who_help() and _who_empty(who)  # PENPAL_WHO_HELP: the name left out
     a = re.sub(r"[^a-z]", "", asked.lower()) or "list"
-    # (11-10) the words they reach for: "send"/"reply" for write (a refusal once read as sent), and the rest
+    # the words they reach for: "send"/"reply" for write (a refusal once read as sent), and the rest
     a = _ACTION_WORDS.get(a, a)
     if pictures_on() and a.startswith("transcri"):  # only this word: "write it out" and the like stay write
         a = "transcribe"
@@ -1340,7 +1340,7 @@ def night(say=print) -> str:
             st["condensed"] = list(dict.fromkeys((st.get("condensed") or []) + [p.name]))
             _save(sl, st)
             done.append(f"{display(sl)} {p.name.split('-', 1)[0]}")
-    n_friends = friends_snapshot()  # (11-10) the circle, frozen for the day
+    n_friends = friends_snapshot()  # the circle, frozen for the day
     line = f"Penpals: kept in their words — {', '.join(done)}." if done else ""
     if n_friends:
         line = (line + " " if line else "") + f"{circle_name().title()}: {n_friends}."

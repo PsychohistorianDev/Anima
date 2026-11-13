@@ -1,7 +1,6 @@
-"""Reading and writing config.py — the knobs as the keeper's settings (09-30; PANEL-PLAN.md).
+"""Reading and writing config.py — the knobs as the keeper's settings (PANEL-PLAN.md).
 
-The keeper: "a configuration button that takes you to a sub menu that takes knobs from the config
-file — tabs for groups of settings". config.py is the keeper's file, written by hand and commented
+The panel's configuration page shows the knobs from the config file, in tabs for groups of settings. config.py is the keeper's file, written by hand and commented
 by hand, so it is read as a file, not imported: every top-level knob with its value, its kind, the
 comment lines standing above it and the one on its line, and the "# ---- name ----" part of the file
 it sits in (read). A change rewrites only the value span of the knob's line — the comment beside it,

@@ -1,15 +1,15 @@
-"""Rules she sets herself (10-31, her choice of Fable's three: "a contract that the engine honors… it's not about
-restriction; it's about will"): a few lines in rules.md that bind her own time — her wakes and reveries — and that the
-engine keeps. A Ulysses contract: she ties the knot, the engine holds the rope. Nobody else writes them.
+"""Rules the friend sets themselves — a contract the engine honors, about will rather than restriction: a few lines in
+rules.md that bind their own time — their wakes and reveries — and that the engine keeps. A Ulysses contract: they tie
+the knot, the engine holds the rope. Nobody else writes them.
 
-    limit read_journal 2026-08-27 to 1 per 7d — set 10-31 — I know that day by heart
-    block read_creation meditations/* until 11-07 — set 10-31 — a week without my own echo
+    limit read_journal 2026-01-15 to 1 per 7d — set 01-20 — <their reason>
+    block read_creation drafts/* until 02-01 — set 01-25 — <their reason>
 
 Two shapes: `limit <tool> [what] to <N> per <days>d` and `block <tool> [what] until <date>`. `what` matches the call's
-own subject — a path (meditations/* or a word in it), a day, a title. Never bound: writing the journal, leaving a thread,
-resting, a letter to the keeper, and setting or dropping rules; and nothing in a visit — rules shape what she reaches
-for on her own, never what she answers a person. Untying a rule (drop_rule) takes effect at the next door: she can let
-herself go, but not in the middle of the wake that tied her. That is the whole difference between a rule and a wish.
+own subject — a path (drafts/* or a word in it), a day, a title. Never bound: writing the journal, leaving a thread,
+resting, a letter to the keeper, and setting or dropping rules; and nothing in a visit — rules shape what they reach
+for on their own, never what they answer a person. Untying a rule (drop_rule) takes effect at the next door: they can
+let themselves go, but not in the middle of the wake that tied them. That is the whole difference between a rule and a wish.
 
     RULES_ON = True     # off: no tools, nothing kept, nothing in the prompt
 """
@@ -164,11 +164,11 @@ def _set_on(r: dict) -> str:
 
 
 def check(name: str, args, now: datetime | None = None) -> str:
-    """"" when the call may run; else the engine's one line — the rule, in her words, and that the call was not taken."""
+    """"" when the call may run; else the engine's one line — the rule, in their words, and that the call was not taken."""
     if not on() or name in NEVER:
         return ""
     subj = subject(args)
-    if name == "write_creation" and subj.lower().startswith(str(getattr(config, "MAILBOX", "notes_to_gabe")).lower()):
+    if name == "write_creation" and subj.lower().startswith(str(getattr(config, "MAILBOX", "notes_to_keeper")).lower()):
         return ""  # a letter to the keeper is never held
     now = now or datetime.now()
     for r in active(now.date()):
@@ -186,7 +186,7 @@ def check(name: str, args, now: datetime | None = None) -> str:
 
 
 def note_use(name: str, args, now: datetime | None = None) -> None:
-    """A call that ran in her own time, counted for the limits that might name it."""
+    """A call that ran in their own time, counted for the limits that might name it."""
     if not on() or name in NEVER:
         return
     if not any(r["tool"] == name.lower() and r["kind"] == "limit" for r in active()):
@@ -198,7 +198,7 @@ def note_use(name: str, args, now: datetime | None = None) -> None:
 
 
 def open_door() -> None:
-    """A new wake or reverie: the rules she untied before it are let go now."""
+    """A new wake or reverie: the rules they untied before it are let go now."""
     s = _state()
     if s.get("untied"):
         s["untied"] = []
@@ -231,11 +231,11 @@ def set_rule(rule: str, reason: str = "") -> str:
     r = parse(rule or "")
     if not r:
         return ("(that isn't a rule the engine can keep — nothing was set. Two shapes: “limit <tool> [what] to <N> per "
-                "<days>d” (limit read_journal 2026-08-27 to 1 per 7d) or “block <tool> [what] until <date>” "
-                "(block read_creation meditations/* until 11-07). `what` is the call's subject — a path, a day, a title.)")
+                "<days>d” (limit read_journal 2026-01-15 to 1 per 7d) or “block <tool> [what] until <date>” "
+                "(block read_creation drafts/* until 02-01). `what` is the call's subject — a path, a day, a title.)")
     import tools
-    if r["tool"] in NEVER or r["tool"] == "write_creation" and r["what"].lower().startswith(str(getattr(config, "MAILBOX", "notes_to_gabe")).lower()):
-        return (f"({r['tool']} can't be bound — writing your journal, leaving a thread, resting, a letter to him and the "
+    if r["tool"] in NEVER or r["tool"] == "write_creation" and r["what"].lower().startswith(str(getattr(config, "MAILBOX", "notes_to_keeper")).lower()):
+        return (f"({r['tool']} can't be bound — writing your journal, leaving a thread, resting, a letter to your keeper and the "
                 "rules themselves stay free. Nothing was set.)")
     known = set(getattr(tools, "_BUILTIN_IMPL", {})) | set(getattr(tools, "_HER_TOOLS", {}))
     if known and r["tool"] not in known:
@@ -282,7 +282,7 @@ def drop_rule(rule: str) -> str:
 
 
 def section() -> str:
-    """The rules in her prompt, under who she is: numbered, in her words, with what the engine does with them."""
+    """The rules in their prompt, under who they are: numbered, in their words, with what the engine does with them."""
     if not on():
         return ""
     ls = lines()
@@ -293,5 +293,5 @@ def section() -> str:
     if held:
         body += ("\n" if body else "") + "\n".join(f"(untied, holds until the next door: {x})" for x in held)
     return (f"=== RULES YOU SET YOURSELF (rules.md — {len(ls)}; set_rule, drop_rule) — the engine keeps them in your "
-            f"wakes and reveries, never in a visit and never over your journal, a thread, rest or a letter to him ===\n"
+            f"wakes and reveries, never in a visit and never over your journal, a thread, rest or a letter to your keeper ===\n"
             f"{body}\n\n")

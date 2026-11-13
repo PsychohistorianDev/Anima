@@ -1,4 +1,4 @@
-"""The shape of their projects page (11-04): active projects with links to their READMEs, and one list of the
+"""The shape of their projects page: active projects with links to their READMEs, and one list of the
 finished or set aside — that's all.
 
 projects.md is a list, not a project: a title, a line of what the page is, then
@@ -6,7 +6,7 @@ projects.md is a list, not a project: a title, a line of what the page is, then
     ## Active
     - **Name** — what it is. Done when: … (Location: projects/<folder>/) · README: projects/<folder>/README.md
     ## Completed or set aside
-    - **Name** — … (Location: projects/<folder>/) · README: … · finished on 2026-11-04: their note
+    - **Name** — … (Location: projects/<folder>/) · README: … · finished on 2026-01-15: their note
 
 Everything else about a project — vision, tracks, next steps — lives in its README.md, which rides in their prompt while
 the project is Active. start_project adds a line under Active; finish_project / set_aside_project move one to the

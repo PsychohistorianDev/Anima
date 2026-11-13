@@ -1,4 +1,4 @@
-"""Their open questions (11-04).
+"""Their open questions.
 
 A page of curiosities they keep themselves: open_question puts one on it, close_question takes one off (with what they
 found, if they found something). Every wake and reverie sees the open ones under the bell, with how long each has been
@@ -127,7 +127,7 @@ def close_question(question: str, answer: str = "") -> str:
         return why
     q = d["open"].pop(i)
     q["closed"] = date.today().isoformat()
-    q["closed_at"] = datetime.now().isoformat(timespec="seconds")  # (11-04) the morning line says what closed since the last talk
+    q["closed_at"] = datetime.now().isoformat(timespec="seconds")  # the morning line says what closed since the last talk
     a = _clean(answer)
     if a:
         q["answer"] = a[:1200]

@@ -1,4 +1,4 @@
-"""Brushes side by side (10-31): the same two paintings — one from words at full size, one of the two of you with the
+"""Brushes side by side: the same two paintings — one from words at full size, one of the two of you with the
 "us" reference set — by a few brushes, the same seed each, timed, their peak on the card; laid out on one sheet to
 look at before anything is switched in config.
 

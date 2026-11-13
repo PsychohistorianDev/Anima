@@ -1,8 +1,7 @@
-"""Updating an anima — the keeper's road to the current engine (09-30; UPDATE-PLAN.md).
+"""Updating an anima — the keeper's road to the current engine (UPDATE-PLAN.md).
 
-The keeper: "an update feature, so if anyone actually decides to use anima can
-update the folder to current GitHub, and without rewriting the config file
-(maybe an append function?)."
+Brings a keeper's folder up to the current GitHub engine without rewriting the
+config file (new knobs are appended).
 
 A keeper's folder is two things braided: the engine (ours — ENGINE below) and
 the friend (theirs — FRIEND below, and anything else that is not ours). An
@@ -48,7 +47,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-# On its own feet (09-30, the first dry run: a folder from before this release has no
+# On its own feet (a folder from before this release has no
 # engine/version.py, and the update is the first thing a keeper runs there — it imports
 # nothing of the engine but config, and config only for UPDATE_REPO). A keeper whose
 # folder is from before 0.13 puts bat\update.bat and engine/update.py in place by hand once
@@ -387,8 +386,8 @@ def appended(keeper: str, picks: list[tuple[str, list[str]]], new_version: str, 
 
 def reset_config(keeper: str, template: str) -> tuple[str, list[str], list[str], list[str]]:
     """(the new config text, carried, kept, gone): the template's config.py with the keeper's one-line
-    values written into it where they differ from the template's (09-30; the keeper: "a --reset in case
-    somebody fumbles the config"). `carried` — the knobs that took the keeper's value; `kept` — knobs
+    values written into it where they differ from the template's (a reset for a config that was
+    fumbled). `carried` — the knobs that took the keeper's value; `kept` — knobs
     the keeper had that the template holds as more than one line or as an expression (the template's
     stays; theirs is in the backup); `gone` — knobs of theirs the new engine has no line for. Only the
     value span of a line changes; every comment and every other byte of the template stays."""
@@ -483,7 +482,7 @@ def _writable(path: Path) -> None:
 
 
 # A launcher for a Mac or Linux runs only with its executable bit, and bytes from a zip carry no bits
-# (10-01; MAC-PLAN.md): every .command and .sh the update writes is made runnable as it lands.
+# (MAC-PLAN.md): every .command and .sh the update writes is made runnable as it lands.
 RUNNABLE = (".command", ".sh")
 
 
@@ -509,7 +508,7 @@ def _unlink(path: Path) -> None:
 
 def _move(src: Path, dst: Path) -> None:
     """A file into the backup — a rename, and where a rename is refused a copy then the unlink
-    (09-30, the first dry run: a sandbox that allows moves but not deletes stopped an undo halfway)."""
+    (a sandbox that allows moves but not deletes would stop an undo halfway)."""
     dst.parent.mkdir(parents=True, exist_ok=True)
     _writable(src)
     try:

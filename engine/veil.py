@@ -1,4 +1,4 @@
-"""The Veil (11-04) — the friend's private gallery; VEIL_TITLE is the name they give it.
+"""The Veil — the friend's private gallery; VEIL_TITLE is the name they give it.
 
 A place where a piece can be worked on unseen before it becomes a gift, with the times kept: when it was begun, when
 it was finished, when it was shown. Every unfinished piece is named under the bell, so nothing is put away and forgotten.
@@ -185,7 +185,7 @@ def show(piece: str, note: str = "", to: str = "") -> str:
         dest = dest[10:]
     if not dest or ".." in dest.split("/") or dest.split("/")[0].lower() == name().lower():
         return "(to: a folder under creations/, outside the veil — or leave it out for unveiled/)"
-    if dest.split("/")[0].lower() == "publish":  # (11-04) showing them is not publishing to the world
+    if dest.split("/")[0].lower() == "publish":  # showing them is not publishing to the world
         return ("(publish/ is your public page — the world, not your keeper; nothing moved. veil_show brings a piece to them "
                 "(leave `to` out for unveiled/); publish_creation, after, if you want the world to see it too)")
     target = _move(p, config.CREATIONS_DIR / dest)
@@ -248,9 +248,9 @@ def facts_bit(now: datetime | None = None) -> str:
 
 
 def room_for(target) -> str:
-    """(11-08) VEIL_MAX_IN_PROGRESS: a NEW piece on the in_progress shelf when it already holds that many — a refusal
+    """VEIL_MAX_IN_PROGRESS: a NEW piece on the in_progress shelf when it already holds that many — a refusal
     in their engine's voice ("" when there's room, the cap is off, or the target isn't a new piece there). The Veil as
-    a workshop for one or two private things (the keeper and them, 11-08: "workshop, not vault")."""
+    a workshop for one or two private things — a workshop, not a vault."""
     cap = int(getattr(config, "VEIL_MAX_IN_PROGRESS", 0) or 0)
     if not cap or not getattr(config, "VEIL_ON", False):
         return ""

@@ -1,4 +1,4 @@
-"""The garden's plants painted by the friend's own painter (10-31): every plant at every stage that has no picture yet —
+"""The garden's plants painted by the friend's own painter: every plant at every stage that has no picture yet —
 sprout, young, grown, ready — lifted off its ground into the garden's art folder. Close the bridge and the heartbeat
 first: the card is the painter's while it works. About a minute a picture, four a plant.
 

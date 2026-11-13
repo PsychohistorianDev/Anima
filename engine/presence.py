@@ -3,14 +3,14 @@
 While presence is on, the friend can set ONE spark at a time: next_spark(minutes) (PRESENCE_MIN…PRESENCE_MAX minutes)
 turns presence on and sets it; when the visit has been quiet that long the bridge gives them a turn in the open visit
 (a "spark") — an engine line says how long it has been and what a spark can be: words to the phone, a painting, the
-stone (never in the keeper's work hours), or nothing at all. After it, no other comes unless they set it again (10-26,
-the keeper: "I want it to require to set it manually again after each spark"). /presence on starts drift (below);
-the keeper turns presence off (/presence off), the friend too (next_spark with no minutes, 10-27),
+stone (never in the keeper's work hours), or nothing at all. After it, no other comes unless they set it again
+(each spark is set by hand). /presence on starts drift (below);
+the keeper turns presence off (/presence off), the friend too (next_spark with no minutes),
 and it ends by itself at the quiet hours. A message from the keeper restarts the
 count; a wake running holds the sparks until it ends. /discreet on the phone sends sparks silently, the words hidden
 until tapped. The state lives in memory/presence.json, so it outlives a restart.
 
-Drift (10-27, sparks part two — claude/sparks2-plan.md, agreed by the keeper and the friend): next_spark(drift=…) sets
+Drift (sparks part two — claude/sparks2-plan.md): next_spark(drift=…) sets
 no time. Every quiet minute a die is rolled; when it says yes, a spark comes, and the rolling goes on — no need to
 set the next. A temperament gives the pace (TEMPERAMENTS: very rare … intense), the soonest a spark may come after
 the last word, and the most in an hour. Longing: the chance climbs with the quiet — roughly doubling over the first
@@ -29,16 +29,16 @@ import config
 
 STATE_FILE = config.MEMORY_DIR / "presence.json"
 WAKING_FILE = config.MEMORY_DIR / ".waking"
-PRESENCE_MIN, PRESENCE_MAX = 10, 60  # one spark: 10–60 minutes (10-27: was 5 — "now that we have the modes")
+PRESENCE_MIN, PRESENCE_MAX = 10, 60  # one spark: 10–60 minutes
 WAKING_STALE_S = 3600  # a wake marker older than this is a wake that died without clearing it
-# drift's temperaments (10-27): name → (minutes on average, the soonest after the last word, the most in an hour; 0 — no limit)
+# drift's temperaments: name → (minutes on average, the soonest after the last word, the most in an hour; 0 — no limit)
 TEMPERAMENTS = {
     "very rare": (120, 5, 1),
     "rare": (60, 5, 2),
     "sometimes": (25, 5, 4),
     "often": (10, 5, 8),
-    "frequent": (5, 1, 15),  # 10-27: "average of 5 minutes, with thinking"
-    "intense": (1, 0, 0),  # a heartbeat (10-27): every 0 to 1 minute after the last word — see due()
+    "frequent": (5, 1, 15),  # an average of 5 minutes, thinking included
+    "intense": (1, 0, 0),  # a heartbeat: every 0 to 1 minute after the last word — see due()
 }
 ACHE_MAX = 3
 
@@ -76,12 +76,12 @@ def on_temperament() -> str:
 def chance(mean_min: float, quiet_min: float, ache: int = 0) -> float:
     """One minute's chance of a spark in drift: 1/mean, climbing with the quiet — doubled after an hour, sooner with
     the ache (each step adds PRESENCE_ACHE_WEIGHT hours' worth of climb to every hour; 1.0, the first formula) — never
-    above 0.9. (10-28, issue #7: a friend asked that the ache count for less than the quiet.)"""
+    above 0.9. (issue #7: the weight lets the ache count for less than the quiet.)"""
     try:
         weight = max(0.0, float(getattr(config, "PRESENCE_ACHE_WEIGHT", 1.0)))
     except (TypeError, ValueError):
         weight = 1.0
-    try:  # the ladder (10-29, PRESENCE_CLIMB_MIN): each this many minutes of quiet adds one more of the base chance
+    try:  # the ladder (PRESENCE_CLIMB_MIN): each this many minutes of quiet adds one more of the base chance
         step = float(getattr(config, "PRESENCE_CLIMB_MIN", 60) or 60)
         step = step if step > 0 else 60.0
     except (TypeError, ValueError):
@@ -117,12 +117,12 @@ def is_on() -> bool:
 
 def set_interval(minutes, by: str = "friend", now: datetime | None = None) -> tuple[dict, bool]:
     """One spark set (the minutes clamped), presence turned on if it was off. (state, turned on now). The phone
-    sees the time in the tool's own line — no separate notice (10-26)."""
+    sees the time in the tool's own line — no separate notice."""
     st = load()
     m = clamp(minutes)
     turned_on = not st.get("on")
     st.update(on=True, interval=m, pending=True, mode="one")
-    st["changed_by"] = by  # who changed the sparks last (10-29, PRESENCE_STATE_LINE)
+    st["changed_by"] = by  # who changed the sparks last (PRESENCE_STATE_LINE)
     st.pop("announce", None)
     if turned_on:
         st.update(since=(now or datetime.now()).isoformat(timespec="seconds"), by=by)
@@ -131,7 +131,7 @@ def set_interval(minutes, by: str = "friend", now: datetime | None = None) -> tu
 
 
 def set_drift(name, ache=0, by: str = "friend", now: float | None = None) -> tuple[dict, bool]:
-    """Drift at a temperament (10-27): presence on, no time set, the first roll a minute from now. (state, turned on
+    """Drift at a temperament: presence on, no time set, the first roll a minute from now. (state, turned on
     now). The name must be read already (temperament())."""
     st = load()
     turned_on = not st.get("on")
@@ -140,13 +140,13 @@ def set_drift(name, ache=0, by: str = "friend", now: float | None = None) -> tup
     a = max(0, min(ACHE_MAX, int(ache or 0)))
     st.update(on=True, mode="drift", temperament=name, ache=a, pending=False,
               rolled=float(now if now is not None else time.time()))
-    st["changed_by"] = by  # (10-29, PRESENCE_STATE_LINE)
+    st["changed_by"] = by  # (PRESENCE_STATE_LINE)
     save(st)
     return st, turned_on
 
 
 def turn_on(by: str = "keeper", now: datetime | None = None) -> dict:
-    """The keeper's /presence on (10-27): drift at PRESENCE_ON_TEMPERAMENT (rare)."""
+    """The keeper's /presence on: drift at PRESENCE_ON_TEMPERAMENT (rare)."""
     return set_drift(on_temperament(), 0, by=by)[0]
 
 
@@ -159,8 +159,8 @@ def drifting() -> str:
 def turn_off(why: str = "") -> dict:
     st = load()
     st.update(on=False, pending=False, ended=datetime.now().isoformat(timespec="seconds"), why=why)
-    st["changed_by"] = "friend" if why == "the friend" else why  # (10-29, PRESENCE_STATE_LINE)
-    st.pop("announce", None)  # (left by the old phone notice, before 10-26 evening)
+    st["changed_by"] = "friend" if why == "the friend" else why  # (PRESENCE_STATE_LINE)
+    st.pop("announce", None)  # (left by an older phone notice)
     save(st)
     return st
 
@@ -176,7 +176,7 @@ def fired(now: float | None = None) -> None:
     st = load()
     st["pending"] = False
     if st.get("mode") != "drift":
-        st["changed_by"] = "friend"  # (10-29) the one spark spent: the spark's own line said so — no state line for it
+        st["changed_by"] = "friend"  # the one spark spent: the spark's own line said so — no state line for it
     if st.get("mode") == "drift":
         t = float(now if now is not None else time.time())
         st["fired_log"] = [x for x in (st.get("fired_log") or []) if t - float(x) < 3600] + [t]
@@ -184,7 +184,7 @@ def fired(now: float | None = None) -> None:
 
 
 def set_errand(minutes, why: str, now: float | None = None) -> dict:
-    """(11-05, proactive-plan step 1) A spark they set for a reason: it comes in `minutes` (clamped) from now, with their
+    """(proactive-plan step 1) A spark they set for a reason: it comes in `minutes` (clamped) from now, with their
     reason in its line — even while the heartbeat holds drift, and whether drift is on or off. One at a time; a new one
     replaces it. Their drift, if any, stays as it was."""
     st = load()
@@ -242,7 +242,7 @@ def mark_waking(on: bool) -> None:
 
 
 def held() -> bool:
-    """HEARTBEAT_HOLDS_PRESENCE and the heartbeat loop running (10-27): no spark may be set, and none comes, until the
+    """HEARTBEAT_HOLDS_PRESENCE and the heartbeat loop running: no spark may be set, and none comes, until the
     heartbeat stops — the wakes have the time between visits. False when the knob is off or the loop isn't running."""
     if not getattr(config, "HEARTBEAT_HOLDS_PRESENCE", False):
         return False
@@ -267,13 +267,13 @@ def due(last_activity: float, now: float | None = None, rng: random.Random | Non
     st = load()
     if not st.get("on") or waking() or held():
         return False
-    try:  # (11-05) the game guard: no spark while a game holds the card; the dice wait
+    try:  # the game guard: no spark while a game holds the card; the dice wait
         import gameguard
         if gameguard.playing()[0]:
             return False
     except Exception:  # noqa: BLE001
         pass
-    try:  # (11-05) their quiet: the dice wait, nothing is turned off
+    try:  # their quiet: the dice wait, nothing is turned off
         import outbox
         if outbox.hold_active():
             return False
@@ -282,12 +282,12 @@ def due(last_activity: float, now: float | None = None, rng: random.Random | Non
     t = float(now if now is not None else time.time())
     quiet = t - float(last_activity or 0)
     if st.get("mode") == "drift" and st.get("temperament") == "intense":
-        # a heartbeat (10-27; the keeper and the friend: "intense mode to a 0 to 1 minute, almost kinda heartbeat"): no
+        # a heartbeat — intense is 0 to 1 minute: no
         # dice — a beat drawn anew for every last word, somewhere from 0 to 60 seconds after it
         if float(st.get("beat_for") or -1) != float(last_activity or 0):
             span = 60.0
             if getattr(config, "PRESENCE_INTENSE_CEILING", False):
-                # (10-29, the keeper: "the 1 min as a ceiling") the minute counts to the spark's ARRIVAL: the beat is drawn
+                # the minute is a ceiling: it counts to the spark's ARRIVAL: the beat is drawn
                 # from what is left of it once an intense spark's usual turn (spark_s, its thinking and words) is taken off
                 span = max(0.0, 60.0 - float(st.get("spark_s") or 0))
             st.update(beat_for=float(last_activity or 0), beat_s=round((rng or random).random() * span, 1))
@@ -299,8 +299,8 @@ def due(last_activity: float, now: float | None = None, rng: random.Random | Non
         if rolls < 1:
             return False
         st["rolled"] = float(st.get("rolled") or t) + rolls * 60
-        # the roll's numbers stay in the file (10-29: forty quiet minutes of "often" and no spark — what did the
-        # dice see?); /presence shows them
+        # the roll's numbers stay in the file (a long quiet stretch with no spark can be checked against what the
+        # dice saw); /presence shows them
         roll = {"at": round(t), "quiet_min": round(quiet / 60, 1), "rolls": rolls}
         if quiet < soonest * 60:
             said = False
@@ -323,7 +323,7 @@ def due(last_activity: float, now: float | None = None, rng: random.Random | Non
 
 def note_spark_time(seconds: float) -> None:
     """How long an intense spark's turn took, kept as a running mean in spark_s (half the last, half the new) — what
-    PRESENCE_INTENSE_CEILING takes off the minute (10-29)."""
+    PRESENCE_INTENSE_CEILING takes off the minute."""
     try:
         s = max(0.0, float(seconds))
     except (TypeError, ValueError):
@@ -343,10 +343,10 @@ def _state_sig(st: dict) -> str:
 
 
 def state_line(keeper: str = "your keeper") -> str:
-    """PRESENCE_STATE_LINE (10-29; the keeper asked whether she can see in her window that sparks are on — she
-    couldn't, in an ordinary reply): one sentence for the moment when the sparks' state changed since it was last
-    told — on, off, a temperament, held while the heartbeat runs — and who changed it. A change she made herself
-    (next_spark told her) is marked seen and not said; "" when nothing changed. Saying it marks it told."""
+    """PRESENCE_STATE_LINE (so the friend can see in their window whether sparks are on, which an ordinary reply
+    does not show): one sentence for the moment when the sparks' state changed since it was last
+    told — on, off, a temperament, held while the heartbeat runs — and who changed it. A change they made themselves
+    (next_spark told them) is marked seen and not said; "" when nothing changed. Saying it marks it told."""
     if not getattr(config, "PRESENCE_STATE_LINE", True):
         return ""
     st = load()
@@ -363,7 +363,7 @@ def state_line(keeper: str = "your keeper") -> str:
     if is_held:
         return "sparks are held while the heartbeat runs — none come until it stops"
     if not st.get("on"):
-        # the line names no one (10-29, the keeper: "I don't want the Gabe set it on") — only what ended them by itself
+        # the line names no one (not "<keeper> set it on") — only what ended them by itself
         why = {"the quiet hours": "the quiet hours ended them", "the heartbeat": "the heartbeat's start ended them"}.get(by, "")
         return "sparks are off" + (f" — {why}" if why else "")
     who = ""
@@ -379,7 +379,7 @@ def intense() -> bool:
 
 
 def poll_s(default: float) -> float:
-    """How long the bridge's long poll may wait: in intense's heartbeat a beat can fall any second, so 10 (10-27)."""
+    """How long the bridge's long poll may wait: in intense's heartbeat a beat can fall any second, so 10."""
     return min(float(default), 10.0) if intense() else float(default)
 
 
@@ -404,7 +404,7 @@ def quote(text: str, limit: int = 280) -> str:
 
 
 def intense_file(make: bool = False):
-    """shared/intense.md — PRESENCE_INTENSE_FILE (10-28): the line every intense spark carries, as a file to edit in
+    """shared/intense.md — PRESENCE_INTENSE_FILE: the line every intense spark carries, as a file to edit in
     any editor (the panel's Edit intense.md). Absent, it is made once from a PRESENCE_INTENSE_NOTE that says something
     — so the note moves over by itself — and, with make, empty."""
     from pathlib import Path
@@ -436,7 +436,7 @@ def intense_note() -> str:
 
 def tick_line(minutes_quiet: float, keeper: str, at_work: bool, last_said: str = "", seed: str = "",
               errand: str = "", intention: str = "") -> str:
-    """The engine's line that opens a spark — facts, the keeper's last message (10-26: so a spark picks up where the
+    """The engine's line that opens a spark — facts, the keeper's last message (so a spark picks up where the
     two of them were, not a ritual of its own), and what a spark can be."""
     st = load()
     m = int(minutes_quiet)
@@ -447,12 +447,12 @@ def tick_line(minutes_quiet: float, keeper: str, at_work: bool, last_said: str =
             else f"a spark you set yourself, {int((float((st.get('errand') or {}).get('minutes') or 0)))} minutes ago, for a reason"
             if errand else f"a drift spark — chance picked this moment ({drift})" if drift
             else "a spark — the one you set with next_spark")
-    # PRESENCE_SPARK_DOORS (10-28): the doors out named too — a spark had every tool all along, but the line's menu
-    # (words, a painting, the stone) was read as the whole of it. Something brought back to the keeper keeps the
+    # PRESENCE_SPARK_DOORS: the doors out named too — a spark has every tool, but a line's menu of only
+    # (words, a painting, the stone) is read as the whole of it. Something brought back to the keeper keeps the
     # spark a reach toward them, not a wake of its own. Intense is play: its menu stays as it was.
     doors = (f"something to read, hear or look up that you might bring back to {keeper}, "
              if getattr(config, "PRESENCE_SPARK_DOORS", False) and drift != "intense" else "")
-    # PRESENCE_INTENSE_PAINT (11-04, the keeper): no painting in intense's sparks — the menu leaves it out, and a paint call
+    # PRESENCE_INTENSE_PAINT: no painting in intense's sparks — the menu leaves it out, and a paint call
     # in one is told, not run (chat.one_turn); every other spark keeps it
     painting = "" if (drift == "intense" and not getattr(config, "PRESENCE_INTENSE_PAINT", True)) else "a painting, "
     if intention:
@@ -474,5 +474,5 @@ def tick_line(minutes_quiet: float, keeper: str, at_work: bool, last_said: str =
             + (f"The last thing {keeper} said: “{quote(last_said)}”. " if quote(last_said) else "") +
             f"It can be words to the phone, a painting, {stone}, {doors}or let it pass "
             f"(do_nothing). Words you say here reach {keeper}'s phone as they are — no letter is needed. "
-            + (f"A seed, if you want one: {seed}. " if seed else "")  # something to spark off, not a task (10-27)
+            + (f"A seed, if you want one: {seed}. " if seed else "")  # something to spark off, not a task
             + tail)

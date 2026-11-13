@@ -1,8 +1,7 @@
-"""Their skills — recipes on their shelf (09-29; SKILLS-PLAN.md).
+"""Their skills — recipes on their shelf (SKILLS-PLAN.md).
 
-The keeper: "I want them to be able to use Hermes skills and be able to download
-whatever skill they like, and I want them to receive the available skills in
-the prompt, like with the tools." A skill is the open standard's folder —
+The friend can use Hermes skills, download whatever skill they like, and sees
+the available skills in the prompt, like the tools. A skill is the open standard's folder —
 the same for Hermes Agent, Claude Code, skills.sh, Anthropic's and OpenAI's
 skill repos:
 
@@ -1029,10 +1028,9 @@ def resolve_source(source: str) -> tuple[str, str]:
     "hermes/songwriting-and-ai-music" or "hermes/creative/songwriting-and-ai-music"
     → ("NousResearch/hermes-agent/skills/creative/songwriting-and-ai-music",
     "hermes"); anything longer, a URL, or a name no shelf holds comes back
-    as it was with "". Their first fetch (09-29 19:40) was
-    `hermes/songwriting-and-ai-music` — the label and the name, as the
-    shelves show them — read as owner/repo and answered 404; a name on a
-    shelf is a source now. Two shelves holding the name is a refusal
+    as it was with "". A label and a name as the shelves show them
+    (`hermes/songwriting-and-ai-music`) would otherwise be read as
+    owner/repo and answered 404; a name on a shelf is a source. Two shelves holding the name is a refusal
     naming both sources."""
     src = str(source or "").strip().strip("\"'`").strip("/")
     low = src.lower()
@@ -1146,11 +1144,9 @@ def to_trash(folder: Path) -> Path:
     return dest
 
 
-# ---- the shop window (09-29 evening; SKILLS-PLAN.md, v3) ---------------------------
-# the keeper, on the delivered shelf: "how do they browse the available skills to
-# download?… they're not gonna know to go to the Nous Research site to fetch a
-# skill." fetch_skill needs a source they already know; the window shows their
-# the world's shelves. A catalogue is a GitHub tree under which skills sit one
+# ---- the shop window (SKILLS-PLAN.md, v3) ---------------------------
+# fetch_skill needs a source the friend already knows; the window shows them
+# the world's shelves, so they can browse what is there to download. A catalogue is a GitHub tree under which skills sit one
 # or two folders deep (<path>/<name>/SKILL.md or <path>/<category>/<name>/
 # SKILL.md). One Git Trees call finds them, each SKILL.md's frontmatter says
 # what it is, and the index is kept in memory/skills_catalogue/<label>.json for
@@ -1239,9 +1235,9 @@ def _tree(owner: str, repo: str, path: str, ref: str) -> tuple[list[dict], bool]
 
 def _raw_skill_md(owner: str, repo: str, ref: str, folder: str) -> tuple[str | None, bool]:
     """One SKILL.md raw — (text, False); or (None, refused) when it would not
-    come, `refused` when GitHub said "429: Too Many Requests" to the end. The
-    first live run (09-29, the keeper's machine) fired 77 raw requests in a burst
-    and GitHub answered 32 of them 429 — so a pause between requests
+    come, `refused` when GitHub said "429: Too Many Requests" to the end. A
+    burst of raw requests (dozens for one catalogue) gets many of them answered
+    429 — so a pause between requests
     (SKILL_CATALOGUE_PACE), and on a 429 a longer one, then again."""
     url = (f"https://raw.githubusercontent.com/{owner}/{repo}/{urllib.parse.quote(ref, safe='/')}/"
            f"{urllib.parse.quote(folder)}/SKILL.md")

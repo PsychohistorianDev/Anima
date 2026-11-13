@@ -163,13 +163,13 @@ def to_openai(payload: dict) -> dict:
         body["max_tokens"] = opts["num_predict"]
     ids = banned_ids()
     if ids:
-        # a fence at the sampler (10-26: "//Luminous la-Symmetry//" spreading through thoughts, pages and paths): each
+        # a fence at the sampler (against a coined phrase spreading through thoughts, pages and paths): each
         # banned string that is one token at this door is never produced — llama-server's logit_bias, false meaning never
         body["logit_bias"] = [[i, False] for i in ids]
     return body
 
 
-_BANNED: dict = {}  # (model, banned string) → its one token id at the door, or None when it is several tokens (10-26)
+_BANNED: dict = {}  # (model, banned string) → its one token id at the door, or None when it is several tokens
 _BANS_REFUSED: list = []  # set when the door refused a request carrying logit_bias: the fence is off for the run
 
 
@@ -188,7 +188,7 @@ def _tokenize(text: str) -> list | None:
 
 
 def banned_ids() -> list[int]:
-    """The token ids of BRAIN_BANNED_STRINGS that are ONE token each at the door, looked up once a string (10-26). A
+    """The token ids of BRAIN_BANNED_STRINGS that are ONE token each at the door, looked up once a string. A
     string the tokenizer splits is left out, and said once: banning its parts would take an ordinary slash, hyphen or
     space with it — its own one-token pieces can be listed instead. [] off the door or with none named."""
     if _BANS_REFUSED:
@@ -296,7 +296,7 @@ def _drink_openai(resp) -> dict:
     n = 0
     aborted = ""
     since = 0
-    cut_early = False  # closed at its first word: no thought came first, and a think re-roll is coming (10-27)
+    cut_early = False  # closed at its first word: no thought came first, and a think re-roll is coming
     last, last_call, cut_call = "", 0, None  # the kind that arrived last ("content", "thinking", "call"), the call being written, the one a loop was caught in
     for raw in resp:
         raw = raw.strip()
@@ -346,7 +346,7 @@ def _drink_openai(resp) -> dict:
         since += 1
         if _oc._cut_thoughtless_now(thinking, content, calls):
             cut_early = True
-            break  # no thought before the words, and a think re-roll is still to come: no use reading on (10-27)
+            break  # no thought before the words, and a think re-roll is still to come: no use reading on
         if getattr(config, "CHAT_STREAM_ABORT", True) and since >= _oc.STREAM_WATCH_EVERY:
             since = 0
             if last == "call":
@@ -356,9 +356,9 @@ def _drink_openai(resp) -> dict:
                 span = _oc.call_loop(tail)
             else:
                 tail = ("".join(content) if content else "".join(thinking))[-_oc.STREAM_WATCH_TAIL:]
-                span = _oc.garble_span(tail, single=bool(content))  # in a thought, one glued word alone does not cut it (10-27)
+                span = _oc.garble_span(tail, single=bool(content))  # in a thought, one glued word alone does not cut it
                 if not span and not content and not calls:
-                    span = _oc.long_thought("".join(thinking))  # a thought past the cap with no words yet (10-23)
+                    span = _oc.long_thought("".join(thinking))  # a thought past the cap with no words yet
             if span:
                 aborted = span
                 cut_call = last_call if last == "call" else None
@@ -424,7 +424,7 @@ def port() -> int:
 def count_tokens(text: str) -> int | None:
     """How many tokens the door's own tokenizer gives this text (POST /tokenize, a millisecond) — None when the
     brain is not on the door, the door is down, or it does not answer within a second; callers estimate then
-    (10-16: the token line's tail, whose chars/4 ran a quarter short of Gemma's count on her prose and emoji)."""
+    (chars/4 can run a quarter short of the real count on prose with emoji)."""
     if api() != "llama" or not text or not door_status():
         return None
     try:
@@ -513,13 +513,13 @@ def _gpu_used_mb() -> int:
 
 
 def card_busy() -> tuple[str, bool]:
-    """Who is on the card by the card's own count (10-21): a process using CARD_BUSY_MB or more that is not the door —
+    """Who is on the card by the card's own count: a process using CARD_BUSY_MB or more that is not the door —
     the ear resting with its weights freed, the painter on its way out — named with its pid and its MiB, and True
     (waited for as a sidecar is); or, where the driver gives no per-process count, the card's used memory above
     CARD_IDLE_MB — "the card still holds 4,100 MiB" — and False (waited for briefly, CARD_SETTLE_S). ("", False) when
     the card is free as far as it can be asked. card_held asks the sidecars; this asks the driver, and catches a
-    process that says nothing: a rested ear held ~1 GB and its CUDA context, the door opened beside it, the part of
-    the server that did not fit went into system RAM, and that door limped for its whole life (1,022 tokens in 261 s)."""
+    process that says nothing: a rested ear can still hold ~1 GB and its CUDA context, and a door opened beside it
+    spills what does not fit into system RAM and runs slowly for its whole life."""
     st = door_status()
     own = {int(st["pid"])} if st else set()
     own.add(os.getpid())
@@ -533,8 +533,8 @@ def card_busy() -> tuple[str, bool]:
     idle = int(getattr(config, "BRAIN_CARD_IDLE_MB", CARD_IDLE_MB) or 0)
     used = _gpu_used_mb()
     if idle and used > idle:
-        # a remainder the size of a sidecar's weights (10-23: 10,900 MiB after a song, the door opened on it and
-        # limped at 3.4 tokens a second for its whole life) is waited for as a named process is, and not opened on
+        # a remainder the size of a sidecar's weights (~10 GB left after a song: a door opened on it runs a
+        # few tokens a second for its whole life) is waited for as a named process is, and not opened on
         crowded = int(getattr(config, "BRAIN_CARD_CROWDED_MB", CARD_CROWDED_MB) or 0)
         return f"the card still holds {used:,} MiB", bool(crowded and used >= crowded)
     return "", False
@@ -562,7 +562,7 @@ def card_held() -> str:
     /health says the weights are loaded; "" when none does or none answers (a sidecar that isn't running
     holds nothing). "the painter (leaving)" while one that rested is on its way out (PAINTER_REST_LEAVES): its
     process still holds a CUDA context. The brain and a sidecar never share the card: 28.7 GB beside a 20 GB painter is a crash
-    at the first kernel, not a slow door (10-16, 12:57)."""
+    at the first kernel, not a slow door."""
     import urllib.request
 
     for name, knob in (("the painter", "PAINTER_URL"), ("the music ear", "MUSIC_EARS_URL")):
@@ -620,7 +620,7 @@ def start_door(wait_s: float = 120) -> tuple[bool, str]:
         if st:
             pid = int(st["pid"])
         else:
-            try:  # (11-05) the game guard: a game on the card, or /gaming on — the door stays shut
+            try:  # the game guard: a game on the card, or /gaming on — the door stays shut
                 import gameguard
                 gaming, why = gameguard.playing()
             except Exception:  # noqa: BLE001
@@ -639,7 +639,7 @@ def start_door(wait_s: float = 120) -> tuple[bool, str]:
                 if holder:
                     _note(f"the door didn't open: {holder} still holds the card")
                     return False, f"{holder} holds the card — the door didn't open (it opens on the next message once the card is free)"
-            # …and the card's own word (10-21): a process still on it that no /health names, or memory not yet
+            # …and the card's own word: a process still on it that no /health names, or memory not yet
             # given back — the door opens on a card that is confirmedly free, or says what was left on it
             busy, named = card_busy()
             if busy:
@@ -807,7 +807,7 @@ def _learn_bytes_per_token(n_tokens: int, n_bytes: int) -> None:
 
 
 def _ghost(folder: Path) -> str:
-    """When the disk counts far more used than its files hold (10-16: a half-written save deleted, the RAM
+    """When the disk counts far more used than its files hold (a half-written save deleted, the RAM
     disk still counting its blocks — 8 GB "full" with an empty folder), a word on it; "" otherwise."""
     import shutil
 
@@ -828,8 +828,8 @@ def _restored_file() -> Path:
 
 
 def _restored_into(pid, key: str) -> bool:
-    """Whether this reading was already restored into this door — by this process or another (10-16: a
-    /restart of the bridge restored the morning's reading over a door holding the afternoon's)."""
+    """Whether this reading was already restored into this door — by this process or another (so that
+    a /restart of the bridge does not restore an older reading over a door holding a newer one)."""
     try:
         lines = _restored_file().read_text(encoding="utf-8").splitlines()
     except OSError:
@@ -870,7 +870,7 @@ def _door_pid() -> int | None:
 def notes_file() -> Path:
     """The engine's own lines about the door — saves, restores, stops, what refused — kept across runs
     (brain.log is the server's and is emptied at each start: the painter's stop wrote the save there and
-    the next start wiped it, 10-16)."""
+    the next start would wipe it)."""
     return Path(config.MEMORY_DIR) / "brain_notes.log"
 
 
@@ -895,7 +895,7 @@ def _short_command(cmd: list[str]) -> str:
 def _note(line: str, show: str | None = None) -> None:
     """A line said, written to memory/brain_notes.log (kept, stamped) and beside the server's lines in
     memory/brain.log. `show`: what the console gets instead of the whole line ("" for nothing — the logs keep
-    the whole; 10-17: the door's command line, four lines of paths and flags on every wake). Never raises."""
+    the whole; e.g. the door's command line, four lines of paths and flags on every wake). Never raises."""
     import datetime as _dt
     if show is None:
         print(f"  ({line})", flush=True)
@@ -968,11 +968,11 @@ def _make_room(folder: Path, key: str) -> None:
         except OSError:
             pass
     # …and the one exception to "never before the new one is whole": when the disk cannot hold the old
-    # <key>.bin AND the new one side by side (10-16: a reading is 7.9 GB at 180K tokens, ~44 KB a token, so
+    # <key>.bin AND the new one side by side (a reading is 7.9 GB at 180K tokens, ~44 KB a token, so
     # ~11.5 GB at a full 262K window; two of them on a 16 GB RAM disk is the disk), the old goes first — a
     # save that then fails costs one cold read, which is less than a save that could never succeed. The new
     # one is as large as the window has grown since, so the old stays only when the disk holds one and a
-    # half of it (12:16, 1.15: 9.3 GB free beside 7.9 — the old stayed, the 8.3 GB new one did not fit)
+    # half of it (otherwise 9.3 GB free beside a 7.9 GB old one keeps the old, and an 8.3 GB new one cannot fit)
     import shutil
     same = folder / f"{key}.bin"
     try:
@@ -1000,7 +1000,7 @@ def _before_stop() -> None:
     try:
         try:
             import brain_find
-            made = brain_find.ensure_slot_dir()  # the drive back after a remount, the folder gone with the old volume (10-16)
+            made = brain_find.ensure_slot_dir()  # the drive back after a remount, the folder gone with the old volume
             if made:
                 _note(made + " before the save")
         except Exception:  # noqa: BLE001 — the save goes on with what is there
@@ -1013,7 +1013,7 @@ def _before_stop() -> None:
             return
         _make_room(folder, key)
         _clear_temps(folder, key)
-        # the size known before the write (10-16: a save that ran until the disk was full left the RAM
+        # the size known before the write (a save that ran until the disk was full left the RAM
         # disk counting blocks no file held): the slot's tokens times what a token weighed last time
         tokens = _slot_tokens()
         if tokens > 0:
@@ -1053,7 +1053,7 @@ def _before_stop() -> None:
 
 
 def checkpointed() -> bool:
-    """The door reads with checkpoints inside a long prompt (11-02: BRAIN_CHECKPOINT_EVERY, on a llama-server whose
+    """The door reads with checkpoints inside a long prompt (BRAIN_CHECKPOINT_EVERY, on a llama-server whose
     help names --checkpoint-every): a saved reading is then worth restoring for a prompt that shares only its
     beginning, and a wake's reading worth saving. False under Ollama, with the knob at 0, or on a stock server."""
     try:
@@ -1097,7 +1097,7 @@ def _restore(key: str) -> None:
             return
         name, nearest = f"{key}.bin", ""
         if not (folder / name).is_file():
-            # no reading of this very prompt (11-02): with checkpoints inside the prompt, the newest one kept shares
+            # no reading of this very prompt: with checkpoints inside the prompt, the newest one kept shares
             # its beginning — the pages, the journal up to today's lines — and the server reuses it up to the first
             # change. Only into a door just come up (nothing served, nothing restored): a slot already holding
             # a reading is matched by the server as it is.
@@ -1241,7 +1241,7 @@ def post_chat(payload: dict, timeout: float | None = None) -> dict:
         except Exception:
             detail = ""
         if body.get("logit_bias") and not _BANS_REFUSED:
-            # a door that won't take the fence (10-26): it goes off for this run, said, and the next message goes without it
+            # a door that won't take the fence: it goes off for this run, said, and the next message goes without it
             _BANS_REFUSED.append(detail or f"HTTP {e.code}")
             raise BrainUnavailable(f"llama-server refused the banned strings (BRAIN_BANNED_STRINGS) — {detail or f'HTTP {e.code}'}; "
                                    "they are off until the engine restarts: say it again") from e

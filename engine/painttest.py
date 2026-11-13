@@ -1,4 +1,4 @@
-"""A measured test of the painter with references (10-29): one painting with none, one with the friend's face, one or
+"""A measured test of the painter with references: one painting with none, one with the friend's face, one or
 two with the "us" reference set — each timed, its peak on the card in the painter's window — so the size that fits
 the card is known, not guessed.
 

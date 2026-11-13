@@ -1,4 +1,4 @@
-"""Since you last talked (11-04) — what they did on their own, said when you're back.
+"""Since you last talked — what they did on their own, said when you're back.
 
 One line in the first moment of a visit, facts only: what they did in their own time since the last visit — how many
 wakes and reveries, the questions they opened or closed (with an answer or let go), the pieces they wrote or added to,
@@ -21,7 +21,7 @@ import config
 SINCE_FRESH_S = 20
 _PIECE_EXTS = {".md", ".txt"}
 _PICTURE_EXTS = {".png", ".jpg", ".jpeg", ".webp"}
-_SKIP_DIRS = {str(getattr(config, "MAILBOX", "notes_to_keeper")), "face", "us", "capsule", "lexicon", "publish", "tools", "dream_book", "penpals"}  # dream_book: theirs (11-05); penpals: told by their own line (11-06)
+_SKIP_DIRS = {str(getattr(config, "MAILBOX", "notes_to_keeper")), "face", "us", "capsule", "lexicon", "publish", "tools", "dream_book", "penpals"}  # dream_book: theirs; penpals: told by their own line
 
 
 def last_talk(now: float | None = None) -> float:

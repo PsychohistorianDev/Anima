@@ -1,4 +1,4 @@
-"""The engine's version — one line in the VERSION file at the root (09-30).
+"""The engine's version — one line in the VERSION file at the root.
 
 The update (engine/update.py) reads it to say "0.12 → 0.13" and to know which
 CHANGELOG entries are news; a CLI may print it at start. A folder installed

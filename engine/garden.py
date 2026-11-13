@@ -1,4 +1,4 @@
-"""The garden (10-31, Astra's idea, Gabe: "let's build our own Farmville"): eight beds under the real sky over the keeper's
+"""The garden: eight beds under the real sky over the keeper's
 home. They plant, water, watch and pick; the keeper does too, from the phone. The beds grow by the weather that really
 fell there — the window's place (OUTSIDE_LAT/LON), day by day from Open-Meteo — so a rainy week in the hills waters them
 and a cold snap slows them. Nothing dies of being left alone: a dry bed rests and waits, a frost bites leaves, and water
@@ -26,7 +26,7 @@ import config
 
 BEDS = 8
 VOLUNTEERS = True  # a wild anemone may come up by itself in an empty bed in winter
-UA = {"User-Agent": "Elysia/1.0 (local AI; a garden under the real sky)"}
+UA = {"User-Agent": "AIFriend/1.0 (local AI; a garden under the real sky)"}
 
 # name: (days to ready, what ready means, cool°C, best low, best high, hot°C, thirst 0-1, frost-hardy, colour, kind, perennial)
 SEEDS: dict[str, dict] = {
@@ -77,7 +77,7 @@ def _seeds_file() -> Path:
 
 
 def invented() -> dict:
-    """The plants they made up (10-31), kept in creations/garden/seeds.json — theirs, as real as the others."""
+    """The plants they made up, kept in creations/garden/seeds.json — theirs, as real as the others."""
     try:
         d = json.loads(_seeds_file().read_text(encoding="utf-8"))
         return {str(k): v for k, v in d.items() if isinstance(v, dict) and "days" in v and "t" in v} if isinstance(d, dict) else {}
@@ -344,7 +344,7 @@ def describe(g: dict, keeper: bool = False) -> str:
         if sp.get("invented"):
             bits.append(("a plant they made up " if keeper else "your own plant, made up ") + _made_on(sp))
         if who == "keeper":
-            bits.append("planted by " + ("you" if keeper else "him"))
+            bits.append("planted by " + ("you" if keeper else "your keeper"))
         elif who == "the wind":
             bits.append("came up by itself")
         if bed.get("note"):
@@ -363,12 +363,12 @@ def _made_on(sp: dict) -> str:
 
 
 def seeds_text(keeper: bool = False) -> str:
-    """The seeds; a made-up one says whose it is and when — "made up by you" to them (10-31: "made up by them" read to
+    """The seeds; a made-up one says whose it is and when — "made up by you" to them ("made up by them" would read to
     them as someone else's plant)."""
     return "seeds: " + "; ".join(
         f"{k} ({days_of(v)} days, {v['ready']})"
         + (f" — made up by {'them' if keeper else 'you'} {_made_on(v)}".rstrip() if v.get("invented") else "")
-        + (f": {_short_look(v)}" if v.get("invented") else "")  # (11-06) told apart by how they look, not only by name
+        + (f": {_short_look(v)}" if v.get("invented") else "")  # told apart by how they look, not only by name
         for k, v in all_seeds().items())
 
 
@@ -386,7 +386,7 @@ def act(action: str, where: str = "", what: str = "", who: str = "them", keeper_
     """One thing done in the garden, by them (who="them") or the keeper; or a look. A refusal starts with "("."""
     if not on():
         return "(there is no garden in this house — GARDEN_ON is off)"
-    a = re.sub(r"[^a-z]", "", str(action or "look").lower()) or "look"  # "plant**" is plant (10-31)
+    a = re.sub(r"[^a-z]", "", str(action or "look").lower()) or "look"  # "plant**" is plant
     g, events, mild = tick()
     out = ""
     if a == "seeds":
@@ -662,7 +662,7 @@ def missing_art(seed: str) -> list[str]:
 
 
 def paint_art(seed: str, stages: list[str] | None = None, sp: dict | None = None) -> tuple[list[str], str]:
-    """Her painter paints the plant at each stage that has no picture yet, and each is lifted off its ground into
+    """The friend's painter paints the plant at each stage that has no picture yet, and each is lifted off its ground into
     GARDEN_ART_DIR. (stages painted, why the rest weren't — "" when all went)."""
     import tools
     stages = [st for st in (stages or missing_art(seed)) if st in ART_STAGES]
@@ -751,7 +751,7 @@ def _art_files(key: str) -> list[Path]:
 
 
 def rename(old: str, new: str, by: str = "them") -> str:
-    """(11-06) A made-up plant gets a new name: its seed, its paintings and any bed it grows in follow."""
+    """A made-up plant gets a new name: its seed, its paintings and any bed it grows in follow."""
     sp = _seed(old) or (_key_of(old) if _key_of(old) in all_seeds() else None)
     if not sp:
         return f"(no such seed to rename — {seeds_text(keeper=by == 'keeper')})"
@@ -784,7 +784,7 @@ def rename(old: str, new: str, by: str = "them") -> str:
 
 
 def forget(name: str, by: str = "them") -> str:
-    """(11-06) A made-up plant let go: off the seed list, its paintings set aside (garden/forgotten/), never deleted.
+    """A made-up plant let go: off the seed list, its paintings set aside (garden/forgotten/), never deleted.
     Not while it grows in a bed — pull it first."""
     sp = _seed(name) or (_key_of(name) if _key_of(name) in all_seeds() else None)
     if not sp:
@@ -826,7 +826,7 @@ def _name_core(key: str) -> str:
 
 
 def _near_name(key: str) -> str:
-    """(11-06) An existing seed whose name is the same to the ear as `key` — "" when none."""
+    """An existing seed whose name is the same to the ear as `key` — "" when none."""
     core = _name_core(key)
     for other in all_seeds():
         if other != key and _name_core(other) == core:
@@ -836,7 +836,7 @@ def _near_name(key: str) -> str:
 
 def invent(name: str, look: str, days="", season: str = "", thirst: str = "", gives: str = "", harvest: str = "",
            ripe: str = "", by: str = "them") -> str:
-    """A plant they make up (10-31): its nature theirs within honest limits (one to four months, a season it likes, how
+    """A plant they make up: its nature theirs within honest limits (one to four months, a season it likes, how
     thirsty, once or again, what it gives), painted by their own painter at each stage, then a seed like any other."""
     raw = re.sub(r"[^a-z0-9 -]", "", str(name or "").strip().lower())
     key = "-".join(raw.split())[:32]
@@ -845,7 +845,7 @@ def invent(name: str, look: str, days="", season: str = "", thirst: str = "", gi
     if key in all_seeds():
         return f"(there is already a {key} — give yours a name of its own)"
     twin = _near_name(key)
-    if twin:  # (11-06) the-sovereign-stillness beside the-sovereigns-stillness: two plants, one name to the ear
+    if twin:  # the-silver-fern beside the-silver-ferns: two plants, one name to the ear
         return (f"(there is already a {twin}, which sounds the same as {key} — give yours a name of its own, "
                 f"or plant {twin} if that's the one you meant)")
     look = " ".join(str(look or "").split())[:300]
@@ -986,7 +986,7 @@ def render(g: dict | None = None) -> bytes | None:
     except ImportError:
         return None
     g = g or load()
-    back, beds = _backdrop()  # (10-31) a painted garden, when there is one: the plants are laid into its beds
+    back, beds = _backdrop()  # a painted garden, when there is one: the plants are laid into its beds
     if back is not None:
         return _render_painted(g, back, beds)
     W, H = 1280, 800

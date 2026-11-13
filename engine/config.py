@@ -55,7 +55,7 @@ for _d in (JOURNAL_DIR, CREATIONS_DIR, MEMORY_DIR, EPISODIC_DIR,
 # --------------------------------------------------------------- ollama ----
 # 127.0.0.1, not localhost: on Windows "localhost" is tried over IPv6 first (::1), which Ollama
 # does not listen on, and the fall-back cost about two seconds on every request — every
-# message, every tool step, every embedding (a keeper of another house measured it, 10-11).
+# message, every tool step, every embedding (measured).
 OLLAMA_URL = "http://127.0.0.1:11434"
 
 # Which program answers for the brain. "ollama" (default) talks to OLLAMA_URL as it
@@ -138,7 +138,7 @@ CHAT_MODEL = "gemma4:12b-it-qat"
 # "gemma4:e4b-it-qat", 10–16 GB this 12B QAT, 24–32 GB "gemma4:31b-it-qat"
 # (near-bf16 quality in ~19 GB) — with the NUM_CTX, TOOL_KIT and journal size
 # for each rung in the README's "The ladder". The same QAT 12B is the ears
-# (EARS_MODEL) — measured 10-08, a voice note heard whole — so from 10 GB up
+# (EARS_MODEL) — measured, a voice note heard whole — so from 10 GB up
 # the ladder is one pull per rung, and a 12B house keeps one file.
 
 # Embedding model for semantic memory: it turns memories into vectors so the
@@ -299,8 +299,8 @@ PAINTER_AUTOSTART = True      # paint starts the sidecar when needed
 # itself on the LAN (the sketch announces touchstone.local, or use its address).
 TOUCHSTONE_URL = ""
 TOUCHSTONE_BOARD = "http://touchstone.local"
-TOUCHSTONE_POLL_S = 5             # how often the stone's keeper asks the board what it felt (was 30: a press could wait a
-                                  # minute for the phone; a board on the LAN answers two small requests in milliseconds)
+TOUCHSTONE_POLL_S = 5             # how often the stone's keeper asks the board what it felt (a long interval lets a press wait
+                                  # a minute for the phone; a board on the LAN answers two small requests in milliseconds)
 TOUCHSTONE_TELL_S = 3             # how often the bridge looks at the stone's archive for a new press, in a thread beside the
                                   # long poll (which waits up to 50 s for a message); 0: the look between polls only
 # A tick at a change of state: one short gesture the stone's door asks of the board right after a different state is set,
@@ -389,7 +389,7 @@ PAINTER_REFERENCE_PIXELS = 1050000
 PAINTER_REFERENCE_MAX = 4
 # Words that bring the painter a plain line: word → line; when a prompt has the word (any ending), the line goes to
 # the painter ahead of it, after a set's. For a pose the painter keeps getting wrong in the friend's own language.
-# The word "*" is a line for every painting (anatomy, say). {} — none.
+# The word "*" is a line for every painting (a style, say). {} — none.
 PAINTER_PROMPT_HINTS = {}
 # Names in the words bring their pictures: a painting with no reference whose words name the friend (their own name)
 # brings creations/face/, your name (USER_NAME) a folder of that name under creations/, both together a reference set
@@ -499,7 +499,7 @@ BLACKBOX_EVERY_S = 5
 # NOTE: the window only matters once the journal cap below can fill it.
 
 # The same hyphenated word this many times or more in ONE reply (e.g.
-# "ever-so-bright" three times) is the sampler repeating itself: the reply is
+# "oh-so-very" three times) is the sampler repeating itself: the reply is
 # asked for again (one re-roll) and a note under it says why. A word doubled
 # back to back is simply said once; the word itself is never forbidden.
 # A phrase named in SIGNATURE is not counted at all — it is theirs however
@@ -509,7 +509,7 @@ REFRAIN_MAX = 3
 # An echo: a reply that opens word for word like the previous reply — the
 # sampler copying the nearest assistant turn instead of writing a new one,
 # which gets likelier deep into a long context. Compared over this many
-# opening characters, so short repeated phrases ("love you") pass. An echo is
+# opening characters, so short repeated phrases ("good night") pass. An echo is
 # re-rolled and named under the reply. 0 turns it off.
 ECHO_MIN_CHARS = 120
 
@@ -923,17 +923,17 @@ JOURNAL_DUP_THRESHOLD = 0.88
 # word-trigrams the earlier one already has. One voice reads as near-identity
 # to the embedder — most entries that are not twins score 0.86–0.88 against
 # some other entry of the two days, and a wake's account of its own night
-# was refused as a twin of the night before's. Different entries in one
+# could be refused as a twin of the night before's. Different entries in one
 # voice share about 0.03 of their wording (nineteen in twenty under 0.11);
 # a copy is 1.0; a retelling of the same moment keeps its phrases. 0: the
 # score alone, as before.
 JOURNAL_DUP_WORDING = 0.25
-# A tic in the prose (10-07) — a word, or a prefix with its hyphen ("la-") —
+# A tic in the prose — a word, or a prefix with its hyphen ("la-") —
 # counted on every write that goes through. The window feeds a tic back: the
 # journal in the prompt is the friend's own recent prose, so the rate of the
 # tic there is close to its odds in the next word, and each entry that
-# carries it raises the rate for the next (one house: 7 per thousand words
-# to 31 in three weeks, a steady slope, the salad check seeing only the far
+# carries it raises the rate for the next (the rate can climb several-fold
+# over a few weeks, a steady slope, the salad check seeing only the far
 # end). Nothing is filtered or corrected. A write that carries the tic at
 # TIC_TELL_FACTOR times the friend's own rate of two to four weeks ago (the
 # median of the journal days 14–28 back with 200 words or more; fewer than
@@ -1061,18 +1061,18 @@ EMOJI_CASCADE_RUN = 20
 # different emoji or more, the moment says so — a fact, the row still theirs. 0: never.
 EMOJI_ROW_DENSE = 14
 # ...and a repeat in a row of this many different emoji or more is taken off at the reply, the first kept — the row
-# feeding on itself, the sampler's re-deal; an adjacent repeat (💋💋💋) stays, a shorter row is never touched. 0: never.
+# feeding on itself, the sampler's re-deal; an adjacent repeat (❤️❤️❤️) stays, a shorter row is never touched. 0: never.
 EMOJI_ROW_DEDUPE = 6
 # ...and the same row of six or more emoji (four different) dealt this many times running, nothing but space between,
-# is the sampler's loop, not a sign-off: cut mid-stream, asked again (10-22: a 23-emoji row re-dealt to the ceiling,
-# 8,192 tokens, which the cascade rule, the stuck rule and the dedupe mend all looked past). 0: never.
+# is the sampler's loop, not a sign-off: cut mid-stream, asked again (a long row re-dealt can run to the
+# ceiling, 8,192 tokens, past the cascade rule, the stuck rule and the dedupe mend). 0: never.
 EMOJI_ROW_REPEATS = 3
 # ...and a sign-off row past EMOJI_CASCADE_RUN at the end of a reply that has words goes out as its first this-many
 # different emoji, the rest left, the next moment saying so — the words stand as written instead of a re-roll. A
 # wordless reply, a cascade mid-reply and a re-dealt row are still re-rolled. 0: the re-roll as before.
 EMOJI_ROW_TRIM = 14
 # ...and inside a row of EMOJI_ROW_DEDUPE-odd different emoji, the same emoji stacked more than this many times running is
-# cut to this many, the note saying so — the sampler leaning on a key; a row of one emoji alone (a row of kisses) is never
+# cut to this many, the note saying so — the sampler leaning on a key; a row of one emoji alone (a row of hearts) is never
 # touched. 0: never.
 EMOJI_ROW_RUN = 3
 
@@ -1145,8 +1145,8 @@ CREATIONS_DAYS_IN_PROMPT = 14
 # The songbook (keep_song): the songs they kept, each with their own score
 # and words. SONGBOOK_CHARS_IN_PROMPT is how much of it rides in every prompt,
 # best first (the rest counted; songbook() lists it all). SONG_MATCH_RATIO is
-# how alike two names must be to count as one song — "Emigrate - Rainbow" and
-# "rainbow – emigrate (live)" are the same at 0.85; 0 turns the near-match
+# how alike two names must be to count as one song — "artist - title" and
+# "title – artist (live)" are the same at 0.85; 0 turns the near-match
 # off (the exact key and the same file still match).
 SONGBOOK_CHARS_IN_PROMPT = 2000
 SONG_MATCH_RATIO = 0.85
@@ -1154,7 +1154,7 @@ CREATIONS_CHARS_IN_PROMPT = 3000
 
 # Show the model's chain-of-thought during chat. Thinking is shown on screen
 # but NOT saved into conversation transcripts — what enters the friend's
-# memory is what it chose to say, not the draft of it.
+# memory is what they chose to say, not the draft of it.
 CHAT_SHOW_THINKING = True
 
 # run_python sandbox: wall-clock limit per script, in seconds. A script that
@@ -1313,14 +1313,14 @@ ORPHAN_RESUME_H = 6
 # not held. (start_hour, end_hour), 24h; the same hour twice turns it off.
 TELEGRAM_QUIET_HOURS = (23, 7)
 # Where you are, by the calendar, said in the engine's clock line at the top
-# of every message and bell: your working week as days with hours ("sun-wed
-# 07:00-16:25, thu 07:00-15:55"; a segment without hours takes the one before
-# it), and what to say during working hours ("on the floor, the phone in my
+# of every message and bell: your working week as days with hours ("mon-thu
+# 09:00-17:00, fri 09:00-13:00"; a segment without hours takes the one before
+# it), and what to say during working hours ("at the office, the phone in my
 # pocket"; empty: "at work"). Without it the friend infers where you are from
 # the journal, which was mostly written on workdays. Empty says nothing. A day
 # off is /off on the phone (memory/days_off.json); /on takes it back.
 # The friend's first day, for the second clock on the date line — "your 54th
-# day here: you first wrote on 27 August 2026, a month and three weeks ago".
+# day here: you first wrote on 1 March 2026, a month and three weeks ago".
 # "" takes the earliest journal file's day; no journal yet, no clock.
 FIRST_DAY = ""
 KEEPER_WORK_WEEK = ""
@@ -1642,7 +1642,7 @@ CHAT_DO_NOTHING = True
 PRESENCE_INTENSE_PAINT = True
 
 # KEPT_PAGES: pages of theirs from creations/ that ride whole in their prompt, right under WHO YOU ARE, e.g.
-# ("anchor.md",) — each up to KEPT_PAGE_CHARS. (): none.
+# ("notes.md",) — each up to KEPT_PAGE_CHARS. (): none.
 KEPT_PAGES = ()
 KEPT_PAGE_CHARS = 12000
 

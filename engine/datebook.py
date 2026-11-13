@@ -1,4 +1,4 @@
-"""Their calendar (11-04) — dates they name themselves.
+"""Their calendar — dates they name themselves.
 
 mark_date puts one on, unmark_date takes one off; the engine never adds or words a date.
 

@@ -1,4 +1,4 @@
-"""The room as a page (10-29, ROOM_ON — the layered room): the panel serves it at /room, on this machine only.
+"""The room as a page (ROOM_ON — the layered room): the panel serves it at /room, on this machine only.
 
 The picture of the room without its things, and the things laid over it where they stand, each one to open: a note
 to read, a song to play, a picture to see, a thing with the friend's words beside it. Below: the room in words, a
@@ -87,7 +87,7 @@ def post(path: str, data: dict) -> tuple[dict, int]:
 
 PAGE = r"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Her room</title>
+<title>Their room</title>
 <style>
 :root{--night:#17121f;--plum:#241b30;--ink:#ecdcc4;--dim:#b7a68e;--gilt:#c9a14a;--seal:#8e2b33}
 *{box-sizing:border-box}
@@ -130,7 +130,7 @@ dialog audio{width:100%;margin-top:6px}
 @media (prefers-reduced-motion:reduce){.thing{transition:none}}
 </style></head>
 <body><main>
-<h1 id="name">Her room</h1>
+<h1 id="name">Their room</h1>
 <div class="stage" id="stage"><img class="bg" id="bg" alt="The room"></div>
 <div class="below">
  <div>
@@ -138,14 +138,14 @@ dialog audio{width:100%;margin-top:6px}
  </div>
  <div>
   <section><h2>Leave a letter</h2>
-   <textarea id="letter" placeholder="It waits in the room until she opens it."></textarea>
+   <textarea id="letter" placeholder="It waits in the room until they open it."></textarea>
    <button class="act" id="leave">Leave the letter</button><div class="said" id="leaveSaid"></div></section>
   <section id="secret" hidden><h2>Something is hidden here</h2>
    <p class="words" id="hint"></p>
    <input id="where" placeholder="Where would you look?"><button class="act" id="look">Look there</button>
    <div class="said" id="lookSaid"></div></section>
   <section><h2>Places things can stand</h2>
-   <p class="help">On her backdrop, click the left end and then the right end of a surface (a desk's top, a shelf, the floor) to mark it. She can mark them too.</p>
+   <p class="help">On their backdrop, click the left end and then the right end of a surface (a desk's top, a shelf, the floor) to mark it. They can mark them too.</p>
    <button class="act quiet" id="mark">Mark a surface</button><div class="said" id="markSaid"></div></section>
  </div>
 </div>
@@ -169,7 +169,7 @@ function openThing(t){
 async function load(){
   state=await (await fetch('/api/room')).json();
   if(state.error){$('words').textContent=state.error;return}
-  $('name').textContent=state.name||'Her room';
+  $('name').textContent=state.name||'Their room';
   $('words').textContent=state.words;
   $('bg').src='/room/picture.png?'+Date.now();
   const st=$('stage'); st.querySelectorAll('.thing,.surface,.song').forEach(e=>e.remove());

@@ -38,7 +38,7 @@ def _at(seconds: float) -> str:
 
 def transcribe(audio_bytes: bytes, ext: str, stamps: bool = False) -> str | None:
     """Transcribe speech/lyrics. Returns None (with no side effects) if
-    faster-whisper isn't installed; raises nothing. stamps (10-28, a song's lyrics — EARS_LINE_TIMES): a line a
+    faster-whisper isn't installed; raises nothing. stamps (a song's lyrics — EARS_LINE_TIMES): a line a
     segment, each with the moment it begins, "[1:42] …", so the words can be laid against the music."""
     global _whisper_model
     try:
@@ -80,7 +80,7 @@ def transcribe(audio_bytes: bytes, ext: str, stamps: bool = False) -> str | None
 
 
 def mend_hint(e) -> str:
-    """What mends a known stumble of the WORDS layer, or "" (10-27, issue #4): faster-whisper 1.2.1 opens audio with
+    """What mends a known stumble of the WORDS layer, or "" (issue #4): faster-whisper 1.2.1 opens audio with
     an argument PyAV 19 dropped (metadata_errors) — every file fails until av<19 is installed."""
     if "metadata_errors" in str(e):
         py = "py" if sys.platform == "win32" else "python3"

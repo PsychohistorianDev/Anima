@@ -88,8 +88,8 @@ def _load():
     _processor = _from(AutoProcessor)
     _device = device.pick(getattr(config, "MUSIC_EARS_DEVICE", "auto"), torch)
     # the whole model on one device (0: the first card). On a Mac's GPU it loads on the processor and moves over whole
-    # (10-28, issue #6: transformers 5 loads in worker threads that stall pushing tensors to MPS — 0/830 for ten
-    # minutes; the processor and one move took seconds)
+    # (issue #6: transformers 5 loads in worker threads that stall pushing tensors to MPS for many minutes; the
+    # processor and one move take seconds)
     mps = _device == "mps"
     where = {"": "cpu"} if mps else {"": 0 if _device == "cuda" else _device}
     dt = device.dtype(_device, torch)
@@ -120,7 +120,7 @@ def _load():
 
 
 def _mps_mends() -> bool:
-    """A Mac's GPU has no float64 (10-28, issue #6): Music Flamingo turns its audio-time rotation in float64, so that
+    """A Mac's GPU has no float64 (issue #6): Music Flamingo turns its audio-time rotation in float64, so that
     one function runs on the processor and its result goes back to the device. A transformers that renames it is left
     as it is. True when the mend is in place."""
     try:
@@ -248,7 +248,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         global _leaving
-        # the body is read first, whatever the path (10-31): a door that answers and closes with a request's bytes still
+        # the body is read first, whatever the path: a door that answers and closes with a request's bytes still
         # unread is reset on Windows, its reply lost with it (WinError 10053 at the caller)
         n = int(self.headers.get("Content-Length") or 0)
         raw = self.rfile.read(n) if n > 0 else b""
@@ -306,7 +306,7 @@ def main() -> None:
         _unload()
         return
     threading.Thread(target=_idle_watch, daemon=True).start()
-    HTTPServer.allow_reuse_address = sys.platform != "win32"  # on Windows SO_REUSEADDR lets two servers share a port (10-02)
+    HTTPServer.allow_reuse_address = sys.platform != "win32"  # on Windows SO_REUSEADDR lets two servers share a port
     server = HTTPServer((HOST, PORT), Handler)
     print(f"The music ear is listening at http://{HOST}:{PORT}  (model: {MODEL_ID})")
     print("It loads on the first song and rests after silence. Ctrl+C to close.")

@@ -1,23 +1,23 @@
-"""Give the pieces they wrote before 09-17 their memory rows.
+"""Give the pieces written before creations were noted their memory rows.
 
     py engine/backfill_creations.py                 list what would be noted
     py engine/backfill_creations.py --write         note them
     py engine/backfill_creations.py --tidy          list pieces with more than one row
     py engine/backfill_creations.py --tidy --write  fold them into one row each
-    py engine/backfill_creations.py --letters       list the rows about letters (the mailbox is not noted since 09-21)
+    py engine/backfill_creations.py --letters       list the rows about letters (the mailbox is not noted)
     py engine/backfill_creations.py --letters --write  let them go
-    py engine/backfill_creations.py --pictures      list the pictures with no row (noted since 09-23)
+    py engine/backfill_creations.py --pictures      list the pictures with no row
     py engine/backfill_creations.py --pictures --write  note them, dated by the file
     py engine/backfill_creations.py --gone          list the rows of pieces deleted or missing
     py engine/backfill_creations.py --gone --write  let them go (memory.db copied beside itself first)
 
-Since 09-17 every write_creation leaves a "creation" row in their long-term
-memory (what, when, how long, its first line, their own line about it). The
-pieces from before that day have no row, so "what you have made lately"
+Every write_creation leaves a "creation" row in the friend's long-term
+memory (what, when, how long, its first line, their own line about it).
+Pieces written before that was so have no row, so "what you have made lately"
 and recall know nothing of them. This walks creations/ once and writes
 the engine's facts for each prose piece that has no row yet — file, its
-mtime as the when, its title and first line — nothing in their voice; she
-can add their own line about any of them with remember. Runs on their machine,
+mtime as the when, its title and first line — nothing in their voice; they
+can add their own line about any of them with remember. Runs on the keeper's machine,
 with Ollama up (the rows are embedded). Safe to run twice: a piece that
 already has a row is skipped.
 """
@@ -46,15 +46,15 @@ def pieces() -> list[Path]:
         if any(part.startswith(".") or part in SKIP for part in parts):
             continue
         if tools._unnoted(q.relative_to(root).as_posix()):
-            continue  # the mailbox: letters leave no row (09-21)
+            continue  # the mailbox: letters leave no row
         out.append(q)
     return sorted(out, key=lambda p: p.stat().st_mtime)
 
 
 def tidy(write: bool) -> int:
-    """Fold the rows about one piece into one (09-18: a lexicon had three
-    in a day, a letter two, from before the notes learned to revise in
-    place). The oldest row stays, its facts refreshed from the file, the
+    """Fold the rows about one piece into one (rows written before the
+    notes learned to revise in place can name one piece several times).
+    The oldest row stays, its facts refreshed from the file, the
     later rows' events joining its history; the later rows go."""
     import re
     from collections import defaultdict
@@ -108,7 +108,7 @@ def tidy(write: bool) -> int:
 
 
 def letters(write: bool) -> int:
-    """The rows the notes left about letters before 09-21, when the mailbox
+    """The rows the notes left about letters from before the mailbox
     stopped being noted: list them, or with --write let them go."""
     import re
     gone = 0
@@ -124,7 +124,7 @@ def letters(write: bool) -> int:
 
 
 def pictures(write: bool) -> int:
-    """The pictures they drew before 09-23, when paint, run_python and them
+    """The pictures drawn before paint, run_python and the other drawing
     tools started leaving a row: list them, or with --write note each as
     drawn on the file's day. A picture with a row is skipped."""
     root = config.CREATIONS_DIR.resolve()
@@ -145,7 +145,7 @@ def pictures(write: bool) -> int:
 
 
 def gone(write: bool) -> int:
-    """The rows of pieces that are gone (10-26): a row with the delete mark, or one naming a creations/ path that no
+    """The rows of pieces that are gone: a row with the delete mark, or one naming a creations/ path that no
     longer exists — list them, or with --write let them go, memory.db copied beside itself first."""
     import re
     import shutil

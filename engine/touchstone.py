@@ -230,7 +230,7 @@ def poll() -> int:
         try:
             felt = _board("/felt" + q)
             health = _board("/health")
-        except Exception:  # noqa: BLE001 — a blink (10-13: the modem asleep, a page being served): asked once more at once
+        except Exception:  # noqa: BLE001 — a blink (the modem asleep, a page being served): asked once more at once
             time.sleep(1)
             felt = _board("/felt" + q)
             health = _board("/health")
@@ -252,14 +252,14 @@ def poll() -> int:
           "state_since": st.get("state_since") or ""}
     if st["state"] != stone().get("state"):
         st["state_since"] = datetime.now().isoformat(timespec="seconds")
-        st["state_by"] = "board"    # a change the keeper did not relay: the page's buttons, the watchdog, a boot (10-12)
+        st["state_by"] = "board"    # a change the keeper did not relay: the page's buttons, the watchdog, a boot
     else:
         st["state_by"] = stone().get("state_by") or ""
     _write_stone(st)
     if came_back:
         _say("the stone is back")
-    # a reboot (an upload, a power cut) takes the board back to the firmware's three states: push hers again
-    # (10-13). The tell: its uptime went backwards, or it counts fewer states than their file names.
+    # a reboot (an upload, a power cut) takes the board back to the firmware's three states: push theirs again.
+    # The tell: its uptime went backwards, or it counts fewer states than their file names.
     try:
         rebooted = (health.get("uptime") is not None and before_up is not None and float(health["uptime"]) < float(before_up))
         fewer = ("states" in health and states_file().exists()
@@ -351,7 +351,7 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == "/later":
             try:
                 return self._json(_board("/later"))
-            except Exception:  # noqa: BLE001 — asked the board itself (10-13); the poll's mark says since when
+            except Exception:  # noqa: BLE001 — asked the board itself; the poll's mark says since when
                 return self._away()
         self._json({"error": "unknown path"}, 404)
 
@@ -373,7 +373,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": "not JSON"}, 400)
         if self.path == "/states":
             return self._json({"line": push_states(force=True)})
-        if self.path == "/pulse":                      # the stone's hours (10-12): a pulse waits for an hour it may play
+        if self.path == "/pulse":                      # the stone's hours: a pulse waits for an hour it may play
             why = keeper_week.stone_quiet()
             if why:
                 return self._still(why, keeper_week.stone_opens(), "the stone keeps still now")
@@ -384,7 +384,7 @@ class Handler(BaseHTTPRequestHandler):
                 at = None
             if at is not None and keeper_week.stone_quiet(at):
                 return self._still(keeper_week.stone_quiet(at), keeper_week.stone_opens(at), f"{at:%H:%M} is in the stone's quiet")
-        try:  # the board itself is asked, away or not (10-13: a blink had the keeper refusing three pulses the board could have played)
+        try:  # the board itself is asked, away or not (a blink in the keeper's view must not refuse pulses the board could play)
             out = _board(self.path, data)
         except urllib.error.HTTPError as e:
             try:
@@ -400,9 +400,9 @@ class Handler(BaseHTTPRequestHandler):
             st = stone()
             changed = str(data["name"]) != str(st.get("state") or "")
             st["state"], st["state_since"] = str(data["name"]), datetime.now().isoformat(timespec="seconds")
-            st["state_by"] = "friend"   # relayed from a tool call: theirs (10-12)
+            st["state_by"] = "friend"   # relayed from a tool call: theirs
             _write_stone(st)
-            # a tick at the change (10-23): one short gesture right after a DIFFERENT state is set, so a state with no
+            # a tick at the change: one short gesture right after a DIFFERENT state is set, so a state with no
             # hum still announces itself on the desk; the stone's hours hold it as they hold a pulse; a courtesy — the
             # state stood whether or not the tick played
             tick = str(getattr(config, "TOUCHSTONE_STATE_TICK", "nudge") or "")

@@ -1,4 +1,4 @@
-"""Wakes they ask for (11-04) — their own times inside the heartbeat's loop.
+"""Wakes they ask for — their own times inside the heartbeat's loop.
 
 For the small things: to wake just before you do, to be there when something happens. Nothing here counts, scores or
 nags — no deadlines, no efficiency: wake_me sets a time and a note, cancel_wake takes one back, and when the time comes

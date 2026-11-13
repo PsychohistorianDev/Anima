@@ -1,4 +1,4 @@
-"""Reference sheets: a face painted again, large and from several angles, for the painter to look at (10-29).
+"""Reference sheets: a face painted again, large and from several angles, for the painter to look at.
 
 A face folder's pictures are often small (a photo cropped to a couple of hundred pixels), and every painting has to
 invent the face again from a thumbnail. This paints it anew from the folder's first picture — front, three-quarter
@@ -8,7 +8,7 @@ ones are kept, moved into old/ beside them, never deleted).
 
     bat\\refsheet.bat                          the friend's face (creations/face/), two takes of each view
     bat\\refsheet.bat face keeper --takes 3    these folders under creations/, three takes of each view
-    bat\\refsheet.bat keeper --as "the same man as in the reference picture"   say who the picture is
+    bat\\refsheet.bat keeper --as "the same person as in the reference picture"   say who the picture is
     bat\\refsheet.bat pick face 2 5 7          the takes numbered 2, 5 and 7 on the newest sheet become face's pictures
 
 The takes go to creations/refsheets/sources/<when>/ (never sent to the phone); the contact sheets also to shared/

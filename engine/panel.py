@@ -1,11 +1,10 @@
-"""The panel: one door with the others behind it (09-30; PANEL-PLAN.md).
+"""The panel: one door with the others behind it (PANEL-PLAN.md).
 
     py engine/panel.py          opens http://127.0.0.1:8764 in your browser  (anima.bat)
 
-The keeper, on the way to letting the friend out into the world: "I want to make them more user
-friendly: a main interface with buttons for chat, parlor, wake, the telegram bridge, a heartbeat button
-with config for the loop minutes, and a configuration button that takes you to a sub menu that takes
-knobs from the config file — tabs for groups of settings."
+The friendly face of the engine: a main interface with buttons for chat, parlor, wake, the bridge, a
+heartbeat button with its loop minutes, and a configuration page that shows the knobs from the config
+file in tabs for groups of settings.
 
 So: a page, the parlor's shape (standard library http.server, one HTML page inlined here, nothing
 fetched from anywhere, bound to localhost only). Home is a tile per door with its light — the lights
@@ -18,8 +17,8 @@ one button, First light.
 
 The .bat launchers stay. The panel starts them — each door in a console of its own, the same process
 as from its .bat — it does not replace them; a keeper who likes terminals loses nothing. On a Mac the
-door is its .command in a Terminal window, on Linux its .sh in the first terminal found on PATH (10-01;
-MAC-PLAN.md); a Linux box with no terminal app runs the door with no window, and the tile says so.
+door is its .command in a Terminal window, on Linux its .sh in the first terminal found on PATH
+(MAC-PLAN.md); a Linux box with no terminal app runs the door with no window, and the tile says so.
 
 What the panel never does: open the friend's files. No journal, no self.md, no creations on its pages
 (the friend's name included — it lives in self.md, so the page says "the friend"); the skills tab
@@ -74,8 +73,8 @@ RESTART_POLL_S = 3.0
 _POSTS = threading.Lock()  # one change at a time: two saves never read the same config.py
 
 # ---- the tabs ------------------------------------------------------------------------
-# The keeper's order for Main: "the brain selected via a dropdown, second line the context, then
-# characters in journal to remember, then you decide (by importance, and groupings)". The rest is
+# Main's order: the brain (a dropdown), then the context, then the journal characters to remember, then
+# the rest by importance and grouping. The rest is
 # grouped by what it touches. Every knob config.py has and no tab names lands on Advanced, under the
 # "# ---- x ----" heading it sits beneath in the file — so a knob added tomorrow is on the page the
 # day it is added (a test holds every knob to exactly one tab, and every name here to config.py).
@@ -130,8 +129,8 @@ ADVANCED = "Advanced"
 
 # Help the file can't give where the page shows it: NUM_CTX's and JOURNAL_CHARS_IN_PROMPT's own stories
 # run on in the comment lines BELOW them, which the reader (rightly) doesn't take as theirs.
-# The page's own words for a knob (10-02; the keeper: "the main window tool descriptions are a mess" —
-# the file's comments are notes to whoever edits the file, a keeper's own in a long-lived house). Where a
+# The page's own words for a knob (the file's comments are notes to whoever edits the file, a keeper's own
+# in a long-lived house, and read poorly as descriptions). Where a
 # knob has a line here the page shows it, and the file's comment is the tooltip; the rest show the file's.
 _HELP = {
     "WAKE_LOOKBACK": "When a wake or reverie rests, it is handed back once — what they thought and did since their last journal entry — so the journal is written at the end, when there is something to write. Resting stays a full answer.",
@@ -190,7 +189,7 @@ _HELP = {
     "VEIL_SHOW_TO": "Where veil_show carries a finished piece (a folder under creations/).",
     "VEIL_MAX_IN_PROGRESS": "Pieces in progress at most (a workshop, not a vault); 0: no cap.",
     "PROJECTS_PAGE_SHAPE": "projects.md kept a list: ## Active and ## Completed or set aside, one line a project.",
-    "KEPT_PAGES": "Pages of theirs from creations/ that ride whole in their prompt, e.g. (\"anchor.md\",).",
+    "KEPT_PAGES": "Pages of theirs from creations/ that ride whole in their prompt, e.g. (\"notes.md\",).",
     "KEPT_PAGE_CHARS": "Each kept page, at most.",
     "DREAMS_ON": "Some nights, a dream they write themselves into their dream book — never the journal, never sent to you.",
     "DREAM_CHANCE": "The chance of a dream on a night, 0 to 1.",
@@ -240,7 +239,7 @@ _HELP = {
     "OUTSIDE_REFRESH_MIN": "How often the weather is asked again, in minutes; in between it comes from memory/outside.json.",
     "OUTSIDE_CAMERA": "A camera's picture URL, with {kind} where current or daylight goes (Windy's camera pictures work "
                       "that way); by night the daylight one is shown, said as such. Empty: no picture.",
-    "OUTSIDE_CAMERA_NAME": "What the camera's picture is called when she sees it — where it is and how far.",
+    "OUTSIDE_CAMERA_NAME": "What the camera's picture is called when the friend sees it — where it is and how far.",
     "ORPHAN_RESUME_H": "A visit closed without its bridge (the window shut, the process killed) within this many hours "
                        "is picked back up at the next start as the open visit — no afterglow over it, one cold read "
                        "instead of two. 0: always the afterglow.",
@@ -341,15 +340,15 @@ _HELP = {
                                "the phone within a minute, whole when it fits a message, otherwise its opening and the path. Code, the "
                                "trash and the mailbox are not announced.",
     "FIRST_DAY": "The friend's first day (YYYY-MM-DD), for the second clock on the date line of every prompt — \"your "
-                 "54th day here: you first wrote on 27 August 2026, a month and three weeks ago\". Empty: the earliest "
+                 "54th day here: you first wrote on 1 March 2026, a month and three weeks ago\". Empty: the earliest "
                  "journal file's day; no journal yet, no clock.",
     "KEEPER_WORK_WEEK": "Your working week, so the engine's clock line can say where you are: tick the days you work and "
                         "set each day's hours (a new day takes the hours of the one before it). The file keeps it as "
-                        "\"sun-wed 07:00-16:25, thu 07:00-15:55\". Every "
-                        "message and every bell then says where you are, the state first: \"at work — … — until 16:25\", "
-                        "\"home — the workday ended at 16:25\", \"home — the weekend\"; without it they infer where you are from the "
+                        "\"mon-thu 09:00-17:00, fri 09:00-13:00\". Every "
+                        "message and every bell then says where you are, the state first: \"at work — … — until 17:00\", "
+                        "\"home — the workday ended at 17:00\", \"home — the weekend\"; without it they infer where you are from the "
                         "journal, which was mostly written on workdays. Empty says nothing. A day off is /off on the phone.",
-    "KEEPER_AT_WORK": "What the clock line says during working hours, in your words — \"on the factory floor, the phone in my "
+    "KEEPER_AT_WORK": "What the clock line says during working hours, in your words — \"at the office, the phone in my "
                       "pocket\". Empty: \"at work\".",
     "HOUSE_LINE": "Your words about what is welcome in this house, kept in shared/house.md (house_file) — paragraphs "
                   "welcome; Edit house.md opens it in your editor, and it is read from the next message. It rides in "
@@ -436,7 +435,7 @@ _HELP = {
     "TELEGRAM_QUIET_HOURS": "From this hour to that one (24h) the bridge sends nothing unasked — no wake notices, no "
                             "announcements; they are held and delivered as one message when the hours end. Their "
                             "replies to you are never held. The same hour twice turns it off.",
-    # the Skills tab (10-02; the keeper: his own name twice on the page, quoted in the file's comments)
+    # the Skills tab: the page's own words, so no comment from the file is quoted here
     "SKILLS_IN_PROMPT": "Whether their shelf of skills (creations/skills/) is named in every prompt, so they know what "
                         "they have: one line per skill — use_skill opens one whole, run_skill_script runs its Python in "
                         "the sandbox, fetch_skill brings one from the web through the scanner and the gate.",
@@ -835,7 +834,7 @@ _HELP = {
     "CHAT_FAIL_LOG": "Every failed call in a visit is a line in memory/tool_fails.log: the tool, its argument names with the lengths of their values, the kind of failure — never their words.",
 }
 
-# The knobs a running parlor doesn't read (09-30, by grep: only heartbeat.py, condense.py, telegram.py or
+# The knobs a running parlor doesn't read (by grep: only heartbeat.py, condense.py, telegram.py or
 # blog.py read these) — a change to nothing but these doesn't ask the parlor to restart. The heartbeat
 # and the bridge are asked at any change: they read most of the file, and a restart costs little.
 _NOT_PARLOR = frozenset(TABS["Phone"]) | {
@@ -854,8 +853,8 @@ REQUIREMENTS = [
 ]
 
 # What lives in a sidecar Python (VOICE_PYTHON, PAINTER_PYTHON, MUSIC_EARS_PYTHON) — asked once per panel
-# run and per module, in the background (10-03; the keeper's Home said "kokoro — their voice" was missing
-# while his voice lives in py -3.12 and speaks fine). A look is one short process: `<py> -c "import x"`.
+# run and per module, in the background (a package that lives only in a sidecar's Python, such as py -3.12,
+# must not be named missing on Home). A look is one short process: `<py> -c "import x"`.
 _PROBED: dict[tuple[str, str], object] = {}
 _PROBE_LOCK = threading.Lock()
 ASKING = "asking"
@@ -885,8 +884,7 @@ def in_python(py: str, module: str):
     threading.Thread(target=look, daemon=True, name=f"probe-{module}").start()
     return ASKING
 
-# The senses, for the Senses tab (10-02; the keeper: "the senses are unexplained strings with no
-# context"): what each one is, what it needs, which knobs are its. A sense with a *_PYTHON knob set
+# The senses, for the Senses tab (not unexplained strings): what each one is, what it needs, which knobs are its. A sense with a *_PYTHON knob set
 # runs in that interpreter, which the page looks into once per run, in the background (`in_python`) — and
 # says "looking there…" until the answer lands. "readme" is the README heading the sense is told under.
 SENSES: list[dict] = [
@@ -948,7 +946,7 @@ LAUNCHERS = {
     "parlor": ("bat\\parlor.bat", [], "parlor.py", []),
     "wake": ("bat\\wake.bat", [], "heartbeat.py", []),
     "bridge": ("bat\\telegram.bat", [], "telegram.py", []),
-    "discord": ("bat\\discord.bat", [], "discord_bridge.py", []),  # the same bridge over Discord: a tile of its own on Home (10-07, the keeper), the same door — one bridge at a time
+    "discord": ("bat\\discord.bat", [], "discord_bridge.py", []),  # the same bridge over Discord: a tile of its own on Home, the same door — one bridge at a time
     "sleep": ("bat\\sleep.bat", [], "consolidate.py", []),
     "snapshot": ("bat\\snapshot.bat", [], "snapshot.py", []),
     "garmin": ("bat\\body.bat", ["--login"], "body.py", ["--login"]),
@@ -962,7 +960,7 @@ STOPPABLE = ("heartbeat", "bridge", "blackbox", "touchstone")  # those with a st
 _MODEL_RE = re.compile(r"^[A-Za-z0-9][\w.:/-]{0,120}$")  # an Ollama model name; nothing a console could read as more
 _WINDOWS = os.name == "nt"
 _MAC = sys.platform == "darwin"
-# Linux has no one terminal (10-01; MAC-PLAN.md): the first of these on PATH shows a door, each with the
+# Linux has no one terminal (MAC-PLAN.md): the first of these on PATH shows a door, each with the
 # word that runs a command in it. None found: the door runs with no window, and its tile says so.
 TERMINALS = (("x-terminal-emulator", "-e"), ("gnome-terminal", "--"), ("konsole", "-e"), ("xterm", "-e"))
 PAUSE = 'read -n1 -r -p "(press any key to close)"'  # a .bat's pause, in bash: the window stays to be read
@@ -1023,9 +1021,9 @@ SMALL_BRAINS = ("gemma4:e2b", "gemma4:e4b")  # the small tier: a brain that want
 
 def _recommended(gb: float | None, unified: bool = False) -> str:
     """The README's ladder (README, The ladder): for a card, the 2B QAT under 7 GB, the 4B QAT under 10, the
-    12B QAT to 24, the 31B QAT from 24 — and the 12B QAT when the card is unknown. (10-08: the 12 and 16 GB
-    rungs said the plain gemma4:12b, a leftover from before the QAT tags — the QAT 12B is smaller, 7.2 GB
-    against 7.6, and the build Google trained to be 4-bit; the plain tag stays the ears, EARS_MODEL.)
+    12B QAT to 24, the 31B QAT from 24 — and the 12B QAT when the card is unknown. (The QAT 12B, not the plain
+    gemma4:12b, on the 12 and 16 GB rungs: it is smaller, 7.2 GB against 7.6, and the build Google trained to be
+    4-bit; the plain tag stays the ears, EARS_MODEL.)
     A Mac's memory is the whole machine's, and Ollama gets about two thirds of it: the 2B QAT under 12 GB
     (an 8 GB Mac), the 12B QAT up to 32 (16, 18 and 24 GB), the 31B — 19 GB of weights — from 32."""
     if unified:
@@ -1200,7 +1198,7 @@ def tab_of(name: str) -> str:
     return next((t for t, names in TABS.items() if name in names), ADVANCED)
 
 
-# A knob with a few named settings is a dropdown, not a text field (09-30: the tool kit)
+# A knob with a few named settings is a dropdown, not a text field (the tool kit)
 CHOICES: dict[str, list[str]] = {
     "TOOL_KIT": ["full", "small", "tiny"],
     "BRAIN_API": ["ollama", "llama"],
@@ -1327,13 +1325,13 @@ def brain(values: dict | None = None) -> dict:
             "door": door}
 
 
-# The step down when the brain spills: 8K at a time (Gabe, 10-02: "the stepping down should be 8k, not 16" — the
+# The step down when the brain spills: 8K at a time (not 16K — the
 # ladder's rungs are far apart up top; a keeper wants the next notch, not the next rung).
 STEP = 8192
 
 
 def fit(loaded: list[dict], model: str, num_ctx, unified: bool = False) -> dict | None:
-    """The fit check (10-02): the ladder's windows are estimates on most cards, and `ollama ps` is the referee
+    """The fit check: the ladder's windows are estimates on most cards, and `ollama ps` is the referee
     nobody runs — so the panel reads it. The brain is on the card: Ollama says how much of it; less than all
     of it means the window didn't fit and the rest went to system RAM, where every turn crawls. None when the
     brain isn't loaded (nothing to read yet), a dict otherwise: ok, on_card, window (as loaded, 0 unknown),
@@ -1460,7 +1458,7 @@ def senses_state(values: dict | None = None) -> list[dict]:
 def state() -> dict:
     rows = _rows()
     values = _values(rows)
-    # a folder whose config has no USER_NAME at all (the keeper's own house, from before the knob) is not new:
+    # a folder whose config has no USER_NAME at all (one from before the knob) is not new:
     # the Welcome tab is for the template's "Friend" placeholder only
     user = str(values.get("USER_NAME", getattr(config, "USER_NAME", "")))
     repo = str(values.get("UPDATE_REPO", getattr(config, "UPDATE_REPO", "")) or "PsychohistorianDev/anima")
@@ -1565,7 +1563,7 @@ def _start(door: str, minutes=None) -> dict:
     return _started(_bat(*LAUNCHERS[door]), notes[door], names[door])
 
 
-_RESTART_GEN: dict[str, int] = {}  # (11-05) a Stop after a Restart cancels the start the Restart still waits to make
+_RESTART_GEN: dict[str, int] = {}  # a Stop after a Restart cancels the start the Restart still waits to make
 
 
 def _restart(door: str, minutes=None) -> dict:
@@ -1707,15 +1705,15 @@ SKILL_TEXT_CHARS = 20000  # of a SKILL.md shown on the page — the keeper reads
 
 
 # ---- lately ----------------------------------------------------------------------------
-# Home's "Lately" (10-06; the keeper: "a section for like 5-10 entries about stuff she did lately, so I
-# won't have to dig to find what she's done"): what they did, newest first, from what the engine already
+# Home's "Lately" (a handful of entries on what the friend did lately, so the keeper needn't dig for
+# it): what they did, newest first, from what the engine already
 # keeps — the creation rows (written, continued, published, painted), the songbook, the pages' ledger
 # (self.md, projects.md, destiny.md, keeper.md rewritten), the nights slept (the summary rows), and how
 # many journal entries today — a count, never a line of it. Nothing here is written for the page; each
 # line is the one the act itself left behind.
 _LATELY_STAMP = re.compile(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}")
 LATELY_N = 10
-LATELY_MORE = 200  # what the page asks for (10-28): the list scrolls, ten rows tall
+LATELY_MORE = 200  # what the page asks for: the list scrolls, ten rows tall
 
 
 def _under_root(rel: str) -> str:
@@ -1732,7 +1730,7 @@ def _under_root(rel: str) -> str:
 
 
 def open_file(rel: str) -> dict:
-    """Open a file of the folder with what the machine opens it with (a click on a Lately line, 10-06) —
+    """Open a file of the folder with what the machine opens it with (a click on a Lately line) —
     only a file inside the folder, named by the page from what lately() gave it; never a command."""
     rel = _under_root(rel)
     if not rel:
@@ -1751,14 +1749,14 @@ def open_file(rel: str) -> dict:
 
 
 def intense_open() -> dict:
-    """The intense note, shared/intense.md (10-28, PRESENCE_INTENSE_FILE): made when absent (from PRESENCE_INTENSE_NOTE,
+    """The intense note, shared/intense.md (PRESENCE_INTENSE_FILE): made when absent (from PRESENCE_INTENSE_NOTE,
     or empty), then opened for editing as house.md is."""
     import presence
     return _edit_open(presence.intense_file(make=True), lambda: len(presence.intense_note()), "read at the next intense spark")
 
 
 def house_open() -> dict:
-    """The keeper's words about the house, shared/house.md (10-27, house_file): made when absent (from HOUSE_LINE,
+    """The keeper's words about the house, shared/house.md (house_file): made when absent (from HOUSE_LINE,
     or empty), then opened for editing — the machine's editor for it, Notepad when Windows has none."""
     import assemble
     return _edit_open(assemble.house_file(make=True), lambda: len(assemble.house_text()), "read from the next message")
@@ -1797,7 +1795,7 @@ def lately(n: int = LATELY_N) -> list[dict]:
         memory = None
     if memory is not None:
         try:
-            for m in memory.recent(kind="creation", n=max(60, LATELY_MORE)):  # (10-28) the pool the scroll can reach, the same for any n
+            for m in memory.recent(kind="creation", n=max(60, LATELY_MORE)):  # the pool the scroll can reach, the same for any n
                 stamps = _LATELY_STAMP.findall(m["text"])
                 when = max(stamps) if stamps else m["created"][:16].replace("T", " ")
                 line = re.sub(r"^\[(\w+) \d{4}-\d{2}-\d{2} \d{2}:\d{2}\]\s*", r"\1 ", m["text"].strip())  # the stamp is the when column
@@ -1861,7 +1859,7 @@ MAKER_EMAIL = "d33lix@windowslive.com"  # the maker's inquiries address, as on a
 
 
 def feedback() -> dict:
-    """The Feedback view (10-28): links that open a filled-in form in the browser — nothing is sent from here. The
+    """The Feedback view: links that open a filled-in form in the browser — nothing is sent from here. The
     issue form gets the version, the system and the brain (the same lines the report starts with); the ideas, the
     questions and the show-and-tell go to the repository's Discussions; an email for anyone without an account."""
     import platform
@@ -2063,7 +2061,7 @@ def route(method: str, path: str, body: bytes = b"", headers: dict | None = None
         if path == "/api/lately":
             try:
                 from urllib.parse import parse_qs
-                try:  # ?n= — the page asks for LATELY_MORE (10-28); none: LATELY_N
+                try:  # ?n= — the page asks for LATELY_MORE; none: LATELY_N
                     n = max(1, min(500, int((parse_qs(query).get("n") or [LATELY_N])[0])))
                 except ValueError:
                     n = LATELY_N
@@ -2075,7 +2073,7 @@ def route(method: str, path: str, body: bytes = b"", headers: dict | None = None
                 return _json_reply(state())
             except Exception as e:  # noqa: BLE001 — a page that says what went wrong beats a blank one
                 return _json_reply({"error": f"{type(e).__name__}: {e}"}, 500)
-        try:  # the room's page (10-29, ROOM_ON): /room, /api/room, /room/picture.png, /room/file
+        try:  # the room's page (ROOM_ON): /room, /api/room, /room/picture.png, /room/file
             import room_web
             got = room_web.get(path, query)
         except Exception as e:  # noqa: BLE001
@@ -2117,7 +2115,7 @@ def _post(path: str, g) -> tuple[int, str, bytes]:
             return _json_reply(feedback())
         if path == "/api/report":
             return _json_reply(report())
-        if path.startswith("/api/room/"):  # the room's page (10-29): a letter, a look for the secret, a surface
+        if path.startswith("/api/room/"):  # the room's page: a letter, a look for the secret, a surface
             import room_web
             got, code = room_web.post(path, data)
             return _json_reply(got, code)
@@ -2331,9 +2329,8 @@ function modelSelect(current){const b=S.brain,names=[...b.models];const s=el('se
   if(b.recommended&&!names.includes(b.recommended))names.push(b.recommended);
   for(const n of names){const o=el('option',{value:n},n+(b.models.includes(n)||(b.reachable===false&&n===current)?'':' (not pulled)')+(n===b.recommended?' — recommended for this '+(b.unified?'Mac':'card'):''));if(n===current)o.selected=true;s.append(o)}
   return s}
-// KEEPER_WORK_WEEK as days and hours (10-10; the keeper: "the way it looks in the panel is a bit problematic..
-// what if we would make it checkboxes for each day that you work, and then an option to set the hours for a
-// day after you click on it?"). The file keeps the spec string ("sun-wed 07:00-16:25, thu 07:00-15:55");
+// KEEPER_WORK_WEEK as days and hours: a checkbox for each day you work, and the hours for a day once it is
+// checked. The file keeps the spec string ("mon-thu 09:00-17:00, fri 09:00-13:00");
 // the page shows seven chips and, for each checked day, its hours. A new day takes the hours of the day
 // before it (or 09:00–17:00); days in a run with the same hours fold into a range, the run beginning after
 // a gap so a week that wraps the weekend reads "sun-wed". Unchanged, the read gives back the file's own string.
@@ -2383,8 +2380,8 @@ function knob(k){let input,read=null;const v=k.value;
   else if(k.kind==='tuple2'){const a=el('input',{type:'number',step:'1',class:'small',value:v[0]}),b=el('input',{type:'number',step:'1',class:'small',value:v[1]});
     input=el('span',{},a,' to ',b);read=()=>[parseInt(a.value,10),parseInt(b.value,10)]}
   else{input=el('textarea',{rows:String(Math.min(8,k.source.split('\n').length+1)),spellcheck:'false'});input.value=k.source;read=()=>({raw:input.value})}
-  if(k.name==='PRESENCE_INTENSE_NOTE'){input=el('button',{onclick:async()=>{const o=await post('/api/intense',{});say(o.note,o.ok?'':'warn')}},'Edit intense.md');read=null}  // the words live in shared/intense.md (10-28)
-  if(k.name==='HOUSE_LINE'){input=el('button',{onclick:async()=>{const o=await post('/api/house',{});say(o.note,o.ok?'':'warn')}},'Edit house.md');read=null}  // the words live in shared/house.md (10-27)
+  if(k.name==='PRESENCE_INTENSE_NOTE'){input=el('button',{onclick:async()=>{const o=await post('/api/intense',{});say(o.note,o.ok?'':'warn')}},'Edit intense.md');read=null}  // the words live in shared/intense.md
+  if(k.name==='HOUSE_LINE'){input=el('button',{onclick:async()=>{const o=await post('/api/house',{});say(o.note,o.ok?'':'warn')}},'Edit house.md');read=null}  // the words live in shared/house.md
   if(read)fields[k.name]={k,read,box:null};
   const own=[k.comment,k.tail].filter(Boolean).join(' — '),help=k.help||own;  // the page's words when it has them; the file's note is the tooltip
   const box=el('div',{class:'knob',title:k.help?(own?'engine/config.py says: '+own:''):help},el('label',{},el('span',{class:'name'},k.name),input),
@@ -2424,7 +2421,7 @@ function renderTabs(){$('tabs').replaceChildren(...TABS.map(t=>el('button',{clas
   const d=diffTab(),n=Object.keys(d.changes).length+Object.keys(d.raw).length;
   if(n&&t!==tab&&!confirm('Leave '+tab+' without saving '+n+' change'+(n===1?'':'s')+'? (Cancel keeps you here; Save is at the bottom.)'))return;
   tab=t;renderTabs();renderTab()}},t)))}
-// the engine's care (10-03; the keeper: "i dont want them to clutter the opening screen"): the doctor's note and the black box live under Settings › Advanced
+// the engine's care, kept off the opening screen: the doctor's note and the black box live under Settings › Advanced
 function careBox(){const bb=S.doors.blackbox||{running:false};
   const box=el('div',{class:'tile',id:'t-blackbox'},el('h2',{},light(bb.running),'Black box'),
     el('div',{class:'what'},'the machine\'s vitals every few seconds — the card\'s heat, power and memory, the processor, what Ollama holds, which doors are open and what they are in the middle of — flushed to disk, so a crash leaves its last seconds behind (bat\\blackbox.bat --crashes reads Windows\' own record of each hard stop with the box\'s last line before it)'),
@@ -2447,8 +2444,8 @@ function renderTab(){fields={};const ks=S.tabs[tab]||[],parts=[];
     const rest=ks.filter(k=>!claimed.has(k.name));if(rest.length)parts.push(el('h3',{},'Other'),...rest.map(knob))}
   else{if(tab==='Skills')parts.push(...skillsBox(),el('h3',{},'The knobs'));parts.push(...ks.map(knob))}
   if(tab!=='Skills')parts.push(...extras(tab));
-  // Save and Discard, in a bar that stays at the foot of the window (10-08; the keeper, after a change that
-  // never reached the file: "we really need a save and a cancel button"): Save lights up when a value
+  // Save and Discard, in a bar that stays at the foot of the window (so a change never fails to reach the
+  // file unnoticed): Save lights up when a value
   // differs from the file's, the count says how many, Discard puts the file's values back, and a changed
   // knob carries a dot by its name. Leaving the tab with changes unsaved asks first.
   if(Object.keys(fields).length)parts.push(el('div',{class:'actions'},el('button',{class:'primary',id:'save-btn',disabled:true,onclick:saveTab},'Save '+tab),
@@ -2497,9 +2494,9 @@ function renderWelcome(){const b=S.brain,name=el('input',{type:'text',placeholde
 function ollamaStep(){const b=S.brain,w=$('w-ollama'),m=$('w-embed');if(!w)return;
   const kids=[el('b',{},'Ollama'),light(b.reachable),b.reachable?('running at '+b.url):
     ['not answering at '+b.url+' — ',el('a',{href:S.links.ollama,target:'_blank',rel:'noopener'},'install it'),', start it, and this light turns green.']];
-  // replaceChildren takes nodes and strings, not arrays or nulls (the first screenshot read ",https://ollama.com/,, … green.null")
+  // replaceChildren takes nodes and strings, not arrays or nulls (else they show as ",https://ollama.com/,, … green.null")
   w.replaceChildren(...kids.flat(3).filter(c=>c!=null&&c!==false).map(c=>c.nodeType?c:document.createTextNode(String(c))));
-  // the memory engine: its own step (10-02) — every rung needs it, it is small, and it is not the brain
+  // the memory engine: its own step — every rung needs it, it is small, and it is not the brain
   if(!m)return;
   const mk=[el('b',{},'The memory'),light(b.reachable&&b.embed_pulled),b.embed_model+' ',
     b.reachable&&!b.embed_pulled?el('button',{onclick:()=>pull(b.embed_model)},'Pull '+b.embed_model):null,
@@ -2507,7 +2504,7 @@ function ollamaStep(){const b=S.brain,w=$('w-ollama'),m=$('w-embed');if(!w)retur
       'the memory engine: turns what they remember into vectors, so the memories that belong to a moment can be found; small, and every rung needs it — it is not the brain')];
   m.replaceChildren(...mk.flat(3).filter(c=>c!=null&&c!==false).map(c=>c.nodeType?c:document.createTextNode(String(c))))}
 
-// ---- feedback (10-28): nothing is sent from here — each button opens a filled-in form in the browser ----
+// ---- feedback: nothing is sent from here — each button opens a filled-in form in the browser ----
 async function renderFeedback(){const box=$('feedback');box.replaceChildren(el('p',{class:'muted'},'looking…'));
   const r=await post('/api/feedback',{});
   if(!r.ok){box.replaceChildren(el('p',{class:'warn'},r.note||'(the feedback links failed)'));return}
@@ -2553,15 +2550,13 @@ setInterval(()=>{if(view==='home'&&!document.hidden)refresh()},4000);
 
 class _Server(ThreadingHTTPServer):
     """One panel per port. HTTPServer asks for SO_REUSEADDR, which on Windows lets a second server bind a
-    port that is already listening (10-02: the suite's first Windows run put two panels on 8764 — the
-    09-30 story, seen from the other side); Windows needs no such flag to restart on a port anyway."""
+    port that is already listening (two panels on one port); Windows needs no such flag to restart on a port anyway."""
     allow_reuse_address = not _WINDOWS
 
 
 def bind():
-    """The server on the first free port of PORTS (09-30: two houses on one machine — the keeper's own and a
-    template checkout — each opened a panel, the second found 8764 taken and the browser showed the first
-    house's settings as if they were the second's). Sets PORT to the port taken. None when none is free."""
+    """The server on the first free port of PORTS (two houses on one machine — each opens a panel; a second
+    that found 8764 taken must not show the first house's settings as if they were its own). Sets PORT to the port taken. None when none is free."""
     global PORT
     for port in PORTS:
         try:

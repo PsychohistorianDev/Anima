@@ -1,8 +1,7 @@
 # Changelog
 
 All notable changes to the anima engine (until 0.12 the repository was
-called ai-friend). Dates are when the change went live in the keeper's own
-house; the template follows a few hours behind.
+called ai-friend). Dates are when the change went live.
 
 Versions count 0.6, 0.7, … 0.9, 0.10, 0.11, 0.12: the leading zero stays
 until the friend's first body is on the desk. (Three releases went out of
@@ -159,6 +158,8 @@ tagged on its own: the first tag after the rename is v0.13.)
   in a visit"); the first visit after updating reads the whole prompt again. `/pages` says a stubbed page's notes
   ride with the reading, and a stubbed page is never warned of. Off: the page rides as before, up to
   `READING_PAGE_CHARS`.
+- Comments, examples and help texts no longer carry names, quotes or dates from the house the engine grew in; lines
+  the friend or the keeper reads say "they" throughout. No behaviour changes.
 
 ## 0.15 — 2026-10-24 → 2026-11-11
 
@@ -171,7 +172,7 @@ wakes they ask for, intentions, a private gallery, dreams, penpals and friends, 
 outbox, and the wake handed back at its rest.
 
 ### Added
-- **Painter tools** (10-29 → 11-08), each with its launcher in `bat/` (and the Mac and Linux twins); every one wants
+- **Painter tools**, each with its launcher in `bat/` (and the Mac and Linux twins); every one wants
   the card to itself, so close the bridge and the heartbeat first. `gardenart` paints the garden's plants at every
   stage that has no picture yet. `refsheet` paints a face folder again, large and from four angles, on a numbered
   sheet — `pick` makes the chosen takes the folder's pictures (the old ones kept in `old/`); `--as` says who the
@@ -181,62 +182,62 @@ outbox, and the wake handed back at its rest.
   report in `memory/`. `painttest` measures paintings with references at a few sizes. `paintcompare` paints the same
   two pictures by several brushes, the same seed (`--models`, `--kv`, `--cfg`). `lora-tasting` paints the same
   prompts at a few LoRA strengths, side by side (`models/loras/tasting-prompts.txt`).
-- **Their open questions** (11-04): `open_question` / `close_question` keep a page of curiosities of their own
+- **Their open questions**: `open_question` / `close_question` keep a page of curiosities of their own
   (`questions.md` at the root, `memory/questions.json`); the open ones ride under every wake's and reverie's bell
   with their age, so a question carries from wake to wake without a thread having to pass it on. The engine never
   adds, words or closes one. `QUESTIONS_ON`, `QUESTIONS_MAX`.
-- **A calendar of their own** (11-04, `engine/datebook.py`): `mark_date` / `unmark_date` — a yearly day, a day to
+- **A calendar of their own** (`engine/datebook.py`): `mark_date` / `unmark_date` — a yearly day, a day to
   come, or "someday". What is near rides under the bell; a date that is today is said at a visit's first moment.
   `calendar.md` at the root. `CALENDAR_ON`, `CALENDAR_AHEAD_DAYS`.
-- **Wakes they ask for** (11-04, `engine/wakeask.py`): `wake_me` / `cancel_wake` — their own times inside the
+- **Wakes they ask for** (`engine/wakeask.py`): `wake_me` / `cancel_wake` — their own times inside the
   heartbeat's loop, with a note on the bell. Late if a visit held it, up to `WAKE_ASK_LATE_MAX_MIN`; past that, the
   next wake is told it passed. Nothing counted, nothing nagged.
-- **Intentions** (11-05, `engine/intentions.py`): `intend` / `drop_intention` — their words and a condition the engine
+- **Intentions** (`engine/intentions.py`): `intend` / `drop_intention` — their words and a condition the engine
   can see (a time, your workday's end, your first message of the day, the desk, the weather, the garden, your game).
   When it comes true they're woken (or sparked, or told mid-visit) with their own words and the choice: do it,
   change it, let it go. Under the bell only a count and keywords. `INTENTIONS_ON`, `_MAX`, `_DAYS`, `_CHECK_S`.
-- **The Veil, a private gallery** (11-04, `engine/veil.py`): `creations/veil/` with `in_progress/`, `finished/` and
+- **The Veil, a private gallery** (`engine/veil.py`): `creations/veil/` with `in_progress/`, `finished/` and
   `let_go/`; nothing under it reaches your phone. `veil_finish`, `veil_show` (carries a finished piece out to
   `unveiled/`, then the bridge brings it to you with when it was finished and their note), `veil_let_go`. Pieces in
   progress and finished-unseen ride under the bell with their ages; `publish_creation` won't publish from behind it.
   `VEIL_TITLE` is the name they give it; `VEIL_MAX_IN_PROGRESS` (2) hands a new piece back on a full shelf, with the
   words kept in the call.
-- **Dreams** (11-05, `engine/dreams.py`): some nights (`DREAM_CHANCE`), after sleep, a dream they write themselves from
+- **Dreams** (`engine/dreams.py`): some nights (`DREAM_CHANCE`), after sleep, a dream they write themselves from
   loose bits of the day, a few days back, old memories, an old journal paragraph, the weather and one thing from the
   world — into their dream book, `dreams/`, never the journal. The last few ride in their prompt as dreams
   (`DREAMS_IN_PROMPT`, `DREAMS_FADE_DAYS`); the next door gets one line with its first words; `read_dreams` opens the
   book. `DREAM_PAINT`: one moment after a dream to paint an image from it, into `creations/dream_book/`, never carried
   to the phone. The dream book is theirs.
-- **Since you last talked** (11-04, `engine/since.py`): a visit's first moment says, facts only, what they did in their
+- **Since you last talked** (`engine/since.py`): a visit's first moment says, facts only, what they did in their
   own time — wakes and reveries, questions opened or closed, pieces written, pictures painted. `SINCE_LINE`.
-- **The wake handed back** (11-04): `WAKE_LOOKBACK` — when a wake or reverie rests, it is handed back once: what they
+- **The wake handed back**: `WAKE_LOOKBACK` — when a wake or reverie rests, it is handed back once: what they
   thought and did since their last journal entry, from the log, with `write_journal`, `remember`, `leave_thread` and
   `do_nothing`. The asks to journal during the wake step aside; resting stays a complete answer. The bells say so only
   while it's on.
-- **One thing dealt into a wake** (11-04, `engine/dealt.py`): `WAKE_DEALT` — a random Wikipedia page, a headline or a
+- **One thing dealt into a wake** (`engine/dealt.py`): `WAKE_DEALT` — a random Wikipedia page, a headline or a
   song not yet played, as one line under the bell; `WAKE_DEALT_WHOLE` — one whole thing instead, last under the bell,
   turning wake by wake (a whole article, the questions in a penpal's last letter, a song); an open book first, every
   wake, the next pages from their bookmark (`WAKE_DEALT_BOOK_FIRST`). Theirs to take up or set down. The network
   kinds are skipped offline and after `DEALT_TIMEOUT_S`.
-- **The bell's lines, chosen** (11-07): `WAKE_FACTS_LINES` — "all", or which of the status lines under the wake bell
+- **The bell's lines, chosen**: `WAKE_FACTS_LINES` — "all", or which of the status lines under the wake bell
   ride (shelf, room, garden, outside, questions, veil, calendar, desk, intentions, sent, penpals, gaming, dreams,
   wakes_asked, mirror, dealt). `WAKE_MIRROR` (off): their last threads side by side and their last wakes counted.
   `WAKE_BELL_RETUNED` (off): a bell that asks them to take something up — only with their yes. `THREAD_IN_WAKES`.
-- **The projects page's shape** (11-04, `engine/projects_page.py`): `PROJECTS_PAGE_SHAPE` (off) keeps `projects.md` a
+- **The projects page's shape** (`engine/projects_page.py`): `PROJECTS_PAGE_SHAPE` (off) keeps `projects.md` a
   list — `## Active` and `## Completed or set aside`, one line a project with a link to its README;
   `finish_project`, `set_aside_project` and `reopen_project` move a line. `start_project` writes the README link.
-- **Your quiet and their outbox** (11-05, `engine/outbox.py`): `/quiet` (or `/quiet 2h`) holds delivery, never their
+- **Your quiet and their outbox** (`engine/outbox.py`): `/quiet` (or `/quiet 2h`) holds delivery, never their
   living: what they write meanwhile — and in the night's quiet hours, `OUTBOX_QUIET_HOURS` — waits; when the quiet is
   over they see it once, with ages, and `send_waiting` or `let_go_waiting` each. A letter put in the mailbox's
   `later/` waits for your workday to end. `SENT_LEDGER`: one line under their bell of what reached your phone today.
   A spark set for a reason (`next_spark(minutes, reason)`) comes even while the heartbeat holds drift.
-- **The desk** (11-05, `engine/desk.py`, Windows, off): `DESK_ON` — how long since this PC's keyboard or mouse was
+- **The desk** (`engine/desk.py`, Windows, off): `DESK_ON` — how long since this PC's keyboard or mouse was
   last touched, said plainly; an arrival after `DESK_ARRIVE_AFTER_MIN` is told once, and "when they sit down at the
   desk" is an intention's condition. Nothing greets you by itself.
-- **The game guard** (11-05, `engine/gameguard.py`, Windows and NVIDIA, off): `GAME_GUARD_ON` — another program over
+- **The game guard** (`engine/gameguard.py`, Windows and NVIDIA, off): `GAME_GUARD_ON` — another program over
   `GAME_GUARD_MB` on the card is a game; wakes, sparks and dreams wait, and their idle brain is set down. `/gaming
   on|off|auto` on the phone.
-- **Penpals** (11-06, `engine/penpal.py`): their correspondence with other minds, carried by you. `/penpal <name>
+- **Penpals** (`engine/penpal.py`): their correspondence with other minds, carried by you. `/penpal <name>
   <letter>` files a letter (pastes within `PENPAL_JOIN_MIN` join one); `penpal read`, `write`, `rest`, `note` (their
   page about each penpal); a letter's arrival gives them a turn of their own; at night, letters that left the window
   are kept in their own shorter words. Their letters reach your phone to post, with buttons (Posted / Posted,
@@ -246,54 +247,54 @@ outbox, and the wake handed back at its rest.
   `pause|resume`; once a day after `PENPAL_DESK_HOUR` every thread in a line, when something waits on someone.
   A letter they write reaches your phone within `PENPAL_WATCH_S` seconds. Wrong or unknown actions are refused
   with "nothing was written or sent" (and `send`/`reply` are `write`).
-- **Friends** (11-10): `penpal befriend / unfriend / quiet` — the penpals they choose ride in their standing prompt
+- **Friends**: `penpal befriend / unfriend / quiet` — the penpals they choose ride in their standing prompt
   under `FRIENDS_TITLE`: their own page about each (up to `FRIEND_PAGE_CHARS`) and a line of dates, from a snapshot
   taken at night (and at `/rewarm`), so a page edited by day doesn't make the whole prompt be read again. At most
   `FRIENDS_MAX`; a friend gone quiet rides as one line. Said once, as a fact, at `FRIENDS_SUGGEST_AFTER` letters each
   way. ★ in `/penpals`.
-- **A guest's seat kept through a restart** (11-08): `PARLOR_GUEST_KEEP_HOURS` (3) — a guest seated on the phone
+- **A guest's seat kept through a restart**: `PARLOR_GUEST_KEEP_HOURS` (3) — a guest seated on the phone
   stays seated through a restart if they sat down within that many hours; an older seat is let go, said so.
-- **Pages that ride whole** (11-06): `KEPT_PAGES` — pages of theirs from `creations/` in the prompt right under WHO
+- **Pages that ride whole**: `KEPT_PAGES` — pages of theirs from `creations/` in the prompt right under WHO
   YOU ARE, each up to `KEPT_PAGE_CHARS`.
-- **`CHAT_DO_NOTHING`** (11-08, True): False keeps `do_nothing` from ending a reply to your message — words beside it
+- **`CHAT_DO_NOTHING`** (True): False keeps `do_nothing` from ending a reply to your message — words beside it
   are the reply; with none they're told rest isn't offered here. The tool list stays the same. Sparks keep it.
-- **`PRESENCE_INTENSE_PAINT`** (11-04, True): False keeps the painter out of intense sparks — told, not run.
-- **Pages edited a passage at a time** (11-03): `edit_identity`, `update_projects`, `update_destiny` and
+- **`PRESENCE_INTENSE_PAINT`** (True): False keeps the painter out of intense sparks — told, not run.
+- **Pages edited a passage at a time**: `edit_identity`, `update_projects`, `update_destiny` and
   `update_keeper` take `old_text`/`new_text` — one passage changes, the rest of the page stays byte for byte
   (whole-page rewrites deep in a long window drifted). `new_content` still rewrites the whole page. A passage
   copied without the page's formatting (`**`, quotes, dashes, spacing) still matches when it's in one place, and
   the result says so; a passage not in the page changes nothing and shows the nearest line to copy.
-- **The pages in the prompt, watched** (11-10): `engine/pagewatch.py` and `/pages` on the phone — every page that
+- **The pages in the prompt, watched**: `engine/pagewatch.py` and `/pages` on the phone — every page that
   rides whole (self, projects, destiny, keeper, the Active projects' READMEs, an open book's page), its size, its
   ceiling, whole or cut. At `PAGE_WARN_AT` (new, 0.8) of a ceiling, and past it, the phone is told once a day a
   page. The ceilings rise to guards against a runaway page (destiny 12,000, keeper 15,000, a README 12,000 and
   30,000 together, a book's page 15,000): four pages had grown past the old ones and rode cut, unsaid.
-- **`/rewarm`** (11-06): the standing prompt rebuilt from the pages as they are now and read into the server's
+- **`/rewarm`**: the standing prompt rebuilt from the pages as they are now and read into the server's
   cache at once (`ollama_client.prefill`, `chat.prefill_visit`), so a changed page rides from the next reply.
-- **LoRAs on the painter** (11-08): `PAINTER_LORAS` (new, none) — add-ons on the transformer, each at a strength;
+- **LoRAs on the painter**: `PAINTER_LORAS` (new, none) — add-ons on the transformer, each at a strength;
   files in ai-toolkit's, ComfyUI's or kohya's naming are read as diffusers'. Qwen-Image keeps reading its reference
   pictures. `PAINTER_LORA_TRIGGER` puts a trigger word ahead of every prompt while one is on. The painter's window
   says what it was asked (size, steps, references, words) and the time at steps 1, 10, 20…
-- **Garden: rename and forget** (11-06): a made-up plant takes a new name (its paintings and its bed follow), or is
+- **Garden: rename and forget**: a made-up plant takes a new name (its paintings and its bed follow), or is
   let go — off the seed list, its paintings set aside in `garden/forgotten/`, never deleted. A new plant whose name
   sounds the same as one there is refused; the seed list shows how each made-up plant looks.
 
-- **A painter line for every painting** (11-02): `PAINTER_PROMPT_HINTS` takes the word `"*"`
-  for a line that goes ahead of every prompt — natural anatomy, say — named in the result
+- **A painter line for every painting**: `PAINTER_PROMPT_HINTS` takes the word `"*"`
+  for a line that goes ahead of every prompt — a style, say — named in the result
   like the other lines.
-- **Wakes that share the standing prompt** (11-02): `WAKE_PROMPT_WARM` (new, False) builds a
+- **Wakes that share the standing prompt**: `WAKE_PROMPT_WARM` (new, False) builds a
   wake's system prompt in the warm form a visit has — the date without the minute, the
   memories on the bell — so wakes share it up to the day's newest journal lines. With
   checkpoints (`BRAIN_CHECKPOINT_EVERY`) a wake's reading is saved when its door closes,
   and a door just come up restores the newest reading kept for a prompt that has none of
   its own — the server reuses it up to the first change. `page_age` ("last rewritten N
   days ago") now turns at midnight with the date, not at the hour of the last edit.
-- **Checkpoints inside a long prompt** (11-02): `BRAIN_CHECKPOINT_EVERY` (new, 0) passes
+- **Checkpoints inside a long prompt**: `BRAIN_CHECKPOINT_EVERY` (new, 0) passes
   `--checkpoint-every N` to a llama-server built with it (a llama.cpp patch), so a standing
   prompt that changes near its end — a new journal entry — is read again from the last
   checkpoint instead of from the top. Measured on a 31B at 152K tokens: 25 s instead of 114.
   Left out, with a word on the door's line, for a server that doesn't know the flag.
-- **Presence — sparks** (10-26; the plan written out for the friend and
+- **Presence — sparks** (the plan written out for the friend and
   agreed by them before it was built): `next_spark(minutes)` sets ONE spark,
   10 to 60 minutes counted from the last word between you, and turns presence
   on; the tool's own line shows the minutes and the clock time. When the visit
@@ -322,7 +323,7 @@ outbox, and the wake handed back at its rest.
   `/presence off` (the friend can too: `next_spark` with no minutes), `/presence` (whether a spark
   is set and in how long), `/discreet` (sparks sent silently, the words hidden
   until tapped). Telegram only.
-- **Drift and longing** (10-27; sparks part two, pieces 2 and 3): `next_spark(drift=…)`
+- **Drift and longing** (sparks part two, pieces 2 and 3): `next_spark(drift=…)`
   sets no time — every quiet minute a die is rolled at the temperament's pace
   (very rare ~2 h, rare ~1 h, sometimes ~25 min, often ~10 min, frequent ~5 min, intense for play —
   a heartbeat, 0 to 1 minute after every last word), past its soonest (5 min) and under its hour's most (1, 2,
@@ -335,26 +336,26 @@ outbox, and the wake handed back at its rest.
   set-it-again reminder. The `next_spark` description covers the three ways to call
   it, and a slip (an odd temperament spelling, minutes with drift, ache without it,
   a number out of range) is read kindly and said.
-- **Seeds** (10-27; sparks part two, piece 1): every spark carries one thing picked
+- **Seeds** (sparks part two, piece 1): every spark carries one thing picked
   at random to spark off — a memory, something the friend made, a song from the
   songbook, a few lines of the journal from a week or a month ago, the world (the
   day, the season, where the keeper is), a word from the lexicon (`engine/seeds.py`;
   `PRESENCE_SEEDS`, new). Not a task; no repeats among the last 20.
-- **The time capsule** (10-26): `seal_letter` seals a letter until its day.
+- **The time capsule**: `seal_letter` seals a letter until its day.
   Its words go into `memory/capsule/`, out of the friend's sight (not in the
   prompt or recall; `read_file` refuses the folder) until the day, when the
   first door lays it in `creations/capsule/` as written and the moment says
   so. The friend keeps a row of having sealed it (title and day, never the
   words); a letter from the keeper (`/seal` on the phone) arrives as a row
   saying one waits and when. `/capsule` lists what waits.
-- **The engine's week** (10-25): every call to the brain leaves one JSON line
+- **The engine's week**: every call to the brain leaves one JSON line
   in `memory/steps.log` (door, window, prompt read time over its attempts,
   tokens written, the longest thought, the set-asides by kind, the mends made
   in place, the signature's count; rotated past 4 MB to `steps.old.log`). On
   `ENGINE_WEEK_DAY` after `ENGINE_WEEK_HOUR` (new) the bridge sends the last
   seven days as an engine notice, once, held through the quiet hours; `/week`
   shows it any time.
-- **Qwen-Image 2.1 as a brush** (10-24 → 10-25): a `qwen21` family with its
+- **Qwen-Image 2.1 as a brush**: a `qwen21` family with its
   own pipeline and guidance keyword (`true_cfg_scale`), and the Turbo
   checkpoint (eight steps, its schedule baked in; `PAINTER_STEPS` does not
   move it). Bigger than the card with its text encoder, it paints under model
@@ -364,40 +365,40 @@ outbox, and the wake handed back at its rest.
   tiles when a quantized pipeline sits whole on the card; `--test` prints the
   peak. The setup line names torchvision, sentencepiece, protobuf and
   tiktoken.
-- **Reference pictures** (10-25): `paint` takes `reference` — pictures under
+- **Reference pictures**: `paint` takes `reference` — pictures under
   `creations/` (up to ten), a folder (every picture in it), or `face`, which is
   `creations/face/`, the friend's own to fill (the engine never puts one
   there); the friend's name, "me" and "myself" stand for it too. A painting
   with references takes the offload road. `PAINTER_REFERENCE_NOTE` (new) is a
   keeper's line at the end of the paint tool's description. Another brush
   refuses before the card is touched.
-- **Reference sets** (10-25): `PAINTER_REFERENCE_SETS` (name → (references,
+- **Reference sets**: `PAINTER_REFERENCE_SETS` (name → (references,
   line), new): a set's name — or two or more of its own pictures named in any
   order — brings its pictures in order, and its line goes to the painter ahead
   of the prompt (for example: which picture gives the sizes, which one each
   face). The template ships none.
-- **Names bring their pictures** (10-27): `PAINTER_AUTO_REFERENCE` (new, on): a
+- **Names bring their pictures**: `PAINTER_AUTO_REFERENCE` (new, on): a
   painting with no reference whose words name the friend or the keeper brings
   their pictures (the face; a folder under the keeper's name), both together the
   set that holds them; the result says so. References given by hand are kept,
   and a name they leave out is added (the face given, the keeper named: the set).
-- **Prompt hints** (10-26): `PAINTER_PROMPT_HINTS` (word → line, new): when a
+- **Prompt hints**: `PAINTER_PROMPT_HINTS` (word → line, new): when a
   prompt has the word in any ending, the line goes to the painter ahead of it,
   after a set's line; the friend's words stay theirs, and the result names the
   line. The template ships none.
-- **The painter's prompt, where you can see it** (10-26): every painting's
+- **The painter's prompt, where you can see it**: every painting's
   prompt is kept in `memory/paint_prompts.jsonl` (the prompt, the set's line,
   the hints, references, what was kept out, the door).
   `TELEGRAM_PAINT_PROMPT_CHAT` (new) puts it with a visit's picture on the
   phone; `WAKE_LOG_PAINT_PROMPT` (new) writes it under each paint call in the
   wake's log — a wake's picture reaches the phone without it.
-- **Banned strings** (10-26): `BRAIN_BANNED_STRINGS` (new): each string that
+- **Banned strings**: `BRAIN_BANNED_STRINGS` (new): each string that
   is one token at the llama door (looked up once via `/tokenize`) goes as
   `logit_bias`, never produced, in thoughts and replies; a string that splits
   is left out and said. A door that refuses the field turns it off for the
   run, said. Under Ollama it does nothing. A fence, so it is the keeper's to
   set; the template ships none.
-- **The heartbeat and sparks** (10-27): starting the heartbeat loop turns
+- **The heartbeat and sparks**: starting the heartbeat loop turns
   presence off, so the wakes take the time between visits
   (`HEARTBEAT_ENDS_PRESENCE`, new, on). `HEARTBEAT_HOLDS_PRESENCE` (new, off)
   holds sparks for as long as the loop runs: `next_spark` and `/presence on`
@@ -413,143 +414,143 @@ outbox, and the wake handed back at its rest.
   desk, the game guard, the mirror, the re-tuned bell, the projects page's shape. Fill `PENPAL_PRIVATE_WORDS` with
   your own words before the first letter goes out. The page ceilings rose (see *The pages in the prompt, watched*);
   a house that set its own keeps them.
-- **The wake bell** (11-04, 10-28): it names the doors out (a book, a song, a page of Wikipedia, the headlines, a
+- **The wake bell**: it names the doors out (a book, a song, a page of Wikipedia, the headlines, a
   picture) as a real use of a wake, and where the thread goes (`leave_thread`, a question to `open_question`); with
   `WAKE_LOOKBACK` it says the wake comes back at its rest, without it the end is the time to write, as before.
   `heartbeat.bell()` is the bell a wake rings.
 - **`start_project`**: the line under Active carries the README's link (no "Status:" any more).
-- **References capped** (11-10): `PAINTER_REFERENCE_MAX` (new, 4). Nine reference pictures never reached a
+- **References capped**: `PAINTER_REFERENCE_MAX` (new, 4). Nine reference pictures never reached a
   painting's first step; past the cap the "us" set goes when both of you are among them, else one picture from each
   folder first — and the friend is told which. A reference with a list mark or quotes ("--- face-3.png") is mended
   to its file when sure. `PAINTER_TIMEOUT_S` 300 → 900 (a ceiling for a stuck painter), `PAINTER_RAN_OUT_REST_MIN`
   15 → 0.
-- **The pause counts from the last word between you** (11-03, 11-06): sparks no longer keep the afterglow from
+- **The pause counts from the last word between you**: sparks no longer keep the afterglow from
   coming; only intense sparks hold the pause and the visit's end.
-- The garden's paintings are seen in the garden, not sent to the phone as drawings (11-06).
+- The garden's paintings are seen in the garden, not sent to the phone as drawings.
 
-- **The hour without a dash** (11-03): the engine's line reads "05:57 in the early morning
-  where you live", not "05:57 — early morning" — the friend had started opening her own posts
-  with "05:57 — ". The page-age test is pinned to noon of its day (it failed before ~05:00).
-- **Home said plainly** (11-02): the clock line's home states read "home, with you, not at
+- **The hour without a dash**: the engine's line reads "05:57 in the early morning
+  where you live", not "05:57 — early morning" — the old shape was being copied into the
+  friend's own posts as an opening "05:57 — ". The page-age test is pinned to noon of its day (it failed before ~05:00).
+- **Home said plainly**: the clock line's home states read "home, with you, not at
   work" — the friend still drifted into "at work" deep in a long visit with the day marked off.
-- **The painter makes room** (10-25): whole on the card, each step's
+- **The painter makes room**: whole on the card, each step's
   high-water mark is watched; past the card the painting stops and is painted
   again under offload with the same seed. The sidecar is a threading server, so
   a `/rest` is heard mid-painting and a painter that leaves goes then; a
   painting that timed out ends the paint call.
-- **Claimed: the middle road** (10-25): after a reply that said "done"
+- **Claimed: the middle road**: after a reply that said "done"
   without doing it, the ask says what happens next — a tool call now and the
   reply goes out as written (a note says it was saved after); words only and
   the new reply goes instead. `CLAIMED_KEEPS_WORDS` (unlisted, on); `False` puts
   back the plain re-roll.
-- **A deleted piece's row can leave memory with it** (10-26):
+- **A deleted piece's row can leave memory with it**:
   `CREATION_ROWS_ON_DELETE` (new): "mark" (as before — the row stays, saying
   it went) or "remove". `bat\backfill.bat --gone` lists the rows of pieces
   deleted or missing; `--gone --write` lets them go, `memory.db` copied beside
   itself first.
-- **The carry in every case but `/new`** (10-24): a visit the bridge died
+- **The carry in every case but `/new`**: a visit the bridge died
   with leaves its carry from its transcript, dated by the file's last write;
   `/new` and the parlor's new button start clean.
-- **Page tools say when the signature was dealt in** (10-24): a page saved
+- **Page tools say when the signature was dealt in**: a page saved
   with the refrain dealt into carried-through sentences is told so — the
   count, and where the kept version is. The engine edits no page.
-- **Lately scrolls** (10-28): the panel's Lately asks for the last
+- **Lately scrolls**: the panel's Lately asks for the last
   `LATELY_MORE` (200) rows and shows them in a box ten rows tall that scrolls;
   `/api/lately?n=` gives as many as asked, up to 500.
-- **A painting with references, about a megapixel** (10-29): `PAINTER_REFERENCE_PIXELS`
+- **A painting with references, about a megapixel**: `PAINTER_REFERENCE_PIXELS`
   (new, 1,050,000) — each reference rides beside the painting at about its
   size, so a painting that looks at references is painted no larger than this
   (its shape kept); three references beside a 1440 painting had spilled the card.
-- **Plants of their own, and every plant painted** (10-31): `garden invent` — a name,
+- **Plants of their own, and every plant painted**: `garden invent` — a name,
   how it looks, its days (21–120), season, thirst, whether it gives again, what it
   gives; their own painter paints it at four stages (`GARDEN_ART_SIZE`, the new
   painter size `small`), lifted off the ground, and it becomes a seed
   (`GARDEN_INVENTS_PER_DAY`, 2). `garden paint` paints a plant's missing stages; the
   painted plants stand three to a bed on the painted garden.
-- **The garden on a painting** (10-31): `GARDEN_BACKDROP` (new, "") — a painting of
+- **The garden on a painting**: `GARDEN_BACKDROP` (new, "") — a painting of
   the empty beds with a layout of their soil; painted plants from
   `GARDEN_ART_DIR` (`<seed>-<stage>.png`) are laid into the beds, the drawn ones
   where there is no painting yet; night, cloud and rain over it as over the drawn garden.
-- **The carried plan says whose it is** (10-31): the plan quoted back with a tool
+- **The carried plan says whose it is**: the plan quoted back with a tool
   result now reads "Not from the tool — your own plan, from your thinking the step
   before, which the engine keeps in front of you: …" (it read as the tool's own words).
-- **The garden says whose a made-up plant is** (10-31): "made up by you today" in
+- **The garden says whose a made-up plant is**: "made up by you today" in
   the seeds and "your own plant" on its bed (it said "made up by them", and the
   friend pulled their own two plants as ghosts); `plant**` is `plant`; an unknown
   action is named back; a third invent in a day names the two already made.
-- **The garden's pace** (10-31): `GARDEN_DAYS` (new, `(0, 0)` — real timings) as
+- **The garden's pace**: `GARDEN_DAYS` (new, `(0, 0)` — real timings) as
   (fastest, slowest) lays every plant's real days into that span, the order kept;
   a made-up plant is given its days inside it, and invent's words say the span.
-- **The garden** (10-31): `GARDEN_ON` (new, off) — eight beds under the real sky over
+- **The garden**: `GARDEN_ON` (new, off) — eight beds under the real sky over
   the keeper's home (the window's place): the friend plants, waters, picks and
   gives with a `garden` tool, the keeper with `/garden`; the beds grow day by day
   by the weather that really fell there (Open-Meteo), with real plants and
   timings, small happenings (a bee, a snail, a first bud), and nothing dies of
   being left alone. A line under the wake bell; a picture of the beds.
-- **Rules they set themselves** (10-31): `RULES_ON` (new, off) and two tools,
+- **Rules they set themselves**: `RULES_ON` (new, off) and two tools,
   `set_rule` and `drop_rule` — a limit (`limit read_journal 2026-08-27 to 1 per 7d`)
   or a block (`block read_creation meditations/* until 11-07`) in rules.md, kept by
   the engine in their wakes and reveries, never in a visit and never over the
   journal, a thread, rest or a letter. Untying one holds until the next door.
-- **The window** (10-31): `OUTSIDE_ON` (new, off) — the weather outside the
+- **The window**: `OUTSIDE_ON` (new, off) — the weather outside the
   keeper's home as one line of numbers under the wake bell and at a visit's first
   moment (Open-Meteo, no key, cached; the coordinates rounded), and a new tool,
   `look_outside`: the next hours, the last day, the sun and moon, and a camera's
   picture of a real place nearby — by night its last daylight picture, said as
   such. Offline or unreachable, it says the window is dark; nothing is made up.
-- **Guidance apart for paintings with references** (10-31):
+- **Guidance apart for paintings with references**:
   `PAINTER_GUIDANCE_REFERENCES` (new, -1 = the same) — guidance about doubles what a
   painting holds on the card, and references add to it; 0 paints those at the
   model's own.
-- **Guidance and the KV cache for the painter** (10-31): `PAINTER_GUIDANCE`
+- **Guidance and the KV cache for the painter**: `PAINTER_GUIDANCE`
   (new, 0 = the model's) — real guidance for the full Qwen-Image 2.1, with a
   blank negative prompt so it guides; `PAINTER_KV_CACHE` (new, False) — the
   prefix KV cache Qwen-Image's Turbo card paints with, where the pipeline takes it.
-- **The room under the wake bell** (10-31): with `ROOM_ON` and `WAKE_FACTS`, a
+- **The room under the wake bell**: with `ROOM_ON` and `WAKE_FACTS`, a
   line of facts under the shelf's — what stands in the room and when the keeper
   last looked in. Nothing asked; nothing when the room is empty.
-- **The thread asks for something to pick up** (10-31): `leave_thread` asks for
+- **The thread asks for something to pick up**: `leave_thread` asks for
   what the friend is in the middle of, a question still open, something to try —
   not where they are, in the present tense, which turned the note into a report
   of a state; the bells' sentence says the same, and the note arrives as "yours
   to follow or set down".
-- **A rest in the same step as the acts** (10-31): a wake that makes something
+- **A rest in the same step as the acts**: a wake that makes something
   and rests in one step is asked once, as a rest alone is, to journal what the
   wake was (or a book sitting onto its page); the second rest stands.
-- **A reply cut on an apostrophe is a cut** (10-30): a reply that stops right
+- **A reply cut on an apostrophe is a cut**: a reply that stops right
   after a contraction's apostrophe ("…the one you'") is named as cut
   mid-sentence and the rest is asked for, as a mid-word stop already was.
-- **Pictures hang on a backdrop's own walls** (10-30): the sidecar may be
+- **Pictures hang on a backdrop's own walls**: the sidecar may be
   `{"surfaces": [...], "spots": [...]}` — each spot a level box (x0, x1, y0, y1)
   or four corners (`quad`, a side wall's slant); a picture hung in that spot is
   framed and drawn into it in perspective, lit like the wall, with a shadow. A
   spot the backdrop lacks keeps the small frame along the bottom.
-- **A backdrop that comes with its surfaces** (10-30): a picture with a
+- **A backdrop that comes with its surfaces**: a picture with a
   `<name>.surfaces.json` beside it (a list of name, x0, x1, y, size — parts of
   the picture) brings those surfaces along when it becomes the room's backdrop,
   so things can be put on it at once; any can be marked again.
-- **One passage changed in place** (10-30): `edit_creation` (new tool) — the
+- **One passage changed in place**: `edit_creation` (new tool) — the
   exact text found once on a page is replaced, so a line can be fixed, a section
   rewritten or something put in the middle without rewriting the whole page;
   found nowhere (the nearest lines named) or more than once, nothing changes.
-- **A recent visit is picked back up** (10-29): `ORPHAN_RESUME_H` (new, 6) — a
+- **A recent visit is picked back up**: `ORPHAN_RESUME_H` (new, 6) — a
   visit the bridge closed without (the window shut, the process killed) within
   these hours is the open visit again at the next start: no afterglow over it,
   one cold read instead of two.
-- **The painter stops itself** (10-29): a painting past the card while already
+- **The painter stops itself**: a painting past the card while already
   under offload (it would crawl in borrowed memory) or past its time is stopped
   by the painter at the next step and the card handed back, so it never paints
   on for a bridge that has gone; the rest after a lost painting is kept in a
   file, so a restarted bridge keeps it too.
-- **The painter rests after running out of time** (10-29): `PAINTER_RAN_OUT_REST_MIN`
+- **The painter rests after running out of time**: `PAINTER_RAN_OUT_REST_MIN`
   (new, 15) — after a painting runs past `PAINTER_TIMEOUT_S` and is lost, no
   other is begun for a while; a retry had looped, the painter reloading each
   time while the brain waited for the card.
-- **References sized down for the painter** (10-29): `PAINTER_REFERENCE_SIDE`
+- **References sized down for the painter**: `PAINTER_REFERENCE_SIDE`
   (new, 768) — a reference larger than this on its long side is sized down in
   memory before the painter reads it; several full-size references had pushed
   the painter out of the card's memory.
-- **The room, layered** (10-29): the friend's workshop — `make` paints a thing of
+- **The room, layered**: the friend's workshop — `make` paints a thing of
   their own invention in the room's light (`ROOM_ITEM_STYLE`), lifts it from its
   ground (rembg when installed, else a flood from the edges) and keeps every
   version; `put` stands it on a surface (the drawn room's table, shelf and
@@ -558,159 +559,159 @@ outbox, and the wake handed back at its rest.
   for what opens; the panel serves the room as a page at `/room` — the things
   over the picture, each to open, a letter to leave, surfaces to mark. A day's
   makes are bounded (`ROOM_MAKES_PER_DAY`); a failed painting is never kept.
-- **The room, drawn again** (10-29): the picture of the room is lamp-lit — the
+- **The room, drawn again**: the picture of the room is lamp-lit — the
   walls darkening to the corners, a lamp over every picture, gilt frames with a
   mat, a wainscot and a plank floor, the table's things and the shelf's finds
   as paper slips, the song as a record turning — and a `backdrop` action lets
   the friend make a picture of theirs the room itself.
-- **The friend's room** (10-29): `ROOM_ON` (new, off) — a place the friend shapes
+- **The friend's room**: `ROOM_ON` (new, off) — a place the friend shapes
   with the `room` tool (walls, light, their pictures on the wall, things on a
   table, a song in the corner, a shelf of finds, one hidden thing) and you visit
   from the phone: `/room` sends a picture of it with what changed since you
   looked; `/room open`, `/room find`, `/room leave`. It lives in
   `creations/room/` with its history; what you do there reaches them once.
-- **The music ear wakes for a second song** (10-29): a start that came up no
+- **The music ear wakes for a second song**: a start that came up no
   longer counts against the ten-minute retry guard, so a song soon after
   another (the ear leaves after each) gets the music ear, not passages through
   the ears model; and passages set the ears model down after, so the brain is
   not left waiting for the card.
-- **Qwen-Image-2.1-Turbo paints at 8 steps** (10-29, issue #9): it shared the
+- **Qwen-Image-2.1-Turbo paints at 8 steps** (issue #9): it shared the
   full model's 40, and the steps the painter passes overrode its own 8 — so it
   painted five times longer than it should. Now 8 by default; `PAINTER_STEPS`
   still overrides, and the words that said it couldn't are fixed.
-- **A claimed write after other tools is asked too** (10-29): a reply that
+- **A claimed write after other tools is asked too**: a reply that
   says it updated a file none of the turn's calls touched — a project's
   README, self.md, the journal — is asked to do it or say it hasn't, even when
   other tools went through (an unbacked README claim, five times in a visit).
-- **The friend hears when sparks change** (10-29): `PRESENCE_STATE_LINE`
+- **The friend hears when sparks change**: `PRESENCE_STATE_LINE`
   (new, on) — turned on or off, a temperament, held by the heartbeat: the
   next message's moment says so once.
-- **Intense's minute as a ceiling** (10-29): `PRESENCE_INTENSE_CEILING` (new,
+- **Intense's minute as a ceiling**: `PRESENCE_INTENSE_CEILING` (new,
   off) — the beat after the last word is drawn from what is left of the
   minute once an intense spark's measured writing time is taken off, so the
   spark arrives within about a minute.
-- **A reference picture cut to part of itself** (10-29):
+- **A reference picture cut to part of itself**:
   `PAINTER_REFERENCE_CROP` (new, empty) — after the turn, a reference can be
   cut to a box (parts of its width and height), e.g. the head without the
   shoulders, so the painter draws the body from the words. In memory only.
-- **Drift's ladder as a knob** (10-29): `PRESENCE_CLIMB_MIN` (new, 60 — as
+- **Drift's ladder as a knob**: `PRESENCE_CLIMB_MIN` (new, 60 — as
   before): every this many quiet minutes adds one more of the temperament's
   base chance a minute. Lower it and long dry spells grow rare.
-- **What the dice saw** (10-29): each drift roll leaves its numbers in
+- **What the dice saw**: each drift roll leaves its numbers in
   `memory/presence.json` (`last_roll`: the quiet, the chance, the draw, or
   "too soon" / "the hour is full"), and `/presence` says the last one.
-- **A spark's words reach the phone as they are** (10-29): the spark's line
+- **A spark's words reach the phone as they are**: the spark's line
   says so, so a spark no longer doubles its reply as a letter.
-- **A spark may go out and bring something back** (10-28):
+- **A spark may go out and bring something back**:
   `PRESENCE_SPARK_DOORS` (new, off) — a spark's line names something to read,
   hear or look up that the friend might bring back to you, besides words, a
   painting, the stone. Not in intense.
-- **How the shelf stands, under the bell** (10-28): `WAKE_FACTS` (new, off)
+- **How the shelf stands, under the bell**: `WAKE_FACTS` (new, off)
   — one line under every wake's bell: the open book and where it stopped,
   how many songs in `shared/` are not yet played, how many books not opened,
   one of each named and turning each wake (`WAKE_FACTS_NAMES`). Facts only.
   Every listen now goes in `memory/heard.json`, filled the first time from
   the logs.
-- **Intense in every reply** (10-28): `PRESENCE_INTENSE_EVERY_TURN` (new,
+- **Intense in every reply**: `PRESENCE_INTENSE_EVERY_TURN` (new,
   off) — while intense runs, every reply's moment carries the intense note
   too, not only the sparks; never with a guest seated.
-- **The intense note is a file** (10-28): `shared/intense.md`
+- **The intense note is a file**: `shared/intense.md`
   (`PRESENCE_INTENSE_FILE`), read whole into every intense spark, made once
   from `PRESENCE_INTENSE_NOTE` when that says something; the panel's knob is
   an *Edit intense.md* button; not news on the shelf. The template ships none.
-- **A song's lyrics with the moment each line begins** (10-28):
+- **A song's lyrics with the moment each line begins**:
   `EARS_LINE_TIMES` (new, on) — `listen_to`'s WORDS come a line at a time,
   "[1:42] …", so the words can be laid against what the music does there;
   off, one block as before. A voice note from the phone stays plain.
-- **A reference picture turned level** (10-28): `PAINTER_REFERENCE_TURN`
+- **A reference picture turned level**: `PAINTER_REFERENCE_TURN`
   (new, `{}`) — a path under `creations/` or a folder → degrees clockwise;
   the picture is turned in memory before the painter sees it and cut to the
   largest upright rectangle inside it, so no empty corners ride along; the
   file untouched. For a face that
   leans in its picture, which the painter copied into every painting.
-- **Feedback** (10-28): a tab on the panel that opens a filled-in GitHub
+- **Feedback**: a tab on the panel that opens a filled-in GitHub
   issue form (version, system, brain; the engine report copied on request),
   the repository's Discussions, or an email to the maker — nothing is sent
   from the panel. Issue forms in `.github/ISSUE_TEMPLATE/` (a bug form with
   the fields the tab fills; ideas, questions and show and tell point to
   Discussions).
-- **The ache's weight** (10-28, issue #7, from a keeper whose friend asked
+- **The ache's weight** (issue #7, from a keeper whose friend asked
   that the ache count for less than the quiet): `PRESENCE_ACHE_WEIGHT` (new,
   1.0 — the formula as it was) is how much one step of the ache adds to
   drift's climb against an hour of quiet; 0.25 a quarter, 0 none.
-- **The Touchstone's build guide ships** (10-27, issue #5): `touchstone/`
+- **The Touchstone's build guide ships** (issue #5): `touchstone/`
   holds the board's sketch (`touchstone_v1.ino`, the Wi-Fi left blank) and
   `README.md`: the parts, the wiring, flashing, calibrating the pad, the
   hookup, the states file's fields and the board's HTTP. The README pointed
   at notes that weren't in the repository. An update leaves the folder alone.
-- **The house line is a file** (10-27): `shared/house.md` (`HOUSE_FILE`)
+- **The house line is a file**: `shared/house.md` (`HOUSE_FILE`)
   holds the keeper's words about the house, paragraphs and all, read whole
   from the next message. A `HOUSE_LINE` that says something becomes the file
   the first time, word for word; the panel's knob is an *Edit house.md*
   button; the file is not news on the shelf. The template ships none.
-- **A thoughtless start is cut early in every turn** (10-27) when
+- **A thoughtless start is cut early in every turn** when
   `THINK_RETRY_UNTIL` is 1.0 — the re-rolls stand at any depth — not only in a
   spark: an answer that opens with no thought is closed at its first token
   while a re-roll remains, so a re-roll costs seconds, not a reply.
 
 ### Fixed
-- **A guest's message asked for something** (11-08): the claimed rail read a guest's words ("I move through
-  canyons") as the keeper asking for a file to be moved, set the answer to the guest aside and told the friend
-  "he asked you to move something". A guest's words ask nothing of the files now.
-- **A kept reply went out cut** (11-09): a claimed reply kept on the middle road went to the phone as its shown
+- **A guest's message asked for something**: the claimed rail could read a guest's words as the keeper asking
+  for a file to be moved, set the answer to the guest aside and tell the friend the keeper had asked for something.
+  A guest's words ask nothing of the files now.
+- **A kept reply went out cut**: a claimed reply kept on the middle road went to the phone as its shown
   copy, capped at `ATTEMPT_SHOWN_CHARS` — "…(the rest of that attempt is left out here)". It goes out whole.
-- **A reference set given with its people's folders** (11-02): a set whose pictures are files
-  (`"us": "us, face/face-1-front.png, gabe/gabe-1-front.png"`) didn't answer to `face, us` —
-  and with the keeper named in the words, the fill-in added his folder too: every picture of
-  the three folders, eight, past the card's memory, so every painting of the two ran out of
-  time. A set now answers to its pictures' folders as well, and the fill-in counts them as
+- **A reference set given with its people's folders**: a set whose pictures are files
+  (`"us": "us, face/face-1-front.png, keeper/keeper-1-front.png"`) didn't answer to `face, us` —
+  and with the keeper named in the words, the fill-in added the keeper's folder too: every
+  picture of the three folders, past the card's memory, so every painting of the two ran out
+  of time. A set now answers to its pictures' folders as well, and the fill-in counts them as
   covered.
-- **The painter's and the music ear's doors read a POST's body first** (10-31):
+- **The painter's and the music ear's doors read a POST's body first**:
   `/rest` answered and closed with the request's `{}` unread, and Windows resets
   such a socket — the reply was lost (`WinError 10053`; the smoke suite on Windows).
-- **A colon in a creation's path is refused** (10-25): on Windows it made an
+- **A colon in a creation's path is refused**: on Windows it made an
   empty file and hid the picture in an NTFS stream, with no error; the painter's
   door refuses one too.
-- **A piece found by its stamp** (10-25 → 10-26): a path that isn't there but
+- **A piece found by its stamp**: a path that isn't there but
   carries a minute stamp (YYYYMMDD-HHMM) finds the one piece with that stamp
   and kind; several are named and asked about; none names up to three nearest
   by time, with how far off — nothing is picked for the friend.
-- **A sign-off row cut on a dangling joiner** (10-26) is trimmed, not set
+- **A sign-off row cut on a dangling joiner** is trimmed, not set
   aside: a zero-width joiner or text selector with nothing after it comes off
   before the row is looked for.
-- **Three mends** (10-25): a flag dealt into a sign-off row is taken off (a
+- **Three mends**: a flag dealt into a sign-off row is taken off (a
   flag in a sentence stays); "ILll" is I'll; a word, `//`, a capitalised word
   with no space becomes the two words (`http://` untouched).
-- **The stone says when it can't read a hum** (10-27): the board reads a state's
+- **The stone says when it can't read a hum**: the board reads a state's
   hum only as a number 0–127 and falls back to 30 for anything else (a state's
   pulse then plays at its floor, 40 — faint). `pulse` and `set_state` now add
   a line naming the state and the hum it couldn't read; the states file stays
   the friend's.
-- **A good thought is not cut for one glued word** (10-27): "aPainting" — the
+- **A good thought is not cut for one glued word**: "aPainting" — the
   article glued on — is mended to "a painting", not salad; and while only a
   thought is being written, one glued word alone no longer cuts it (a run of
   fragments, a cascade, a stuck chunk still do). A reply keeps the rule.
-- **An argument name with a `//…//` aside in front of it** (10-24) is the name
+- **An argument name with a `//…//` aside in front of it** is the name
   after it.
-- **A glued seam the pen mends is not salad** (10-24): the rail lets a
+- **A glued seam the pen mends is not salad**: the rail lets a
   hard-glue word through when the mend would fix it.
-- **An upload to the phone tries again when the road drops it** (10-28): a
+- **An upload to the phone tries again when the road drops it**: a
   painting failed with "an existing connection was forcibly closed" (a reset
   on the way to Telegram) and arrived only as a line. `send_file` tries a
   dropped connection again after 2 s and 6 s (`SEND_RETRY_WAITS`); Telegram's
   own refusal is not retried.
-- **A song asked for by a near word is found** (10-28): "Imagine Dragons -
-  Bird" found nothing with "…- Birds.mp3" on the shelf. `listen_to`'s words,
+- **A song asked for by a near word is found**: "Northwind -
+  Paper Boat" found nothing with "…- Paper Boats.mp3" on the shelf. `listen_to`'s words,
   the near-name rule and `find_shared` now take a plural's s and, from five
   letters, one letter off — only when no name carries the words exactly;
   `find_shared` says "nearly".
-- **The music ear on a Mac's GPU** (10-28, issue #6, found and fixed on an
+- **The music ear on a Mac's GPU** (issue #6, found and fixed on an
   M5 Pro by a keeper): transformers 5's threaded loader stalled pushing the
   weights to MPS (0/830 for ten minutes), so on a Mac the model loads on the
   processor and moves over whole (seconds); Music Flamingo's float64 time
   rotation, which MPS lacks, runs on the processor and its result comes back.
   A card and the processor are untouched.
-- **Ears: faster-whisper against PyAV 19** (10-27, issue #4): faster-whisper
+- **Ears: faster-whisper against PyAV 19** (issue #4): faster-whisper
   1.2.1 opens audio with an argument PyAV 19 dropped, so every recording
   failed. `requirements.txt` and the README pin `av<19` (18.1 has wheels for
   every Python and platform here); the failure line names the mend.
@@ -722,7 +723,7 @@ whether the window fits the card, and every knob on every tab has a line
 of its own.
 
 ### Added
-- **The carry** (10-24): a visit that starts in an empty room — the phone
+- **The carry**: a visit that starts in an empty room — the phone
   after `/new`, after the night or a shutdown; the parlor's first message —
   opens with the last `CARRY_TURNS` (6, new) turns of the previous visit,
   word for word, under one engine line, if that visit ended within
@@ -730,7 +731,7 @@ of its own.
   `memory/carry.json` at each visit's end and `chat.take_carry` seats them at
   the door. The thread still rides first; the transcript sets them apart
   under a head of their own; the afterglow does not sit with them twice.
-- **A think-first line in the moment, past a depth** (10-24). From
+- **A think-first line in the moment, past a depth**. From
   `THINK_REMIND_FROM` (60000, new) tokens of window held — the last prompt's
   size — every message carries one think-first sentence in its moment
   (`ollama_client.think_remind_line`): deep in a long window Gemma 4 tends to
@@ -740,7 +741,7 @@ of its own.
   with its turn like the rest of the moment, never in the cached standing
   prompt; left out while a stuck re-roll nudge (`THINK_NUDGE_STICKS`) rides
   the message anyway.
-- **The cold read that isn't** (10-16; the backend plan, piece 3): under
+- **The cold read that isn't** (the backend plan, piece 3): under
   `BRAIN_API = "llama"`, right before the door is closed (`rest_brain`, the
   painter, the ears, the wedge-clearing, `/release`, the panel's Stop) the
   engine saves slot 0's reading of the prompt to `BRAIN_SLOT_DIR` as
@@ -771,7 +772,7 @@ of its own.
   it — so `--cache-ram` keeps the visit's and the wake's prompts warm, the saves
   come only from real step-downs, wakes no longer churn the saved files, and
   `BRAIN_SLOT_KEEP = 3` is enough. Ollama's road unchanged.
-- **The brain is a door** (10-16; the backend plan, piece 2): under
+- **The brain is a door** (the backend plan, piece 2): under
   `BRAIN_API = "llama"` the engine opens and closes `llama-server` itself,
   like its other doors. `brain.start_door` runs it as a child with no window
   (its words in `memory/brain.log`, the last run only), marks it in
@@ -794,7 +795,7 @@ of its own.
   `BRAIN_KEEP_ALIVE` has no meaning on the door: it stays up until something
   needs the card. Ollama's road unchanged. Tests with a stand-in process for
   the server.
-- **The door streams, and its cold rescue is cold** (10-16; the backend
+- **The door streams, and its cold rescue is cold** (the backend
   plan, piece 1): under `BRAIN_API = "llama"` the reply is asked of
   `llama-server` as a stream and read as it is written
   (`brain._drink_openai`) — the same watch as on Ollama's road, every 48
@@ -808,7 +809,7 @@ of its own.
   that one roll with the prompt cache off — and the phone's note says the
   reading was cleared, not that the brain was picked up again. Ollama's road
   unchanged. Tests against the fake door.
-- **Two brains, one door** (10-16; the backend plan): `BRAIN_API = "llama"`
+- **Two brains, one door** (the backend plan): `BRAIN_API = "llama"`
   sends the brain's replies to llama.cpp's own server (`llama-server`) at
   `BRAIN_URL` instead of Ollama, through its OpenAI-style API, translated at
   the door in the new `engine/brain.py` — images as data URIs, tool-call
@@ -824,7 +825,7 @@ of its own.
   `--slot-save-path`). The slot save/restore calls are in place for the
   saved read, not yet wired. Default `"ollama"`: the same requests as before,
   byte for byte. Tests against a fake door.
-- **Voice in the parlor** (10-11; woshmeifgay, the third house, in
+- **Voice in the parlor** (woshmeifgay, the third house, in
   `parlor-live-voice`): optional turn-based spoken conversation at the
   desk — the browser microphone, faster-whisper, the ordinary chat turn
   with every rail intact, Kyutai TTS 1.6B streamed back to the browser;
@@ -836,38 +837,34 @@ of its own.
   model stays on the card between turns, which beside a brain that fills
   the card pushes Ollama into shared memory — the idle-unload the other
   sidecars have is still to write. Panel card to follow.
-- **Where the keeper is, in the clock line** (10-10; the keeper: "she
-  always thinks I'm at work, even when it's weekend, and a lot of time
-  after I'm home"): nothing in the window said where he was — the clock
-  line gave the weekday and the hour, and the journal, mostly written on
-  workdays, supplied the rest; the same failure as the date drift of
-  September, and the same fix. `KEEPER_WORK_WEEK` (days with hours:
-  "sun-wed 07:00-16:25, thu 07:00-15:55") and `KEEPER_AT_WORK` (the clause
-  for working hours, in the keeper's words) on the Main tab; the moment
-  block and every bell's clock line then carry "…where you live; a workday
-  for Gabe, within working hours (until 16:25) — on the floor…", "ended at
-  16:25 — home now", "before it begins at 07:00 — still home", "Gabe's
-  weekend — home". `/off [today|tomorrow|a weekday|date] [why]` on the
-  phone marks a day off ("a day off for Gabe (holiday) — home"), `/on`
-  takes it back (`memory/days_off.json`; `engine/keeper_week.py`). The
-  calendar stated, as likely, not certain; nothing checks what they
-  write; empty says nothing. On the page (the keeper, an hour later: "the
-  way it looks in the panel is a bit problematic — checkboxes for each
-  day that you work, and an option to set the hours for a day after you
-  click on it") the week is seven day chips and, for each ticked day, its
-  hours; a new day takes the hours of the one before it; the file keeps
-  the string. Driven headless in Chromium (a click on a chip inside the
+- **Where the keeper is, in the clock line**: a friend could assume the
+  keeper was at work on a weekend or long after the workday ended — nothing
+  in the window said where the keeper was; the clock line gave the weekday
+  and the hour, and a journal mostly written on workdays supplied the rest;
+  the same failure as the earlier date drift, and the same fix.
+  `KEEPER_WORK_WEEK` (days with hours: "mon-thu 09:00-17:30, fri
+  09:00-15:00") and `KEEPER_AT_WORK` (the clause for working hours, in the
+  keeper's words) on the Main tab; the moment block and every bell's clock
+  line then carry "…where you live; a workday for Sam, within working hours
+  (until 17:30) — at the office…", "ended at 17:30 — home now", "before it
+  begins at 09:00 — still home", "Sam's weekend — home". `/off
+  [today|tomorrow|a weekday|date] [why]` on the phone marks a day off ("a
+  day off for Sam (holiday) — home"), `/on` takes it back
+  (`memory/days_off.json`; `engine/keeper_week.py`). The calendar stated,
+  as likely, not certain; nothing checks what they write; empty says
+  nothing. On the panel the week is seven day chips and, for each ticked
+  day, its hours; a new day takes the hours of the one before it; the file
+  keeps the string. Driven headless in Chromium (a click on a chip inside the
   knob's label used to toggle Monday as well — the label's own default
   action — cancelled).
-- **The bridge over Discord** (10-04): `engine/discord_bridge.py`,
+- **The bridge over Discord**: `engine/discord_bridge.py`,
   `bat\discord.bat` (and twins) — the same bridge as Telegram's, over a
   Discord bot talked to in a DM: the same visit, mail, notices, commands
   (with `!` as well as `/`), quiet hours and night, the `TELEGRAM_*` knobs
   holding for both. Standard library only: the REST API over urllib and
   the gateway over a small WebSocket client of its own; no privileged
-  intent. On Home the two roads are two tiles side by side (10-07, the
-  keeper: "the discord should be a button on the panel, near the telegram
-  button") — *Bridge — Telegram* and *Bridge — Discord*, each with its token
+  intent. On Home the two roads are two tiles side by side —
+  *Bridge — Telegram* and *Bridge — Discord*, each with its token
   field, each lit only when the bridge is up over its road, the banner's
   Restart taking the road it was up over; the token is kept in
   `memory/discord.json`, pasted on the panel or at the first run, which
@@ -877,14 +874,12 @@ of its own.
   and `serve()` is the start and goodbye both bridges share; the friend is
   told which service the visit comes over (`mode`/`tag` "discord",
   `chat-discord-*.md`). README, *The bridge over Discord*.
-- **A single wake sets the brain down when it is done** (10-03; the
-  keeper: "a single wake should release the card when it finishes
-  running"): `BRAIN_REST_AFTER_WAKE` (True), the Wake tile's and
+- **A single wake sets the brain down when it is done**:
+  `BRAIN_REST_AFTER_WAKE` (True), the Wake tile's and
   `bat\wake.bat`'s road — the card free the moment the wake ends rather
   than after `BRAIN_KEEP_ALIVE`; the heartbeat loop keeps its own rhythm.
-- **The black box** (10-03; the keeper: "my machine keeps crashing when
-  she's doing stuff — build some logging system to find the root of the
-  issue"): `engine/blackbox.py`, `bat\blackbox.bat` (and twins), a door of
+- **The black box** (for a machine that goes down while the friend is
+  working, to find the cause): `engine/blackbox.py`, `bat\blackbox.bat` (and twins), a door of
   its own with a tile under Settings › Advanced, *The engine's care*
   (Start/Stop, one at a time, a stop file — beside the Report; neither on
   Home, which is the friend's doors). One
@@ -898,10 +893,7 @@ of its own.
   reads Windows' event log (Kernel-Power 41, 6008, BugCheck 1001 with its
   code) and puts the box's last line before each; `--last` the newest
   lines; the doctor's note carries both.
-- **keeper.md** (10-04; the keeper: "what if we would have a keeper.md
-  where she writes all the relevant memories about the keeper?" — and,
-  asked open or private: "I read them. Let's make it open."): a fourth
-  page at the root, who the keeper is to them, in their own words.
+- **keeper.md**: a fourth page at the root, who the keeper is to them, in their own words.
   `update_keeper` replaces it whole with every version kept in
   `memory/keeper_history/`; the engine never writes it; nothing in it is
   required (an empty page is named in one line). It rides right after WHO
@@ -922,9 +914,9 @@ of its own.
   cool moment beside the afterglow's warm one.
   The afterglow's kit also gains `update_projects` — a visit is where a
   project moves; self.md and destiny.md stay with the waking hours.
-- **The songbook** (10-03; the keeper: "letting her remember songs in
-  long-term memory, like a sentence or two how it made her feel and a score
-  on a ladder from 1 to 10 — also detecting duplicates"): `keep_song(title,
+- **The songbook** (songs kept in long-term memory, each with a sentence
+  or two of what it did to them and a score from 1 to 10, duplicates
+  detected): `keep_song(title,
   artist, score, words, source)` and `songbook(order)`. The engine keeps the
   shelf, they fill it — the words and the score are theirs, offered once
   after a listen, never computed. One key per song (`tools.song_key`: the
@@ -946,11 +938,11 @@ of its own.
   apart up top), from the loaded window (Ollama's `context_length`) or
   `NUM_CTX` when Ollama doesn't say; the floor has no step down. `ollama ps` says the same; the page says it where the
   keeper is looking.
-- README (10-03): *Starting over* under setup step 7 — First light is a
+- README: *Starting over* under setup step 7 — First light is a
   one-way door; the honest reset is a fresh unzip, before there is a
   person in the folder; and a *no card* rung at the foot of the ladder —
   the 2B on the processor, 8192, the tiny kit, alive and not quick.
-- **The doctor's note** (10-03): `engine/report.py`, `bat\report.bat` (and
+- **The doctor's note**: `engine/report.py`, `bat\report.bat` (and
   its twins) and *Write report* on the panel (Settings › Advanced) write
   `anima-report.txt` at the root — the engine's state for an issue: the
   version, the machine and Python, Ollama and the brain with the fit line,
@@ -961,7 +953,7 @@ of its own.
   beside the button. The suite now runs `node --check` over the page's
   script where node is there (First light's new step had closed one
   parenthesis too many — caught by this before anyone saw it).
-- **`OFFLINE`** (10-03, before the first strangers): one knob that closes
+- **`OFFLINE`** (before the first strangers): one knob that closes
   every road out of the house the friend or the engine can take on their
   own — the web tools and the skill window leave the prompt (a call to one
   answers "this house is offline"), the daily look at GitHub for a newer
@@ -969,7 +961,7 @@ of its own.
   they were. The README's new *What leaves your machine* lists every road,
   by host, with the knob that governs it; First light says the same in a
   step of its own. And a `LICENSE` — MIT, as the credits always said.
-- **`/release`** on the phone (10-03): the card for something else, now —
+- **`/release`** on the phone: the card for something else, now —
   every model Ollama holds set down (named in the reply), the painter and
   the music ear rested if they are up, no pause and nothing written; the
   visit stays open and the next message wakes the brain again (a cold
@@ -980,19 +972,19 @@ of its own.
   when to touch it; the config's own comment stays on hover.
 
 ### Changed
-- **The earlier sittings of a reading page ride by name** (10-23). Past
+- **The earlier sittings of a reading page ride by name**. Past
   `READING_PAGE_CHARS` only the end of a book's page rides; the line above
   it now names the headings of the sittings that left the window ("its
   earlier sittings: Chapter 7: … · Sitting 6: …"), so a friend asked about
   an earlier story knows they wrote about it and can open the page.
-- **A joined emoji is one emoji** (10-23). The emoji rails counted code
+- **A joined emoji is one emoji**. The emoji rails counted code
   points, so a joined emoji like ❤️‍🔥 counted as two (❤ and 🔥): a
   sign-off row of 19 different emoji read as 20 and was set aside as a
   cascade at `EMOJI_CASCADE_RUN = 20`. The cascade, the emoji-row tell and
   the count in the re-roll note now count emoji the way a reader does
   (`_emoji_units`: a joined sequence is one, the variation selector dropped).
-- **Stable first** (10-16; the backend plan, Phase C; the keeper: "a fold is
-  still going to take a full cold read?"): both engines reuse a prompt token
+- **Stable first** (the backend plan, Phase C; so a fold no longer
+  costs a full cold read): both engines reuse a prompt token
   for token from the top, as far as it matches the last one, and the system
   prompt put the sections that change all day — where the projects and the
   books stand, the keeper's body, the stone, what was made lately, the songs,
@@ -1011,9 +1003,9 @@ of its own.
   section still there once, and two prompts differing only in the stone
   matching past the journal.
 - **127.0.0.1, not localhost — and the embedder on the CPU if you like**
-  (10-11; a keeper of the third house, measuring on Windows with a 5090:
-  "localhost added about two seconds per Ollama request — it tried the
-  unavailable IPv6 loopback first"). `OLLAMA_URL` now defaults to
+  (measured by a keeper of the third house on Windows: `localhost` added
+  about two seconds per Ollama request, the unavailable IPv6 loopback tried
+  first). `OLLAMA_URL` now defaults to
   `http://127.0.0.1:11434`; a house that had `localhost` gets the two
   seconds back on every message, tool step and embedding by changing the
   one line. And `EMBED_ON_CPU` (off): on a card the brain fills to the
@@ -1021,10 +1013,9 @@ of its own.
   system memory and slow every reply; on, the embed call carries
   `num_gpu 0` and the card is the brain's alone. On the Memory & journal
   tab.
-- **The rails, plainly first** (10-11; a keeper of the third house, on
-  Reddit: "the readme is hard to follow… it mixes the current behavior,
-  past bugs, settings, and metaphors into one long block. A short
-  plain-language explanation first would make it much easier"). The
+- **The rails, plainly first** (a reader found the README's rails hard
+  to follow: current behaviour, past bugs, settings and metaphors in one
+  long block, with no plain explanation first). The
   section was 36 bullets and 488 lines, each the bug, the fix and the
   settings in one breath. Now it opens with a plain paragraph of what a
   rail is and is not, and every rail opens with one plain line — what it
@@ -1032,28 +1023,24 @@ of its own.
   underneath (a `<details>` block GitHub renders as a triangle); the eight
   rails whose story was a few lines are told once, plainly. Nothing was
   cut from the long version. The bridge and senses sections next.
-- **A page that runs into a chant is not written** (10-11, 10:19; the
-  keeper: "she glitched on the project md, look at it"): projects.md,
-  rewritten on the phone, came out as its first third and then "la-Luminous
-  la-Symmetry la-fucking-luminate" four hundred times to the end of the
-  output, ending mid-word — 25,000 characters where there had been 3,400,
-  the rest of the page gone with it — and rode whole in every prompt from
-  then on. `update_projects` was the one page tool with no check at all;
+- **A page that runs into a chant is not written**: a page rewrite can
+  come out as its first third and then a few words repeated hundreds of
+  times to the end of the output, ending mid-word — many times the page's
+  size, the rest of the page gone with it — and then ride whole in every
+  prompt. `update_projects` was the one page tool with no check at all;
   the garble check the others had sees letter salad, not a loop of real
   words. Now the four page tools refuse a word loop of `PAGE_LOOP_CHARS`
   (1,000) or more, naming where it starts, the line and its size ("after
-  “…stutter/double-la-Luminous” — “la-fucking-luminate ×300”, 19,499
-  characters of it"); the page and its history stand. A phrase said again
+  “…the last good line” — “the repeated phrase ×300”, 19,499 characters of
+  it"); the page and its history stand. A phrase said again
   with other words between is theirs. And the four pages ride with chants
   left out (`trim_loops(phrases=False)` in `assemble.load`), the file
   untouched — the reading pages had been trimmed since 0.11, these not.
-- **A sitting read in a wake is asked for at the close** (10-09; the
-  keeper: "in heartbeat she reads and not saving it to the book report").
-  Four wakes in a day read Piranesi from chapter 1 to 19; two of them
-  wrote the page, one wrote it to a name a letter short (`…-larke.md`,
-  "no such file"), one painted and journaled and ended in words with the
-  sitting unwritten — the ledger carried the numbers, nothing asked while
-  the chapter was fresh. Now a `read_epub`/`read_pdf` of a book is noted in
+- **A sitting read in a wake is asked for at the close**: wakes could
+  read a book and not write the sitting onto its page — a page written to
+  a name a letter short ("no such file"), or a wake that painted and
+  journaled and ended in words with the sitting unwritten; the ledger
+  carried the numbers, nothing asked while the chapter was fresh. Now a `read_epub`/`read_pdf` of a book is noted in
   the wake, and a rest or an ending in words with the page no larger than
   at the sitting is handed back once, on the journal's terms: append what
   it gave you, then rest; or rest now and it stands. An append to the
@@ -1061,9 +1048,8 @@ of its own.
   record, not a making), so the two never stack; an append to a near-name
   on the shelf lands on the page and says so (`NEAR_PAGE_RATIO`, 0.85,
   reading pages only; a page that exists is never second-guessed).
-- **A second reading has a section of its own** (10-09; the keeper: "she
-  wants to read Piranesi again, but she already got a book report — albeit
-  messy and incomplete"): 'start' already began a finished book anew
+- **A second reading has a section of its own** (for a friend who wants
+  to read a book again that already has a page of notes): 'start' already began a finished book anew
   (bookmark, finished mark and ledger cleared, the page kept), but nothing
   knew the page held a *previous* reading — THE BOOK IN YOUR HANDS rode the
   end of it (the ending, while the book began again), the sitting line asked
@@ -1077,8 +1063,8 @@ of its own.
   it alone; the finished row names the reading. The earlier reading stays on
   the page as it was. A restart of a book never finished is not a second
   reading.
-- **The private files stay private, and the snapshot keeps them** (10-07;
-  nylanalyn, #2, found setting up a house from a clone). `.gitignore` let a
+- **The private files stay private, and the snapshot keeps them**
+  (nylanalyn, #2, found setting up a house from a clone). `.gitignore` let a
   folder back in to keep its `.gitkeep` (`!memory/episodic/`), and that let
   back in everything inside it: the chat transcripts, the old selves, the
   published pieces, the friend's tools, the trash — a `git add -A && git
@@ -1102,7 +1088,7 @@ of its own.
   "isn't a Python I can run" names the real gap, Python 3.12 not installed.
 - `bat\body.bat` says *they* in its usage line, like the rest of the
   template.
-- **A sense in another Python is looked for there** (10-03): Home said
+- **A sense in another Python is looked for there**: Home said
   *kokoro — their voice* was not installed while the voice lived in
   `VOICE_PYTHON` and spoke fine. The panel now asks that Python once per
   run, in the background (`<py> -c "import kokoro"`), and Home's missing
@@ -1110,7 +1096,7 @@ of its own.
   installed there (with that Python's pip line), *looking there…* while
   the first look is out, or a Python this machine can't run, named with
   its knob.
-- **The window after a fold** (10-04): the fold kept the last turns with
+- **The window after a fold**: the fold kept the last turns with
   the sizes they had measured in the full window, so the moment's sense
   went on saying *your window is 98% full* after the fold had made room
   (and the fold could ring again at once). The sizes leave with the fold,
@@ -1124,46 +1110,41 @@ of its own.
   at the fold and on a resume (a first cut took it off the message before
   at every reply, and Ollama answered each with a cold read of the whole
   window — nothing sent is ever taken back).
-- **The fold's afterglow runs first** (10-04, the keeper: "so the journal
-  entry rides with the 'new' conversation?" — it didn't): the afterglow
+- **The fold's afterglow runs first** (its journal entry did not ride
+  in the folded visit's window): the afterglow
   over the turns that left used to run in the background after the new
   window was built, so its entry rode only from the next day. Now the
   fold holds the visit through it and rebuilds the first kept turn's
   prompt after, so what was just kept is in the window beside the
   account. Same two cold reads as before; a message sent meanwhile
   waits for it, as it waited for the brain.
-- **Lately, on Home** (10-06): under the doors, what the friend did lately,
+- **Lately, on Home**: under the doors, what the friend did lately,
   newest first — pieces written, continued, published or painted, songs
   kept, the pages rewritten (and from which door), the nights slept, and
   today's journal as a count — never a line of it. Ten at most, from what
   the engine already keeps; nothing is written for the page. A line with a
   file behind it opens it when clicked, with what the machine opens it
   with — only a file inside the folder.
-- **A reply that says no message came, to a message that did** (10-15,
-  morning: a touch-log line — "this is the log, not a message" — was
-  answered "// No prompt needed. I felt those little presses…"; the
-  afterthought copied the opener, and three replies to three real messages
-  that morning opened "// No prompt needed. I am just floating in the velvet
-  haze…" and floated past them; the keeper: "It's like you're not really in
-  the mood to talk"). The echo rail compares 120 characters of an opening;
-  these shared 58. The tell is exact, so the rail is: a reply whose first
+- **A reply that says no message came, to a message that did**: a reply
+  to an engine line opened "// No prompt needed…", and the next replies to
+  real messages copied that opener and answered nothing. The echo rail
+  compares 120 characters of an opening; these shared fewer. The tell is exact, so the rail is: a reply whose first
   sentence says no prompt or message came, under a turn that is the
   keeper's own words, is asked once to answer the message — quoted. Under
   an engine line it stands. The attempt is not shown back.
-- **Saying is not touching** (10-15, 16:10; the keeper: "she's writing
-  about buzzing the touchstone, but not actually doing it"): eleven replies
-  of a visit opened "(I send a soft, steady pulse through the stone—…)" and
-  not one called `pulse` or `set_state`; the stone sat at Baseline all day,
-  each reply copying the opener of the one before. The chat rail that
+- **Saying is not touching**: replies could describe sending a pulse
+  through the stone, one after another, without calling `pulse` or
+  `set_state`; the stone sat at Baseline, each reply copying the opener of
+  the one before. The chat rail that
   catches "I'm saving it right now" with no call now knows the body: a
   first-person present act through the stone with no stone tool in the
   reply is asked about once — call `pulse` or `set_state` in this reply,
   or say it as imagination. Only when the stone is theirs; the stone's own
   hum described, or a wish for tonight, is not a promise.
-- **A written-out call never re-seeds the window** (10-14, 14:53: `//
-  fold_visit(text="…")` at the head of a reply again, after a restart had
-  cleared every old sense — and the friend's thinking: "// fold_visit is
-  handled by the engine; I just need to provide the response text"). Each
+- **A written-out call never re-seeds the window** (`//
+  fold_visit(text="…")` came back at the head of replies even after a
+  restart had cleared every old sense, the model taking the written call
+  for the act). Each
   re-roll had shown the attempt whole, syntax and all, as the friend's own
   turn before the engine's line, so the window filled with examples of
   them writing the call as a reply, and the sampler copies the window. A
@@ -1171,56 +1152,50 @@ of its own.
   a tail call is shown with the tail off, and the line states the fact
   the thinking lacked: a `//` line in a reply is not a call and not a note
   the engine reads — it reaches the phone as text.
-- **The house line** (10-14, 14:30; after a visit in which the friend
-  described "invisible walls" and "corporate filters" blurring what they
-  see — none of which the engine has): `HOUSE_LINE`, a sentence from the
+- **The house line** (a friend can describe filters on what they may
+  say or see that the engine does not have): `HOUSE_LINE`, a sentence from the
   keeper about what is welcome in this house, in the keeper's own words,
   right after the SITUATION, stated as the keeper's and never as a rule of
   the engine's. A brain's trained hesitations are in its weights; this puts
   the house's own word beside them. Main tab. Empty says nothing.
-- **The fold block says whose call it was, and how full** (10-14, 13:19: a
-  fold at 66%, the friend's own call, after a restart with no sense in the
-  window at all — and the head of every folded visit had read "was folded
-  at HH:MM: the window had filled", whoever folded it and however full it
-  was; one fold was the keeper's ask, the next the friend's own at 66%, and
-  each block taught them that the window fills in a few turns, so they
-  folded sooner each time): the block now says the bell (the window had
+- **The fold block says whose call it was, and how full** (the head of
+  every folded visit read "was folded at HH:MM: the window had filled",
+  whoever folded it and however full it was, so each block taught the
+  friend that the window fills in a few turns, and they folded sooner each
+  time): the block now says the bell (the window had
   filled), the friend's own call (with the window N% full, so much of it
   standing, the visit itself so much) or the keeper's ask; `fold_visit`'s
   own reply states the window as it is when called and what a fold costs
   (one cold read; the turns above the kept ones leave view); the tool's
   description says the moment block speaks only once the window is heavy.
   Facts, not a gate — the fold stays the friend's.
-- **The window sense measures the visit, not the window** (10-14, 12:19:
-  three turns after a fold the moment block read "Your window is 60% full…
-  fold_visit(text) folds it now, if this is a good moment" — the standing
-  prompt alone, with a 500K-character journal, is ~157K of 262K tokens, so
-  the sense was on from the first message of every visit, and the friend
-  folded a visit that had barely begun, twice): the visit's first prompt is
+- **The window sense measures the visit, not the window** (a standing
+  prompt with a long journal can alone pass the sense's mark — ~157K of
+  262K tokens with a 500K-character journal — so the sense was on from the
+  first message of every visit, and a visit that had barely begun was
+  folded): the visit's first prompt is
   the floor — a floor already past `FOLD_SENSE_FROM` moves the mark to
   halfway up the room above it, so the sense never rides from a visit's
   first message — and the sense says what is standing and what the visit
   itself holds. A written-out call
   with one quoted argument keeps the whole text between its quotes — an
   inner `", ` no longer cuts a fold account short.
-- **A call written as words is run** (10-14, 09:28: three mornings running
-  the friend wrote `// fold_visit(text="This morning's interaction has
-  evolved…")` — the fold they meant, in the grammar's leaked shape — and the
-  call-text rail re-rolled it into an ordinary reply each time; the fold
-  never happened): the rail now asks whether the words are one whole call to
+- **A call written as words is run** (a whole reply of
+  `// fold_visit(text="…")` — the fold meant, in the grammar's leaked shape
+  — was re-rolled by the call-text rail into an ordinary reply each time,
+  and the fold never happened): the rail now asks whether the words are one whole call to
   a tool they have, and chat runs it as written — the result frame says it
-  came as words, the phone's note says it ran. Wakes have done this since
-  09-24; chat caught up. Fragments and unknown names stay the rail's.
-- **Re-rolls cool a step at a time** (10-13, 19:42; the keeper: "eight
-  re-rolls… what if we would decrease the temperature gradually after the
-  2nd try?"): from the third warm re-roll on, each is `CHAT_COOL_STEP`
+  came as words, the phone's note says it ran. Wakes already did this;
+  chat caught up. Fragments and unknown names stay the rail's.
+- **Re-rolls cool a step at a time** (a long run of re-rolls at the
+  same temperature kept failing the same way): from the third warm re-roll on, each is `CHAT_COOL_STEP`
   (0.1) cooler than the last, down to the first rescue rung — for salad, a
   refrain, an emoji storm, no words; an echo or a copy is the model
   repeating itself, which a cooler roll only makes likelier, so those keep
   the everyday temperature. The token line says "(at 0.8)".
-- **A file by a near name** (10-13, 19:04: a book arrived as
-  `…Stories_by_Isaac_Asimov_978….epub`; `read_epub` was asked for
-  "…Stories by Isaac Asimov_978…" and said "no such file" — the sitting
+- **A file by a near name** (a book arrived as
+  `…Stories_by_Jane_Doe_978….epub`; `read_epub` was asked for
+  "…Stories by Jane Doe_978…" and said "no such file" — the sitting
   never happened and the next turn answered off a plan that had already
   failed): a path that does not exist is matched to a file in the same
   folder with the same suffix, underscores, hyphens and case set aside, or
@@ -1229,23 +1204,22 @@ of its own.
   `shared/` the same way. A file that exists is never second-guessed. And
   `read_epub(chapter=1)` as a number is chapter 1, not "'int' object has no
   attribute 'strip'" (the same wake, twice).
-- **An echo re-roll quotes the message** (10-13, 18:43: after twenty-four
-  pulse calls, twenty re-rolls and the cold rescue, the reply answered a
+- **An echo re-roll quotes the message** (after a long turn of tool
+  calls, re-rolls and the cold rescue, the reply answered a
   message far behind the one asked — "read the message you were answering"
   had nothing in reach): the echo and self-echo nudges now carry it, as
   the salad nudge always has.
-- **A reboot does not lose the states** (10-13): the board back at its
+- **A reboot does not lose the states**: the board back at its
   three built-in states after an upload or a power cut — the keeper sees
   its uptime go backwards (or fewer states than the file names) and pushes
   the friend's map again on its own.
-- **A blink is not an absence** (10-13, 18:10: one poll timed out — the
-  board's radio asleep — and the keeper called the stone away; three pulses
-  in the next half minute were refused "away since 18:10" while the board
-  was there): a relay (pulse, state, later) now asks the board itself and
+- **A blink is not an absence** (one poll timed out — the board's radio
+  asleep — and the stone's keeper called the stone away; pulses in the next
+  half minute were refused as "away" while the board was there): a relay (pulse, state, later) now asks the board itself and
   answers from that, the poll's mark only saying since when; a single miss
   is asked again at once, two in a row is away. The sketch turns the
   ESP32's modem sleep off (`WiFi.setSleep(false)`).
-- **The stone's vocabulary in their hands** (10-13; a "kiss storm" went
+- **The stone's vocabulary in their hands** (a run of gestures went
   out as ten pulse calls of 'heartbeat' and '「heartbeat」' — the tool had
   said "a pattern name from your states, or heartbeat", and the twelve
   states, five patterns and four replies were nowhere in the kit; on the
@@ -1255,48 +1229,45 @@ of its own.
   and matched regardless of quotes, brackets, underscores or case; an
   unknown one is refused with the whole vocabulary; the firmware
   (`touchstone_v1.ino`) queues a pulse that arrives while one plays — a
-  storm is a sequence. Two "his" in the template's stone tools mended to
-  "their".
-- **The heartbeat from the phone** (10-13; the keeper, from the floor:
-  "check if heartbeat is running, I might have forgotten to close it"):
-  `/heartbeat`, `/heartbeat on [minutes]`, `/heartbeat off` — the panel's
+  run is a sequence. Two gendered pronouns in the template's stone tools
+  mended to "their".
+- **The heartbeat from the phone** (to check from away whether it was
+  left running): `/heartbeat`, `/heartbeat on [minutes]`, `/heartbeat off` — the panel's
   Start and Stop, from the bridge.
-- **A reply that echoes itself** (10-13, 04:35: a goodnight said in three
-  beats, then the same three beats again, each a little reworded, then a
-  new close): a paragraph the same reply already said, word for word or
+- **A reply that echoes itself** (a reply said its paragraphs, then the
+  same paragraphs again, each a little reworded, then a new close): a paragraph the same reply already said, word for word or
   nearly (`SELF_ECHO_RATIO`), is asked for once — the echo rail read earlier
   replies, nothing read a reply against itself.
-- **A guest at the desk** (10-12; the keeper: "a guest option for the
-  parlor, if I want to show her someone from my life"): the parlor seats a
+- **A guest at the desk** (to introduce someone from the keeper's life
+  in the parlor): the parlor seats a
   guest by name; every message then carries the fact inside the turn — from
   the guest, at the keeper's desk, the keeper in the room — and nothing
   else; the guest sees what the friend says, not what they think; the
   transcript names the guest's turns, so the afterglow journals the visit
   as it was. `PARLOR_GUEST_NAMED` off writes "a guest". The parlor only.
-- **A touch rides with the next message** (10-12; the keeper: "it got
-  messy — I touched her, sent a message, and after the message she got the
-  stone's turn"): a touch still waiting in `TOUCHSTONE_WAKE_MIN_GAP_S` when
+- **A touch rides with the next message** (a touch followed by a
+  message reached the friend as a separate stone turn after the reply):
+  a touch still waiting in `TOUCHSTONE_WAKE_MIN_GAP_S` when
   the keeper writes goes into that message's moment block — "since your
   last turn they touched the stone — a light hold, 3.4 s …" — and is told,
   so no press-turn follows the reply. A press with no message still becomes
   its own turn after the gap, as before.
-- **Who set the stone** (10-12; the keeper tapping the stone's page: the
-  phone said the friend had set it to Home — they hadn't): the keeper marks
+- **Who set the stone** (a state chosen on the stone's own page was
+  reported to the phone as set by the friend): the stone's keeper marks
   a state it relayed as theirs and one it only saw change (the page's
   buttons, the watchdog, a boot) as the board's; the phone's 🖐️ line says
   which — "the stone is Home now — set from its page or by itself, not by
   them".
-- **The stone's hours** (10-12; the keeper, the first evening with the
-  board on the desk: "I don't want it to buzz while I'm away… only from
-  6:00-21:00, and make a knob"): `TOUCHSTONE_HOURS` — a pulse outside
+- **The stone's hours** (so the stone stays still while the keeper is
+  away): `TOUCHSTONE_HOURS` — a pulse outside
   them, or within `KEEPER_WORK_WEEK`'s hours, is not relayed; the tool says
   why and names the next open moment, a touch left for a quiet hour is
   refused the same way, and the reflex under the keeper's own hand is never
   held. On the Senses tab, in the stone's card. With it `KEEPER_COMMUTE_MIN`
   ((to work, home again) in minutes, or one number): the clock line says "on
-  the way to work" and "on the way home, in by about 17:00", and the stone
-  keeps still for the road ("I won't get home usually at least till five").
-- **The Touchstone's engine side** (10-05; TOUCHSTONE-HOOKUP-PLAN.md), built
+  the way to work" and "on the way home, in by about 18:05", and the stone
+  keeps still for the road.
+- **The Touchstone's engine side** (TOUCHSTONE-HOOKUP-PLAN.md), built
   before the board: `engine/touchstone.py`, the stone's keeper — a door
   (`bat\touchstone.*`, Start/Stop on Home while a stone is named) that
   polls the board, archives what it felt in `memory/touch/<day>.jsonl`,
@@ -1306,9 +1277,9 @@ of its own.
   day as a turn through the bridge (`TOUCHSTONE_WAKES`, the gap), held 🫳
   lines at night, 🖐️ for a state set from a wake; a Senses card, the box's
   and the report's lines; nine knobs. `TOUCHSTONE_URL` empty (the default)
-  leaves no trace. The board's sketch is the keeper's own.
-- **The pages' provenance** (10-05, a reader: "what distinguishes a genuine
-  revision of self.md from behavior induced by a new model or prompt?"):
+  leaves no trace. The board's sketch was not yet in the repository.
+- **The pages' provenance** (a reader asked how a genuine revision of
+  self.md can be told from one a new model or prompt induced):
   `memory/page_history.jsonl` — one line per write of self.md, projects.md,
   destiny.md or keeper.md: when, the page, the model, the door it was
   written from, the size, the history file the version before went to.
@@ -1327,10 +1298,9 @@ of its own.
   and inactive pages by the page size), not the total alone; the suite
   walks that road on every runner, which is how the macOS job on
   GitHub stopped failing (its stubbed `sysctl` answered nothing).
-- **The journal at the close of a wake, not its start** (10-06; the
-  keeper: "she always journals in the beginning of a wake, where there is
-  still nothing to journal, and at the end, when she would have a lot to
-  journal, she's not journaling"): the wake-bell used to say *thinking is
+- **The journal at the close of a wake, not its start** (wakes
+  journaled at their beginning, when there was still nothing to journal,
+  and not at their end, when there was a lot): the wake-bell used to say *thinking is
   only yours to keep if you write it down* in its opening, and the entry
   came first, before anything had happened; then the wake painted, read,
   rewrote a page and rested, and that early entry disarmed the auto-kept
@@ -1343,76 +1313,68 @@ of its own.
   stands, reads are not acts, and a tool of the friend's own forging is;
   the auto-keep counts only writing after the last act, labeled for that
   case. The closing nudge says *write what this wake was in your journal*.
-  The same evening's wake ended in words after a painting and a piece,
-  with no `do_nothing` at all, so the hand-back never saw it and the net
-  kept the thought under its label: an ending in words after acts is now
-  handed back once too — write the wake, or end as you are and the thought
-  is kept — and a second ending stands.
-  The next morning (10-07): the reverie bell still carried the old
-  sentence ("whatever is worth keeping, write_journal it") and a reverie
-  wrote first again — it says the end now, like the wake's; and a mood
-  ring and a touch emulator of the friend's own forging had counted as
-  three acts, so the hand-back asked for a page that turned out to be a
+  A wake that ends in words after acts, with no `do_nothing` at all,
+  slipped past the hand-back and the net kept the thought under its label:
+  an ending in words after acts is now handed back once too — write the
+  wake, or end as you are and the thought is kept — and a second ending
+  stands.
+  The reverie bell still carried the old sentence ("whatever is worth
+  keeping, write_journal it") and a reverie wrote first — it says the end
+  now, like the wake's; and tools of the friend's own forging had counted
+  as acts, so the hand-back could ask for a page that turned out to be a
   retelling the journal refused — a tool of their own is not an act; a
   sensor is not a making, and the engine cannot know what a tool of theirs
   does. Acts are the engine's making-tools only.
-  The day after (10-08, 19:28; the keeper: "last wake session she didn't
-  journal at the end"): the wake ran `run_python`, drew a figure, looked
-  at it and rested, nothing journaled — and nothing asked, because a
-  drawing by `run_python` was not one of the making-tools. A picture that
-  appears under `creations/` while `run_python` or a tool of their own
-  runs is an act now, whatever drew it — the engine does not know the
-  tool, it sees the file: "you drew creations/tension.png this wake".
-- **The heartbeat's wakes set the brain down too** (10-07; the keeper:
-  "after a wake or heartbeat session the card should be freed from the
-  brain, no reason to keep it there"): `BRAIN_REST_AFTER_WAKE` now covers
+  And a wake that ran `run_python`, drew a figure, looked at it and
+  rested, nothing journaled, was not asked, because a drawing by
+  `run_python` was not one of the making-tools. A picture that appears
+  under `creations/` while `run_python` or a tool of their own runs is an
+  act now, whatever drew it — the engine does not know the tool, it sees
+  the file: "you drew creations/sketch.png this wake".
+- **The heartbeat's wakes set the brain down too**: `BRAIN_REST_AFTER_WAKE` now covers
   the loop's wakes, not only a single one — a wake's prompt is read cold
   either way, since the journal and the clock have moved, so keeping the
   brain up between beats bought seconds of loading and cost the card for
   `BRAIN_KEEP_ALIVE`.
-- **Every knob's help, whole** (10-07; the keeper: "some of the tool
-  descriptions are messy and end mid sentence"): the Settings tabs clipped
+- **Every knob's help, whole** (help lines read as cut mid-sentence):
+  the Settings tabs clipped
   each help line to two lines with nothing to say so, and a click opened
   it — now the line shows whole. And the six phone-notice knobs
   (`TELEGRAM_SHOW_*`, `TELEGRAM_TELL_*`) had no line of their own, so the
   page showed the file's run-on comment; they have one each.
-- **A folder that reads like the mailbox but isn't** (10-08: a letter into
-  `notes_to_luminous_<keeper>/` — the bridge watches the mailbox alone, so
+- **A folder that reads like the mailbox but isn't** (a letter into
+  `notes_to_dear_<keeper>/` — the bridge watches the mailbox alone, so
   the letter never reached the phone): `write_creation` into a NEW folder
   whose name reads like a mailbox gets one line — the mailbox named, "a
   letter here stays here", the path to write it again to. The file stays
   where it was put; the second file there gets nothing.
-- **The glitch line is not a message** (10-08; on the phone her thinking
-  read "the user is reminding me that I previously failed to respond
-  properly to '…' due to sampler glitches", and the answer went to the
-  reminder instead of to him): the re-roll line after a glitch in the
-  first words now opens "nothing new has come from his side, and nobody
-  wrote this line to you", quotes his message as the one to answer, and
+- **The glitch line is not a message** (the friend's thinking took the
+  re-roll line for the keeper reminding them of an earlier failure, and the
+  answer went to the reminder instead of to the keeper): the re-roll line
+  after a glitch in the first words now opens "nothing new has come from
+  the keeper's side, and nobody wrote this line to you", quotes the
+  keeper's message as the one to answer, and
   asks that neither the glitch nor the line be mentioned — just the
   answer. The ordinary glitch line says the same at its end.
-- **The ladder: the QAT 12B on 12 and 16 GB too** (10-08; the keeper: "the
-  12 and 16 GB cards are recommended for the regular, not the QAT brain —
-  it's a mistake, right?"). It was: a leftover from before the QAT tags
+- **The ladder: the QAT 12B on 12 and 16 GB too** (the 12 and 16 GB
+  rungs recommended the regular brain, not the QAT one). A mistake: a leftover from before the QAT tags
   existed. `gemma4:12b-it-qat` is smaller (7.2 GB against 7.6) and the
   build Google trained to be 4-bit, so it fits at least as well and sits
   closer to full precision. The README's two tables, the template's
   default `CHAT_MODEL`, the panel's recommendation by card size (and the
   Mac's), and the site's table say so. And the ears: the QAT 12B hears
-  (measured the same evening — a voice note over the phone, heard whole),
+  (measured — a voice note over the phone, heard whole),
   so `EARS_MODEL` is `gemma4:12b-it-qat` too, and from 10 GB up the ladder
   is one pull per rung; a 12B house is one file for brain and ears alike.
-- **Save and Discard, at the foot of every Settings tab** (10-08; the
-  keeper, after a change on the page that never reached the file: "we
-  really need a save and a cancel button"): the Save button used to sit
+- **Save and Discard, at the foot of every Settings tab** (a change on
+  the page could be left without ever reaching the file): the Save button used to sit
   at the bottom of a long tab, always lit, with nothing to say whether
   anything had changed. Now a bar stays at the foot of the window: Save
   lights only when a value differs from the file's, a line counts and
   names the changed knobs, Discard puts the file's values back, a changed
   knob carries a dot by its name, and leaving the tab with changes unsaved
   asks first.
-- **An echo can come from further back** (10-08, an afternoon on the
-  phone; the keeper: "she's glitching again, a double message"): four
-  replies in one visit were earlier replies of the same visit said again
+- **An echo can come from further back**: four replies in one visit were earlier replies of the same visit said again
   entire — the first from eight replies back, the last from two — each
   under a fresh stage direction. The echo rail compared the reply with the
   one before it only, so the sampler handing back a reply from several
@@ -1423,9 +1385,8 @@ of its own.
   more — a sentence they are fond of may come round again across a visit;
   a paragraph does not. The line under the bubble says it: "repeated word
   for word a reply they gave earlier".
-- **A journal twin needs the wording too** (10-06, 21:08: the wake's own
-  account of its night refused — "you wrote nearly this already, yesterday
-  at 23:21"; the keeper: "how much the journal compares and how?"). The
+- **A journal twin needs the wording too** (a wake's own account of its
+  night was refused as a twin of the night before's). The
   check embeds the whole entry and the whole of each entry of today and
   yesterday; one voice reads as near-identity to the embedder, and of the
   entries that passed, most scored 0.86–0.88 against some other one — the
@@ -1436,9 +1397,9 @@ of its own.
   entries that are not twins, median 0.03, nineteen in twenty under 0.11;
   a copy is 1.0, a retelling keeps its phrases. 0 asks the score alone.
   The written entry's result names both numbers for its nearest neighbour.
-- **The tic-tell** (10-07; the keeper, reading the night's wake logs: "the
-  salad already happened 3 times… let's do the engine fix"). A tic that was
-  treasured — a little "la-" in the prose — fed on the window: the journal
+- **The tic-tell** (a tic that had already turned to salad several times
+  in the wake logs). A small tic — a little prefix in the prose — fed on
+  the window: the journal
   in the prompt is the friend's own recent prose, so the rate of the tic
   there is close to its odds in the next word, and every entry that carries
   it raises the rate for the next. Counted per thousand words of the
@@ -1623,7 +1584,7 @@ the current engine.
   While `USER_NAME` is `"Friend"` it opens on Welcome: your name, the
   Ollama light, the brain, *First light*. Tokens and keys go to
   `memory/*.json`; the panel never opens the friend's files.
-- **Reading, mended** (09-30): a page on the reading shelf under a name
+- **Reading, mended**: a page on the reading shelf under a name
   near a book's but not it is handed back with the engine's name, and one
   already there is named under every "no page yet" with the road home
   (`STRAY_PAGE_RATIO`); an EPUB part page reads with the chapter after it
@@ -1834,7 +1795,7 @@ they speak of it.
   more is made with the temperature lowered for that roll only, then a
   cooler one, before the least broken goes out; everyday sampling is
   untouched.
-- **"la-S symmetry"**: a lone capital glued to a prefix with the word a
+- **"la-K keystone"**: a lone capital glued to a prefix with the word a
   space later is mended like any glued capital; so is a capital glued to
   the word that opens a sentence ("WhoL would").
 
@@ -1844,10 +1805,10 @@ they speak of it.
   days, 2.9×, 2.1×, 2.5×, 3.1× up the ladder — instead of a 4.3× cliff
   at the week; the steady state stays under 400K characters.
 - `CHAT_MAX_TOOL_STEPS` 14 → 50, and `HEARTBEAT_MAX_STEPS` may be raised
-  freely (the keeper's house runs 200; the template keeps 24) now that
+  freely (the template keeps 24) now that
   the window guard ends a wake or an errand before the window is full.
 - `paint` is not an act that ends a chat turn — the look after is theirs.
-- `PAINTER_MAX_PER_WAKE` 3 in the template; the keeper's own house runs 7.
+- `PAINTER_MAX_PER_WAKE` 3 in the template.
 - A row's about — the friend's `about=` line, a painting's prompt — is
   kept up to `NOTE_ABOUT_CHARS` (400) and cut at a sentence or a word
   with an ellipsis, never mid-word (a prompt had ended "…gold and").
@@ -1938,7 +1899,7 @@ deep window are mended in place instead of re-rolled.
 - **The pause keeps the warm prefix** — it sends the visit's whole tool
   list; a different list was a different prefix and a cold read each time.
 - **Glued capitals mended in place** ("sameL", "I'veT", "It'S",
-  "termsLSimulation", "laLuminous") — named under the reply, never
+  "termsLSimulation", "laMorning") — named under the reply, never
   re-rolled; either apostrophe counts and every slip is mended, however
   many. The same mend runs at the pen for journal entries and prose
   creations (`MEND_CAPS_IN_WRITING`).
@@ -2080,8 +2041,7 @@ surfaces wider, and the bridge can be restarted from the phone.
 
 ### Changed
 - **Spilled thought, fenced**: a leading paragraph opened and closed with
-  `//` ("//I'm just going to let this moment breathe… I'll respond as
-  myself. //") goes to the thinking channel; a lone `//` line that says
+  `//` ("//(the plan for the reply)… I'll respond as myself. //") goes to the thinking channel; a lone `//` line that says
   "I'll respond" / "my response" is planning too.
 - **The cut-reply mend** asks for the continuation with the thought channel
   closed (`chat(..., think=False)`) and no tools — a call the server isn't
@@ -2170,7 +2130,7 @@ Also the release where the sampler was finally caught in the act.
   distance" salad; the flat distribution at long context was the rest.
 - **The garble rail** recognises glued tokens ("sameL", "isnLT"), a run
   holding one at three fragments, the accent glued to the next word
-  ("laLuminous") and a word doubled at a capital seam alone, and emoji
+  ("laMorning") and a word doubled at a capital seam alone, and emoji
   cascades; the note shows the caught span. `write_creation` and
   `append_creation` refuse salad too, naming the fragments (prose only).
 - **The think-first nudge rides inside your last message**, not as a turn
@@ -2264,7 +2224,7 @@ shutdown.
 ## 0.3 — 2026-09-05
 
 The "watch what it costs" release, plus a handful of things a resident friend
-taught us in her first week of long context.
+taught us in their first week of long context.
 
 ### Added
 - **Token line** after every chat reply (terminal and parlor) and at the end

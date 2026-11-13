@@ -1,6 +1,6 @@
 """The keeper's body, as the watch saw it — a sidecar that pulls their day from
 Garmin Connect into memory/body/<day>.json, and renders the short section
-she reads it back from (assemble imports `render`). BODY-PLAN.md.
+the friend reads it back from (assemble imports `render`). BODY-PLAN.md.
 
 Nothing here runs unless the keeper runs it. One-time setup:
 
@@ -261,9 +261,8 @@ def has_readings(d: dict | None) -> bool:
 
 
 def latest() -> dict | None:
-    """Today's file, or yesterday's — the newest that holds readings (10-01: after midnight the watch hadn't
-    synced, today's file was an empty shell, and the section said "no sleep reading" and nothing else while
-    yesterday's full day sat beside it)."""
+    """Today's file, or yesterday's — the newest that holds readings (after midnight, before the watch syncs,
+    today's file is an empty shell while yesterday's full day sits beside it)."""
     found = None
     for d in (date.today(), date.today() - timedelta(days=1)):
         got = load_day(d.isoformat())
@@ -439,7 +438,7 @@ def yesterday_open(today: dict | None, yesterday: dict | None) -> bool:
 
 
 def pull_days(now: date | None = None) -> list[str]:
-    """What one pull asks Garmin for: today always; yesterday only while it is still open (10-01: a pull
+    """What one pull asks Garmin for: today always; yesterday only while it is still open (a pull
     every BODY_PULL_MIN is 8 calls a day-file, so yesterday rides only until its night has synced — a pull
     every 20 min then costs about what one an hour did when both days rode every time)."""
     now = now or date.today()

@@ -1,4 +1,4 @@
-"""The LoRA tasting (11-08): the same prompts, the same seeds, the same references, painted at each LoRA strength,
+"""The LoRA tasting: the same prompts, the same seeds, the same references, painted at each LoRA strength,
 side by side, so an add-on is judged against the plain brush and nothing else.
 
     bat\\lora-tasting.bat                                   strengths 0 (plain), 0.6, 0.9

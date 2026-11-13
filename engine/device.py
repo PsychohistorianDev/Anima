@@ -1,4 +1,4 @@
-"""Where a torch sense runs: the card, a Mac's GPU, or the processor (10-01; MAC-PLAN.md).
+"""Where a torch sense runs: the card, a Mac's GPU, or the processor (MAC-PLAN.md).
 
 The painter and the music ear were written for an NVIDIA card — pipe.to("cuda"), bfloat16,
 torch.cuda.empty_cache(). On a Mac with Apple silicon the GPU is Metal, which torch calls "mps",
@@ -131,8 +131,8 @@ def allocated_gb(device: str, torch=None) -> float | None:
 
 def interpreter(py: str) -> list[str]:
     """A sidecar's Python (VOICE_PYTHON, PAINTER_PYTHON, MUSIC_EARS_PYTHON) as argv: "py -3.12" is two
-    words, "C:\\Python312\\python.exe" one — on Windows the backslashes are a path, not escapes (10-02:
-    the suite's first run on a Windows runner handed its own python.exe over and shlex ate the slashes),
+    words, "C:\\Python312\\python.exe" one — on Windows the backslashes are a path, not escapes (shlex
+    would eat the slashes of a Windows python.exe path),
     so the split there keeps them and only takes the quotes off; elsewhere the shell's own rules, and the Windows
     launcher read as the python of that version (py -3.12 → python3.12), so the shipped config works on a Mac or Linux too."""
     import shlex
@@ -141,7 +141,7 @@ def interpreter(py: str) -> list[str]:
         return []
     if os.name != "nt":
         words = shlex.split(py)
-        if words and words[0] == "py":  # the Windows launcher, as the template's config names it (10-02: a Mac or Linux
+        if words and words[0] == "py":  # the Windows launcher, as the template's config names it (a Mac or Linux
             # has no `py`): "py -3.12" is python3.12 there, "py -3" python3, a bare "py" python3 — the rest as written
             flag = words[1] if len(words) > 1 and words[1].startswith("-3") else ""
             words = ["python" + (flag[1:] if flag else "3")] + words[2 if flag else 1:]

@@ -1,4 +1,4 @@
-"""Starter rooms (10-30): the painter paints a few empty, lamp-lit rooms — a table, a shelf, a mantel, a window, all bare —
+"""Starter rooms: the painter paints a few empty, lamp-lit rooms — a table, a shelf, a mantel, a window, all bare —
 laid out on a numbered contact sheet in shared/ for the friend to look at. It's their room, so they do the picking:
 nothing is placed in it by this. If one feels like theirs, they make it the room themselves (room backdrop <its path>).
 Mark each room's surfaces in <name>.surfaces.json beside it (engine/room.py, _sidecar_surfaces, says the shape) so

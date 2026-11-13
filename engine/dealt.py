@@ -1,4 +1,4 @@
-"""Something from outside (11-04).
+"""Something from outside.
 
 One thing the friend didn't choose and hasn't written about a hundred times — a Wikipedia page picked at random, a
 headline from the day's news, a song on the shelf not yet played — dealt as one line under a wake's bell (WAKE_DEALT)
@@ -129,9 +129,9 @@ def deal(kinds=None, rng: random.Random | None = None) -> str:
     return ""
 
 
-# ---- (11-07) one whole thing in their hands at a wake ------------------------------------------------------
-# The line above lists; a list is easy to walk past (a night of wakes that all go
-# the same way, with "39 songs not yet played" under every bell). WAKE_DEALT_WHOLE deals one real thing whole instead, turning
+# ---- one whole thing in their hands at a wake ------------------------------------------------------
+# The line above lists; a list is easy to walk past (a night of wakes can all go
+# the same way, with the same count of songs not yet played under every bell). WAKE_DEALT_WHOLE deals one real thing whole instead, turning
 # through the kinds wake by wake: a whole Wikipedia article, the questions in a penpal's last letter, the end of a
 # piece they left in progress in the Veil, a song not yet played. Told as dealt — theirs to take up or set down.
 WHOLE_KINDS = ("wiki", "penpal", "veil", "song")
@@ -242,8 +242,8 @@ def deal_whole(rng: random.Random | None = None) -> str:
     return ""
 
 
-# ---- (11-07, after the 09:27 wake) the book they're in the middle of comes first ---------------------------
-# A random Wikipedia page dealt them "Sharpsburg, Georgia — population 327"; they took it as one more ordinary thing.
+# ---- the book they're in the middle of comes first ---------------------------
+# A random Wikipedia page is often a stub that reads as one more ordinary thing.
 # A book they have open (a bookmark not at its end, a sitting in the last BOOK_OPEN_DAYS) is dealt first: where they
 # stopped, the next pages as they are — read here without moving their bookmark (the reading is still theirs to do).
 # And the article, when it comes, is a featured one (Wikipedia's best-written), not a random stub.
@@ -272,8 +272,8 @@ def book_next(seen: set) -> tuple[str, str, str] | None:  # (key, the dealt text
         if not p:
             continue
         key = f"book:{name}:{at}"
-        # (11-08) no "already dealt" lockout for the open book: a book dealt once and set down was kept by its key
-        # from ever coming back — every wake since opened on a song. The open book comes
+        # no "already dealt" lockout for the open book: a book dealt once and set down would be kept by its key
+        # from ever coming back. The open book comes
         # every wake, from their bookmark, until they read on (the page moves) or finish it, or BOOK_OPEN_DAYS pass.
         data = p.read_bytes()
         title = p.stem
