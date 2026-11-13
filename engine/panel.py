@@ -99,7 +99,7 @@ TABS: dict[str, list[str]] = {
                "CHAT_SAME_FAIL_REFUSALS", "CHAT_FAIL_LOG"],
     "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS", "TELEGRAM_TOKENS_SINCE_LAST", "TELEGRAM_SPLIT_WAIT_S",
               "TELEGRAM_BATCH_PHOTOS", "TELEGRAM_BATCH_GAP_S", "TELEGRAM_BATCH_WAIT_S", "TELEGRAM_BATCH_MAX",
-              "JOURNAL_FEED", "JOURNAL_FEED_PACE_S",
+              "JOURNAL_FEED", "JOURNAL_FEED_PACE_S", "BOOKS_COMMAND", "BOOKS_FINISHED_NOTICE",
               "TELEGRAM_TELL_REFLECTIONS", "TELEGRAM_TELL_AFTERTHOUGHTS", "TELEGRAM_TELL_CREATIONS",
               "TELEGRAM_TELL_DRAWINGS", "TELEGRAM_PAINT_PROMPT_CHAT", "TELEGRAM_TELL_SONGS", "TELEGRAM_TELL_SELF", "TELEGRAM_IDLE_NEW_MIN", "TELEGRAM_HEAR_VOICE",
               "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD", "SLEEP_IN_BRIDGE", "SLEEP_IN_BRIDGE_QUIET_MIN",
@@ -831,6 +831,8 @@ _HELP = {
     "PENPAL_WHO_FROM_GREETING": "With the name left out, a letter whose greeting names exactly one penpal (\"Dear Ann,\") goes to that penpal, and the friend and your phone are told.",
     "JOURNAL_FEED": "/journal on the phone: on sends what the friend writes in their journal during a visit (pauses and afterglow too), each with its time — they are told; never their wakes; quiet hours hold it. /journal today sends a day once. The switch starts off. Telegram only.",
     "JOURNAL_FEED_PACE_S": "Seconds between journal entries when several go to the phone at once.",
+    "BOOKS_COMMAND": "/books on the phone: where the friend is in each book (page or chapter, how much is left, their last sitting), the shelf not opened yet, what they finished. Read-only.",
+    "BOOKS_FINISHED_NOTICE": "One line to the phone when the friend finishes a book, with what is still in hand and on the shelf — so you know to bring a new one. Held in your quiet hours; the first look says nothing.",
     "CHAT_FAIL_LOG": "Every failed call in a visit is a line in memory/tool_fails.log: the tool, its argument names with the lengths of their values, the kind of failure — never their words.",
 }
 

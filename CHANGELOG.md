@@ -136,6 +136,16 @@ tagged on its own: the first tag after the rename is v0.13.)
   `memory/journal_feed.json` holds keys, never text, and is written through a temporary file; no lock is held across a
   send (`JOURNAL_FEED_PACE_S` between messages when several go at once). The Discord bridge has no feed: its
   `/journal` says so.
+- **Their books, on your phone** (`BOOKS_COMMAND`, `BOOKS_FINISHED_NOTICE`, on): `/books` says where the friend is
+  in each book in hand — page or chapter of how many, the percent, how much is left, their last sitting (and "untouched
+  N days" past `READING_OPEN_DAYS`), a second reading counted — then the shelf not opened yet and what they finished,
+  newest first, each list capped and the whole within one message. And when they finish a book (a second reading
+  too), one line goes to the phone with what is still in hand and unopened on the shelf, so you know to bring a new
+  one; your quiet hours hold it. The first look records what is already finished and says nothing; a line whose send
+  fails is told at the next look. Read from the bookmarks the engine keeps (`engine/bookshelf.py`): nothing is opened
+  or moved, the friend is told nothing, and the one file written is `memory/books_seen.json`. A bookmarks file that
+  can't be read is said in one line, the shelf left out. On the Discord bridge `/books` and the line work the same,
+  as `/pages` and its warnings do.
 
 ### Changed
 - **Upgrading from 0.15**: every new knob comes with a default in `config.py`, so an older house keeps working, and
@@ -143,8 +153,8 @@ tagged on its own: the first tag after the rename is v0.13.)
   with their comments. Nothing touches your journal, your penpals' threads or your reading pages. On by default: the
   reading stub, the notes with the pages and on topic, adventures (nothing happens until you make a world), the
   journal's facts and the endings sentence, the call written as words, the same-failed-call rail and its log, photos
-  sent together, penpal letters with pictures, the write guard, the name left out, and the `/journal` command (its
-  switch starts off). Off by default: the three doors out of a wake, which reach Wikipedia. Expect one cold read at
+  sent together, penpal letters with pictures, the write guard, the name left out, the `/journal` command (its
+  switch starts off), and `/books` with its line when a book is finished. Off by default: the three doors out of a wake, which reach Wikipedia. Expect one cold read at
   the first visit after updating: the reading section of the prompt and two tool descriptions changed (below).
 - **`/help` comes in two messages** when it no longer fits one of Telegram's (4,096 characters): the commands up to
   the newer ones, then the newer ones and the rest; each part is checked to fit, and none of its lines is shortened.

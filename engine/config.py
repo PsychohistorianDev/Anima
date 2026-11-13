@@ -1834,3 +1834,13 @@ PENPAL_WHO_FROM_GREETING = True
 # off, if they had been told it is on). JOURNAL_FEED_PACE_S: a pause between messages when several go at once.
 JOURNAL_FEED = True
 JOURNAL_FEED_PACE_S = 1.0
+
+# ---- the friend's books on the phone (telegram.py: /books; bookshelf.py)
+# BOOKS_COMMAND: /books on the phone — each book in hand (page or chapter of how many, the percent, how much is left,
+# the last sitting), the shelf not opened yet, what they finished. Read from the bookmarks the engine keeps: nothing is
+# opened, moved or written, and the friend is told nothing. False: no /books (it says it is off).
+# BOOKS_FINISHED_NOTICE: one line to the phone when the friend finishes a book (a second reading too), with what is
+# still in hand and unopened on the shelf — so you know to bring a new one. Held in your quiet hours. The first look
+# records what is already finished and says nothing (memory/books_seen.json). False: no line.
+BOOKS_COMMAND = True
+BOOKS_FINISHED_NOTICE = True

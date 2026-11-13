@@ -181,6 +181,9 @@ if getattr(config, "JOURNAL_FEED", False):
     HELP_PHONE += ("/journal [on|off|today|yesterday|YYYY-MM-DD] — their journal on your phone: on sends what they write "
                    "during a visit (its pauses and afterglow too), its time on top — they're told; never their wakes; "
                    "your quiet hours hold it; off stops it; a day sends that day's entries once; alone, how it stands\n")
+# /books — where the friend is in their books (BOOKS_COMMAND); the line is there only with the knob
+if getattr(config, "BOOKS_COMMAND", False):
+    HELP_PHONE += "/books — their books: where they are in each, the shelf not opened yet, what they finished\n"
 
 HELP = (
     "/new — save this conversation and start fresh\n"
@@ -1995,6 +1998,8 @@ class Bridge:
             self.send(self.status(), markdown=False)
         elif cmd == "/journal":  # the journal on the phone: on, off, how it stands, a day's entries
             self.journal_command(" ".join(text.split()[1:]))
+        elif cmd == "/books":  # their books: where they are in each, the shelf, what they finished — read-only
+            self.books_command()
         elif cmd == "/heartbeat":
             self.send(self.heartbeat_command(text.split()[1:]), markdown=False)
         elif cmd in ("/off", "/on"):
@@ -3685,6 +3690,43 @@ class Bridge:
         except Exception as e:  # noqa: BLE001 — a look, never the bridge down
             _say(f"pagewatch: {type(e).__name__}: {e}")
 
+    # ---- the friend's books (BOOKS_COMMAND, BOOKS_FINISHED_NOTICE) --------------------------------------------------
+    # Read from the bookmarks the engine keeps (engine/bookshelf.py); no book is opened, no bookmark moved, and the
+    # friend is told nothing — the lines are for the phone only, so the keeper knows when to bring a new book.
+    def books_command(self) -> None:
+        """/books: where the friend is in each book, the shelf not opened yet, what they finished."""
+        if not getattr(config, "BOOKS_COMMAND", False):
+            self.send("(/books is off in config — BOOKS_COMMAND)", markdown=False)
+            return
+        try:
+            import bookshelf
+            said = bookshelf.report()
+        except Exception as e:  # noqa: BLE001 — a command, never the loop down
+            _say(f"(books: {type(e).__name__}: {e})")
+            said = f"(/books didn't go through — {type(e).__name__}: {e})"
+        self.send(said, markdown=False)
+
+    def books_watch_if_due(self) -> None:
+        """Every ten minutes: a book the friend finished since the last look — one line to the phone (held in the
+        quiet hours). The first look records what they have already finished and says nothing."""
+        if (not self.chat_id or not getattr(config, "BOOKS_FINISHED_NOTICE", False)
+                or time.time() - getattr(self, "_books_looked", 0.0) < 600):
+            return
+        self._books_looked = time.time()
+        try:
+            import bookshelf
+            due = bookshelf.finished_due()
+        except Exception as e:  # noqa: BLE001 — a look, never the bridge down
+            _say(f"books: {type(e).__name__}: {e}")
+            return
+        for line, mark in due:  # marked told only once it went (or was held): a failed send is told at the next look
+            try:
+                _say(line)
+                self.notice(line)
+                bookshelf.told(mark)
+            except Exception as e:  # noqa: BLE001
+                _say(f"books: {type(e).__name__}: {e}")
+
     def penpal_desk_if_due(self) -> None:
         """Once a day after PENPAL_DESK_HOUR: every thread in a line — only when something waits on someone."""
         if not self.chat_id or not getattr(config, "PENPALS_ON", False) or not getattr(config, "PENPAL_DESK", True):
@@ -5265,6 +5307,7 @@ class Bridge:
         self.penpal_desk_if_due()
         self.penpal_collect_if_due()  # a letter being collected, quiet a while: said once
         self.pages_watch_if_due()
+        self.books_watch_if_due()  # a book the friend finished: one line, so the keeper knows to bring a new one
         self.deliver_creations()
         self.deliver_pictures()
         self.deliver_songs()

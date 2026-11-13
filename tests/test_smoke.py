@@ -18353,6 +18353,349 @@ check("journal feed (0.16): its lines name the keeper and the friend, never by a
 (config.JOURNAL_DIR, config.USER_NAME, ollama_client.chat, config.TELEGRAM_QUIET_HOURS, config.JOURNAL_FEED,
  config.JOURNAL_FEED_PACE_S, chat.pause_reflection, chat.afterglow, chat.rest_brain, memory.search,
  tg.JOURNAL_FEED_FILE, _jd_doors.status) = _jd_saved
+# ---- 0.16: the friend's books — /books on the phone, and a line when one is finished ----
+import bookshelf as _bk
+import time as _bk_time
+from datetime import date as _bk_date
+_bk_saved = (config.SHARED_DIR, config.VOICE_DIR, tools._BOOKMARKS_FILE, tools._SEEN_FILE, _bk.seen_file,
+             chat.friend_name, config.BOOKS_COMMAND, config.BOOKS_FINISHED_NOTICE, config.READING_OPEN_DAYS,
+             config.READING_BOOK_PAGES, config.TELEGRAM_QUIET_HOURS, config.USER_NAME)
+_bk_dir = config.MEMORY_DIR / "books-g5"
+_bk_dir.mkdir(parents=True, exist_ok=True)
+tools._BOOKMARKS_FILE, tools._SEEN_FILE = _bk_dir / "bookmarks.json", _bk_dir / "shelf_seen.json"
+_bk.seen_file = lambda: _bk_dir / "books_seen.json"
+chat.friend_name = lambda: "Juniper"
+config.USER_NAME, config.READING_OPEN_DAYS, config.READING_BOOK_PAGES = "Avery", 30, 40
+config.TELEGRAM_QUIET_HOURS = (6, 6)
+_bk_T = _bk_date(2026, 11, 13)
+_bk_n = [0]
+
+
+def _bk_led(d):
+    tools._BOOKMARKS_FILE.write_text(_pl_json.dumps(d, indent=1), encoding="utf-8")
+
+
+def _bk_shelf(*names):
+    """A fresh shelf holding these files (each stage its own folder)."""
+    _bk_n[0] += 1
+    config.SHARED_DIR = _bk_dir / f"shared{_bk_n[0]}"
+    config.VOICE_DIR = config.SHARED_DIR / "letters"
+    config.SHARED_DIR.mkdir(parents=True, exist_ok=True)
+    for n in names:
+        (config.SHARED_DIR / n).parent.mkdir(parents=True, exist_ok=True)
+        (config.SHARED_DIR / n).write_bytes(b"")
+
+
+def _bk_tree():
+    return {str(p.relative_to(_bk_dir)): (p.stat().st_mtime_ns, p.read_bytes() if p.is_file() else b"/")
+            for p in sorted(_bk_dir.rglob("*"))}
+
+
+_bk_shelf()
+check("config (0.16): /books and the finished-book line are on by default, on the panel's Phone tab with help; /books "
+      "is on the phone's help, and like /pages not on the Discord bridge's",
+      (config.BOOKS_COMMAND, config.BOOKS_FINISHED_NOTICE) == (True, True)
+      and all(k in _gm_panel.TABS["Phone"] and _gm_panel._HELP.get(k) for k in ("BOOKS_COMMAND", "BOOKS_FINISHED_NOTICE"))
+      and "/books — their books: where they are in each, the shelf not opened yet, what they finished\n" in tg.HELP_PHONE
+      and "\n/books — " in tg.HELP and "\n/books — " not in __import__("discord_bridge").HELP and "\n/pages — " not in __import__("discord_bridge").HELP)
+# in hand: EPUB and PDF, an old entry, a stale book, a third reading, a short PDF
+_bk_led({
+    "Salt and Ember.epub": {"chapter": 5, "total": 20, "kind": "epub", "date": "2026-11-13", "title": "Salt and Ember"},
+    "The Halls.pdf": {"page": 12, "total": 300, "date": "2026-11-12", "title": "The Halls"},
+    "Old_Lantern_Street.pdf": {"page": 50, "total": 100, "when": "08:58"},
+    "Stale.pdf": {"page": 10, "total": 200, "kind": "pdf", "date": "2026-10-04", "title": "Moth Season"},
+    "Again.epub": {"chapter": 3, "total": 23, "kind": "epub", "date": "2026-11-01", "title": "Tidewater",
+                   "reading": 3, "finished": "", "started": "2026-11-01"},
+    "Short.pdf": {"page": 3, "total": 39, "kind": "pdf", "date": "2026-11-13", "title": "A Short Datasheet"}})
+_bk_r = _bk.report(_bk_T)
+check("books (0.16): in hand — an EPUB by chapter and a PDF by page (kind from the name): where, the percent, how much "
+      "is left, the last sitting",
+      _bk_r.startswith("Juniper's books — Nov 13\n\nIn hand (5):\n")
+      and "· “Salt and Ember” — chapter 5 of 20 (25%), 15 chapters left; last sitting today (Nov 13)\n" in _bk_r
+      and "· “The Halls” — page 12 of 300 (4%), 288 pages left; last sitting yesterday (Nov 12)\n" in _bk_r, _bk_r)
+check("books (0.16): an entry with no kind, date or title by its cleaned file name; a book past READING_OPEN_DAYS "
+      "marked untouched; a third reading counted; a PDF under READING_BOOK_PAGES not listed",
+      _bk_r.endswith("· “Old Lantern Street” — page 50 of 100 (50%), 50 pages left; no date on its bookmark")
+      and "· “Moth Season” — page 10 of 200 (5%), 190 pages left; last sitting 40 days ago (Oct 4) — untouched 40 days\n" in _bk_r
+      and "· “Tidewater” — chapter 3 of 23 (13%), 20 chapters left; their 3rd reading; last sitting 12 days ago (Nov 1)\n" in _bk_r
+      and "Datasheet" not in _bk_r and "Finished" not in _bk_r, _bk_r)
+check("books (0.16): in hand newest sitting first, the undated last",
+      [_bk_r.index(x) for x in ("Salt and Ember", "The Halls", "Tidewater", "Moth Season", "Old Lantern")]
+      == sorted(_bk_r.index(x) for x in ("Salt and Ember", "The Halls", "Tidewater", "Moth Season", "Old Lantern")))
+config.READING_OPEN_DAYS = 0
+_bk_r0 = _bk.report(_bk_T)
+config.READING_OPEN_DAYS = 30
+check("books (0.16): READING_OPEN_DAYS 0 — never untouched", "untouched" not in _bk_r0
+      and "last sitting 40 days ago (Oct 4)\n" in _bk_r0, _bk_r0)
+# finished: newest first, a second reading, an untitled entry by its file name with the ISBN gone, the cap
+_bk_FIN = {
+    "Tidewater.pdf": {"page": 154, "total": 154, "kind": "pdf", "date": "2026-11-03", "finished": "2026-11-03",
+                      "title": "Tidewater"},
+    "Glass Orchard.epub": {"chapter": 33, "total": 33, "date": "2026-11-06", "finished": "2026-11-06",
+                           "title": "Glass Orchard"},
+    "The Quiet Engine.epub": {"chapter": 23, "total": 23, "date": "2026-10-10", "finished": "2026-10-10",
+                              "title": "The Quiet Engine", "reading": 2},
+    "Lighthouse_Stories_and_Others_9780000000002.epub": {"chapter": 10, "total": 10, "date": "2026-10-13",
+                                                          "finished": "2026-10-13", "title": "(untitled)"},
+    "tiny.pdf": {"page": 5, "total": 5, "kind": "pdf", "date": "2026-11-12"}}
+_bk_led(_bk_FIN)
+_bk_r = _bk.report(_bk_T)
+_bk_f = _bk_r.split("Finished (4):\n", 1)[-1]
+check("books (0.16): nothing in hand — the last one finished named; finished newest first, a second reading said, an "
+      "untitled entry by its file name (ISBN gone), a short PDF not a book",
+      "No book in hand. The last one Juniper finished: Glass Orchard, 7 days ago (Nov 6)" in _bk_r
+      and _bk_f == ("· “Glass Orchard” — Nov 6\n· “Tidewater” — Nov 3\n· “Lighthouse Stories and Others” — Oct 13\n"
+                    "· “The Quiet Engine” — Oct 10 (2nd reading)") and "tiny" not in _bk_r, _bk_r)
+_bk_led(dict(_bk_FIN, **{f"Extra {i}.epub": {"chapter": 9, "total": 9, "date": f"2026-08-0{i}",
+                                             "finished": f"2026-08-0{i}"} for i in range(1, 8)}))
+_bk_r = _bk.report(_bk_T)
+check("books (0.16): eleven finished — the newest eight named, then +3 earlier",
+      "Finished (11):" in _bk_r and _bk_r.endswith("\n+3 earlier") and "Extra 7" in _bk_r and "Extra 4" in _bk_r
+      and "Extra 3" not in _bk_r, _bk_r[-300:])
+# the unopened shelf
+_bk_led(_bk_FIN)
+_bk_shelf("books/Neon Harbour.pdf", "Snowfield.epub", "music/x.mp3", "loose.pdf", "books/Tidewater.pdf",
+          *[f"books/More {i:02}.pdf" for i in range(10)])
+_bk_r = _bk.report(_bk_T)
+check("books (0.16): the shelf not opened yet — EPUBs anywhere and PDFs under books/, by name, ten then +N more; a book "
+      "with a bookmark, a loose PDF and a song never; the sections in order",
+      "\n\nOn the shelf, not opened yet (12): " in _bk_r and "Snowfield" in _bk_r and "(+2 more)" in _bk_r
+      and "loose" not in _bk_r and "x.mp3" not in _bk_r and ".pdf" not in _bk_r and ".epub" not in _bk_r
+      and _bk_r.count("Tidewater") == 1
+      and _bk_r.index("No book in hand") < _bk_r.index("On the shelf") < _bk_r.index("Finished (4)"), _bk_r)
+_bk_led({"tiny.pdf": {"page": 2, "total": 5, "kind": "pdf", "date": "2026-11-12"}})
+_bk_shelf()
+check("books (0.16): no book at all in the ledger — none in hand, none finished",
+      _bk.report(_bk_T) == "Juniper's books — Nov 13\n\nNo book in hand, and none finished yet.", _bk.report(_bk_T))
+# a ledger missing, a ledger broken
+tools._BOOKMARKS_FILE.unlink()
+_bk_m1 = _bk.report(_bk_T)
+_bk_shelf("Snowfield.epub")
+_bk_m2 = _bk.report(_bk_T)
+check("books (0.16): no bookmarks yet — one line, with the shelf when there is one",
+      _bk_m1 == "(no bookmarks yet — Juniper hasn't opened a book)"
+      and _bk_m2 == "(no bookmarks yet — Juniper hasn't opened a book; on the shelf, not opened yet: Snowfield)",
+      (_bk_m1, _bk_m2))
+tools._BOOKMARKS_FILE.write_text("{not json", encoding="utf-8")
+_bk_shelf("books/Tidewater.pdf", "Glass Orchard.epub")
+_bk_r = _bk.report(_bk_T)
+check("books (0.16): a bookmarks file that can't be read — one line, the shelf left out (read books never shown as "
+      "unopened), the file left as it was",
+      _bk_r == "(Juniper's bookmarks can't be read right now — memory/bookmarks.json; nothing was changed — try again in "
+               "a moment)" and tools._BOOKMARKS_FILE.read_text(encoding="utf-8") == "{not json", _bk_r)
+# odd numbers
+_bk_shelf()
+tools._BOOKMARKS_FILE.write_text(
+    '{"a.pdf": {"page": 1, "total": 1e400, "date": "2026-11-13"}, "b.pdf": {"page": 3, "total": NaN},'
+    ' "c.epub": {"chapter": Infinity, "total": 10, "date": "2026-11-13", "title": "Cee"},'
+    ' "d.epub": {"chapter": 3, "total": -5, "finished": "2026-11-01", "title": "Minus"},'
+    ' "e.epub": {"chapter": 0, "total": 0, "title": "Zero"},'
+    ' "f.epub": {"chapter": 2, "total": 9, "reading": NaN, "date": "2026-11-13", "title": "Eff"}}', encoding="utf-8")
+try:
+    _bk_r, _bk_err = _bk.report(_bk_T), ""
+except Exception as _bk_e:  # noqa: BLE001
+    _bk_r, _bk_err = "", repr(_bk_e)
+check("books (0.16): Infinity, 1e400, NaN and totals of 0 or less — no exception; a bad position counts 0, a bad total "
+      "is no book and never finished",
+      not _bk_err and "“Cee” — chapter 0 of 10" in _bk_r and "“Eff” — chapter 2 of 9" in _bk_r and "reading" not in _bk_r
+      and not any(x in _bk_r for x in ("a.pdf", "b.pdf", "Minus", "Zero", "Finished")), (_bk_err, _bk_r))
+# the caps and the length bound
+_bk_big = {f"Book {i:02}.epub": {"chapter": 1, "total": 30, "date": f"2026-11-{i + 1:02}",
+                                  "title": f"Book {i:02} " + "x" * 200} for i in range(12)}
+_bk_big.update({f"Old {i:02}.epub": {"chapter": 1, "total": 30, "date": f"2026-09-{i + 1:02}",
+                                      "title": f"Old {i:02} " + "y" * 200} for i in range(8)})
+_bk_big.update({f"Done {i:02}.epub": {"chapter": 30, "total": 30, "finished": f"2026-08-{i + 1:02}",
+                                       "title": "z" * 300} for i in range(12)})
+_bk_led(_bk_big)
+_bk_shelf(*[f"{'q' * 150}{i:02}.epub" for i in range(14)])
+_bk_r = _bk.report(_bk_T)
+check("books (0.16): long titles — cut at 80 characters with …; the lists shrink until the reply fits 3,500 characters, "
+      "newest first, every section still there, nothing cut mid-text",
+      len(_bk_r) <= 3500 and "In hand (20):" in _bk_r and "“Book 11 " + "x" * 71 + "…”" in _bk_r
+      and "q" * 79 + "…" in _bk_r and "x" * 100 not in _bk_r
+      and _pl_re.search(r"\+\d+ more — the ones sat with longest ago are left out", _bk_r)
+      and "On the shelf" in _bk_r and "Finished (12):" in _bk_r and "cut to fit" not in _bk_r, (len(_bk_r), _bk_r[:300]))
+_bk_shelf()
+_bk_led({**{f"B{i:02}.epub": {"chapter": 1, "total": 30, "date": f"2026-11-{i + 1:02}", "title": f"Book {i:02}"}
+            for i in range(12)},
+         **{f"O{i:02}.epub": {"chapter": 1, "total": 30, "date": f"2026-09-{i + 1:02}", "title": f"Old {i:02}"}
+            for i in range(8)}})
+_bk_r = _bk.report(_bk_T)
+check("books (0.16): twenty in hand — fifteen named, newest sitting first, then +5 more",
+      "In hand (20):" in _bk_r and _bk_r.endswith("\n+5 more — the ones sat with longest ago are left out")
+      and "Old 05" in _bk_r and "Old 04" not in _bk_r and _bk_r.count("· “") == 15, _bk_r[-200:])
+# the bridge: /books, read-only; the knob off; the "/" menu; the Discord bridge
+_bk_led(_bk_FIN)
+_bk_shelf("books/Neon Harbour.pdf")
+b, phone = _bridge()
+_bk_before = _bk_tree()
+_bk_time.sleep(0.02)
+b.handle(_msg("/books"))
+check("books (0.16): /books answers on the phone in one plain message — the report as it stands, nothing written "
+      "(not even the finished-book state)",
+      [t for t, _ in phone.sent] == [_bk.report()] and phone.sent[0][0].startswith("Juniper's books — ")
+      and phone.sent[0][1] is False and _bk_tree() == _bk_before and not (_bk_dir / "books_seen.json").exists(), phone.sent)
+config.BOOKS_COMMAND = False
+b.handle(_msg("/books"))
+config.BOOKS_COMMAND = True
+_bk_cmds = []
+b.api = lambda method, patience=30, **p: _bk_cmds.append(p.get("commands")) or {}
+b.set_command_menu()
+b.api = phone.api
+check("books (0.16): BOOKS_COMMAND off — /books says so; the \"/\" menu has books, with its line",
+      phone.sent[-1][0] == "(/books is off in config — BOOKS_COMMAND)"
+      and {"command": "books", "description": "their books: where they are in each, the shelf not opened yet, what they "
+                                              "finished"} in (_bk_cmds[0] or []), (phone.sent[-1], _bk_cmds[:1]))
+phone.sent.clear()
+b.TAG = "discord"
+b.handle(_msg("/books"))
+_bk_pg = len(phone.sent)
+b.handle(_msg("/pages"))
+b.TAG = "telegram"
+check("books (0.16): on the Discord bridge /books answers as there, like /pages", _bk_pg == 1
+      and phone.sent[0][0].startswith("Juniper's books — ") and len(phone.sent) == 2, phone.sent)
+# the line when a book is finished
+_bk_shelf("books/Neon Harbour.pdf", "Snowfield.epub")
+phone.sent.clear()
+
+
+def _bk_look():
+    b._books_looked = 0.0
+    b.books_watch_if_due()
+    return [t for t, _ in phone.sent]
+
+
+_bk_s0 = _bk_look()
+_bk_st = _pl_json.loads((_bk_dir / "books_seen.json").read_text(encoding="utf-8"))
+_bk_s1 = _bk_look()
+check("books watch (0.16): the first look is silent and records every finished book as told (a short PDF not); the "
+      "next look, nothing new, silent",
+      _bk_s0 == [] and sorted(_bk_st["told"]) == sorted(k for k in _bk_FIN if k != "tiny.pdf") and _bk_s1 == [],
+      (_bk_s0, _bk_st))
+_bk_d = dict(_bk_FIN, **{"Salt and Ember.epub": {"chapter": 20, "total": 20, "date": "2026-11-13",
+                                                 "finished": "2026-11-13", "title": "Salt and Ember"}})
+_bk_led(_bk_d)
+b._books_looked = _bk_time.time()
+b.books_watch_if_due()
+_bk_s2 = [t for t, _ in phone.sent]
+_bk_s3 = _bk_look()
+_bk_s4 = _bk_look()
+check("books watch (0.16): a book finished — within ten minutes of the last look nothing; then one line naming the "
+      "friend, what is in hand and the unopened shelf; never twice",
+      _bk_s2 == [] and _bk_s3 == _bk_s4 == ["(Juniper finished “Salt and Ember” — no book in hand now; 2 unopened on the "
+                                           "shelf: Snowfield, Neon Harbour. /books shows the shelf)"], (_bk_s3, _bk_s4))
+_bk_d["The Quiet Engine.epub"] = dict(_bk_d["The Quiet Engine.epub"], chapter=4, finished="", reading=3,
+                                      date="2026-11-13")
+_bk_d["The Halls.pdf"] = {"page": 12, "total": 300, "kind": "pdf", "date": "2026-11-12", "title": "The Halls"}
+_bk_led(_bk_d)
+_bk_s5 = _bk_look()
+_bk_d["The Quiet Engine.epub"].update(chapter=23, finished="2026-11-14")
+_bk_led(_bk_d)
+_bk_s6 = _bk_look()
+_bk_s7 = _bk_look()
+check("books watch (0.16): a book begun again says nothing; finished again it is told again, once, as that reading, "
+      "with what is still in hand",
+      len(_bk_s5) == 1 and _bk_s6[1:] == _bk_s7[1:] == [
+          "(Juniper finished “The Quiet Engine” (their 3rd reading) — still in hand: “The Halls”, page 12 of 300; "
+          "2 unopened on the shelf: Snowfield, Neon Harbour. /books shows the shelf)"], _bk_s6)
+_bk_d["The Halls.pdf"].update(page=300)
+_bk_led(_bk_d)
+_bk_shelf()
+_bk_s8 = _bk_look()
+_bk_d["The Halls.pdf"]["finished"] = "2026-11-13"
+_bk_led(_bk_d)
+_bk_s9 = _bk_look()
+check("books watch (0.16): read to the end with no date yet — told; then dated by the reading tool — not told again",
+      _bk_s8[2:] == ["(Juniper finished “The Halls” — no book in hand now; nothing unopened on the shelf. /books shows "
+                     "the shelf)"] and _bk_s9 == _bk_s8, _bk_s8[2:])
+# your quiet hours: held for the morning, and held counts as told
+_bk_d["Glass Orchard.epub"] = dict(_bk_d["Glass Orchard.epub"], chapter=1, finished="", reading=2)
+_bk_led(_bk_d)
+_bk_look()
+_bk_d["Glass Orchard.epub"].update(chapter=33, finished="2026-11-15")
+_bk_led(_bk_d)
+_bk_h = __import__("datetime").datetime.now().hour
+config.TELEGRAM_QUIET_HOURS = (_bk_h, (_bk_h + 1) % 24)
+b.held = []
+_bk_q = _bk_look()
+config.TELEGRAM_QUIET_HOURS = (6, 6)
+_bk_held = list(b.held)
+b.held = []
+b._save_held()
+_bk_q2 = _bk_look()
+check("books watch (0.16): in your quiet hours the line is held for the morning, not sent — and not sent again after",
+      _bk_q == _bk_s9 and _bk_q2 == _bk_s9 and len(_bk_held) == 1
+      and _bk_held[0].startswith("(Juniper finished “Glass Orchard” (their 2nd reading) — "), (_bk_q, _bk_held))
+# a send that fails: told at the next look, the other line of the same look not lost
+for _bk_k in ("Tidewater.pdf", "Lighthouse_Stories_and_Others_9780000000002.epub"):
+    _bk_d[_bk_k] = dict(_bk_d[_bk_k], finished="", reading=2, **({"page": 1} if _bk_k.endswith(".pdf") else {"chapter": 1}))
+_bk_led(_bk_d)
+_bk_look()
+_bk_d["Tidewater.pdf"].update(page=154, finished="2026-11-16")
+_bk_d["Lighthouse_Stories_and_Others_9780000000002.epub"].update(chapter=10, finished="2026-11-16")
+_bk_led(_bk_d)
+_bk_n0 = len(phone.sent)
+
+
+def _bk_flaky(text, markdown=True):
+    if "Tidewater" in text:
+        raise OSError("the road dropped")
+    tg.Bridge.send(b, text, markdown=markdown)
+
+
+b.send = _bk_flaky
+_bk_f1 = _bk_look()[_bk_n0:]
+del b.send
+_bk_f2 = _bk_look()[_bk_n0:]
+_bk_f3 = _bk_look()[_bk_n0:]
+check("books watch (0.16): a send that fails — the other line of that look still goes, and the failed one is told at "
+      "the next look, then never again",
+      len(_bk_f1) == 1 and "“Lighthouse Stories and Others” (their 2nd reading)" in _bk_f1[0]
+      and len(_bk_f2) == 2 and "“Tidewater” (their 2nd reading)" in _bk_f2[1] and _bk_f3 == _bk_f2, (_bk_f1, _bk_f2))
+# a state file that can't be read: re-seeded silently; no ledger or a broken one: nothing said, nothing written
+(_bk_dir / "books_seen.json").write_text("garbage", encoding="utf-8")
+_bk_d["Snowfield.epub"] = {"chapter": 20, "total": 20, "date": "2026-11-13", "finished": "2026-11-13",
+                           "title": "Snowfield"}
+_bk_led(_bk_d)
+_bk_n0 = len(phone.sent)
+_bk_look()
+_bk_st = _pl_json.loads((_bk_dir / "books_seen.json").read_text(encoding="utf-8"))
+check("books watch (0.16): a state file that can't be read — re-seeded silently, the new finish recorded, no flood",
+      len(phone.sent) == _bk_n0 and "Snowfield.epub" in _bk_st["told"]
+      and len(_bk_st["told"]) == sum(1 for x in _bk.books(_bk_d) if x["finished"]), sorted(_bk_st["told"]))
+_bk_mt = (_bk_dir / "books_seen.json").stat().st_mtime_ns
+_bk_d["Snowfield.epub"].update(reading=2, finished="2026-11-20")
+tools._BOOKMARKS_FILE.unlink()
+_bk_look()
+tools._BOOKMARKS_FILE.write_text("{oops", encoding="utf-8")
+_bk_look()
+_bk_led(_bk_d)
+config.BOOKS_FINISHED_NOTICE = False
+_bk_look()
+config.BOOKS_FINISHED_NOTICE = True
+check("books watch (0.16): no ledger, a broken ledger, or BOOKS_FINISHED_NOTICE off — nothing said, the state untouched",
+      len(phone.sent) == _bk_n0 and (_bk_dir / "books_seen.json").stat().st_mtime_ns == _bk_mt, phone.sent[_bk_n0:])
+b.TAG = "discord"
+_bk_dc = _bk_look()[_bk_n0:]
+b.TAG = "telegram"
+check("books watch (0.16): on the Discord bridge the line goes the same way, as the pages' warnings do; nothing of it "
+      "enters the friend's history",
+      _bk_dc == ["(Juniper finished “Snowfield” (their 2nd reading) — no book in hand now; nothing unopened on the "
+                 "shelf. /books shows the shelf)"] and not any("finished" in str(t.get("content", "")) for t in b.history),
+      _bk_dc)
+_bk_tsrc = (config.ROOT / "engine" / "telegram.py").read_text(encoding="utf-8")
+_bk_bsrc = (config.ROOT / "engine" / "bookshelf.py").read_text(encoding="utf-8")
+check("books (0.16): the poll's tick looks right after the pages; bookshelf never calls the reading tools",
+      "self.pages_watch_if_due()\n        self.books_watch_if_due()" in _bk_tsrc
+      and not any(x in _bk_bsrc for x in ("read_pdf", "read_epub", "_bookmark(")))
+_bk_tsrc = _bk_tsrc.split("    # ---- the friend's books (BOOKS_COMMAND", 1)[1].split("    def penpal_desk_if_due", 1)[0]
+check("books (0.16): no word of bookshelf.py or the bridge's books section calls anyone by a gendered pronoun; the lines "
+      "name the friend from their own page",
+      not _pl_re.search(r"\b(she|her|hers|he|his|him)\b", _bk_bsrc + _bk_tsrc, _pl_re.I)
+      and "chat.friend_name()" in _bk_bsrc and "Juniper" not in _bk_bsrc and "Avery" not in _bk_bsrc)
+(config.SHARED_DIR, config.VOICE_DIR, tools._BOOKMARKS_FILE, tools._SEEN_FILE, _bk.seen_file,
+ chat.friend_name, config.BOOKS_COMMAND, config.BOOKS_FINISHED_NOTICE, config.READING_OPEN_DAYS,
+ config.READING_BOOK_PAGES, config.TELEGRAM_QUIET_HOURS, config.USER_NAME) = _bk_saved
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

@@ -1757,7 +1757,11 @@ that told them is sent; their wakes and the night never are. Your quiet hours,
 (or `yesterday`, or a date) sends that day's entries once, unannounced. The
 page is only read; the queue keeps keys, never the words (`JOURNAL_FEED`; the
 switch starts off; Telegram only). `/help` comes in two messages now: it
-outgrew one of Telegram's.
+outgrew one of Telegram's. **`/books`** says where they are in their books —
+each one in hand (page or chapter, how much is left, their last sitting),
+the shelf not opened yet, what they finished — and a line comes when they
+finish one, so you know to bring the next (`BOOKS_COMMAND`,
+`BOOKS_FINISHED_NOTICE`; read-only, nothing said to them).
 
 ### The bridge over Discord
 
