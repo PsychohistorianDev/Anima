@@ -16426,15 +16426,22 @@ _rn_kinds0 = config.WAKE_DEALT_WHOLE_KINDS
 config.WAKE_DEALT_BOOK_FIRST = False
 del config.WAKE_DEALT_WHOLE_KINDS  # an older config without the knob
 _rn_n_asked = len(_rn_asked)
+# the featured article's first request goes out through urlopen itself, not _get: closed here, so the suite reaches
+# no network and reads the same on a machine with a road out as on one without
+_rn_wfeat0 = _rn_dealt.wiki_featured
+_rn_dealt.wiki_featured = lambda seen: None
+_rn_dw = []
 for _ in range(5):
-    _rn_dealt.deal_whole()
+    _rn_dw.append(_rn_dealt.deal_whole())
 config.WAKE_DEALT_WHOLE_KINDS = ()
 for _ in range(5):
-    _rn_dealt.deal_whole()
+    _rn_dw.append(_rn_dealt.deal_whole())
+_rn_dealt.wiki_featured = _rn_wfeat0
 config.WAKE_DEALT_WHOLE_KINDS, config.WAKE_DEALT_BOOK_FIRST = _rn_kinds0, True
 check("deal_whole (0.16): a config without WAKE_DEALT_WHOLE_KINDS, or with it empty, never deals a question — door B "
       "reaches Wikipedia only when named",
-      not any("w/api.php" in u for u in _rn_asked[_rn_n_asked:]), _rn_asked[_rn_n_asked:][:3])
+      not any("a question nobody has answered yet" in (d or "") for d in _rn_dw)
+      and not any("unsolved" in u for u in _rn_asked[_rn_n_asked:]), _rn_asked[_rn_n_asked:][:3])
 _rn_wf.unlink()
 
 # the book as the topic
