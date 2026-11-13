@@ -566,6 +566,55 @@ def earlier_headings(text: str, tail: str, first: str = "", limit: int = 800) ->
     return (f"…{dropped} earlier · " if dropped else "") + " · ".join(heads)
 
 
+def page_headings(text: str) -> list[str]:
+    """The headings of a reading page ("## Sitting 6: …"), oldest first, as earlier_headings names them — the title
+    line that opens the page (or the section) left out, and a "#" line inside a code fence is not a heading."""
+    first = text.split("\n", 1)[0].strip() if text.startswith("#") else ""
+    heads, fence = [], False
+    for line in text.splitlines():
+        s = line.strip()
+        if s.startswith(("```", "~~~")):
+            fence = not fence
+            continue
+        if fence or s == first or not re.match(r"#{2,4}\s", s):
+            continue
+        name = s.lstrip("#").strip()
+        if name:
+            heads.append(name)
+    return heads
+
+
+def reading_stub(name: str, page, rel: str, nth: int = 1, limit: int = 600) -> str:
+    """A book's stub in the reading section (READING_PAGE_STUB): the sittings on the page by name, oldest first, each
+    cut near 80 characters; past `limit` characters the NEWEST stay — where they are — and the rest are counted
+    ("…N earlier · "); the page's path and size, and where the notes themselves come from. Nothing of the notes' body."""
+    import keeper_week
+    import tools
+    try:
+        whole = page.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        whole = ""
+    text = ((tools.reading_section(name, nth) or "") if nth > 1 else whole).strip()
+    if not text:
+        return f"(your page {rel} is empty)"
+    heads = [h if len(h) <= 80 else h[:79].rstrip() + "…" for h in page_headings(text)]
+    shown: list[str] = []
+    for h in reversed(heads):  # the newest first, while the whole list — its count of the earlier ones too — fits
+        more = len(heads) - len(shown) - 1
+        if len((f"…{more} earlier · " if more else "") + " · ".join([h] + shown)) > limit:
+            break
+        shown.insert(0, h)
+    more = len(heads) - len(shown)
+    sittings = ((f"…{more} earlier · " if more else "") + " · ".join(shown)) if shown else (
+        f"{more} of them, their names too long to list" if more else "")
+    size = f"{len(whole):,} characters" + (
+        f", this {tools._reading_ordinal(nth)} reading's section {len(text):,} of them" if nth > 1 else "")
+    return (f"(your notes: {rel}, {size}"
+            + (f" — its sittings, oldest first: {sittings})" if sittings else " — no headed sittings on it yet)")
+            + f"\n(Your notes come to you with the pages when you read on, and when {keeper_week.keeper_name()} brings "
+              f"the book up; read_creation \"{rel[10:]}\" opens them whole at any time.)")
+
+
 def reading_pages() -> str:
     """The book in their hands (09-24): for each open book — a bookmark not
     at the end, a sitting within READING_OPEN_DAYS, or finished within
@@ -574,6 +623,7 @@ def reading_pages() -> str:
     says so. A PDF under READING_BOOK_PAGES is not a book."""
     if not getattr(config, "READING_PAGES_IN_PROMPT", True):
         return ""
+    import keeper_week
     import tools
     marks = tools._bookmarks()
     if not marks:
@@ -581,6 +631,7 @@ def reading_pages() -> str:
     open_days = int(getattr(config, "READING_OPEN_DAYS", 30) or 0)
     done_days = int(getattr(config, "READING_DONE_DAYS", 3) or 0)
     cap = int(getattr(config, "READING_PAGE_CHARS", 3000) or 0)
+    stub = bool(getattr(config, "READING_PAGE_STUB", False))  # the stub in place of the page
     today = date.today()
     out = []
     for name, bm in sorted(marks.items(), key=lambda kv: str(kv[1].get("date", "")), reverse=True):
@@ -619,10 +670,18 @@ def reading_pages() -> str:
             body = (f"(your page {rel} holds your earlier reading — {n:,} characters, which stay as they are; this "
                     f"{tools._reading_ordinal(nth)} reading, begun {bm.get('started') or 'lately'}, has no notes yet: open a "
                     f"section for it at the end of the page — append_creation \"{tools.reading_heading(nth)}\" — and "
-                    "it rides here)")
+                    + (f"it comes to you with the pages when you read on, and when {keeper_week.keeper_name()} brings "
+                       "the book up)" if stub else "it rides here)"))
             out.append(head + "\n" + body)
             continue
-        if page.exists():
+        if page.exists() and stub:
+            # the stub: the sittings by name, the page's path and size, so a book never goes out of view whole; the
+            # ledger of unwritten sittings still rides, a fact about the page
+            body = reading_stub(str(name), page, rel, nth)
+            _pending, ledger = tools.unwritten_sittings(str(name), kind)
+            if ledger:
+                body = ledger + "\n" + body
+        elif page.exists():
             try:
                 text = (tools.reading_section(str(name), nth) if nth > 1 else page.read_text(encoding="utf-8", errors="replace")).strip()
             except OSError:

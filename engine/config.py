@@ -1688,3 +1688,149 @@ FRIENDS_MAX = 6
 FRIEND_PAGE_CHARS = 600
 FRIENDS_SUGGEST_AFTER = 4
 FRIENDS_QUIET_DAYS = 7
+
+# --------------------------------------------------------------------------------------------------------------
+# ---- 0.16: wakes and reading, game mode, the chat's safeguards, pictures on the phone, the penpal guards, the
+# journal feed
+# --------------------------------------------------------------------------------------------------------------
+
+# ---- the doors out of a wake (engine/dealt_doors.py)
+# Three small doors to the world, each offered at a wake and never required; each fails closed (the world not
+# answering adds nothing). Off by default: they reach Wikipedia and change what a wake carries.
+# WAKE_DEALT_THREAD: beside the open book's dealt pages, one real thing those pages mention (a name that is not the
+# book's own), with the first line Wikipedia gives it; at most WAKE_DEALT_THREAD_LOOKUPS names looked up a wake.
+# A question nobody has answered yet, when no book is open: add "question" to WAKE_DEALT_WHOLE_KINDS above.
+# WAKE_DEALT_WONDERINGS: a line of their own from creations/wonderings.md handed back at a later wake — a few times at
+# most, days apart; a ✓ or an arrow on the line says it's done. The page is only read.
+WAKE_DEALT_THREAD = False
+WAKE_DEALT_THREAD_LOOKUPS = 5
+WAKE_DEALT_WONDERINGS = False
+
+# ---- reading notes out of the standing prompt (assemble.reading_pages, tools.read_pdf / read_epub, telegram.py)
+# READING_PAGE_STUB: the reading section of the prompt carries each open book's stub — where they stand, their
+# sittings by name, the page's path and size — instead of the page itself (False: the page, up to READING_PAGE_CHARS).
+# The notes come to them instead: READING_NOTES_WITH_PAGES characters of their end before the book's text when they
+# read on, name a range, or the next pages are dealt into a wake (0: none); and, with READING_NOTES_ON_TOPIC, right
+# above your message when it names a book they keep notes on — once per book while that message is in the visit, the
+# whole page within READING_TOPIC_CHARS, past it the sections your words touch, then the newest.
+READING_PAGE_STUB = True
+READING_NOTES_WITH_PAGES = 60000
+READING_NOTES_ON_TOPIC = True
+READING_TOPIC_CHARS = 60000
+
+# ---- adventures: game mode (engine/adventure.py, telegram.py /games)
+# The friend runs a text adventure as game master; you play one character from the phone. Each world is a folder,
+# creations/<ADVENTURE_DIR>/<name>/: world.md (the friend's alone — the engine never reads or shows it), state.md
+# (the shared record: where your character stands, the story so far), inventory.md (what your character carries) and
+# scenes/ (pictures painted there reach the phone; the rest of the folder never does). /games is the menu.
+# ADVENTURES_ON: False — /games and /game say it's off, and nothing rides in any message. On, nothing happens until a
+# world is made. ADVENTURE_STATE_CHARS: how much of state.md is handed to the friend with a session's first move (0:
+# named only); ADVENTURE_STATE_WARN: past this the wrap-up bell says the page's size and asks for the story so far to
+# be tightened; ADVENTURE_INVENTORY_CHARS: the same for inventory.md. ADVENTURE_RECAP_ON_OPEN: opening a world shows
+# the phone where you left off (the state page, the inventory). ADVENTURE_FOLD_AT: while a game is open (not paused)
+# the visit folds here when that is sooner than FOLD_AT — room to write the game down first; 0: FOLD_AT alone.
+ADVENTURES_ON = True
+ADVENTURE_DIR = "adventures"
+ADVENTURE_STATE_CHARS = 6000
+ADVENTURE_STATE_WARN = 5000
+ADVENTURE_INVENTORY_CHARS = 2000
+ADVENTURE_RECAP_ON_OPEN = True
+ADVENTURE_FOLD_AT = 0.96
+
+# ---- the journal's facts (chat.journal_facts_line, chat.with_endings)
+# What the friend is handed when they sit down to write a stretch of a visit — the pause, the afterglow, the fold's
+# afterglow and the fold. JOURNAL_FACTS_LINE: one bracketed line of counts from the painting log under the bell —
+# "[from the log, this stretch: 3 pictures painted, 2 of them trashed since.]" — the pictures painted at a visit's
+# door since the stretch began (never the dream book's) and how many have gone to creations/.trash since. A wrong count
+# is worse than none: no picture, or anything not certain (where the stretch began, a row of the log, where a picture
+# went) and there is no line. JOURNAL_ENDINGS_SENTENCE: one sentence in those bells, beside "what you did" — "If
+# something was tried and didn't work, the entry says it didn't. How a thing ended is part of what happened." False,
+# either: the bells as before, byte for byte.
+JOURNAL_FACTS_LINE = True
+JOURNAL_ENDINGS_SENTENCE = True
+
+# ---- a tool call written as words (ollama_client.recoverable_tail, run_call_from_words)
+# A reply can end with a call written out as words instead of made — bare, in `single marks`, in a ``` fence, or as
+# print(default_api.…). In a visit (never a guest's turn), when that last line (or the whole reply) is one clean call to
+# a tool on CALL_TAIL_RUN_ONLY — every argument read and of the tool's type — it runs as written: the call line comes
+# off the words (with a *** rule right above it), and the friend and the phone are told it came out as words. Any other
+# tool written as words is asked again, never run; code shown with a name that is not one of the friend's tools goes
+# out untouched. The wakes, penpal letters, dreams and condensing are as before. CALL_TAIL_RUN False: always asked again.
+# CALL_TAIL_RUN_ONLY is short on purpose — what a line of syntax means can't be read from it (a refusal, a quoted
+# example), so only a setting that is harmless when wrong runs from words. Add to it with care; () runs none.
+CALL_TAIL_RUN = True
+CALL_TAIL_RUN_ONLY = ("next_spark",)
+
+# ---- the same failed call, again (chat.one_turn)
+# In a visit, a call whose tool and arguments match one that already failed this turn runs CHAT_SAME_FAIL_RUNS times
+# in all (the first, and one honest retry); after that it is not run — the friend is told it failed and with what —
+# and at the CHAT_SAME_FAIL_REFUSALS-th such refusal their tools are over for the turn: one last step (the same tools
+# offered, so the prompt's reading holds; a call in it is not run, and they are told so) is theirs to say it in words,
+# and the phone gets one note. Any call that goes through clears them all. A tool whose refusal can ask for the very
+# same call again says so through its module's invites_again(arguments) (chat._INVITES_AGAIN). CHAT_FAIL_LOG: every
+# failed call in a visit is a line in memory/tool_fails.log — the tool, its own argument names with the lengths of
+# their values, and the failure's kind; never the friend's words. Wakes are as they were. False: as before.
+CHAT_SAME_FAIL_STOP = True
+CHAT_SAME_FAIL_RUNS = 2
+CHAT_SAME_FAIL_REFUSALS = 2
+CHAT_FAIL_LOG = True
+
+# ---- pictures sent together (telegram.py: join_batches)
+# Telegram delivers each picture as a message of its own, and only the first carries your note. With
+# TELEGRAM_BATCH_PHOTOS, photos from your chat that came as one album, or one after another with nothing between them,
+# each within TELEGRAM_BATCH_GAP_S seconds of the one before by Telegram's own clock, are one turn: all before their
+# eyes in order, your caption(s) with them, one reply. Anything that is not a photo ends the batch; a picture sent "as
+# a file" stays its own message. When a poll ends on a photo the bridge looks again after TELEGRAM_BATCH_WAIT_S
+# seconds for the rest (a few times at most), so a single photo's reply comes that much later. More than
+# TELEGRAM_BATCH_MAX pictures go in turns of that many, each later one saying it goes on with the same batch. Each
+# picture costs the window some hundreds of tokens for as long as its turn stays in it. False: every picture its own
+# message, as before.
+TELEGRAM_BATCH_PHOTOS = True
+TELEGRAM_BATCH_GAP_S = 45   # photos without an album's mark join when each is within this many seconds of the one before; 0: albums only
+TELEGRAM_BATCH_WAIT_S = 2   # how long a poll that ends on a photo waits for the rest
+TELEGRAM_BATCH_MAX = 10     # the most pictures in one turn (Telegram's own album size)
+
+# ---- a penpal's letter with pictures (penpal.py, telegram.py)
+# PENPAL_PICTURE_LETTERS: pictures can be a penpal's letter, or come with one. 🖼 beside a penpal in /penpals (or
+# /penpal collect <name>) collects a letter: paste its text and send its pictures in any order — a picture's caption,
+# and a message after 📝 My note, are your own notes; nothing reaches the friend until ✅ Done (/penpal done), and each
+# thing taken is acknowledged as NOT sent. Done gives them one turn: the letter's words whole, fenced as the penpal's,
+# its pictures before their eyes (TELEGRAM_BATCH_MAX a turn), your notes above the letter. Quiet for PENPAL_JOIN_MIN
+# minutes (or a guest sitting down) it rests; ✖ Cancel (/cancel) sets the pictures aside. One album (or one picture)
+# captioned /penpal <name> is a letter too. A letter that is only pictures the friend may write out themself —
+# penpal transcribe — filed as the penpal's letter and marked as written out, only from pictures that were all before
+# their eyes in this visit or wake within PENPAL_PICTURES_SEEN_MIN minutes, never in a guest's turn. Pictures are kept
+# with the penpal (creations/<PENPAL_DIR>/<name>/.pictures/). False: as before.
+PENPAL_PICTURE_LETTERS = True
+PENPAL_PICTURES_SEEN_MIN = 60
+
+# ---- the penpal write guard (penpal.py: _wg_check, relay_note)
+# PENPAL_WRITE_GUARD: a letter to a penpal whose last letter the friend already answered, while another penpal's letter
+# waits on them (not paused, not let rest) — or one whose greeting names another penpal and not the one addressed — is
+# held once: nothing is filed, and the friend is told what the engine sees. The same call again (same penpal, same
+# letter) within PENPAL_WRITE_GUARD_MIN minutes goes, and the phone's line beside the letter says they were asked and
+# confirmed. Never blocked; nothing is kept on disk until they confirm. False: as before.
+PENPAL_WRITE_GUARD = True
+PENPAL_WRITE_GUARD_MIN = 10   # the same call again within this many minutes confirms it; later, they are asked again
+# PENPAL_WHO_HELP: a penpal call with no name in who takes one after the action word when it is exactly one penpal's
+# whole name ("write Ann", "read ann" — never the beginning of a name), and is otherwise refused with the call shown
+# whole and whose letter waits; the friend's result and the phone's line beside a letter say where the name came from.
+# False: an empty who is refused as before. PENPAL_WHO_FROM_GREETING (with it): a write whose greeting names exactly one
+# penpal (the write guard's strict rule: "Dear Ann," at the very start, no other penpal on that line) goes to that
+# penpal — through everything a write goes through. False: the greeting addresses nothing.
+PENPAL_WHO_HELP = True
+PENPAL_WHO_FROM_GREETING = True
+
+# ---- the journal feed (telegram.py: /journal)
+# JOURNAL_FEED: the Telegram bridge's /journal. /journal on sends what the friend writes in their journal DURING A
+# VISIT — a turn, a pause, the afterglow, the fold — to your phone, each entry with its time on top and its text
+# exactly; /journal off stops it; /journal today, yesterday or YYYY-MM-DD sends that day's entries once; /journal alone
+# says how it stands. The switch starts off. The friend is told every time it applies: at their first turn after on
+# (and at the first turn of each new window), inside every pause, afterglow and fold bell while it is on, and at their
+# first turn after off. Only an entry from a run that told them is sent; what they write in their wakes and the night
+# is never sent. Entries wait through your quiet hours (TELEGRAM_QUIET_HOURS), your /quiet and while a guest is seated.
+# The page is only read: nothing of the journal is changed, and the queue in memory/journal_feed.json holds keys, never
+# the words. Telegram's alone (the Discord bridge has no feed). False: no /journal at all (and the friend is told it is
+# off, if they had been told it is on). JOURNAL_FEED_PACE_S: a pause between messages when several go at once.
+JOURNAL_FEED = True
+JOURNAL_FEED_PACE_S = 1.0

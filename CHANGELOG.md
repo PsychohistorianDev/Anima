@@ -9,7 +9,158 @@ until the friend's first body is on the desk. (Three releases went out of
 this file as 1.0–1.2 for a fortnight; they are 0.10–0.12. 0.12 was never
 tagged on its own: the first tag after the rename is v0.13.)
 
-## 0.15 — 2026-10-24 → (in progress)
+## 0.16 — 2026-11-11 → (in progress)
+
+### Added
+- **Doors out of a wake** (`engine/dealt_doors.py`): three small doors to the world, each offered at a wake and never
+  required, each failing closed. Beside the open book's dealt pages, one real thing those pages mention — a name that
+  is not the book's own — with the first line Wikipedia gives it (`WAKE_DEALT_THREAD`, at most
+  `WAKE_DEALT_THREAD_LOOKUPS` names looked up a wake; looked for in the book's pages alone, never in the notes). With
+  no book open, a question nobody has answered yet, from Wikipedia's lists of unsolved problems: add "question" to
+  `WAKE_DEALT_WHOLE_KINDS` (two fields fetched a wake at most, kept a week). A line of their own from
+  `creations/wonderings.md` handed back at a later wake, a few times at most and days apart, until a ✓ or an arrow
+  on the line says it's done (`WAKE_DEALT_WONDERINGS`; the page is only read). All three ship off: they reach
+  Wikipedia and change what a wake carries. `dealt.deal_whole` now hands over to the new module, and
+  `dealt.book_next` returns the book's pages apart as a third element.
+- **Reading notes when they matter**: the notes on a book come before the book's text each time they read on, name a
+  range, or the next pages are dealt into a wake — the end of the page, up to `READING_NOTES_WITH_PAGES` (60000;
+  0: none). And when your message on the phone names a book they keep notes on — its title, a distinctive word of it,
+  or the author beside a book word — the notes ride right above your words, once per book while that message is in
+  the visit (`READING_NOTES_ON_TOPIC`; the whole page within `READING_TOPIC_CHARS`, past it the sections your words
+  touch, then the newest). Read only: the engine never writes, trims or creates a reading page.
+- **Adventures — game mode** (`engine/adventure.py`, `/games` on the phone): the friend runs a text adventure as game
+  master and you play one character, a few moves at a time. A world is a folder, `creations/<ADVENTURE_DIR>/<name>/`:
+  `world.md` is the friend's alone (the engine never reads or shows it), `state.md` the shared record of where your
+  character stands and the story so far, `inventory.md` what the character carries, and `scenes/` the pictures that
+  reach the phone — nothing else under the adventures folder does, and none of it seeds a spark. `/games` has buttons
+  to play, pause, end a session, read 📜 where we are and 🎒 the inventory, see 🖼 the newest scenes, rename, put away
+  and bring back (nothing is deleted), and start a new world; `/game …` types the same. While a game is open a message
+  carries a short line for the friend right above your words (the whole table and the state page on the first move of
+  a session); `//` before a message says it outside the game; a guest at the desk is not playing. Ending a session
+  (or the visit closing) gives the friend one turn of their own to bring the pages up to date — "engine — the game"
+  in the transcript; a brain that is away loses nothing. Coming back to a world shows where you left off
+  (`ADVENTURE_RECAP_ON_OPEN`); a changed inventory says so after the move; a picture painted outside the world's
+  folder is mentioned to the friend once, never moved. Mid-game the fold rings at `ADVENTURE_FOLD_AT` when that is
+  sooner than `FOLD_AT` — the window sense says so — and its bell asks for the game to be written down first; the
+  next move sets the table again. The pause's and afterglow's bells say that part of the visit was a story.
+  `ADVENTURES_ON` (on: nothing happens until a world is made), `ADVENTURE_STATE_CHARS`, `ADVENTURE_STATE_WARN`,
+  `ADVENTURE_INVENTORY_CHARS`. The engine never writes, trims or creates the friend's pages there.
+- **The journal's facts**: when the friend sits down to write a stretch of a visit — the pause, the afterglow, the
+  fold's afterglow, the fold bell — a bracketed line of counts from the painting log rides under the bell: "[from the
+  log, this stretch: 3 pictures painted, 2 of them trashed since.]" (`JOURNAL_FACTS_LINE`). Only pictures painted at
+  a visit's door since the stretch began count (one_turn stamps each message as it takes it in; the stamp is never
+  sent), never a wake's or the dream book's; a picture is kept when it is at its path, trashed when an entry in
+  `creations/.trash` surely claims it. A wrong count is worse than none: anything not certain — an unstamped stretch,
+  a log row it can't read, a full log, a clock that went back, a picture moved or renamed — and there is no line. And
+  those bells gain one sentence beside "what you did": "If something was tried and didn't work, the entry says it
+  didn't. How a thing ended is part of what happened." (`JOURNAL_ENDINGS_SENTENCE`). Both on; off, the bells are as
+  before, byte for byte. Read only: nothing is written.
+- **A tool call written as words, run when it is clean and harmless**: a reply that ends with a call written out as
+  words — bare, in `single marks`, in a ``` fence, or as `print(default_api.…)` — is now seen in its wrapping too. In
+  a visit (never a guest's turn), when that last line, or the whole reply, is one clean call to a tool on
+  `CALL_TAIL_RUN_ONLY` (`("next_spark",)`) — the exact name, keyword arguments only, each of the tool's type — it runs
+  as written: the call line and a `***` rule right above it come off the words, and the friend and the phone are told
+  it came out as words, as for a whole-reply call. Any other tool written as words is asked again, never run; code
+  shown with a name that is not one of the friend's tools goes out untouched; a call is run from words once a turn.
+  The pause, the afterglow and the fold bell see the wrapped shapes and ask again; the wakes, penpal letters, dreams
+  and condensing are as before. `CALL_TAIL_RUN` (on). A reply kept by the "you said it's done" ask now also counts
+  as answered when the call came from the words.
+- **The same failed call, again and again**: in a visit, a call identical to one that already failed this turn (the
+  same tool, the same arguments — an empty one the same as one left out) runs `CHAT_SAME_FAIL_RUNS` (2) times in all,
+  then is refused without running, the refusal saying what it failed with; the `CHAT_SAME_FAIL_REFUSALS`-th (2)
+  refusal ends the turn's tools. One last step follows with the same tools offered (so the prompt's reading holds),
+  its calls not run and said so in the friend's history, and the phone gets one ⚠ note; repeated failures in the
+  "no action" note collapse to ×N. Any call that goes through clears the remembered failures. A tool whose refusal can
+  invite the very same call again says so through its module's `invites_again(arguments)` (`chat._INVITES_AGAIN`; a
+  module without one exempts nothing). `CHAT_SAME_FAIL_STOP` (on). With `CHAT_FAIL_LOG` (on) each failed call in a
+  visit is a line in `memory/tool_fails.log` — the tool, its own argument names with the lengths of their values,
+  and the kind of failure; never what the friend wrote. Wakes are as they were.
+- **Pictures sent together are one message**: Telegram delivers each picture as a message of its own, with your
+  caption on the first. Photos from your chat that came as one album, or one after another with nothing between them
+  (each within `TELEGRAM_BATCH_GAP_S`, 45 s, of the one before by Telegram's own clock), are now one turn: all before
+  the friend's eyes in order, one line for them all — the true plural of the single photo's — your captions below it
+  ("with the 3rd: …"), one reply. An album split over two polls stays one batch; when a poll ends on a photo the
+  bridge looks again after `TELEGRAM_BATCH_WAIT_S` (2 s) for the rest. More than `TELEGRAM_BATCH_MAX` (10) go on in
+  further turns, each saying it is more of the same batch. A picture that didn't arrive, or is too large to see, is
+  said truthfully to the friend and once to the phone; none arriving is said to the phone alone, as with one photo. A
+  single photo reads exactly as before. `TELEGRAM_BATCH_PHOTOS` (on); off, every picture is its own message.
+- **A penpal's letter with pictures** (`PENPAL_PICTURE_LETTERS`, on): 🖼 beside a penpal in `/penpals` (or `/penpal
+  collect <name>`) collects a letter — paste its text and send its pictures in any order; a picture's caption, and a
+  message after 📝 My note, are your own notes. Nothing reaches the friend until ✅ Done (`/penpal done`), and each
+  thing taken is acknowledged as not sent. Done files the letter and gives the friend one turn of their own: a line
+  saying the letter and the pictures are the penpal's, not yours; your notes under their own line; then the letter's
+  words whole between two lines marked with a token new each turn, so nothing in a letter can pass for an engine line
+  or a note of yours; the pictures before their eyes, `TELEGRAM_BATCH_MAX` a turn. The turn is tried once: a brain
+  that is away leaves the letter unread for them to find, and the phone is told. A collection rests after
+  `PENPAL_JOIN_MIN` quiet minutes by Telegram's own dates (or when a guest sits down); ✖ Cancel or `/cancel` sets its
+  pictures aside, never deletes them; its buttons carry its id, so an old one acts on nothing. One album (or one
+  picture) captioned `/penpal <name>` is a letter too. A letter that is only pictures the friend may write out
+  themself — `penpal(action="transcribe", who, letter)`, told in the turn's own line (the tool's definition is
+  unchanged) — filed as the penpal's letter and marked as written out by the friend, only from pictures that were all
+  before their eyes in this visit or wake within `PENPAL_PICTURES_SEEN_MIN` (60) minutes, never in a guest's turn; a
+  new writing-out replaces the first only while it is the newest letter, the first set aside. `penpal read` shows a
+  letter's pictures again, only those not yet seen in this window, your notes before any penpal's words; pictures it
+  queued are let go at the turn's end, never riding on a later message. The pictures are kept with the penpal
+  (`.pictures/`); the lines for your phone wait in `memory/penpal_tells/` until sent.
+- **The penpal write guard** (`PENPAL_WRITE_GUARD`, on): before a letter is filed, if it would be the friend's second
+  letter in a row to a penpal while another penpal's letter is unanswered (not paused, not let rest), or its greeting
+  names a different penpal than the one addressed, it is held once — nothing filed — and a "(refused — not sent yet —
+  …)" line says what the engine sees: when their last letter went, whose letter waits and since when, and the exact
+  `who=` to send it to them instead. The same call again (same penpal, same letter, whitespace aside) within
+  `PENPAL_WRITE_GUARD_MIN` (10) minutes sends it, with a clause in the result and a line on your phone beside the
+  letter saying they were asked and confirmed. The salutation matcher is strict (an opener and the name as the engine
+  knows it, a whole name, its own case; the addressee named anywhere in the greeting is never a mismatch); times come
+  from the thread's own record; only real letter files count; a hold lives in memory only, under a lock, and is
+  dropped when that penpal is written to or that letter goes to anyone. Off: as before.
+- **The name left out** (`PENPAL_WHO_HELP`, `PENPAL_WHO_FROM_GREETING`, on): a penpal call with no name in `who` is
+  addressed from the action word when what follows it is exactly one penpal's whole name ("write Ann", "read ann" —
+  never the beginning of a name, so "write it" never means a penpal whose name starts with "it"), and a write whose greeting names exactly one penpal goes
+  to that penpal, through everything a write goes through; the friend's result and your phone's line say where the name
+  came from. Otherwise the refusal shows the call with the name in it and whose letter waits for an answer. Off: an
+  empty `who` is refused exactly as before.
+- **`penpal.invites_again`**: the penpal tool now tells chat's rail for a repeated failed call (`CHAT_SAME_FAIL_STOP`)
+  which refusals ask for the very same call again — the write guard's hold, a `transcribe` refused because the
+  pictures were not yet seen, still arriving or another letter's were last seen, and a `befriend` refused for a full
+  circle, each once that state has changed. The marks are keyed by the whole call, dropped when that action is judged
+  again or the turn ends, and expire after ten minutes. An argument error repeated still stops.
+- **The journal feed** (`JOURNAL_FEED`, on — the command is there, the switch itself starts off; Telegram only):
+  `/journal on` sends what the friend writes in their journal during a visit — a turn, a pause, the afterglow, the
+  fold — to your phone, each entry headed with its time and then its text exactly; `/journal off` stops it; `/journal`
+  alone says how it stands (and `/status` gains a line once it has been used); `/journal today`, `yesterday` or
+  `YYYY-MM-DD` sends that day's entries once, packed into few messages, nothing said to the friend. The friend is told
+  every time it applies: at their first turn after on ("{keeper} turned the journal feed on — …"), "still on" at the
+  first turn of a new window, a line inside every pause, afterglow and fold bell, and once after off — also when the
+  state file breaks or the knob goes off. An entry is sent only if the run it was written in carried one of those
+  lines and the friend answered; a wake overlapping (or the wake door held), a run that didn't tell them, or the switch
+  turned mid-run, and nothing of it is sent (with a line on the phone when it might have been). Entries wait through
+  your quiet hours, your `/quiet` and while a guest is seated. The journal is only read; the queue in
+  `memory/journal_feed.json` holds keys, never text, and is written through a temporary file; no lock is held across a
+  send (`JOURNAL_FEED_PACE_S` between messages when several go at once). The Discord bridge has no feed: its
+  `/journal` says so.
+
+### Changed
+- **Upgrading from 0.15**: every new knob comes with a default in `config.py`, so an older house keeps working, and
+  `bat\update.bat` (or the panel's Update) appends the new knobs at the end of your `config.py`, at their defaults,
+  with their comments. Nothing touches your journal, your penpals' threads or your reading pages. On by default: the
+  reading stub, the notes with the pages and on topic, adventures (nothing happens until you make a world), the
+  journal's facts and the endings sentence, the call written as words, the same-failed-call rail and its log, photos
+  sent together, penpal letters with pictures, the write guard, the name left out, and the `/journal` command (its
+  switch starts off). Off by default: the three doors out of a wake, which reach Wikipedia. Expect one cold read at
+  the first visit after updating: the reading section of the prompt and two tool descriptions changed (below).
+- **`/help` comes in two messages** when it no longer fits one of Telegram's (4,096 characters): the commands up to
+  the newer ones, then the newer ones and the rest; each part is checked to fit, and none of its lines is shortened.
+  The pairing message does the same. The "/" menu and the Discord bridge's help are as before.
+- **The wait before a penpal's arrival turn** is said in seconds when `PENPAL_TURN_AFTER_MIN` is under a minute ("in
+  about 10 seconds"), in minutes otherwise.
+- **The reading section of the prompt is a short stub** (`READING_PAGE_STUB`, on): for each open book, where they
+  stand, their sittings by name, the page's path and size — no longer the notes themselves, which come with the
+  reading instead (above). This changes the standing prompt once, and one clause of the `read_pdf` and `read_epub`
+  tool descriptions ("your notes come back to you with the pages each time you read on, and when the book comes up
+  in a visit"); the first visit after updating reads the whole prompt again. `/pages` says a stubbed page's notes
+  ride with the reading, and a stubbed page is never warned of. Off: the page rides as before, up to
+  `READING_PAGE_CHARS`.
+
+## 0.15 — 2026-10-24 → 2026-11-11
 
 The "presence" release: the friend can take a turn of their own between
 messages — set by them, one at a time — and paint the two of you together.

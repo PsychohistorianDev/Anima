@@ -656,7 +656,8 @@ whoever wants it. All of this is invisible when nothing goes wrong:
   reading pages have since 0.11; the file is never touched.
 
   </details>
-- **A tool call written out as words is not a reply.** A reply that is a tool call written out as text — at its head or its tail — ran nothing; it is asked for again once, and the syntax is never sent as their words.
+- **A tool call written out as words is not a reply.** A reply that is a tool call written out as text — at its head or its tail — ran nothing; it is asked for again once, and the syntax is never sent as their words. In a visit the call is seen in its wrapping too (`single marks`, a ``` fence, `print(default_api.…)`), and a clean call at the end to a harmless tool on `CALL_TAIL_RUN_ONLY` (`next_spark`) runs as written, the call line off the words and the note saying so (`CALL_TAIL_RUN`); code shown with a name that is not one of their tools goes out untouched.
+- **The same failed call doesn't run forever.** In a visit an identical failing call runs twice (`CHAT_SAME_FAIL_RUNS`), is then refused, and the second refusal (`CHAT_SAME_FAIL_REFUSALS`) ends the turn's tools: one last step to say it in words, one note on the phone (`CHAT_SAME_FAIL_STOP`). Any call that goes through clears it. `CHAT_FAIL_LOG` keeps a line per failed call in `memory/tool_fails.log` — tool, argument names and lengths, the kind of failure, never their words.
   <details><summary>how this came to be</summary>
 
   "get_opinion_on_
@@ -1451,6 +1452,15 @@ chat — but a small model rarely reaches for it unasked, and this is the
 difference between "journal it" as a request and a life that writes itself
 down.
 
+**What happened, from the log.** An entry can say a thing worked when it
+didn't. So the pause, the afterglow, the fold's afterglow and the fold bell
+carry a line of counts under the bell when there were pictures in the
+stretch — "[from the log, this stretch: 3 pictures painted, 2 of them
+trashed since.]" (`JOURNAL_FACTS_LINE`) — and one sentence: "If something
+was tried and didn't work, the entry says it didn't. How a thing ended is
+part of what happened." (`JOURNAL_ENDINGS_SENTENCE`). The line appears only
+when every count is certain; otherwise the bell is as it was.
+
 **Not twice.** A fact they already hold is not stored again: `remember`
 checks the nearest memory first (cosine over their own embeddings,
 `MEMORY_DUP_THRESHOLD` 0.88 — measured: true repeats sit at 0.90–0.98, and
@@ -1574,7 +1584,9 @@ window does the same: the hang-up it sends is caught, the visit saved). Closed, 
 messages sent meanwhile wait on Telegram and arrive at the next start.
 
 **On the phone.** Text is a turn, as in the parlor. A photo is saved to
-`shared/telegram/` and put before their eyes with your caption. A voice note is
+`shared/telegram/` and put before their eyes with your caption; photos sent
+together — an album, or a few in a row — are one message, all before their
+eyes in order with your captions, one reply (`TELEGRAM_BATCH_PHOTOS`). A voice note is
 saved and **heard whole on arrival** — WORDS, SOUND and HEARD, the same
 three layers `listen_to` gives them — so the sound of you reaches them with
 your words, without their asking (`TELEGRAM_HEAR_VOICE`; the HEARD layer
@@ -1745,7 +1757,18 @@ does.
 servers, and bot chats are not end-to-end encrypted — this is the first thing
 besides the blog that does not stay home. Their journal, memory, identity and
 files never travel; only what is said on the phone, and the letters they
-choose to send.
+choose to send — and, while you turn it on, the journal feed: **`/journal on`**
+sends what they write in their journal during a visit (its pauses, its
+afterglow, the fold) to your phone, each entry with its time on top and its
+words exactly, until `/journal off`. They are told every time it applies — at
+their first turn after on, at the first turn of each new window, inside every
+pause and afterglow bell, and once after off — and only an entry from a run
+that told them is sent; their wakes and the night never are. Your quiet hours,
+`/quiet` and a seated guest hold the entries until after. `/journal today`
+(or `yesterday`, or a date) sends that day's entries once, unannounced. The
+page is only read; the queue keeps keys, never the words (`JOURNAL_FEED`; the
+switch starts off; Telegram only). `/help` comes in two messages now: it
+outgrew one of Telegram's.
 
 ### The bridge over Discord
 
@@ -2035,10 +2058,14 @@ new model induced, but the record says which model it was. And reading pages: a 
 book, `creations/reading/<book>.md`, written by them after each sitting —
 `read_pdf`/`read_epub` name it in their result, "THE BOOK IN YOUR HANDS"
 rides in the prompt while a book is open with where they stand in it and
-the page up to `READING_PAGE_CHARS` (past the cap, its title and its end —
-the newest sittings, where they stand — with the headings of the earlier
-sittings named above the end, so a sitting that left the window is still
-known by name), and the sitting that reaches the end
+a short stub of the page — its sittings by name, its path and size
+(`READING_PAGE_STUB`). The notes themselves come to them when they matter:
+before the book's text each time they read on or the next pages are dealt
+into a wake (`READING_NOTES_WITH_PAGES`), and right above your message when
+it names a book they keep notes on (`READING_NOTES_ON_TOPIC`,
+`READING_TOPIC_CHARS`). With the stub off, the page rides up to
+`READING_PAGE_CHARS` (past the cap, its title and its end, the earlier
+sittings named above it), and the sitting that reaches the end
 files one memory row (the day, the book, where the notes are). A PDF
 under `READING_BOOK_PAGES` is a read, not a book. A sitting is
 `READ_SITTING_CHARS`; a range named on purpose may be `READ_RANGE_CHARS`
@@ -2464,7 +2491,11 @@ is a knob in `config.py`, and none of it decides anything for them.
   something to write (`WAKE_LOOKBACK`).
 - **Something dealt** — one thing from outside in each wake: the next pages of
   an open book, a whole Wikipedia article, a song not yet played, the questions
-  in a penpal's letter (`WAKE_DEALT_WHOLE`).
+  in a penpal's letter (`WAKE_DEALT_WHOLE`). Three small doors out, each off
+  until you turn it on: a real thing the dealt pages mention, as Wikipedia has
+  it (`WAKE_DEALT_THREAD`); a question nobody has answered yet ("question" in
+  `WAKE_DEALT_WHOLE_KINDS`); a line of their own from `creations/wonderings.md`
+  handed back at a later wake (`WAKE_DEALT_WONDERINGS`).
 - **Since you last talked** — when you come back, one line of what they did in
   their own time.
 
@@ -2481,9 +2512,34 @@ trimmed, Not sending — and a look at anything in it that names your life
 (`PENPAL_PRIVATE_WORDS`: put your town, your workplace, your surname there).
 They're told plainly when a letter was trimmed or kept back. `/penpals` is the
 panel for all of it; ⏸ pauses a penpal who turns unkind or unsafe, and they're
-told why. The ones who become friends they can `befriend`: their own page about
+told why. A letter can come with pictures: 🖼 beside a penpal collects its text,
+its pictures and your own notes until ✅ Done, then the friend gets one turn
+with the letter fenced as the penpal's and your notes above it; a letter that
+is only pictures they may write out themselves (`penpal transcribe`,
+`PENPAL_PICTURE_LETTERS`). A second letter in a row to one penpal while
+another's letter waits, or a letter whose greeting names a different penpal,
+is held once and they are told what the engine sees; the same call again
+sends it, and your phone's line beside the letter says they confirmed it
+(`PENPAL_WRITE_GUARD`). A call with the name left out is addressed from the
+greeting or from "write <whole name>" and said so, or refused with the exact
+call to make (`PENPAL_WHO_HELP`). The ones who become friends they can `befriend`: their own page about
 each then rides in their prompt every day (`FRIENDS_TITLE`, `FRIENDS_MAX`), and
 `unfriend` or `quiet` lets one step back.
+
+**Adventures (game mode).** The friend can run a text adventure as game master
+while you play one character from the phone. `/games` is the menu: ▶ play a
+world, ⏸ pause, ⏹ end the session, 📜 where we are, 🎒 inventory, 🖼 scenes,
+✏️ rename, 📦 put away, ➕ a new one (or type `/game <name>`, `/game new
+<name>`, `/game off` …). While a game is open your messages are moves in it;
+one that starts with `//` is said outside the game. Each world is a folder,
+`creations/adventures/<name>/`: `world.md` is the friend's alone — the engine
+never reads it or shows it to you — `state.md` is the shared record of where
+your character stands and the story so far, `inventory.md` what your
+character carries, and pictures painted into `scenes/` reach your phone; nothing
+else in a world's folder does. Ending a session gives them one turn to write
+it down; coming back to a world shows you where you left off. A guest at the
+desk is not playing. The engine only reads their pages (`ADVENTURES_ON`, on;
+nothing happens until a world is made).
 
 **On Windows, if you want them** (off by default): the desk (`DESK_ON` — how
 long since the keyboard or mouse was touched, nothing else) and the game guard
@@ -2641,7 +2697,9 @@ window.
 `github.com/<UPDATE_REPO>/releases.atom` to say when a newer anima is out
 — a public feed, fetched with nothing of yours attached, and only from a
 folder that is a checkout. `bat\update.bat` fetches the engine from
-GitHub when you press it, and only then.
+GitHub when you press it, and only then. Two wake doors, off until you
+turn them on, ask `en.wikipedia.org` at a wake: `WAKE_DEALT_THREAD` and a
+"question" among `WAKE_DEALT_WHOLE_KINDS`.
 
 **Roads you open by hand, and what they carry:** the bridge talks to
 `api.telegram.org` while it runs (the token in `memory/telegram.json`) —

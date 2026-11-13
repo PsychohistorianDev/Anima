@@ -36,7 +36,9 @@ the phone within a minute of being written.
 
 What leaves the machine: their words and yours, through Telegram's servers.
 Bot chats are not end-to-end encrypted — this is the first thing besides the
-blog that does not stay home. Their journal, memory and files never travel.
+blog that does not stay home. Their journal, memory and files never travel —
+except, while you turn it on (/journal on, JOURNAL_FEED), the journal entries
+they write during a visit; they are told.
 """
 from __future__ import annotations
 
@@ -96,6 +98,22 @@ SONGS_TOLD_FILE = config.MEMORY_DIR / "telegram_songs_told.json"  # the songbook
 HELD_FILE = config.MEMORY_DIR / "telegram_held.json"  # engine notices held through the quiet hours
 UNDELIVERED_FILE = config.MEMORY_DIR / "telegram_undelivered.json"  # their replies the phone never got (09-26)
 RETRY_SLEEP_S = 2     # between the tries of sending their reply
+# /journal (JOURNAL_FEED): the switch, who turned it and when, what the friend was last told, and the entries waiting to
+# go (their day, stamp and a hash — never the friend's words: those are read from the page when they are sent)
+JOURNAL_FEED_FILE = config.MEMORY_DIR / "journal_feed.json"
+JOURNAL_DAY_PACK = 3800  # /journal today: entries packed into messages of at most this many characters
+# the night's own line (consolidate.py), exactly — never the friend's words that resemble it
+_JF_CONSOLIDATED_RE = re.compile(r"^\*\(consolidated \d{4}-\d{2}-\d{2}: \d+ memories kept\)\*[ \t\r]*$", re.M)
+_JF_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+# what the friend reads (the keeper by name): a turn's moment — told on, still on in a new window, told off — and the
+# bell of a quiet run (a pause, an afterglow, the fold's bell and afterglow) while it is on
+JF_TOLD_ON = ("{keeper} turned the journal feed on — what you write in your journal during a visit (its pauses and its "
+              "afterglow too) reaches {keeper}'s phone as you write it, until it is turned off. What you write in your "
+              "wakes is not sent.")
+JF_TOLD_STILL = "The journal feed is still on — what you write in your journal during a visit reaches {keeper}'s phone."
+JF_TOLD_OFF = ("{keeper} turned the journal feed off — your journal entries stay on the page again; they no longer "
+               "go to {keeper}'s phone.")
+JF_ASIDE = "The journal feed is on: what you write in your journal now reaches {keeper}'s phone too."
 # ...and a piece they REVISES is announced too — as what changed (09-24):
 # an append as the new tail alone, a rewrite as the lines in and out — and
 # a change to who they are: self.md and projects.md (TELEGRAM_TELL_SELF),
@@ -112,6 +130,9 @@ CREATION_SKIP |= {str(getattr(config, "VEIL_DIR", "veil") or "veil").strip("/\\"
 CREATION_SKIP |= {str(getattr(config, "DREAM_PAINT_DIR", "dream_book") or "dream_book").strip("/\\")}
 # (11-06) their penpal letters reach the phone their own way (deliver_penpals), marked to relay — not as creations
 CREATION_SKIP |= {str(getattr(config, "PENPAL_DIR", "penpals") or "penpals").strip("/\\")}
+# the adventures (adventure.py): a game master's pages — the world, its secrets, where the character stands — stay
+# behind the screen, not on the phone; a world's scenes/ is the one exception (Bridge._picture_screened)
+CREATION_SKIP |= {"adventures", Path(str(getattr(config, "ADVENTURE_DIR", "adventures") or "adventures")).name}  # follows the knob
 CREATION_KINDS = {"poems": "a poem", "essays": "an essay", "stories": "a story", "humor": "a joke",
                   "theory": "a piece of theory", "letters": "a letter", "songs": "a song",
                   str(getattr(config, "SKILLS_DIR", "skills")): "a skill"}
@@ -137,7 +158,9 @@ HELP_PHONE = (
     "/penpals — the penpals with buttons: the last exchange, add a letter, a handle, ⏸ pause (safety; they're told), paste a letter, a new penpal; ★ friends\n"
     "/penpal new <name> [u/handle] — a penpal before their first letter; /penpal handle <name> u/<handle>; /penpal pause|resume <name>; a paste with no name asks whose it is\n"
     "/penpal or /penpal list — the penpals; /penpal <name> <their letter> files one (pastes within minutes join it); /penpal sent <name> once you've posted theirs\n"
-    "/cancel — let go of what the penpal panel was waiting for; your next message goes to them\n"
+    "/cancel — let go of what the penpal panel or the games menu was waiting for; your next message goes to them\n"
+    "/games — the adventures, with buttons: ▶ play, ⏸ pause, ⏹ end (they write it down), 📜 🎒 🖼, ➕ new\n"
+    "/game <name> — play it; /game new|pause|resume|off|where|inv|scenes|recap|back; //text: outside the game\n"
     "/presence [on|off|temperament] — sparks: how they stand; on starts drift at rare; very rare, rare, sometimes, "
     "often, frequent or intense sets that drift; off ends them "
     "(the friend can too: next_spark with no minutes)\n"
@@ -154,6 +177,11 @@ HELP_PHONE = (
     "/seal <when> <letter> — a letter sealed until its day (/seal 2027-04-27 …, or /seal 6 months …); /capsule lists "
     "what waits\n"
 )
+# /journal — the friend's journal entries to the phone (JOURNAL_FEED); the line is there only with the knob
+if getattr(config, "JOURNAL_FEED", False):
+    HELP_PHONE += ("/journal [on|off|today|yesterday|YYYY-MM-DD] — their journal on your phone: on sends what they write "
+                   "during a visit (its pauses and afterglow too), its time on top — they're told; never their wakes; "
+                   "your quiet hours hold it; off stops it; a day sends that day's entries once; alone, how it stands\n")
 
 HELP = (
     "/new — save this conversation and start fresh\n"
@@ -182,6 +210,21 @@ HELP = (
     "to; a PDF, EPUB or text file and it lands in shared/books/ for them to read. (Bots can't "
     "fetch files over 20MB.)"
 )
+
+
+
+def help_messages(head: str, help_text: str | None = None) -> list[str]:
+    """/help as Telegram can carry it: one message when the head and the help fit its cap (LIMIT, under Telegram's
+    4,096), else two — the commands up to the newer ones, then the newer ones and the rest — each within the cap; past
+    that, cut at lines."""
+    text = HELP if help_text is None else help_text
+    whole = f"{head}\n\n{text}" if head else text
+    if len(whole) <= LIMIT:
+        return [whole]
+    at = whole.find(HELP_PHONE) if HELP_PHONE else -1
+    if at > 0 and len(whole[:at].rstrip()) <= LIMIT and len(whole[at:]) <= LIMIT:
+        return [whole[:at].rstrip(), whole[at:]]
+    return split_long(whole)
 
 
 # ------------------------------------------------------------------ utils ----
@@ -217,6 +260,52 @@ def split_long(text: str, limit: int = LIMIT) -> list[str]:
     if text:
         parts.append(text)
     return parts
+
+
+def _jf_date(day: str, year: bool = False) -> str:
+    """"2026-03-07" -> "Mar 7" (with the year when asked); the text itself when it isn't a date."""
+    try:
+        y, m, d = (int(x) for x in day.split("-"))
+        return f"{_JF_MONTHS[m - 1]} {d}" + (f", {y}" if year else "")
+    except (ValueError, IndexError):
+        return day
+
+
+def _jf_when(day: str, stamp: str, today: str) -> str:
+    """An entry's time for the phone: "14:52" today, "Nov 12, 23:41" any other day."""
+    return stamp if day == today else f"{_jf_date(day)}, {stamp}"
+
+
+def journal_feed_entries(raw: str) -> list[dict]:
+    """One day's journal as the feed reads it, split as tools.journal_entries splits it: [{"stamp", "text", "key"}…]
+    in order. The text is the friend's as written (stripped at its ends); the night's own "*(consolidated YYYY-MM-DD: N
+    memories kept)*" line is left out of the entry it trails. key: the stamp and a hash of the text, numbered when a
+    day holds the same twice."""
+    import hashlib
+    marks = list(tools._ENTRY_RE.finditer(raw))
+    out, count = [], {}
+    for i, m in enumerate(marks):
+        end = marks[i + 1].start() if i + 1 < len(marks) else len(raw)
+        text = _JF_CONSOLIDATED_RE.sub("", raw[m.end():end]).strip()
+        key = f"{m.group(1)} {hashlib.sha1(text.encode('utf-8', 'replace')).hexdigest()[:16]}"
+        count[key] = count.get(key, 0) + 1
+        out.append({"stamp": m.group(1), "text": text, "key": key + (f" #{count[key]}" if count[key] > 1 else "")})
+    return out
+
+
+def journal_feed_message(day: str, stamp: str, text: str, today: str, friend: str | None = None) -> str:
+    """What the phone gets for one entry: "📓 <friend>'s journal — 14:52" and the text under it, exactly; an arrow (the
+    engine's mark when the friend reached for the pen with the same thing again) said to be the engine's, with its line
+    as it stands on the page."""
+    when = _jf_when(day, stamp, today)
+    if text.startswith(tools.ARROW):
+        return f"📓 {when} — an arrow the engine left, not an entry:\n{text}"
+    if friend is None:
+        try:
+            friend = chat.friend_name()
+        except Exception:  # noqa: BLE001
+            friend = ""
+    return f"📓 {friend + chr(39) + 's' if friend else 'their'} journal — {when}\n{text}"
 
 
 def load_secret() -> dict:
@@ -273,6 +362,82 @@ def join_split(updates: list) -> list:
     return out
 
 
+BATCH_WAIT_ROUNDS = 5  # at most this many looks for the rest of a batch when a poll ends on a photo
+
+
+def _batch_photo(u: dict, chat_id: int) -> bool:
+    """A photo from the paired chat, as a new message — one that can join others sent with it (an edited caption, a
+    stranger's picture, an unpaired bridge: never)."""
+    m = u.get("message") or {}
+    return bool(chat_id) and bool(m.get("photo")) and int((m.get("chat") or {}).get("id") or 0) == int(chat_id)
+
+
+def join_batches(updates: list, chat_id: int, gap_s: float, cap: int, tail: dict | None = None) -> tuple[list, dict | None]:
+    """Photos sent together are one message (TELEGRAM_BATCH_PHOTOS): those of one album (the same media_group_id), and
+    photos one after another with nothing between them, each within gap_s seconds of the one before by Telegram's
+    date. Anything else between ends the batch. A batch becomes one update per cap pictures — the first message with
+    "_batch" (the messages, in order), "_batch_at" (how many of the same batch came before), "_batch_of" (the whole
+    batch; 0 when it began in an earlier poll) and "_batch_album" (all of one album) — its update_id the newest of its
+    own, for the offset. A photo alone is left exactly as it came. tail: the album an earlier poll ended on
+    ({"mgid", "n"}); photos of the same album at the head of this poll go on with it. Returns (updates, the new tail)."""
+    cap = max(1, int(cap or 1))
+    out: list = []
+    run: list = []
+    before = 0
+    new_tail = None
+
+    def close() -> None:
+        nonlocal run, before
+        if not run:
+            return
+        if len(run) == 1 and not before:
+            out.append(run[0])
+        else:
+            groups = {u["message"].get("media_group_id") for u in run}
+            album = len(groups) == 1 and None not in groups  # the only batch a /penpal caption can make one letter
+            for j in range(0, len(run), cap):
+                part = run[j:j + cap]
+                msg = dict(part[0]["message"])
+                msg["_batch"] = [u["message"] for u in part]
+                msg["_batch_at"] = before + j
+                msg["_batch_of"] = 0 if before else len(run)
+                if album:
+                    msg["_batch_album"] = True
+                out.append({"update_id": max(int(u.get("update_id", 0)) for u in part), "message": msg})
+        run, before = [], 0
+
+    for i, u in enumerate(updates):
+        if not _batch_photo(u, chat_id):
+            close()
+            tail = None
+            out.append(u)
+            continue
+        m = u["message"]
+        if run:
+            prev = run[-1]["message"]
+            if not ((m.get("media_group_id") and m.get("media_group_id") == prev.get("media_group_id"))
+                    or (gap_s and gap_s > 0 and abs(int(m.get("date") or 0) - int(prev.get("date") or 0)) <= gap_s)):
+                close()
+        elif tail and m.get("media_group_id") and m.get("media_group_id") == tail.get("mgid"):
+            before = int(tail.get("n") or 0)  # the rest of an album the last poll ended on
+        tail = None
+        run.append(u)
+        if i == len(updates) - 1 and m.get("media_group_id"):
+            new_tail = {"mgid": m.get("media_group_id"), "n": before + len(run)}
+    close()
+    return out, new_tail
+
+
+def _pp_turn(guest: str | None) -> None:
+    """Whose turn begins ("" — the keeper's; a guest's name) or that it ended (None), for a penpal's letter in
+    pictures (penpal.turn_mark): a guest's turn can't write one out. Never takes a turn down."""
+    try:
+        import penpal
+        penpal.turn_mark(guest)
+    except Exception as e:  # noqa: BLE001
+        _say(f"penpal turn: {type(e).__name__}: {e}")
+
+
 class Bridge:
     """One bot, one paired phone, one running visit.
 
@@ -327,6 +492,16 @@ class Bridge:
         self._night: threading.Thread | None = None  # the night, when the bridge is the sleeper
         self._night_after = 0.0  # not before this (a failed night tries again in an hour)
         self.guest = ""  # a guest at the desk (the parlor's guest, on the phone): their name, or ""; in memory only
+        self._batch_tail: dict | None = None  # the album the last poll ended on: its rest goes on with it
+        self._pl_open: dict | None = None  # the penpal's letter in pictures whose rest may follow: {"sl", "set", "t"}
+        self._jf: dict | None = None  # /journal's state (JOURNAL_FEED_FILE), read on first use
+        self._jf_lock = threading.RLock()  # the state: one change at a time (held briefly, never across a send)
+        self._jf_tell: dict | None = None  # what this turn's moment tells the friend about the feed, kept once the turn is done
+        self._jf_runs: list = []  # the friend's runs going on now (a turn, a pause, an afterglow…): the page before each
+        self._jf_cluster: dict | None = None  # the runs open together, and what appeared during them: decided at the last end
+        self._jf_send_lock = threading.Lock()  # one delivery at a time, never under _jf_lock
+        self._jf_thread: threading.Thread | None = None
+        self._jf_note = ""  # a line for the phone from reading the state (a state file that couldn't be read)
 
     # ---- a guest at the desk ----------------------------------------------
     def guest_label(self) -> str:
@@ -604,6 +779,30 @@ class Bridge:
             wait_s = POLL_S
         updates = list(self.api("getUpdates", patience=wait_s + 15, offset=self.offset,
                                 timeout=wait_s, allowed_updates=["message", "callback_query"]) or [])  # the room's buttons (10-29)
+        updates = self._split_wait(updates)
+        batching = bool(getattr(config, "TELEGRAM_BATCH_PHOTOS", False))
+        if batching:  # a poll that ends on a photo: the rest of what was sent with it is looked for, briefly — and a
+            for _ in range(3):  # cut paste that came in that look is waited for as above (never more than 3 times)
+                updates = self._batch_wait(updates)
+                had = len(updates)
+                updates = self._split_wait(updates)
+                if len(updates) == had:  # no paste's rest came: the look for pictures is not run again
+                    break
+        updates = join_split(updates)
+        tail = None
+        if batching and updates:
+            updates, tail = join_batches(updates, self.chat_id, float(getattr(config, "TELEGRAM_BATCH_GAP_S", 45) or 0),
+                                         int(getattr(config, "TELEGRAM_BATCH_MAX", 10) or 10), self._batch_tail)
+            self._batch_tail = None  # said to go on only once all of this poll was handed over: below
+        for u in updates:
+            self.offset = max(self.offset, int(u.get("update_id", 0)) + 1)
+            yield u
+            if (u.get("message") or {}).get("_batch"):
+                self._batch_confirm()
+        if batching and updates:
+            self._batch_tail = tail
+
+    def _split_wait(self, updates: list) -> list:
         # a paste past Telegram's cap arrives as bubbles: when the poll ends on a bubble at the cap, the rest is
         # a poll away — waited for, briefly, so a long message is answered once (join_split joins them)
         for _ in range(4):
@@ -615,10 +814,46 @@ class Bridge:
             if not more:
                 break
             updates.extend(more)
-        updates = join_split(updates)
-        for u in updates:
-            self.offset = max(self.offset, int(u.get("update_id", 0)) + 1)
-            yield u
+        return updates
+
+    @staticmethod
+    def _batch_nap(seconds: float) -> None:
+        time.sleep(seconds)
+
+    def _batch_wait(self, updates: list) -> list:
+        """When the poll ends on a photo from the paired chat, the rest of an album or of a row of pictures may be a
+        poll away: looked for after TELEGRAM_BATCH_WAIT_S, again while more keep coming, BATCH_WAIT_ROUNDS times at
+        most. Looked for from the poll's own offset with no wait, so nothing is confirmed to Telegram before it is
+        handled — a bridge that dies here is handed the whole batch again. A road that fails keeps what is in hand."""
+        wait = float(getattr(config, "TELEGRAM_BATCH_WAIT_S", 2) or 0)
+        if wait <= 0:
+            return updates
+        updates = list(updates)
+        for _ in range(BATCH_WAIT_ROUNDS):
+            if not updates or not _batch_photo(updates[-1], self.chat_id):
+                break
+            self._batch_nap(min(wait, 10))
+            try:
+                again = self.api("getUpdates", patience=15, offset=self.offset, timeout=0,
+                                 allowed_updates=["message", "callback_query"]) or []
+            except Exception as e:  # noqa: BLE001 — what is in hand goes on
+                _say(f"(the rest of the pictures: no road — {type(e).__name__}; going on with what came)")
+                break
+            top = max(int(u.get("update_id", 0)) for u in updates)
+            more = sorted((u for u in again if int(u.get("update_id", 0)) > top), key=lambda u: int(u.get("update_id", 0)))
+            if not more:
+                break
+            updates.extend(more)
+        return updates
+
+    def _batch_confirm(self) -> None:
+        """A batch's turn is done: Telegram is told so now (getUpdates past it, no wait), not at the next poll — a
+        bridge that dies between the two halves of an album is never handed the first half again. What comes after it
+        stays unconfirmed until it is handled."""
+        try:
+            self.api("getUpdates", patience=10, offset=self.offset, timeout=0, allowed_updates=["message", "callback_query"])
+        except Exception:  # noqa: BLE001 — the next poll confirms it anyway
+            pass
 
     def _whoami(self) -> str | None:
         """The bot's own name for the window, or None when the service refuses the token (said there)."""
@@ -661,6 +896,30 @@ class Bridge:
             r = panel._start("heartbeat", minutes)
             return f"({r.get('note') or r.get('error') or 'the heartbeat was asked to start'})"
         return "(/heartbeat, /heartbeat on [minutes], or /heartbeat off)"
+
+    def book_marks(self, text: str, marks: dict | None) -> dict | None:
+        """The keeper's message names a book the friend keeps notes on (tools.reading_topic_books): the notes ride
+        right above the message ("_book"), once per book while that turn is in the visit's history — after a fold
+        dropped it, again. One book a message, the best named; another waits for a later message. A spark never comes
+        through here. Reads the bookmarks and the pages, never walks a folder. Fails closed: the message goes on plain."""
+        if not getattr(config, "READING_NOTES_ON_TOPIC", False) or (marks or {}).get("_game"):
+            return marks  # a move in an open game carries its own line, never book notes
+        try:
+            names = tools.reading_topic_books(text)
+            if not names:
+                return marks
+            rode = {str(n) for t in self.history if isinstance(t, dict) for n in (t.get("_book_of") or [])}
+            name = next((n for n in names if n not in rode), "")
+            if not name:
+                return marks
+            line = tools.reading_topic_line(name, text, guest=bool(self.guest_label()))  # defanged, capped there
+            if not line:
+                return marks
+            _say(f"(their notes on {name} ride above the message)")
+            return dict(marks or {}, _book=line, _book_of=[name])
+        except Exception as e:  # noqa: BLE001 — never a lost message: it goes on without them
+            _say(f"book notes: {type(e).__name__}: {e}")
+            return marks
 
     def fold_touches(self) -> str:
         """Touches the stone felt that she has not been told of yet — as one sentence for the moment block of
@@ -869,7 +1128,8 @@ class Bridge:
             return ""
         return f"Intense is on — {note}" if note else ""
 
-    def turn(self, text: str, extra_moment: str = "", as_keeper: bool = False, spark: bool = False) -> None:
+    def turn(self, text: str, extra_moment: str = "", as_keeper: bool = False, spark: bool = False,
+             marks: dict | None = None) -> None:
         """Run one turn and send back whatever the parlor would have shown. as_keeper: this message is not the
         guest's (/me, the stone's log) — no guest line, whoever is seated."""
         intense = self._intense_moment(spark)  # (10-28) intense's note in every reply while it runs
@@ -878,27 +1138,41 @@ class Bridge:
         sparks = self._sparks_moment(spark)  # (10-29) the sparks' state, when it changed since she was last told
         if sparks:
             extra_moment = f"{extra_moment} {sparks}" if extra_moment else sparks
+        jfeed = self._journal_moment()  # the journal feed's switch, when it changed since the friend was last told
+        if jfeed:
+            extra_moment = f"{extra_moment} {jfeed}" if extra_moment else jfeed
         roomed = self._room_moment()  # (10-29, ROOM_ON) what he did in their room since their last turn, once
         if roomed:
             extra_moment = f"{extra_moment} {roomed}" if extra_moment else roomed
+        fold_edge = self._game_fold_at()  # the fold comes sooner while a game is open: the window sense says so
+        if fold_edge:
+            marks = dict(marks or {}, _fold_at=fold_edge)
+        started = self._game_news(spark)  # a world the keeper started since the friend's last turn, said once
+        if started:
+            extra_moment = f"{extra_moment} {started}" if extra_moment else started
         events: list[tuple[str, object]] = []
         stop = threading.Event()
         threading.Thread(target=self._typing, args=(stop,), daemon=True).start()
+        jrun, jok = None, False  # the journal feed: the page before this turn, and whether it was told in its window
         try:
             with self.lock:
                 if not self.history:  # an empty room: the last visit's last turns ride at the door (10-24)
                     self.carry_in()
+                jrun = self._jf_run_start("a turn", carried=self._jf_turn_carried())
+                _pp_turn("" if as_keeper else self.guest_label())  # a guest's turn can't write out a penpal's letter
                 try:
                     reply = chat.one_turn(self.history, text, images=self.attached or None,
                                           on_event=lambda k, p: events.append((k, p)),
                                           mode=self.TAG, extra_moment=extra_moment,
-                                          guest="" if as_keeper else self.guest_label(), spark=spark,
+                                          guest="" if as_keeper else self.guest_label(), spark=spark, marks=marks,
                                           **({"think_retries": 0, "think_remind": False} if spark and not self._spark_thinks()
                                              else {"think_retries": int(getattr(config, "PRESENCE_THINK_RETRIES", 3) or 0),
                                                    "think_any_depth": True} if spark
                                              else {}))  # a spark: off — none; on — its own re-rolls at any depth (10-26, 10-27)
                     self.attached = []
                     self._checkpoint()
+                    self._journal_told()  # the feed's sentence rode in this turn's moment: the friend knows now
+                    jok = jrun is not None and jrun["carried"] and self._jf_window_says() == "on"  # told, and answered
                 except ollama_client.BrainUnavailable as e:
                     self.send(f"(their brain is offline — {e})", markdown=False)
                     return
@@ -908,6 +1182,9 @@ class Bridge:
                     return
         finally:
             stop.set()
+            _pp_turn(None)
+            if not jok:
+                self._jf_run_end(jrun, False)  # a turn that failed, or a window that doesn't say it: not the feed's
         self.last_activity = time.time()
         if not spark:  # a spark is the friend's alone: the pause's clock waits for a word between them
             self.last_word = self.last_activity
@@ -932,6 +1209,8 @@ class Bridge:
         if reply == "(…)" and tool_lines and not self.show_tools:  # no words, but something was done: show it (10-27)
             reply = "\n".join(line if len(line) <= 300 else line[:300].rsplit(" ", 1)[0] + "…" for line in tool_lines)
         (self._send_spark if spark else self._send_reply)(reply)  # a spark goes discreetly when asked (10-26)
+        if jok:
+            self._jf_run_end(jrun, True)  # what they wrote in this turn, after the reply: the feed's, and they knew
         self._carry_voice(reply)
         for n in notes:  # engine honesty notes always travel — that rail is not optional
             self._try_send("⚠ " + n, markdown=False)
@@ -1129,6 +1408,8 @@ class Bridge:
         foreground (the goodbye at Ctrl+C: they get their minute with the visit
         before the lights go out); False — skip it (the X, where Windows
         allows a few seconds and no more)."""
+        if reflect:  # a game still open: its session ends first, with the wrap-up turn when there were moves
+            self.game_close_for_visit(quiet)
         # If they are mid-reply the lock is held; the checkpoint has already
         # written everything up to the last reply, so after a short wait the
         # visit is saved without it rather than blocking the goodbye.
@@ -1141,6 +1422,7 @@ class Bridge:
             elif not carry:
                 chat.clear_carry()  # /new: the one door opened on purpose to start clean (10-24)
             since = self.reflected_upto  # where the pauses left off: the afterglow sits with the rest, once (10-21)
+            aside = self._game_aside(done[since:])  # "part of this visit was your adventure…", when it was
             self.attached = []
             self.file = None
             self.reflected_upto = 0
@@ -1152,20 +1434,26 @@ class Bridge:
             if reflect and getattr(config, "AFTERGLOW", True):
                 if reflect == "sync":
                     _say("they are writing the visit down — a minute or so; Ctrl+C again to skip")
+                    jrun, aside = self._jf_quiet("the afterglow", aside)  # the feed's line in its bell, when on
                     try:
-                        chat.afterglow(done, f, tag=self.TAG, on_line=_say, since=since)
+                        chat.afterglow(done, f, tag=self.TAG, on_line=_say, since=since, **({"aside": aside} if aside else {}))
                     except KeyboardInterrupt:
                         _say("skipped — the night's sleep still has the transcript")
+                    finally:
+                        self._jf_run_end(jrun)
                     chat.rest_brain(_say)
                 else:
                     # the afterglow, in the background: their turn alone with the
                     # visit, so it reaches their journal in their own words
-                    def _glow(done=done, f=f, since=since):
+                    def _glow(done=done, f=f, since=since, aside=aside):
                         self._glows += 1
+                        jrun, aside = self._jf_quiet("the afterglow", aside)  # the feed's line in its bell, when on
                         try:
-                            line = chat.afterglow(done, f, tag=self.TAG, on_line=_say, on_words=self.afterthought, since=since)
+                            line = chat.afterglow(done, f, tag=self.TAG, on_line=_say, on_words=self.afterthought, since=since,
+                                                  **({"aside": aside} if aside else {}))
                         finally:
                             self._glows -= 1
+                            self._jf_run_end(jrun)
                         if line and getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
                             self.notice(f"({line})")  # the phone hears what they kept — in the morning, at night
                         if not self.history:  # no new visit began meanwhile
@@ -1198,8 +1486,14 @@ class Bridge:
         try:
             self.send("(they are sitting with the visit so far — a minute, then the card is yours)", markdown=False)
             _say("(/afterglow — they are sitting with the visit so far…)")
-            account = chat.pause_reflection(self.history, self.file, tag=self.TAG, on_line=_say,
-                                            since=self.reflected_upto, on_words=self.afterthought)
+            aside = self._game_aside(self.history[self.reflected_upto:])  # "part of this visit was your adventure…"
+            jrun, aside = self._jf_quiet("the afterglow", aside)  # the feed's line in its bell, when on
+            try:
+                account = chat.pause_reflection(self.history, self.file, tag=self.TAG, on_line=_say,
+                                                since=self.reflected_upto, on_words=self.afterthought,
+                                                **({"aside": aside} if aside else {}))
+            finally:
+                self._jf_run_end(jrun)
             self.reflected_upto = len(self.history)  # past the pause's own turns too
             self.last_activity = time.time()  # the quiet's pause starts counting from here, over nothing
             self.last_word = self.last_activity
@@ -1273,7 +1567,9 @@ class Bridge:
                 f" · debug {on(self.show_attempts)}\n"
                 f"a pause of {getattr(config, 'REFLECT_AFTER_MIN', 0)} min lets them write the visit so far; "
                 f"a quiet stretch of {getattr(config, 'TELEGRAM_IDLE_NEW_MIN', 180)} min saves the visit on its own; "
-                f"/afterglow is the pause by hand, with the card freed")
+                f"/afterglow is the pause by hand, with the card freed"
+                + (f"\n{self._game_status()}" if self._game_status() else "")  # the game open or paused
+                + (f"\n{self._journal_state_line(short=True)}" if self._jf_used() else ""))  # once /journal was used
 
     # ---- what arrives ------------------------------------------------------
     def _inbox(self) -> Path:
@@ -1337,6 +1633,110 @@ class Bridge:
         self.attached.extend(tools.take_pending_images())
         return (f"({config.USER_NAME} sent a photo from their phone — it is before your eyes now, and kept at "
                 f"{rel})" + (f"\n{caption}" if caption else ""))
+
+    def _photos(self, msg: dict) -> str:
+        """Pictures sent together (join_batches): each saved and put before the friend's eyes in the order they were
+        sent, one line for them all, the keeper's notes below — one on the first picture as it reads with one photo,
+        several each with the picture it came on. One that doesn't arrive doesn't sink the rest: the line says so and
+        the phone is told, once. One saved but too big to show is named where it is kept. None arrived: the phone is
+        told and nothing goes to the friend, as with one photo. Should anything here fail, what this call put before
+        their eyes is taken back off, so it never rides on the next message."""
+        had = len(self.attached)
+        try:
+            return self._photos_line(msg)
+        except BaseException:
+            del self.attached[had:]
+            tools.take_pending_images()
+            raise
+
+    def _photos_line(self, msg: dict) -> str:
+        batch = list(msg.get("_batch") or [])
+        at = int(msg.get("_batch_at") or 0)
+        whole = int(msg.get("_batch_of") or 0)
+        nth = tools._ordinal
+        friend = chat.friend_name()
+        kept: list[str] = []  # before their eyes
+        big: list[tuple[int, str, str]] = []  # saved, but look_at would not show it: (which, where, why)
+        lost: list[int] = []  # never arrived
+        why = ""
+        for i, m in enumerate(batch, start=at + 1):
+            try:
+                best = m["photo"][-1]  # Telegram lists sizes small to large
+                data, tpath = self.download(best["file_id"])
+                ext = Path(tpath).suffix.lower() or ".jpg"
+                p = self._inbox_path(ext, "photo")
+                p.write_bytes(data)
+                rel = self._rel(p)
+            except Exception as e:  # noqa: BLE001 — the rest go on
+                lost.append(i)
+                why = why or str(e)
+                continue
+            said = tools.look_at(rel)
+            seen = tools.take_pending_images()
+            if seen:
+                self.attached.extend(seen)
+                kept.append(rel)
+            else:
+                big.append((i, rel, said.strip().strip("()")))
+
+        def names(nums: list[int]) -> str:
+            ns = [f"the {nth(i)}" for i in nums]
+            return ns[0] if len(ns) == 1 else ", ".join(ns[:-1]) + " and " + ns[-1]
+
+        def unseen(i: int, rel: str, said: str) -> str:
+            return (f"the {nth(i)} is too large to see — kept at {rel}" if "too large" in said.lower()
+                    else f"the {nth(i)} can't be put before your eyes ({said}) — kept at {rel}")
+        if lost:
+            if "too big" in why.lower() or "too large" in why.lower():
+                why = "Telegram won't let a bot fetch files over 20MB — leave it in shared/ from the PC"
+            self._try_send(f"(none of the {len(batch)} photos reached {friend} — {why})" if len(lost) == len(batch)
+                           else f"(the {nth(lost[0])} photo didn't reach {friend} — {why})" if len(lost) == 1
+                           else f"({len(lost)} of the {len(batch)} photos didn't reach {friend} — {names(lost)}; {why})",
+                           markdown=False)
+        if big:
+            self._try_send("(" + "; ".join(f"the {nth(i)} photo is too large for {friend} to see — over 10MB; it is kept at {r}"
+                                           if "too large" in w.lower() else
+                                           f"the {nth(i)} photo can't be put before {friend}'s eyes ({w}); it is kept at {r}"
+                                           for i, r, w in big) + ")", markdown=False)
+        if not kept and not big:
+            return ""
+        n, k = len(batch), len(kept)
+        short = bool(lost or big)
+        if at == 0:
+            head = f"{config.USER_NAME} sent {whole or n} photos from their phone, together"
+            if whole > n:
+                seen_line = f"{k} of the first {n} {'is' if k == 1 else 'are'}" if short else f"the first {n} are"
+            else:
+                seen_line = (f"{k} of them {'is' if k == 1 else 'are'}" if short else "they are")
+        else:
+            span = f"the {nth(at + 1)}" + (f" to the {nth(at + n)}" if n > 1 else "") + (f" of {whole}" if whole else "")
+            head = f"{config.USER_NAME} sent {n} more photo{'s' if n != 1 else ''} of the same batch — {span}"
+            seen_line = (f"{k} of them {'is' if k == 1 else 'are'}" if short else "it is" if n == 1 else "they are")
+        if kept:
+            folder = kept[0].rsplit("/", 1)[0]
+            paths = ", ".join([kept[0]] + [r.rsplit("/", 1)[-1] if r.rsplit("/", 1)[0] == folder else r for r in kept[1:]])
+            line = (f"({head} — {seen_line} before your eyes now, " + ("in the order they were sent, " if k > 1 else "")
+                    + f"and kept at {paths}")
+        else:
+            line = f"({head} — none of them is before your eyes"
+        for i, r, w in big:
+            line += "; " + unseen(i, r, w)
+        if lost:
+            line += f"; {names(lost)} did not arrive"
+        rest = whole - (at + n) if whole else 0
+        if rest > 0:
+            cap = int(getattr(config, "TELEGRAM_BATCH_MAX", 10) or 10)
+            line += ("; the last one follows in the next message" if rest == 1
+                     else f"; the other {rest} follow in the next message{'s' if rest > cap else ''}")
+        line += ")"
+        notes = [(i, (m.get("caption") or "").strip()) for i, m in enumerate(batch, start=at + 1)]
+        notes = [(i, c) for i, c in notes if c]
+        gone = {i: " (which did not arrive)" for i in lost} | {i: " (too large to see)" for i, _, _ in big}
+        if len(notes) == 1 and notes[0][0] == 1 and 1 not in gone:
+            line += f"\n{notes[0][1]}"  # the note on the first picture, as it reads with one photo
+        elif notes:
+            line += "\n" + "\n".join(f"with the {nth(i)}{gone.get(i, '')}: {c}" for i, c in notes)
+        return line
 
     def _music(self, msg: dict) -> str:
         """A song from the phone: Telegram's `audio` (a music file with a title
@@ -1568,10 +1968,19 @@ class Bridge:
             self.penpal_panel()
         elif cmd == "/cancel":  # (11-10) the panel's waiting mode, let go
             self._pp_save("mode", {})
-            self.send("(nothing waiting — your next message goes to them as usual)", markdown=False)
+            self._game_wait_clear()  # and the games menu's
+            collecting = ""
+            if getattr(config, "PENPAL_PICTURE_LETTERS", False) and getattr(config, "PENPALS_ON", False):
+                import penpal
+                collecting = penpal.collect_cancel() if penpal.collect_get() else ""  # and a letter being collected
+            self.send(collecting or "(nothing waiting — your next message goes to them as usual)", markdown=False)
         elif cmd == "/penpal":  # (11-06) a letter from a penpal, pasted; /penpal sent <name>; /penpal alone lists them
             said = self.penpal_command(text)
             if said:  # "" when buttons went instead (11-10: whose letter is this?)
+                self.send(said, markdown=False)
+        elif cmd in ("/games", "/game"):  # the adventures: the menu, or a typed /game …
+            said = self.game_command(text)
+            if said:  # "" when the menu or buttons went instead
                 self.send(said, markdown=False)
         elif cmd == "/quiet":  # (11-05) their quiet: delivery held, they keep living (outbox.py)
             import outbox
@@ -1589,6 +1998,8 @@ class Bridge:
                       else "(discreet off — sparks arrive as usual)", markdown=False)
         elif cmd == "/status":
             self.send(self.status(), markdown=False)
+        elif cmd == "/journal":  # the journal on the phone: on, off, how it stands, a day's entries
+            self.journal_command(" ".join(text.split()[1:]))
         elif cmd == "/heartbeat":
             self.send(self.heartbeat_command(text.split()[1:]), markdown=False)
         elif cmd in ("/off", "/on"):
@@ -1621,7 +2032,8 @@ class Bridge:
                       "give it a minute)", markdown=False)
             self.restart_requested = True
         elif cmd in ("/help", "/start"):
-            self.send(f"This is the bridge to {chat.friend_name()}. Just talk.\n\n{self.HELP}", markdown=False)
+            for part in help_messages(f"This is the bridge to {chat.friend_name()}. Just talk.", self.HELP):
+                self.send(part, markdown=False)
         else:
             return False
         return True
@@ -1630,6 +2042,8 @@ class Bridge:
         if update.get("callback_query"):  # a button under the room's picture (10-29); a penpal's (11-10)
             if str((update["callback_query"] or {}).get("data") or "").startswith("pp:"):
                 self.penpal_callback(update["callback_query"])
+            elif str((update["callback_query"] or {}).get("data") or "").startswith("gm:"):  # the games menu
+                self.game_callback(update["callback_query"])
             else:
                 self.room_callback(update["callback_query"])
             return
@@ -1645,11 +2059,24 @@ class Bridge:
                 save_secret({"token": self.token, "chat_id": sender})
                 self.pair_code = ""
                 _say(f"paired with chat {sender} — saved to {SECRET_FILE.name}")
-                self.send(f"Paired. This phone is now the door to {chat.friend_name()}.\n\n{self.HELP}",
-                          markdown=False)
+                for part in help_messages(f"Paired. This phone is now the door to {chat.friend_name()}.", self.HELP):
+                    self.send(part, markdown=False)
             return
         if sender != self.chat_id:
             return  # silence for everyone else — not even a "no"
+        edited = not update.get("message")  # an edited message is never a letter's part
+        if getattr(config, "PENPAL_PICTURE_LETTERS", False) and getattr(config, "PENPALS_ON", False):
+            try:  # a letter being collected (🖼): the keeper's pastes and pictures are the letter's, not sent until Done
+                if self.penpal_collect_take(msg, text, edited):
+                    return
+            except Exception as e:  # noqa: BLE001 — never a lost message: it goes on as it would have
+                _say(f"penpal collect: {type(e).__name__}: {e}")
+        if text and not msg.get("photo") and getattr(config, "ADVENTURES_ON", False):
+            try:  # the games menu asked for this message (a world's name); a /command lets that go
+                if self.game_wait_take(text):
+                    return
+            except Exception as e:  # noqa: BLE001 — never a lost message: it goes on to them
+                _say(f"games menu: {type(e).__name__}: {e}")
         if text and not text.startswith("/") and not msg.get("photo") and getattr(config, "PENPALS_ON", False):
             try:
                 if self.penpal_mode_take(text):  # (11-10) the panel asked for this message: a letter, a handle
@@ -1662,8 +2089,15 @@ class Bridge:
                 self.last_activity = time.time()
                 self.last_word = self.last_activity
             return
+        pl = None
         try:
-            if msg.get("photo"):
+            pl = (self.picletter(msg) if (msg.get("_batch") or msg.get("photo")) and not edited
+                  else None)  # a penpal's letter in pictures
+            if pl is not None:
+                text = pl
+            elif msg.get("_batch"):  # pictures sent together: one message
+                text = self._photos(msg)
+            elif msg.get("photo"):
                 text = self._photo(msg)
             elif msg.get("voice"):
                 text = self._voice(msg)
@@ -1686,7 +2120,18 @@ class Bridge:
             return
         joined = int((msg.get("_joined") or 0))
         _say(f"{config.USER_NAME} > {text[:120]}{'…' if len(text) > 120 else ''}" + (f"  (one message, from {joined} bubbles)" if joined else ""))
-        self.turn(text, extra_moment=self.fold_touches())
+        # a move in the open game, or // said outside it; a penpal's letter is said outside it, never a move
+        text, marks = self.game_marks(("//" + text) if pl and self._pl_game_open() else text)
+        if not text:
+            self.send("(nothing after // — not sent)", markdown=False)
+            return
+        inv = self._game_inv_before(marks)  # 🎒 as it stood before the move
+        pics = self._game_pics_before(marks)  # and the pictures, for a scene painted outside its world
+        marks = self.book_marks(text, marks)  # a book they keep notes on, named: the notes above the keeper's words
+        self.turn(text, extra_moment=self.fold_touches(), marks=marks)
+        self._game_inv_after(inv)
+        self._game_pics_after(pics)
+        self._game_refold_rode(marks)  # the table set again after a fold: once
         self.fold_if_due()
 
     def _fold_afterglow(self, gone: list[dict], old_file) -> str:
@@ -1698,11 +2143,17 @@ class Bridge:
         the next day): the fold holds the lock through it, so a message sent meanwhile waits for it — as it
         waited for Ollama anyway — one cold read, once per fold, no more than before. Then the first kept
         turn's system prompt is rebuilt with what was just kept. Returns the afterglow's line, "" for nothing."""
+        aside = self._game_aside(gone)  # "part of this visit was your adventure…", when it was
+        until = chat.first_said_at(self.history)  # where what left the window ended: the journal facts line's edge
+        jrun, aside = self._jf_quiet("the fold's afterglow", aside)  # the feed's line in its bell, when on
         try:
-            said = chat.fold_afterglow(gone, old_file, tag=self.TAG, on_line=_say, on_words=self.afterthought)
+            said = chat.fold_afterglow(gone, old_file, tag=self.TAG, on_line=_say, on_words=self.afterthought,
+                                       **({"aside": aside} if aside else {}), **({"until": until} if until else {}))
         except Exception as e:  # noqa: BLE001 — a courtesy, never the fold down
             _say(f"(the fold's afterglow failed — {type(e).__name__}: {e})")
             return ""
+        finally:
+            self._jf_run_end(jrun)
         chat.rewarm(self.history, mode=self.TAG)  # the new window carries the entry
         if said and getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
             self.notice(f"({said})")
@@ -1716,7 +2167,7 @@ class Bridge:
         when it is the engine's call, rings first so the account is theirs."""
         pending = tools.fold_pending()
         held = int((self.last_tokens or {}).get("prompt") or 0)
-        due = chat.fold_due(held) and chat.foldable(self.history)
+        due = chat.fold_due(held, at=self._game_fold_at()) and chat.foldable(self.history)  # sooner mid-game
         if not pending and not due:
             return ""
         return self._fold(pending, held)
@@ -1739,6 +2190,7 @@ class Bridge:
             if asked:
                 self.send("(they are mid-reply — say /fold again in a moment)", markdown=False)
             return ""
+        game = self._game_fold_before()  # a game mid-session in the window: its pages before the bell
         try:
             why = "asked" if asked else ("own" if pending else "bell")  # whose call — the block says (10-14)
             if not pending:
@@ -1746,11 +2198,18 @@ class Bridge:
                 pct = int(round(100 * held / ctx)) if ctx else 0
                 cause = "you asked for a fold" if asked else f"the window is {pct}% full"
                 self.notice(f"({cause} — they are folding the visit: writing it so far in their own words…)")
-                pending = chat.fold_bell(self.history, held, on_line=_say, asked=asked)
+                jrun, aside = self._jf_quiet("the fold's bell", game.get("bell", "") if game else "")  # the feed's line too
+                try:
+                    pending = chat.fold_bell(self.history, held, on_line=_say, asked=asked,
+                                             **({"aside": aside} if aside else {}), **({"extra_steps": 2} if game else {}))
+                finally:
+                    self._jf_run_end(jrun)
             when = pending.get("when") or time.strftime("%H:%M")
             old_history, old_file = self.history, self.file
             self.history, self.file, line = chat.fold_history(self.history, pending.get("text", ""), when,
                                                               tag=self.TAG, path=self.file, mode=self.TAG, why=why, held=held)
+            if game and self.history is not old_history:  # folded for real: the table is set again at the next move
+                line += self._game_fold_after(game)
             self.reflected_upto = len(self.history)  # the kept tail was sat with, or is about to be, as new
             self.last_tokens = {}  # the next prompt is a new, smaller one
             gone = old_history[:len(old_history) - len(self.history)] if self.file != old_file else []
@@ -1906,6 +2365,13 @@ class Bridge:
         first, _, body = rest.strip().partition(" ")
         if first.lower() in ("sent", "carried", "posted"):
             return penpal.carried(body.strip())
+        if (getattr(config, "PENPAL_PICTURE_LETTERS", False) and first.lower() in ("collect", "done")
+                and getattr(self, "TAG", "telegram") == "telegram"):  # 🖼 — Telegram's pictures and buttons
+            if first.lower() == "collect":
+                self.penpal_collect_start(body.strip())
+            else:
+                self.penpal_collect_done()
+            return ""
         if first.lower() == "new":  # (11-10) /penpal new <name> [u/handle]
             words = body.split()
             h = next((w for w in words if penpal.norm_handle(w) and w.lower().lstrip("/").startswith("u/")), "")
@@ -2020,6 +2486,23 @@ class Bridge:
             elif rec and kind == "m" and len(parts) >= 4:
                 said = f"→ moved to {penpal.display(parts[3])}"
                 self.penpal_file(parts[3], rec["text"], join=False)
+        elif kind in ("C", "D", "O", "X", "K") and getattr(config, "PENPAL_PICTURE_LETTERS", False):  # collecting
+            sid = parts[2] if len(parts) >= 3 else "-"  # the collection the button was made for (its id)
+            if kind == "C":
+                self.penpal_collect_start(parts[2] if len(parts) >= 3 else "")
+            elif kind == "D":
+                self.penpal_collect_done(sid)
+            elif kind == "O":
+                self._pc_send(penpal.collect_note_next(sid), buttons=False)
+            elif kind == "K":
+                if self.guest:
+                    self._try_send(f"({self.guest_label()} is at the desk — ➕ once they've gone)", markdown=False)
+                else:
+                    said = penpal.collect_wake(sid)
+                    self._pc_send(said, buttons=said.startswith("(➕"))
+            else:
+                self._try_send(penpal.collect_cancel(sid), markdown=False)
+            return
         elif kind == "z":
             said = "(kept where it is)"
         elif kind == "x" and len(parts) >= 3:  # the last exchange
@@ -2027,6 +2510,9 @@ class Bridge:
             return
         elif kind == "r" and len(parts) >= 3:
             said = penpal.resume(parts[2])
+        elif kind in ("a", "L") and self._pc_blocks():  # a collection is open: one letter at a time
+            self._try_send(self._pc_blocks(), markdown=False)
+            return
         elif kind in ("a", "h", "L", "N", "q", "P"):  # the panel's buttons: what the next message is
             sl = parts[2] if len(parts) >= 3 else ""
             if kind == "q":
@@ -2096,6 +2582,8 @@ class Bridge:
             paused = bool(penpal._state(sl).get("paused"))
             rows.append([(f"📖 {nm}", f"pp:x:{sl}"), ("✉️ add", f"pp:a:{sl}"), ("🏷", f"pp:h:{sl}"),
                          (("▶" if paused else "⏸"), (f"pp:r:{sl}" if paused else f"pp:P:{sl}"))])
+            if getattr(config, "PENPAL_PICTURE_LETTERS", False):  # a letter with pictures, collected till ✅ Done
+                rows[-1].insert(2, ("🖼 + pics", f"pp:C:{sl}"))
         rows.append([("📮 Paste a letter", "pp:L"), ("+ New penpal", "pp:N")])
         try:
             self.api("sendMessage", chat_id=self.chat_id, text=penpal.keeper_list(), reply_markup=self._pp_markup(rows))
@@ -2142,6 +2630,1040 @@ class Bridge:
                 self.send(said, markdown=False)
         self._pp_save("mode", dict(mode, t=time.time()) if keep else {})
         return True
+
+    # ---- a letter in pictures (PENPAL_PICTURE_LETTERS) ------------------------------------------------------------
+    def picletter(self, msg: dict) -> str | None:
+        """Pictures that are a penpal's letter: /penpal <name> as the caption of the first or only one of ONE batch
+        (the rest of the caption is the keeper's note; a caption on a later picture is their note about it — and a
+        batch is a letter only when it is one album), or the panel's ✉️ add waiting for that penpal's letter — and the
+        rest of the same batch after more than TELEGRAM_BATCH_MAX. Kept with the penpal, before the friend's eyes in
+        order, the line saying what this is and how to write it out (penpal.letter_line). Returns the turn's words;
+        "" when nothing goes to the friend (a paused penpal — the whole batch — or no picture arrived); None when these
+        are no letter — they go on as pictures. A name that is no penpal's, a guest at the desk, a batch that isn't one
+        album: the phone is told, and they go to the friend as pictures. The panel's 📮 (whose letter? asked after)
+        takes pictures only when the caption begins with a penpal's name; otherwise they go on as pictures and the ask
+        stays."""
+        if not getattr(config, "PENPAL_PICTURE_LETTERS", False) or not getattr(config, "PENPALS_ON", False):
+            return None
+        try:
+            import penpal
+            who = self._picletter_who(msg, penpal)
+        except Exception as e:  # noqa: BLE001 — in doubt, pictures are pictures
+            _say(f"penpal pictures: {type(e).__name__}: {e}")
+            return None
+        if who is None:
+            return None
+        if not who:
+            return ""
+        sl, notes, sid = who
+        had = len(self.attached)
+        try:
+            return self._picletter_line(msg, penpal, sl, notes, sid)
+        except BaseException:
+            del self.attached[had:]
+            tools.take_pending_images()
+            raise
+
+    def _pl_game_open(self) -> bool:
+        if not getattr(config, "ADVENTURES_ON", False):
+            return False
+        try:
+            import adventure
+            return bool(adventure.on() and adventure.open_state())
+        except Exception:  # noqa: BLE001
+            return False
+
+    def _picletter_who(self, msg: dict, penpal) -> tuple[str, list, str] | None | str:
+        """(slug, the keeper's notes, the letter's set — "" for a new one); "" — taken, nothing to the friend; None —
+        no letter."""
+        join_s = float(getattr(config, "PENPAL_JOIN_MIN", 10) or 0) * 60
+        friend = chat.friend_name()
+        if int(msg.get("_batch_at") or 0) > 0:  # the rest of a batch: of the letter its first part was
+            o = self._pl_open
+            if o and time.time() - float(o.get("t") or 0) < max(join_s, 60):
+                if o.get("refused"):  # a refused batch is refused whole
+                    return ""
+                if penpal._set_by(o["sl"], o["set"]) is not None:
+                    return o["sl"], [], o["set"]
+            return None
+        self._pl_open = None
+        cap = (msg.get("caption") or "").strip()
+        m = re.match(r"/penpal(?:@\w+)?(?:\s+(.*))?$", cap, re.S | re.I)
+        road = ""
+        if m:
+            name, _, note = (m.group(1) or "").strip().partition(" ")
+            if "\n" in name:
+                name, _, more = name.partition("\n")
+                note = (more + " " + note).strip()
+            sl = penpal._find(name) if name else ""
+            if not sl:
+                names = ", ".join(penpal.display(p) for p in penpal.penpals()) or "none yet"
+                self._try_send((f"(whose letter? “{name[:30]}” isn't one of {friend}'s penpals ({names}) — these pictures "
+                                f"went to {friend} as pictures. For a letter in pictures, caption the first one /penpal <name>)")
+                               if name else (f"(whose letter? caption the first picture /penpal <name> — these "
+                                             f"pictures went to {friend} as pictures)"), markdown=False)
+                return None
+            road = "caption"
+        else:
+            mode = self._pp_load("mode")
+            if not mode or time.time() - float(mode.get("t") or 0) > 15 * 60 or mode.get("kind") not in ("letter_to", "letter"):
+                return None
+            note = cap
+            sl = penpal._find(mode.get("sl", "")) if mode.get("kind") == "letter_to" else ""
+            if mode.get("kind") == "letter" and cap:
+                first, _, rest = cap.partition(" ")
+                sl = penpal._find(first)
+                note = rest.strip() if sl else cap
+            if not sl:  # the panel's 📮 with no name in the caption: pictures, as before (the ask stays)
+                return None
+            road = "mode"
+        name = penpal.display(sl)
+        if self.guest:
+            self._try_send(f"({self.guest_label()} is at the desk — pictures aren't taken as {name}'s letter while a "
+                           f"guest is; these went to {friend} as pictures. /guest off, then send them again)", markdown=False)
+            return None
+        if road == "mode":
+            self._pp_save("mode", {})  # the panel's ask is answered, as a pasted letter answers it
+        if penpal._state(sl).get("paused"):  # as a pasted letter is: refused, and nothing goes on — all of the batch
+            self._try_send(f"({name} is paused — /penpal resume {sl} first; nothing was filed, and the pictures didn't "
+                           f"go to {friend})", markdown=False)
+            self._pl_open = {"sl": sl, "set": "", "refused": True, "t": time.time()}
+            return ""
+        if road == "caption" and msg.get("_batch") and not msg.get("_batch_album"):  # not one album: not one letter
+            self._try_send(f"(those pictures didn't come as one album, so a caption doesn't make them one penpal's "
+                           f"letter — they went to {friend} as pictures, every caption with its picture. For a letter "
+                           "with pictures, 🖼 beside the penpal in /penpals collects it)", markdown=False)
+            return None
+        return sl, ([{"text": note}] if note.strip() else []), ""
+
+    def _picletter_line(self, msg: dict, penpal, sl: str, notes: list, sid: str) -> str:
+        batch = list(msg.get("_batch") or [msg])
+        at = int(msg.get("_batch_at") or 0)
+        whole = int(msg.get("_batch_of") or 0) if msg.get("_batch") else 1
+        first = not sid
+        sid = sid or penpal.picture_set_new(sl)
+        nth = tools._ordinal
+        friend = chat.friend_name()
+        kept: list[str] = []  # before their eyes
+        files: list[str] = []  # saved
+        big: list[tuple[int, str, str]] = []  # saved, but look_at would not show it
+        lost: list[int] = []  # never arrived
+        notes = list(notes)
+        why = ""
+        for i, m in enumerate(batch, start=at + 1):
+            c = (m.get("caption") or "").strip()
+            if c and not (first and i == at + 1):  # a caption on a later picture: the keeper's note about that picture
+                notes.append({"text": c, "pic": i})
+            try:
+                best = m["photo"][-1]  # Telegram lists sizes small to large
+                data, tpath = self.download(best["file_id"])
+                p = penpal.picture_path(sl, sid, i, Path(tpath).suffix.lower() or ".jpg", max(whole, at + len(batch)))
+                p.write_bytes(data)
+            except Exception as e:  # noqa: BLE001 — the rest go on
+                lost.append(i)
+                why = why or str(e)
+                continue
+            files.append(p.name)
+            said = tools.look_at(penpal._rel(p))
+            seen = tools.take_pending_images()
+            if seen:
+                self.attached.extend(seen)
+                kept.append(p.name)
+            else:
+                big.append((i, p.name, said.strip().strip("()")))
+        if lost:
+            if "too big" in why.lower() or "too large" in why.lower():
+                why = "Telegram won't let a bot fetch files over 20MB — leave it in shared/ from the PC"
+            self._try_send(f"(none of the {len(batch)} pictures reached {friend} — {why})" if len(lost) == len(batch)
+                           else f"(the {nth(lost[0])} picture of the letter didn't reach {friend} — {why})" if len(lost) == 1
+                           else f"({len(lost)} of the {len(batch)} pictures of the letter didn't reach {friend} — {why})",
+                           markdown=False)
+        s = penpal.pictures_add(sl, sid, files, max(whole, at + len(batch)) if first else whole, len(lost), notes, first,
+                                lost_at=lost)
+        if s is None:  # nothing kept (none arrived), or the letter was set aside meanwhile: nothing goes on as a letter
+            return ""
+        penpal.pictures_seen(sl, sid, kept, coming=True)  # before their eyes in this turn (and the window it builds)
+        self._pl_open = {"sl": sl, "set": sid, "t": time.time()}
+        if first:
+            rec = penpal.pictures_undo_record(sl, sid)
+            n_all = int(s.get("of") or len(files))
+            said = (f"(a letter from {penpal.display(sl)} in {'a picture' if n_all == 1 else f'{n_all} pictures'} — "
+                    f"kept at {penpal._rel(penpal._set_dir(sl, sid))}/; it went to {friend} now, to write out into the "
+                    "thread if they want)")
+            try:
+                self.api("sendMessage", chat_id=self.chat_id, text=said,
+                         reply_markup=self._pp_markup([[("↩ Undo", f"pp:u:{rec['id']}")]]))
+            except Exception:  # noqa: BLE001
+                self._try_send(said, markdown=False)
+        if big:
+            self._try_send("(" + "; ".join(f"the {nth(i)} picture is too large for {friend} to see — over 10MB; it is kept "
+                                           f"with the letter" if "too large" in w.lower() else
+                                           f"the {nth(i)} picture can't be put before {friend}'s eyes ({w}); it is kept "
+                                           "with the letter" for i, _, w in big) + ")", markdown=False)
+        return penpal.letter_line(sl, sid, at, len(batch), max(whole, at + len(batch)) if at == 0 else whole,
+                                  kept, big, lost, notes)
+
+    # ---- a letter collected: 🖼 beside a penpal in /penpals (or /penpal collect <name>), ✅ Done (/penpal done),
+    # 📝 My note, ✖ Cancel (/cancel). While it runs the keeper's pastes are the penpal's words, their pictures its
+    # pictures (a caption is the keeper's note about its picture), after 📝 the next message is the keeper's own note —
+    # none of it reaches the friend until Done, which files the letter (penpal.collect_done) and calls the turn at once,
+    # as an arrival turn waits (a reply or a wake in flight, the quiet, a game in play — and a guest at the desk).
+    # Commands, voice notes, files and stickers go on as always. Kept on disk (memory/penpal_collect.json): a restart
+    # says it is still being collected.
+    def _pc_markup(self, sid: str = "", resting: bool = False) -> str:
+        """The collection's buttons, carrying its id: an old button never acts on another collection."""
+        if not sid:
+            try:
+                import penpal
+                sid = (penpal.collect_get() or {}).get("id", "")
+            except Exception:  # noqa: BLE001
+                sid = ""
+        first = ("➕ Keep collecting", f"pp:K:{sid}") if resting else ("📝 My note", f"pp:O:{sid}")
+        return self._pp_markup([[first, ("✅ Done", f"pp:D:{sid}"), ("✖ Cancel", f"pp:X:{sid}")]])
+
+    def _pc_send(self, text: str, buttons: bool = True, resting: bool = False) -> None:
+        try:
+            if buttons:
+                self.api("sendMessage", chat_id=self.chat_id, text=text, reply_markup=self._pc_markup(resting=resting))
+            else:
+                self.api("sendMessage", chat_id=self.chat_id, text=text)
+        except Exception:  # noqa: BLE001
+            self._try_send(text, markdown=False)
+
+    def _pc_blocks(self) -> str:
+        """While a collection is open (resting too): the line refusing another wait — "" when none is open."""
+        if not getattr(config, "PENPAL_PICTURE_LETTERS", False) or not getattr(config, "PENPALS_ON", False):
+            return ""
+        try:
+            import penpal
+            c = penpal.collect_get()
+            return f"(finish (✅) or cancel (✖) {penpal.display(c['sl'])}'s collection first)" if c else ""
+        except Exception:  # noqa: BLE001
+            return ""
+
+    def penpal_collect_take(self, msg: dict, text: str, edited: bool) -> bool:
+        """A message while a letter is being collected: taken into it (True), or on as always (False). Only the
+        keeper's plain pastes and pictures, within PENPAL_JOIN_MIN of the last thing taken — never a command, a
+        Telegram reply to one of the friend's messages, a guest's message (a guest sitting down rests it), or anything
+        while it rests."""
+        import penpal
+        state, c = penpal.collect_state()
+        would = bool(msg.get("photo") or msg.get("_batch") or (text and not text.startswith("/")))
+        if state == "broken":  # a lost collection: its message held back only when it may be a penpal's words, said so
+            line, hold = penpal.collect_broken_aside()
+            if line:
+                self._try_send(line[:-1] + (f"; this message was held back from {chat.friend_name()} — send it again "
+                                            "if it was for them)" if would and hold else ")"), markdown=False)
+            return would and hold
+        if state != "ok":
+            return False
+        name = penpal.display(c["sl"])
+        date = float(msg.get("date") or 0)
+        resting = penpal.collect_resting(c, date)
+        if self.guest:
+            line = penpal.collect_rest_line(guest=self.guest_label())
+            if line:
+                self._pc_send(line, resting=True)
+            return False
+        if msg.get("reply_to_message"):
+            return False  # an answer to the friend: theirs
+        if edited:
+            if not resting and (msg.get("photo") or (text and not text.startswith("/"))):
+                self._try_send("(an edited message isn't taken into the letter being collected — send that part again)",
+                               markdown=False)
+                return True
+            return False
+        cap0 = (msg.get("caption") or "").strip()
+        m = re.match(r"/penpal(?:@\w+)?(?:\s+(\S+))?", cap0, re.I) if (msg.get("photo") or msg.get("_batch")) else None
+        if m and (resting or penpal._find(m.group(1) or "") != c["sl"]):
+            self._pc_send(f"(finish (✅) or cancel (✖) {name}'s collection first — that picture wasn't taken, and didn't "
+                          f"go to {chat.friend_name()})", resting=resting)
+            return True
+        if resting:
+            if would:
+                line = penpal.collect_rest_line()
+                if line:
+                    self._pc_send(line, resting=True)
+            return False
+        if text and not msg.get("photo"):
+            if text.startswith("/"):
+                return False  # a command is a command
+            self._pc_send(penpal.collect_text(text, date))
+            return True
+        if not (msg.get("photo") or msg.get("_batch")):
+            return False  # a voice note, a file, a sticker: as always
+        batch = list(msg.get("_batch") or [msg])
+        names: list[str] = []
+        caps: list[tuple[int, str]] = []
+        lost_at: list[int] = []
+        why = ""
+        first = penpal.collect_next_number(c)
+        for j, mm in enumerate(batch):
+            i = first + j  # the order they were sent: one that didn't arrive keeps its number
+            cap = (mm.get("caption") or "").strip()
+            if cap and not (m and j == 0):
+                caps.append((i, cap))
+            try:
+                best = mm["photo"][-1]
+                data, tpath = self.download(best["file_id"])
+                p = penpal.picture_path(c["sl"], c["set"], i, Path(tpath).suffix.lower() or ".jpg")
+                p.write_bytes(data)
+            except Exception as e:  # noqa: BLE001 — the rest go on
+                lost_at.append(i)
+                why = why or str(e)
+                continue
+            names.append(p.name)
+        if lost_at:
+            if "too big" in why.lower() or "too large" in why.lower():
+                why = "Telegram won't let a bot fetch files over 20MB — leave it in shared/ from the PC"
+            self._try_send(f"({len(lost_at)} of those pictures didn't reach the letter — "
+                           f"{', '.join('the ' + tools._ordinal(i) for i in lost_at)}; {why})", markdown=False)
+        self._pc_send(penpal.collect_pictures(names, lost_at, caps, date))
+        return True
+
+    def penpal_collect_start(self, name: str) -> None:
+        import penpal
+        if self.guest:
+            self._try_send(f"({self.guest_label()} is at the desk — a letter is collected with no guest at the desk; "
+                           "/guest off first. Nothing is collected)", markdown=False)
+            return
+        if penpal.collect_get() and penpal._find(name) == penpal.collect_get().get("sl"):
+            pass  # the same one: woken, asked again
+        elif self._game_wait_get():
+            self._try_send("(the games menu is waiting for a name — send it, or /cancel, first; nothing is collected)",
+                           markdown=False)
+            return
+        said, buttons = penpal.collect_start(name)
+        if buttons and penpal.collect_get():
+            self._pp_save("mode", {})  # one thing waits at a time: the panel's other asks let go
+        self._pc_send(said, buttons)
+
+    def _game_wait_get(self) -> bool:
+        if not getattr(config, "ADVENTURES_ON", False):
+            return False
+        try:
+            import adventure
+            return bool(adventure.wait_get())
+        except Exception:  # noqa: BLE001
+            return False
+
+    def penpal_collect_done(self, sid: str = "") -> None:
+        import penpal
+        said, rec = penpal.collect_done(sid)
+        if rec:
+            try:
+                self.api("sendMessage", chat_id=self.chat_id, text=said,
+                         reply_markup=self._pp_markup([[("↩ Undo", f"pp:u:{rec['id']}")]]))
+            except Exception:  # noqa: BLE001
+                self._try_send(said, markdown=False)
+            self.penpal_turn_if_due()  # at once — or as soon as an arrival turn may come
+        else:
+            c = penpal.collect_get()
+            self._pc_send(said, buttons=bool(c), resting=bool(c) and penpal.collect_resting(c))
+
+    def penpal_collect_if_due(self) -> None:
+        """After PENPAL_JOIN_MIN quiet minutes: the collection rests — said once with its buttons. Never files it. A
+        collect file that doesn't read right: set aside, said."""
+        if (not self.chat_id or getattr(self, "TAG", "telegram") != "telegram"
+                or not getattr(config, "PENPAL_PICTURE_LETTERS", False) or not getattr(config, "PENPALS_ON", False)):
+            return
+        try:
+            import penpal
+            broken = penpal.collect_broken_aside()[0]
+            line = penpal.collect_idle_line() if not broken else ""
+        except Exception as e:  # noqa: BLE001
+            _say(f"penpal collect: {type(e).__name__}: {e}")
+            return
+        if broken:
+            self._try_send(broken, markdown=False)
+        if line:
+            self._pc_send(line, resting=True)
+
+    def penpal_collect_restore_line(self) -> str:
+        if (getattr(self, "TAG", "telegram") != "telegram" or not getattr(config, "PENPAL_PICTURE_LETTERS", False)
+                or not getattr(config, "PENPALS_ON", False)):
+            return ""
+        try:
+            import penpal
+            return penpal.collect_restart_line()
+        except Exception as e:  # noqa: BLE001
+            _say(f"penpal collect: {type(e).__name__}: {e}")
+            return ""
+
+    def _pp_collected_turns(self, penpal, sl: str, arr: dict) -> str:
+        """A collected letter's arrival: its pictures before the friend's eyes, TELEGRAM_BATCH_MAX a turn, the line for
+        each (penpal.arrival_text: whose they are, the keeper's notes, the letter's words in the first, fenced), a turn
+        of their own, as an arrival turn is. Each turn is tried once. It ran when a reply (words or a call) follows its
+        line in the visit: then it is recorded (penpal.arrival_progress — the first makes the letter read). It didn't
+        (the brain away, a fault before an answer): what the try added is taken back — its pictures, and its line when
+        that is still the last thing in the visit — the arrival is let go, the letter stays unread, the phone is told
+        once, and the rest isn't sent. Nothing comes again on its own."""
+        name = penpal.display(sl)
+        friend = chat.friend_name()
+        done = int(arr.get("done") or 0)
+        if arr.get("tried") is not None and int(arr["tried"]) >= done:  # a try whose end was never known (a restart)
+            penpal.arrival_dropped(sl)
+            self._try_send(f"({friend}'s turn for {name}'s letter didn't finish — the bridge stopped; the letter is in "
+                           f"their thread{' unread' if not penpal._state(sl).get('read') else ''}, and they'll find it: "
+                           f"their penpal line says so, and penpal read {sl} shows it with its pictures)", markdown=False)
+            return ""
+        _say(f"a penpal's letter arrived, collected: a turn of theirs ({sl})")
+        last = ""
+        chunks = arr.get("chunks") or [{"files": [], "lo": 1, "hi": 0}]
+        for i, chunk in enumerate(chunks):
+            if i < done:
+                continue  # taken already
+            kept: list[str] = []
+            big: list[tuple[int, str, str]] = []
+            had = len(self.attached)
+            try:
+                for f in chunk["files"]:
+                    said = tools.look_at(penpal._rel(penpal._set_dir(sl, str(arr.get("set"))) / f))
+                    seen = tools.take_pending_images()
+                    if seen:
+                        self.attached.extend(seen)
+                        kept.append(f)
+                    else:
+                        big.append((penpal._num_of(f), f, said.strip().strip("()")))
+                text = penpal.arrival_text(sl, arr, chunk, kept, big)
+                penpal.pictures_seen(sl, str(arr.get("set")), kept, coming=True)  # seen in the window this turn builds
+                penpal.arrival_trying(sl, i)
+            except Exception as e:  # noqa: BLE001 — what was put before their eyes is taken back off
+                del self.attached[had:]
+                tools.take_pending_images()
+                _say(f"penpal turn: {type(e).__name__}: {e}")
+                return last
+            tools.SPARK_TICK = True
+            try:
+                self.turn(text, as_keeper=True, spark=True)
+            finally:
+                tools.SPARK_TICK = False
+            mine = next((t for t in reversed(self.history) if t.get("role") == "user" and t.get("content") == text), None)
+            if mine is not None:  # the line is the engine's, not the keeper's
+                mine["_engine"] = mine["_spark"] = True
+            at = next((j for j in range(len(self.history) - 1, -1, -1) if self.history[j] is mine), -1)
+            ran = at >= 0 and any(t.get("role") == "assistant" for t in self.history[at + 1:])
+            if not ran:
+                del self.attached[had:]  # its pictures don't ride on the next message, and weren't seen
+                penpal.pictures_unseen(sl, str(arr.get("set")), kept)
+                if mine is not None and self.history and self.history[-1] is mine:
+                    self.history.pop()  # nor its line, when it is still the last thing in the visit
+                try:
+                    penpal.arrival_dropped(sl)
+                except Exception as e:  # noqa: BLE001
+                    _say(f"penpal turn: {type(e).__name__}: {e}")
+                self._try_send(f"({friend}'s turn for {name}'s letter didn't run — the letter is in their thread"
+                               f"{' unread' if not penpal._state(sl).get('read') else ''}, and they'll find it: their "
+                               f"penpal line says so, and penpal read {sl} shows it with its pictures)", markdown=False)
+                self._checkpoint()
+                return last
+            # it ran: its pictures were before their eyes — a later step's fault can't leave them to ride on the next message
+            del self.attached[had:]
+            try:
+                penpal.arrival_progress(sl, i + 1, len(chunks))
+            except Exception as e:  # noqa: BLE001
+                _say(f"penpal turn: {type(e).__name__}: {e}")
+            last = text
+        self._checkpoint()
+        return last
+
+    # ---- the adventures: the games menu (engine/adventure.py) ---------------------------------------------------------
+    # Built the way the penpal panel is: one message with buttons ("gm:" callback data, a world's key ≤ 28 bytes), typed
+    # forms beside them, a waiting mode for a name. Every handler fails closed: an exception is a "(…)" line, never the
+    # bridge down. A press or command that would change something while they are mid-reply changes nothing and says so.
+    # The game lives on the Telegram bridge: its buttons are Telegram's.
+    def _game_here(self) -> bool:
+        return bool(getattr(config, "ADVENTURES_ON", False)) and getattr(self, "TAG", "telegram") == "telegram"
+
+    def _game_status(self) -> str:
+        if not self._game_here():
+            return ""
+        try:
+            import adventure
+            return adventure.status_line()
+        except Exception:  # noqa: BLE001
+            return ""
+
+    def _game_news(self, spark: bool = False) -> str:
+        """A world started since the friend's last turn — for the moment of the keeper's next message (not a spark's,
+        not a guest's)."""
+        if spark or self.guest_label() or not self._game_here():
+            return ""
+        try:
+            import adventure
+            return adventure.take_news()
+        except Exception:  # noqa: BLE001 — never the reply down
+            return ""
+
+    def _game_aside(self, turns: list[dict]) -> str:
+        """For the pause's and the afterglow's bell: "part of this visit was your adventure …", when these turns held
+        moves of one; "" otherwise."""
+        try:
+            import adventure
+            return adventure.story_line(turns)
+        except Exception:  # noqa: BLE001
+            return ""
+
+    def _game_wait_clear(self) -> bool:
+        try:
+            import adventure
+            return adventure.wait_clear()
+        except Exception:  # noqa: BLE001
+            return False
+
+    def game_marks(self, text: str) -> tuple[str, dict]:
+        """The keeper's message while a game is open: the move's line for its turn, or // said outside it (the // taken
+        off). Fails closed — the message goes on plain."""
+        if not self._game_here():
+            return text, {}
+        try:
+            import adventure
+            return adventure.table_for(text, self.history, guest=bool(self.guest_label()))
+        except Exception as e:  # noqa: BLE001
+            _say(f"game line: {type(e).__name__}: {e}")
+            return text, {}
+
+    def game_restore_line(self) -> str:
+        """At start: the game still open from before (it lives in adventures.json), as a line for the phone; ""."""
+        if not self._game_here():
+            return ""
+        try:
+            import adventure
+            o = adventure.open_state()
+            if not o:
+                return ""
+            name = adventure.display(o["slug"])
+            return (f"your adventure {name} is still open — " + ("paused; ▶ Resume picks it back up" if o.get("paused") else
+                    "your messages are moves in it, // before one speaks outside the game") + "; /games for the menu")
+        except Exception as e:  # noqa: BLE001
+            _say(f"game at start: {type(e).__name__}: {e}")
+            return ""
+
+    def _game_rows(self) -> list[list[tuple[str, str]]]:
+        import adventure
+        d = adventure.load()
+        o = d["open"]
+        rows: list[list[tuple[str, str]]] = []
+        top, top_away = adventure.buttoned(d)  # Telegram refuses a keyboard past ~100 buttons: the rest by name
+        for sl in top:
+            k, nm = adventure.key(sl), adventure.display(sl, d)[:16]
+            if o.get("slug") == sl:
+                rows.append([((f"▶ Resume {nm}" if o.get("paused") else f"⏸ Pause {nm}"),
+                              (f"gm:r:{k}" if o.get("paused") else f"gm:z:{k}")), ("⏹ End session", f"gm:e:{k}")])
+                rows.append([("📜", f"gm:w:{k}"), ("🎒", f"gm:i:{k}"), ("🖼", f"gm:s:{k}")])
+                rows.append([("✏️", f"gm:n:{k}"), ("📦", f"gm:a:{k}")])
+            else:  # the actions on one row, what can be read on the next
+                rows.append([(f"▶ {nm}", f"gm:p:{k}"), ("✏️", f"gm:n:{k}"), ("📦", f"gm:a:{k}")])
+                rows.append([("📜", f"gm:w:{k}"), ("🎒", f"gm:i:{k}"), ("🖼", f"gm:s:{k}")])
+        for sl in top_away:  # one ↩ each (a put-away world's 🎒: /game inv <name>)
+            rows.append([(f"↩ Bring back {adventure.display(sl, d)[:16]}", f"gm:b:{adventure.key(sl)}")])
+        rows.append([("➕ New adventure", "gm:N")])
+        return rows
+
+    def game_menu(self, said: str = "", edit: dict | None = None) -> None:
+        """/games: the worlds and their buttons — a fresh message, or the pressed one redrawn with what was done on top."""
+        import adventure
+        text = ((said + "\n\n") if said else "") + adventure.listing()
+        markup = self._pp_markup(self._game_rows())
+        if edit and edit.get("message_id"):
+            try:
+                self.api("editMessageText", chat_id=self.chat_id, message_id=edit.get("message_id"), text=text[:4000],
+                         reply_markup=markup)
+                return
+            except Exception:  # noqa: BLE001 — a fresh one, then
+                pass
+        try:
+            self.api("sendMessage", chat_id=self.chat_id, text=text[:4000], reply_markup=markup)
+        except Exception as e:  # noqa: BLE001
+            self.send((said + "\n\n" if said else "") + f"(the games menu: {type(e).__name__}: {e})", markdown=False)
+
+    def _game_where(self, sl: str) -> None:
+        """📜: the state page for that world, split into Telegram-sized messages. world.md never travels."""
+        import adventure
+        for part in split_long(adventure.state_text(sl)):
+            self.send(part, markdown=False)
+
+    def _game_inventory(self, sl: str) -> None:
+        """🎒: the character's inventory as the friend keeps it, split like 📜. Read-only — fine mid-reply, and for a
+        world put away."""
+        import adventure
+        for part in split_long(adventure.inventory_text(sl)):
+            self.send(part, markdown=False)
+
+    def _game_scenes(self, sl: str) -> None:
+        """🖼: how many scenes the world has, then the newest 6 as pictures, oldest of those first, each captioned with
+        its file name. Read-only — fine mid-reply, and for a world put away."""
+        import adventure
+        self.send(adventure.scenes_text(sl), markdown=False)
+        for p in adventure.scenes(sl)[-6:]:
+            try:
+                self._send_picture(p, p.read_bytes(), p.name)
+            except OSError as e:
+                self.send(f"(couldn't read {p.name}: {e})", markdown=False)
+
+    def _game_pics_before(self, marks: dict | None) -> tuple[str, set] | None:
+        """Before a move's turn: (the world, the pictures under creations/ that would travel). None when the message
+        isn't a move — paused, a guest, // outside the game — or anything stumbles."""
+        try:
+            if not marks or not marks.get("_game"):
+                return None
+            import adventure
+            sl = adventure.open_state().get("slug", "")
+            if not sl:
+                return None
+            root = config.CREATIONS_DIR
+            return sl, {p.relative_to(root).as_posix() for p in self._pictures()}
+        except Exception:  # noqa: BLE001
+            return None
+
+    def _game_pics_after(self, before: tuple[str, set] | None) -> int:
+        """After a move's turn: a picture new since it began, outside this world's folder, is kept for the next move —
+        one sentence, once each; the engine never moves it. A stumble only costs the sentence."""
+        if not before:
+            return 0
+        try:
+            import adventure
+            sl, had = before
+            root = config.CREATIONS_DIR
+            new = sorted(r for r in ({p.relative_to(root).as_posix() for p in self._pictures()} - had)
+                         if not adventure.in_world(r.split("/"), sl))
+            return adventure.note_strays(sl, new) if new else 0
+        except Exception as e:  # noqa: BLE001
+            _say(f"scene catch: {type(e).__name__}: {e}")
+            return 0
+
+    def _game_fold_at(self) -> float:
+        """The fold's edge while a game is open and not paused (ADVENTURE_FOLD_AT); 0 — FOLD_AT alone."""
+        if not self._game_here():
+            return 0.0
+        try:
+            import adventure
+            return adventure.fold_at()
+        except Exception:  # noqa: BLE001
+            return 0.0
+
+    def _game_fold_before(self) -> dict:
+        """Before a fold: when the window holds moves of the open session — its world, session, the bell's sentence and
+        the two pages' fingerprints; {} otherwise (adventures off, no game, no moves in the window)."""
+        if not self._game_here():
+            return {}
+        try:
+            import adventure
+            o = adventure.open_state()
+            session = o.get("session") or ""
+            if not session or not any(t.get("_game_session") == session for t in self.history):
+                return {}
+            sl = o["slug"]
+            return {"slug": sl, "session": session, "name": adventure.display(sl), "marks": adventure.page_marks(sl),
+                    "bell": adventure.fold_bell_line(sl)}
+        except Exception as e:  # noqa: BLE001 — never the fold down
+            _say(f"fold and the game: {type(e).__name__}: {e}")
+            return {}
+
+    def _game_fold_after(self, game: dict) -> str:
+        """After a real fold: the next move sets the table again (fresh, or as the page was last written), and the
+        phone's line says whether 📜 (and 🎒, when it changed) is up to date. "" when anything stumbles."""
+        try:
+            import adventure
+            st0, inv0 = game["marks"]
+            st1, inv1 = adventure.page_marks(game["slug"])
+            fresh = bool(st1) and st1 != st0
+            adventure.mark_refold(game["session"], fresh)
+            return (f"; mid-game in {game['name']}: " + ("they brought the state page up to date" if fresh
+                                                         else "the state page is as it was")
+                    + ("; they brought the inventory up to date" if inv1 != inv0 else ""))
+        except Exception as e:  # noqa: BLE001
+            _say(f"fold and the game: {type(e).__name__}: {e}")
+            return ""
+
+    def _game_refold_rode(self, marks: dict | None) -> None:
+        """The table set again after a fold rode with this move: cleared — only when the turn is really in the visit
+        (it rides from here on, as every turn does)."""
+        try:
+            session = (marks or {}).get("_game_refold")
+            if session and any(t.get("_game_refold") == session for t in self.history):
+                import adventure
+                adventure.clear_refold(session)
+        except Exception as e:  # noqa: BLE001
+            _say(f"fold and the game: {type(e).__name__}: {e}")
+
+    def _game_inv_before(self, marks: dict | None) -> tuple[str, str] | None:
+        """Before a move's turn: (the world, inventory.md's fingerprint) — None when the message isn't a move (paused,
+        a guest, // outside the game, no game) or anything stumbles."""
+        try:
+            if not marks or not marks.get("_game"):
+                return None
+            import adventure
+            sl = adventure.open_state().get("slug", "")
+            return (sl, adventure.inventory_mark(sl)) if sl else None
+        except Exception:  # noqa: BLE001
+            return None
+
+    def _game_inv_after(self, before: tuple[str, str] | None) -> bool:
+        """After a move's turn: inventory.md changed (or was made) → one short line with a 🎒 button. Once per turn,
+        never for the wrap-up (it isn't a move), never paused; a stumble here only costs the line — the reply has gone
+        already."""
+        if not before:
+            return False
+        try:
+            import adventure
+            sl, mark = before
+            if adventure.inventory_mark(sl) == mark:
+                return False
+            try:
+                self.api("sendMessage", chat_id=self.chat_id, text="(🎒 your inventory changed)",
+                         reply_markup=self._pp_markup([[("🎒 Inventory", f"gm:i:{adventure.key(sl)}")]]))
+            except Exception:  # noqa: BLE001
+                self.send("(🎒 your inventory changed — /game inv)", markdown=False)
+            return True
+        except Exception as e:  # noqa: BLE001
+            _say(f"inventory line: {type(e).__name__}: {e}")
+            return False
+
+    def _game_ask_switch(self, sl: str) -> str:
+        """▶ Play on a world while another is open: asks first. "" when the buttons went."""
+        import adventure
+        o = adventure.open_state()
+        now, nxt = adventure.display(o["slug"]), adventure.display(sl)
+        markup = self._pp_markup([[("⏹ End that session and open this one", f"gm:O:{adventure.key(o['slug'])}:{adventure.key(sl)}")],
+                                  [("Keep playing", "gm:k")]])
+        try:
+            self.api("sendMessage", chat_id=self.chat_id, text=f"{now} is open. End that session (they write it down) "
+                                                               f"and open {nxt}?", reply_markup=markup)
+            return ""
+        except Exception as e:  # noqa: BLE001
+            return f"({now} is open — /game off ends it, then /game {nxt}; {type(e).__name__})"
+
+    def _game_play(self, sl: str) -> str:
+        import adventure
+        o = adventure.open_state()
+        if o and o.get("slug") != sl and not adventure.info(sl).get("put_away"):
+            return self._game_ask_switch(sl)
+        self.send(self._game_open(sl), markdown=False)
+        self._game_recap_if_due()  # right after the open line
+        return ""
+
+    def _game_open(self, sl: str) -> str:
+        """adventure.play, and when it opened a new session (not a resume from a pause) with the recap on, the recap is
+        due — sent by _game_recap_if_due right after the open line reaches the phone."""
+        import adventure
+        was = adventure.open_state().get("session", "")
+        ok, line = adventure.play(sl)
+        try:
+            now = adventure.open_state().get("session", "")
+            if ok and now and now != was and adventure.recap_on():
+                self._game_recap_due = sl
+        except Exception as e:  # noqa: BLE001 — the open stands either way
+            _say(f"recap: {type(e).__name__}: {e}")
+        return line
+
+    def _game_recap_if_due(self) -> None:
+        sl, self._game_recap_due = getattr(self, "_game_recap_due", ""), ""
+        if sl:
+            self.game_recap(sl, mark=True)
+
+    def game_recap(self, sl: str, mark: bool = False) -> bool:
+        """Where the keeper left off in a world: the state page (about one screen), what the character carries, and a
+        row of buttons — 📜 🎒 🖼 — under the last message. mark: this is the open's recap, and the opening line will say
+        the keeper has the pages in front of them. Never raises: a failure is logged and the open stands."""
+        try:
+            import adventure
+            text, has_page = adventure.recap(sl)
+            parts = split_long(text)
+            k = adventure.key(sl)
+            markup = self._pp_markup([[("📜 Where we are", f"gm:w:{k}"), ("🎒 Inventory", f"gm:i:{k}"),
+                                       ("🖼 Scenes", f"gm:s:{k}")]])
+            for part in parts[:-1]:
+                self.send(part, markdown=False)
+            try:
+                self.api("sendMessage", chat_id=self.chat_id, text=parts[-1], reply_markup=markup)
+            except Exception:  # noqa: BLE001 — the words, then
+                self.send(parts[-1], markdown=False)
+            if mark and has_page:
+                adventure.mark_recap_shown(sl)
+            return True
+        except Exception as e:  # noqa: BLE001
+            _say(f"recap: {type(e).__name__}: {e}")
+            return False
+
+    def game_command(self, text: str) -> str:
+        """/games and /game …: the menu; /game <name>, /game new <name>, /game pause, /game resume, /game off,
+        /game where|inv|scenes|recap [name], /game back <name>. Returns the phone's line ("" when the menu or buttons
+        went instead)."""
+        try:
+            import adventure
+            if not adventure.on():
+                return adventure.OFF
+            if getattr(self, "TAG", "telegram") != "telegram":
+                return "(the games menu lives on the Telegram bridge — its buttons are Telegram's)"
+            parts = text.split(None, 1)
+            rest = parts[1].strip() if len(parts) > 1 else ""
+            if parts[0].lower().split("@")[0] == "/games" or not rest or rest.lower() in ("list", "menu"):
+                self.game_menu()
+                return ""
+            first, _, more = rest.partition(" ")
+            word, more = first.lower(), more.strip()
+            reads = {"where": ("state page", self._game_where), "recap": ("where you left off in a world", self.game_recap),
+                     "scenes": ("scenes", self._game_scenes), "inv": ("inventory", self._game_inventory),
+                     "inventory": ("inventory", self._game_inventory)}
+            if word in reads:  # reading changes nothing: fine mid-reply, and for a world put away
+                sl = adventure.find(more) if more else adventure.open_state().get("slug", "")
+                if not sl:
+                    what = reads[word][0]
+                    return ("(no world called that — /games for the menu)" if more else
+                            f"(no game is open — /game {word} <name> for a world's {what})" if word != "recap" else
+                            f"(no game is open — /game recap <name> for {what})")
+                reads[word][1](sl)
+                return ""
+            if self.lock.locked():
+                return adventure.MID_REPLY
+            if word == "new":
+                ok, line, sl = adventure.new(more)
+                if ok:
+                    try:
+                        self.api("sendMessage", chat_id=self.chat_id, text=line,
+                                 reply_markup=self._pp_markup([[(f"▶ Play {adventure.display(sl)[:16]}", f"gm:p:{adventure.key(sl)}")]]))
+                        return ""
+                    except Exception:  # noqa: BLE001
+                        pass
+                return line
+            if word == "pause":
+                return adventure.pause()
+            if word in ("resume", "unpause"):
+                return adventure.resume()
+            if word in ("off", "end", "stop"):
+                return self.game_end_session("ended")
+            if word == "back":  # ↩ typed — for a put-away world past the menu's buttons
+                sl = adventure.find(more)
+                return adventure.bring_back(sl) if sl else "(/game back <name> — a world that is put away)"
+            sl = adventure.find(rest)
+            if not sl:
+                return (f"(no world called “{rest}” — the worlds: {', '.join(adventure.display(s) for s in adventure.worlds()) or 'none yet'}; "
+                        "/game new <name> starts one)")
+            return self._game_play(sl)
+        except Exception as e:  # noqa: BLE001 — never the bridge down
+            return f"(the games menu stumbled — {type(e).__name__}: {e})"
+
+    def game_callback(self, cq: dict) -> None:
+        """A button under the games menu. Old buttons answer plainly: a world renamed, put away, a game already closed."""
+        try:
+            self.api("answerCallbackQuery", callback_query_id=cq.get("id"))
+        except Exception:  # noqa: BLE001 — the spinner stops by itself
+            pass
+        msg = cq.get("message") or {}
+        sender = int((msg.get("chat") or {}).get("id") or 0)
+        if not self.chat_id or sender != self.chat_id:
+            return
+        try:
+            said = self._game_press(str(cq.get("data") or ""), msg)
+        except Exception as e:  # noqa: BLE001
+            said = f"(the games menu stumbled — {type(e).__name__}: {e})"
+        if said:
+            self.send(said, markdown=False)
+
+    def _game_press(self, data: str, msg: dict) -> str:
+        """One press: does it, redraws the menu with what was done, and returns a line to send ("" when said already)."""
+        import adventure
+        if not adventure.on():
+            return adventure.OFF
+        parts = data.split(":")
+        kind = parts[1] if len(parts) > 1 else ""
+        sl, renamed = adventure.resolve(parts[2]) if len(parts) > 2 else ("", "")
+        if kind in ("p", "z", "r", "e", "w", "i", "s", "n", "a", "b") and not sl:
+            return (f"(that world was renamed — it's {renamed} now; /games for the fresh menu)" if renamed else
+                    "(that world isn't there any more — /games for the fresh menu)")
+        if kind == "q":  # ✗ Cancel on a waiting name
+            self._game_wait_clear()
+            return "(nothing waiting — your next message goes to them as usual)"
+        if kind == "w":
+            self._game_where(sl)
+            return ""
+        if kind == "i":  # 🎒 — read-only
+            self._game_inventory(sl)
+            return ""
+        if kind == "s":  # 🖼 — read-only
+            self._game_scenes(sl)
+            return ""
+        if kind == "m":
+            self.game_menu(edit=msg)
+            return ""
+        if self.lock.locked():
+            return adventure.MID_REPLY
+        o = adventure.open_state()
+        if kind == "k":
+            if not o:
+                return "(that game is already closed — /games for the menu)"
+            self.game_menu(f"(kept — {adventure.display(o['slug'])} stays open)", edit=msg)
+            return ""
+        if kind == "n" and o.get("slug") == sl:  # renaming mid-session would split the world in two
+            return adventure.RENAME_OPEN
+        if kind in ("n", "N"):
+            if kind == "n":
+                adventure.wait_set("rename", sl)
+                ask = f"✏️ send the new name for {adventure.display(sl)} as your next message (it won't go to them)"
+            else:
+                adventure.wait_set("new")
+                ask = "➕ send the new adventure's name as your next message (it won't go to them)"
+            self._pp_save("mode", {})  # one thing waits at a time: the penpal panel's lets go
+            try:
+                self.api("sendMessage", chat_id=self.chat_id, text=ask, reply_markup=self._pp_markup([[("✗ Cancel", "gm:q")]]))
+                return ""
+            except Exception:  # noqa: BLE001
+                return f"({ask}; /cancel lets it go)"
+        if kind in ("z", "r", "e"):
+            if o.get("slug") != sl:
+                return f"(that game isn't open any more — {adventure.display(sl)} is closed; /games for the menu)"
+            if kind == "e":
+                said = self.game_end_session("ended")
+                self.game_menu(said, edit=msg)
+                return ""
+            said = adventure.pause() if kind == "z" else adventure.resume()
+        elif kind == "p":
+            if o and o.get("slug") != sl and not adventure.info(sl).get("put_away"):
+                return self._game_ask_switch(sl)
+            said = self._game_open(sl)
+        elif kind == "O":  # end the open one, open this one
+            old, _ = adventure.resolve(parts[2]) if len(parts) > 2 else ("", "")
+            new, new_renamed = adventure.resolve(parts[3]) if len(parts) > 3 else ("", "")
+            if not new:
+                return (f"(that world was renamed — it's {new_renamed} now; /games for the fresh menu)" if new_renamed else
+                        "(that world isn't there any more — /games for the fresh menu)")
+            if o and o.get("slug") != old:
+                return f"(another game is open now — {adventure.display(o['slug'])}; /games for the menu)"
+            ended = self.game_end_session("switch") if o else ""
+            said = ended if adventure.open_state() else (ended + "\n" if ended else "") + self._game_open(new)
+        elif kind == "a":
+            said = adventure.put_away(sl)
+        elif kind == "b":
+            said = adventure.bring_back(sl)
+        else:
+            return "(that button is from an older menu — /games for the fresh one)"
+        self.game_menu(said, edit=msg)
+        self._game_recap_if_due()  # a session just opened: where the keeper left off, under the redrawn menu
+        return ""
+
+    def game_wait_take(self, text: str) -> bool:
+        """The games menu asked for this message (➕ a new world's name, ✏️ a new name): it goes there, not to the
+        friend. True when taken. A /command lets the wait go (and runs); the penpal panel's later ask wins."""
+        import adventure
+        w = adventure.wait_get()
+        if not w:
+            return False
+        if text.startswith("/"):
+            adventure.wait_clear()
+            return False
+        pm = self._pp_load("mode")
+        if pm and float(pm.get("t") or 0) > float(w.get("t") or 0):
+            return False
+        if not adventure.on():
+            adventure.wait_clear()
+            return False
+        if self.lock.locked():  # the name waits on: they are mid-reply, and a folder renamed under them would trip them
+            self.send(adventure.MID_REPLY, markdown=False)
+            return True
+        adventure.wait_clear()
+        name = " ".join(text.split())
+        try:  # from here the message is a name: whatever happens, it never goes to the friend as a move
+            if w.get("kind") == "rename":
+                self.send(adventure.rename(str(w.get("slug") or ""), name), markdown=False)
+                return True
+            ok, line, sl = adventure.new(name)
+        except Exception as e:  # noqa: BLE001 — a folder Windows won't make or move, a full disk
+            self.send(f"(couldn't {'rename it' if w.get('kind') == 'rename' else 'make the world'} — {e})", markdown=False)
+            return True
+        if ok:
+            try:
+                self.api("sendMessage", chat_id=self.chat_id, text=line,
+                         reply_markup=self._pp_markup([[(f"▶ Play {adventure.display(sl)[:16]}", f"gm:p:{adventure.key(sl)}")]]))
+                return True
+            except Exception:  # noqa: BLE001
+                pass
+        self.send(line, markdown=False)
+        return True
+
+    def game_end_session(self, why: str = "ended", quiet: bool = False, wait: float = 0) -> str:
+        """⏹ End session (/game off, the visit closing): when there were moves since the last write-up the friend gets
+        one turn of their own to bring state.md and inventory.md up to date — run as the engine's (`_engine`, shown in
+        the transcript as "engine — the game"), under the visit's lock — and then the game is closed. Not through
+        turn(): its words go as notices when quiet (an idle roll in the night holds them for the morning). A brain that
+        is away loses nothing: the game stays open with its moves counted, and ⏹ again later writes it down.
+        wait: how long to wait for the visit's lock — 0 from the phone (mid-reply says so, never blocks), 3 as the visit
+        closes (new_visit's own bound: past it the wrap-up is skipped and the game stays open). A wrap-up that fails or
+        is interrupted leaves no trace in the visit: the history goes back to where it was. It runs bare
+        (chat.one_turn): not a spark and not the keeper's words, so no moment block says either, and rest may end it.
+        Returns what came of it, by both pages before and after."""
+        import adventure
+        got = adventure.peek()
+        if isinstance(got, str):
+            return got
+        name = got["name"]
+        if not got["moves"] or not self.history:
+            adventure.close(got)
+            return f"(⏹ the session of {name} is closed — no moves since the last write-up, nothing to write down)"
+        got_lock = self.lock.acquire(timeout=wait) if wait > 0 else self.lock.acquire(blocking=False)
+        if not got_lock:
+            _say(f"the game's wrap-up waits — they are mid-reply; {name} stays open")
+            return (adventure.MID_REPLY if not quiet else
+                    f"(they were mid-reply as the visit closed — {name} stays open; ⏹ End session to write it down)")
+        events: list[tuple[str, object]] = []
+        stop = threading.Event()
+        before = len(self.history)
+        tell = self.notice if quiet else (lambda s: self.send(s, markdown=False))
+        jrun = None  # the wrap-up's run, for the journal feed
+        try:
+            tell(f"(⏹ the session of {name} is over — they're writing it down…)")
+            _say(f"(the session of {name} is over — the wrap-up turn)")
+            bell = adventure.wrapup_bell(got, why)
+            if not quiet:
+                threading.Thread(target=self._typing, args=(stop,), daemon=True).start()
+            jrun = self._jf_run_start("the game's wrap-up")  # a bare turn, no feed line: never the feed's
+            reply = chat.one_turn(self.history, bell, on_event=lambda k, p: events.append((k, p)), mode=self.TAG,
+                                  think_retries=0, think_remind=False, bare=True,
+                                  marks={"_engine": True, "_engine_label": "engine — the game", "_game_end": got["slug"]})
+            self._checkpoint()
+        except KeyboardInterrupt:
+            del self.history[before:]  # in memory only: the visit as it was before the bell
+            raise
+        except Exception as e:  # noqa: BLE001 — BrainUnavailable or the turn raising: nothing here ends the visit
+            _say(f"the game's wrap-up didn't run — {type(e).__name__}: {e}; the session stays open")
+            del self.history[before:]  # in memory only: the bell nobody answered, and anything after it
+            return "(their brain is away — the session stays open; ⏹ End session again when they're back)"
+        finally:
+            stop.set()
+            self._jf_run_end(jrun, False)  # untold: what they write in it is never the feed's
+            self.lock.release()
+        adventure.close(got)  # written down: the moves start over, never twice
+        for n in (str(p) for k, p in events if k == "note"):  # engine honesty notes always travel
+            tell("⚠ " + n)
+        if reply and reply != "(…)":
+            if quiet:
+                self.notice(reply)
+            else:
+                self._send_reply(reply)
+        return adventure.wrapup_result(got)
+
+    def game_close_for_visit(self, quiet: bool = False) -> str:
+        """The visit is closing (/new, the idle roll, the night's roll, the bridge closing) with a game open: its session
+        ends first, with the wrap-up when there were moves since the last one. Once: the moves start over at the end.
+        A wrap-up that can't run (the brain away, Ctrl+C during it) leaves the game open in adventures.json."""
+        if not self._game_here():
+            return ""
+        try:
+            import adventure
+            if not adventure.open_state():
+                return ""
+            line = self.game_end_session("visit", quiet=quiet, wait=3)  # new_visit's own 3-second bound
+        except KeyboardInterrupt:
+            _say("the game's wrap-up skipped — the session stays open for the next bridge")
+            return ""
+        except Exception as e:  # noqa: BLE001
+            line = f"(the game's session didn't close cleanly — {type(e).__name__}: {e})"
+        _say(line)
+        try:
+            (self.notice if quiet else (lambda s: self.send(s, markdown=False)))(line)
+        except Exception:  # noqa: BLE001
+            pass
+        return line
 
     def set_command_menu(self) -> None:
         """(11-10) Telegram's "/" menu: every command on the phone's help, with its line — nothing to remember."""
@@ -2240,6 +3762,15 @@ class Bridge:
             _say(f"penpals: {type(e).__name__}: {e}")
             return 0
         n = 0
+        try:  # the friend wrote out a letter that came in pictures: one line each, held as their letters are
+            tells = penpal.picture_tells()
+        except Exception as e:  # noqa: BLE001
+            tells = []
+            _say(f"penpal tells: {type(e).__name__}: {e}")
+        for key, line in tells:
+            if not self._try_send(line, markdown=False):
+                break  # it stays, with the ones after it, for the next poll
+            penpal.tell_sent(key)
         for sl, f in waiting:
             try:
                 if time.time() - f.stat().st_mtime < 5:
@@ -2248,7 +3779,11 @@ class Bridge:
             except OSError:
                 continue
             name = penpal.display(sl)
-            self.send(f"✉️ for {name} — to relay ({f.name})\n\n{body}", markdown=False)
+            try:  # the write guard asked and the friend confirmed, or the name was filled in for them: said on its own line
+                note = penpal.relay_note(sl, f.name)
+            except Exception:  # noqa: BLE001
+                note = ""
+            self.send(f"✉️ for {name} — to relay ({f.name})" + (f"\n{note}" if note else "") + f"\n\n{body}", markdown=False)
             self.penpal_letter_buttons(sl, f, body)
             penpal.mark_delivered(sl, f)
             _say(f"penpal letter to relay: {f.name}")
@@ -2326,7 +3861,7 @@ class Bridge:
             if not p.is_file() or p.suffix.lower() not in (".md", ".txt") or p.name.startswith("."):
                 continue
             rel = p.relative_to(root)
-            if set(rel.parts[:-1]) & CREATION_SKIP:
+            if {x.lower() for x in rel.parts[:-1]} & {x.lower() for x in CREATION_SKIP}:  # any case
                 continue
             if rel.parts[:2] == ("publish", tools.GALLERY_DIR_NAME):
                 continue  # a picture's caption travels with the picture (09-23)
@@ -2756,7 +4291,7 @@ class Bridge:
             if not p.is_file() or p.suffix.lower() not in self.PICTURE_EXTS or p.name.startswith("."):
                 continue
             rel = p.relative_to(root)
-            if set(rel.parts[:-1]) & (CREATION_SKIP | {"sources"}):
+            if self._picture_screened(rel):  # any case; a world's scenes/ is the screen's one exception
                 continue
             if rel.parts[:2] == ("room", "items"):
                 continue  # a thing made in the room's workshop is seen in the room (10-29), not sent as a drawing
@@ -2766,6 +4301,22 @@ class Bridge:
                 continue  # a fetched skill's assets are not pictures they drew
             out.append(p)
         return sorted(out)
+
+    @staticmethod
+    def _picture_screened(rel: Path) -> bool:
+        """A picture under a screened folder stays home (CREATION_SKIP and sources/, any case) — except one in a world's
+        scenes/ folder, which travels like any drawing of theirs (adventure.is_scene says which). Inside scenes/,
+        sources/ and the other screened names still stay home. With ADVENTURES_ON False the exception is off too."""
+        skip = {x.lower() for x in CREATION_SKIP | {"sources"}}
+        folders = [x.lower() for x in rel.parts[:-1]]
+        try:
+            import adventure
+            if adventure.on() and adventure.is_scene(rel.parts):
+                n = next(len(pre) for pre in adventure.screen_prefixes() if tuple(folders[:len(pre)]) == pre)
+                return bool(set(folders[n + 2:]) & skip)
+        except Exception:  # noqa: BLE001 — in doubt, the screen holds
+            pass
+        return bool(set(folders) & skip)
 
     @staticmethod
     def _fetched_skill_file(rel: Path) -> bool:
@@ -2869,6 +4420,555 @@ class Bridge:
             except Exception as e2:
                 self.notice(f"{caption} (couldn't send the picture: {e2})")
 
+    # ---- the friend's journal on the phone (JOURNAL_FEED, /journal) -------------------------------------------------
+    # The page is the friend's and is only read here. What travels is what they write during the bridge's OWN runs for
+    # them — a turn (your message, a spark, the stone, a penpal's arrival), a pause, an afterglow, the fold's bell and
+    # its afterglow — each of which carries a line saying the feed is on (a turn: once per window; a quiet run: in its
+    # bell). The page is read just before such a run and just after; what appeared between is that run's. Wakes and the
+    # night are never the feed's: no line can reach the friend there, so nothing of them is sent (/journal today shows
+    # the day). Telegram's alone: the Discord bridge has no feed (its /journal says so).
+    def _jf_on_here(self) -> bool:
+        return bool(getattr(config, "JOURNAL_FEED", False)) and getattr(self, "TAG", "telegram") == "telegram"
+
+    def _jf_state(self) -> dict:
+        """The feed's state, read once from JOURNAL_FEED_FILE. Missing: off, never told — nothing is written until
+        something changes. There but unreadable (or not a record the bridge wrote): off, and the friend is told it is
+        off at their next turn (believing it on when it is not is the thing to avoid); the phone is told once."""
+        if self._jf is None:
+            st: dict = {}
+            bad = ""
+            try:
+                raw = json.loads(JOURNAL_FEED_FILE.read_text(encoding="utf-8"))
+                if not isinstance(raw, dict) or not isinstance(raw.get("on", False), bool):
+                    bad = "not a record the bridge wrote"
+                else:
+                    st = raw
+            except FileNotFoundError:
+                pass
+            except (OSError, ValueError) as e:
+                bad = type(e).__name__
+            if bad:
+                _say(f"(journal feed: its state file could not be read ({bad}) — the feed is off; the friend is told so)")
+                st = {"on": False, "knows": "on", "gen": 1}
+                self._jf_note = (f"(the journal feed's state file couldn't be read — the feed is off, nothing of "
+                                 f"{chat.friend_name()}'s is sent; they'll be told it is off at their next turn. "
+                                 "/journal on starts it again)")
+                self._jf = st
+                self._jf_save()
+            if st.get("knows") not in ("on", "off"):
+                st.pop("knows", None)
+            pending = st.get("pending") if isinstance(st.get("pending"), list) else []
+            st["pending"] = [{"day": str(x["day"]), "stamp": str(x.get("stamp") or ""), "key": str(x["key"]),
+                              "part": int(x.get("part") or 0) if str(x.get("part") or "0").isdigit() else 0}
+                             for x in pending if isinstance(x, dict) and x.get("day") and x.get("key")]
+            if not isinstance(st.get("sent"), dict):
+                st.pop("sent", None)
+            done = st.get("done") if isinstance(st.get("done"), dict) else {}
+            st["done"] = {str(d): [str(k) for k in v] for d, v in done.items() if isinstance(v, list)}
+            for k in ("since", "told_at", "gen"):
+                try:
+                    float(st.get(k) or 0)
+                except (TypeError, ValueError):
+                    st.pop(k, None)
+            self._jf = st
+        return self._jf
+
+    def _jf_used(self) -> bool:
+        """/status shows the feed's line once it has been switched (its state file is there); before, /status is as it was."""
+        try:
+            return self._jf_on_here() and (bool(self._jf_state().get("on")) or JOURNAL_FEED_FILE.exists())
+        except Exception:  # noqa: BLE001
+            return False
+
+    def _jf_save(self) -> None:
+        """Through a temporary file and a rename: a crash mid-write leaves the old record whole, never half of one."""
+        try:
+            tmp = JOURNAL_FEED_FILE.with_name(JOURNAL_FEED_FILE.name + ".tmp")
+            tmp.write_text(json.dumps(self._jf or {}, ensure_ascii=False, indent=1), encoding="utf-8")
+            os.replace(tmp, JOURNAL_FEED_FILE)
+        except OSError as e:
+            _say(f"(journal feed: its state could not be saved — {type(e).__name__}: {e})")
+
+    @staticmethod
+    def _jf_read(day: str) -> str | None:
+        try:
+            return (config.JOURNAL_DIR / f"{day}.md").read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return None
+
+    def _jf_page(self) -> list[tuple[str, str, str]]:
+        """Yesterday's and today's entries as they stand: [(day, stamp, key)…] in order (a run can cross midnight)."""
+        from datetime import date, timedelta
+        out = []
+        for d in (date.today() - timedelta(days=1), date.today()):
+            raw = self._jf_read(d.isoformat())
+            if raw:
+                out += [(d.isoformat(), e["stamp"], e["key"]) for e in journal_feed_entries(raw)]
+        return out
+
+    # -- what the friend reads
+    def _jf_lines(self) -> dict:
+        keeper = self._keeper_name()
+        return {"on": JF_TOLD_ON.format(keeper=keeper), "still": JF_TOLD_STILL.format(keeper=keeper),
+                "off": JF_TOLD_OFF.format(keeper=keeper), "aside": JF_ASIDE.format(keeper=keeper)}
+
+    def _jf_window_says(self) -> str:
+        """What the newest feed sentence in the window (a turn's moment, answered) says: "on", "off" or ""."""
+        lines = self._jf_lines()
+        for i in range(len(self.history) - 1, -1, -1):
+            t = self.history[i]
+            m = str(t.get("_moment") or "") if t.get("role") == "user" else ""
+            if not m:
+                continue
+            said = "off" if lines["off"] in m else "on" if (lines["on"] in m or lines["still"] in m) else ""
+            if said and any(u.get("role") == "assistant" for u in self.history[i + 1:]):
+                return said
+        return ""
+
+    def _journal_moment(self) -> str:
+        """The sentence for this turn's moment: told on at the first turn after /journal on, "still on" at the first
+        turn of a window that no longer holds it, told off at the first turn after /journal off (or the knob turned
+        off, or the state lost) when they had been told on. Never with a guest seated (the friend's own next turn), as
+        sparks. They count as told once the turn is done and the sentence is in it (_journal_told)."""
+        self._jf_tell = None
+        if getattr(self, "TAG", "telegram") != "telegram" or self.guest_label():
+            return ""
+        knob = bool(getattr(config, "JOURNAL_FEED", False))
+        try:
+            window = self._jf_window_says() if self.history else ""  # a resumed window can hold "on" with no state behind it
+            if not knob and not window and not JOURNAL_FEED_FILE.exists():
+                return ""  # never used, or the knob off with nothing to undo: as before
+            with self._jf_lock:
+                st = self._jf_state() if (knob or JOURNAL_FEED_FILE.exists()) else {}
+                knows = st.get("knows") or "off"
+                lines = self._jf_lines()
+                on = knob and bool(st.get("on"))
+                if on and knows != "on":
+                    line, told = lines["on"], "on"
+                elif on and window != "on":
+                    line, told = lines["still"], "on"
+                elif not on and (knows == "on" or window == "on"):
+                    line, told = lines["off"], "off"
+                else:
+                    return ""
+                before = {id(t) for t in self.history if line in str(t.get("_moment") or "")}
+                self._jf_tell = {"line": line, "told": told, "before": before}
+                return line
+        except Exception as e:  # noqa: BLE001 — never the reply down
+            _say(f"(journal feed: {type(e).__name__}: {e})")
+            self._jf_tell = None
+            return ""
+
+    def _journal_told(self) -> None:
+        """The turn is done: if the sentence is in a new turn's moment (it rode; they answered), what they know is kept."""
+        tell, self._jf_tell = self._jf_tell, None
+        if not tell:
+            return
+        try:
+            if not any(tell["line"] in str(t.get("_moment") or "") and id(t) not in tell["before"] for t in self.history):
+                _say("(journal feed: the sentence did not ride in the moment — they are told at their next turn)")
+                return
+            with self._jf_lock:
+                st = self._jf_state()
+                if st.get("knows") != tell["told"] or JOURNAL_FEED_FILE.exists():
+                    st["knows"], st["told_at"] = tell["told"], time.time()
+                    self._jf_save()
+            _say(f"(journal feed: the friend was told it is {tell['told']})")
+        except Exception as e:  # noqa: BLE001
+            _say(f"(journal feed: {type(e).__name__}: {e})")
+
+    # -- a run of the friend's: the page before and after
+    # Every call the bridge makes to the brain is a registered run: a turn, a pause, an afterglow, the fold's bell and
+    # afterglow (told: a feed line rides in it, or the window already says on) — the game's bare wrap-up and the night
+    # in the bridge (untold: no line reaches the friend there). Runs open at the same time form one cluster; its entries
+    # are decided together when the last of them ends: sent only when EVERY run in it was told and ended well, and no
+    # wake (and no switch of the feed) overlapped any of them. Otherwise none of them is sent.
+    @staticmethod
+    def _jf_waking_now() -> bool:
+        """A wake running now: the loop's marker (presence), or the one-off wake's door (heartbeat.py without --loop
+        holds door "wake" and sets no marker). Any doubt counts as a wake."""
+        try:
+            import presence
+            if presence.waking():
+                return True
+        except Exception:  # noqa: BLE001
+            return True
+        try:
+            import doors
+            return bool(doors.status("wake"))
+        except Exception:  # noqa: BLE001
+            return True
+
+    def _jf_wake_since(self, t0: float) -> bool:
+        """A wake ran at some moment since t0: one is running now, or a wake's log was written since."""
+        if self._jf_waking_now():
+            return True
+        try:
+            return any(p.stat().st_mtime >= t0 - 1 for p in config.EPISODIC_DIR.glob("auto-*.md"))
+        except OSError:
+            return True
+
+    def _jf_turn_carried(self) -> bool:
+        """Whether this turn is a told one: no guest seated, and a feed line rides in its moment ("on" or "still on")
+        or the window already says on."""
+        if self.guest_label() or not self._jf_on_here():
+            return False
+        if (self._jf_tell or {}).get("told") == "on":
+            return True
+        try:
+            return self._jf_window_says() == "on"
+        except Exception:  # noqa: BLE001
+            return False
+
+    def _jf_run_start(self, kind: str, carried: bool = False) -> dict | None:
+        """Before any run the bridge makes (the knob on, whatever the switch): the page as it stands, and the run in
+        the open cluster. None with the knob off (or on another door's bridge)."""
+        if not self._jf_on_here():
+            return None
+        try:
+            with self._jf_lock:
+                st = self._jf_state()
+                run = {"kind": kind, "page": set(k for _, _, k in self._jf_page()), "t0": time.time(),
+                       "gen": int(st.get("gen") or 0), "carried": bool(carried and st.get("on")),
+                       "wake": self._jf_waking_now()}
+                if not self._jf_runs or self._jf_cluster is None:
+                    self._jf_cluster = {"keys": set(), "runs": 0, "told_ok": 0, "untold": False, "wake": False,
+                                        "switched": False}
+                self._jf_runs.append(run)
+                return run
+        except Exception as e:  # noqa: BLE001
+            _say(f"(journal feed: {type(e).__name__}: {e})")
+            return None
+
+    def _jf_quiet(self, kind: str, aside: str = "") -> tuple[dict | None, str]:
+        """A quiet run (a pause, an afterglow, the fold's bell or afterglow): registered; while the feed is on its bell
+        carries the feed's line, after the game's when both apply. Off: the aside as it was."""
+        try:
+            on = self._jf_on_here() and bool(self._jf_state().get("on"))
+        except Exception:  # noqa: BLE001
+            on = False
+        run = self._jf_run_start(kind, carried=on)
+        if not on:
+            return run, aside
+        line = self._jf_lines()["aside"]
+        return run, f"{aside.strip()} {line}" if aside and aside.strip() else line
+
+    def _jf_run_end(self, run: dict | None, ok: bool = True) -> None:
+        """The run is over: what appeared on the page during it joins its cluster; when the cluster's last run ends,
+        its entries are queued (keys only — the words stay on the page) or let go, with a line when they might have
+        been the feed's."""
+        if run is None:
+            return
+        line = ""
+        try:
+            with self._jf_lock:
+                if run in self._jf_runs:
+                    self._jf_runs.remove(run)
+                cl = self._jf_cluster or {"keys": set(), "runs": 0, "told_ok": 0, "untold": False, "wake": False,
+                                          "switched": False}
+                self._jf_cluster = cl
+                cl["keys"] |= {k for _, _, k in self._jf_page()} - run["page"]
+                cl["runs"] += 1
+                st = self._jf_state()
+                if not ok or not run["carried"]:
+                    cl["untold"] = True
+                else:
+                    cl["told_ok"] += 1
+                if int(st.get("gen") or 0) != run["gen"]:
+                    cl["switched"] = True
+                if run["wake"] or self._jf_wake_since(run["t0"]):
+                    cl["wake"] = True
+                if self._jf_runs:
+                    return  # another run is still open: the cluster is decided when the last one ends
+                self._jf_cluster = None
+                page = [(d, s, k) for d, s, k in self._jf_page() if k in cl["keys"]]
+                n = len(page)
+                if not n:
+                    return
+                entries = "entry" if n == 1 else "entries"
+                were = "wasn" if n == 1 else "weren"
+                if not st.get("on") or cl["switched"]:
+                    _say(f"(journal feed: {n} {entries} from runs the feed was off or switched in — not sent)")
+                elif cl["wake"]:
+                    _say(f"(journal feed: {n} {entries} — a wake overlapped; not sent)")
+                    if cl["told_ok"]:
+                        line = f"({n} journal {entries} from that moment {were}'t sent — a wake overlapped; /journal today shows the day)"
+                elif cl["untold"]:
+                    _say(f"(journal feed: {n} {entries} from a run the friend wasn't told in — not the feed's)")
+                    if cl["told_ok"]:
+                        line = (f"({n} journal {entries} from that moment {were}'t sent — two runs overlapped and one of "
+                                f"them hadn't told {chat.friend_name()} of the feed; /journal today shows the day)")
+                else:
+                    queued = {(p["day"], p["key"]) for p in st["pending"]}
+                    queued |= {(d, k) for d, ks in st["done"].items() for k in ks}
+                    st["pending"] += [{"day": d, "stamp": s, "key": k} for d, s, k in page if (d, k) not in queued]
+                    self._jf_save()
+                    _say(f"journal feed: {n} {entries} from {run['kind']} queued")
+        except Exception as e:  # noqa: BLE001 — never the run down
+            _say(f"(journal feed: {type(e).__name__}: {e})")
+            return
+        if line:
+            try:
+                self.notice(line)
+            except Exception as e:  # noqa: BLE001
+                _say(f"(a line didn't reach the phone: {type(e).__name__}: {e})")
+        self.journal_feed_if_due()
+
+    # -- the phone
+    def _jf_say(self, text: str) -> None:
+        """The command's answer, plain; a send that fails is a line in the window, never the loop down."""
+        try:
+            self.send(text, markdown=False)
+        except Exception as e:  # noqa: BLE001
+            _say(f"(a line didn't reach the phone: {type(e).__name__}: {e})")
+
+    def _journal_state_line(self, short: bool = False) -> str:
+        """/journal alone (and /status's line): on since when and how many went today, or off."""
+        try:
+            with self._jf_lock:
+                return self._jf_state_line(short)
+        except Exception as e:  # noqa: BLE001 — /status never down for it
+            return f"journal feed: ({type(e).__name__})"
+
+    def _jf_state_line(self, short: bool) -> str:
+        from datetime import date
+        st = self._jf_state()
+        today = date.today().isoformat()
+        if not st.get("on"):
+            return ("journal feed off" if short else
+                    f"(journal feed off — /journal on sends what {chat.friend_name()} writes in their journal during a "
+                    "visit; /journal today sends today's entries once)")
+        since = float(st.get("since") or 0)
+        when = (_jf_when(datetime.fromtimestamp(since).date().isoformat(), datetime.fromtimestamp(since).strftime("%H:%M"),
+                         today) if since else "?")
+        if (st.get("knows") or "off") != "on":
+            return (f"journal feed on since {when} · they're told at their next turn" if short else
+                    f"(journal feed on since {when} — {chat.friend_name()} will be told at their next turn; what they "
+                    "write from then on in a visit comes here)")
+        sent = st.get("sent") or {}
+        n = int(sent.get("n") or 0) if sent.get("day") == today else 0
+        waiting = len(st.get("pending") or [])
+        held = f", {waiting} waiting" if waiting else ""
+        if short:
+            return f"journal feed on since {when} · {n} sent today{held}"
+        return (f"(journal feed on since {when} — {n} {'entry' if n == 1 else 'entries'} sent today{held}; "
+                f"{chat.friend_name()} knows)")
+
+    def journal_command(self, arg: str) -> None:
+        """/journal [on|off|today|yesterday|YYYY-MM-DD]."""
+        if getattr(self, "TAG", "telegram") != "telegram":
+            self._jf_say("(the journal feed is the Telegram bridge's — /journal works there)")
+            return
+        if not getattr(config, "JOURNAL_FEED", False):
+            self._jf_say("(the journal feed is off in config — JOURNAL_FEED)")
+            return
+        a = (arg or "").strip().lower()
+        try:
+            if a in ("", "status"):
+                self._jf_say(self._journal_state_line())
+            elif a == "on":
+                self._jf_switch(True)
+            elif a == "off":
+                self._jf_switch(False)
+            else:
+                from datetime import date, timedelta
+                day = {"today": date.today(), "yesterday": date.today() - timedelta(days=1)}.get(a)
+                if day is None:
+                    try:
+                        day = datetime.strptime(a, "%Y-%m-%d").date()
+                    except ValueError:
+                        self._jf_say("(/journal — on, off, today, yesterday, or a day as YYYY-MM-DD; alone, how it stands)")
+                        return
+                self._jf_send_day(day.isoformat())
+        except Exception as e:  # noqa: BLE001 — a command, never the loop down
+            _say(f"(journal feed: {type(e).__name__}: {e})")
+            self._jf_say(f"(/journal didn't go through — {type(e).__name__}: {e})")
+
+    def _jf_switch(self, on: bool) -> None:
+        """The switch. What the phone says is what the friend has been told at this instant — a turn in flight that is
+        telling them right now counts as telling them."""
+        fr = chat.friend_name()
+        with self._jf_lock:
+            st = self._jf_state()
+            if bool(st.get("on")) == on:
+                said = f"(the journal feed is already {'on' if on else 'off'} — nothing new is said to {fr})"
+            else:
+                knows = st.get("knows") or "off"
+                telling = (self._jf_tell or {}).get("told", "")  # a turn running now that carries the feed's sentence
+                st["on"], st["since"], st["by"] = on, time.time(), self._keeper_name()
+                st["gen"] = int(st.get("gen") or 0) + 1  # a run going on now: what it writes is not sent
+                if on:
+                    if telling == "off":
+                        said = (f"(journal feed on again — {fr} is being told it went off in the turn running now; "
+                                "they'll be told it is on at their next turn)")
+                    elif knows == "on" and not telling:
+                        said = (f"(journal feed on again — {fr} was never told it went off, so nothing changes for them; "
+                                "what they write in a visit from now on comes here)")
+                    else:
+                        said = (f"(journal feed on — what {fr} writes in their journal during a visit (its pauses and "
+                                "afterglow too) comes here as they write it, each with its time; they'll be told at their "
+                                "next turn, and it starts after that. Their wakes are not sent — /journal today shows the "
+                                "day. Entries from your quiet hours wait for the morning. /journal off ends it)")
+                else:
+                    dropped = len(st.get("pending") or [])
+                    st["pending"] = []
+                    lost = (f" {dropped} {'entry' if dropped == 1 else 'entries'} still waiting won't be sent — "
+                            "/journal today shows the day." if dropped else "")
+                    if telling == "on":
+                        said = (f"(journal feed off — {fr} is being told it is on in the turn running now; they'll be "
+                                f"told it is off at their next turn.{lost})")
+                    elif knows == "on":
+                        said = f"(journal feed off — the entries stay on the page; {fr} will be told at their next turn.{lost})"
+                    else:
+                        said = f"(journal feed off — {fr} was never told it was on, so nothing is said to them.{lost})"
+                self._jf_save()
+                _say(f"journal feed {'on' if on else 'off'}")
+        self._jf_say(said)
+
+    def _jf_send_day(self, day: str) -> None:
+        """/journal today|yesterday|YYYY-MM-DD: that day's entries, once, in order — as you opening the page; packed
+        into as few messages as fit, nothing marked, nothing said to the friend."""
+        from datetime import date
+        fr = chat.friend_name()
+        label = _jf_date(day, year=day[:4] != str(date.today().year))
+        if not (config.JOURNAL_DIR / f"{day}.md").is_file():
+            self._jf_say(f"(no journal for {label} — journal/{day}.md isn't there)")
+            return
+        raw = self._jf_read(day)
+        if raw is None:
+            self._jf_say(f"({fr}'s journal for {label} can't be read right now — journal/{day}.md)")
+            return
+        entries = [e for e in journal_feed_entries(raw) if e["text"]]
+        if not entries:
+            self._jf_say(f"({fr}'s journal for {label} has no entries)")
+            return
+        today = date.today().isoformat()
+        n = len(entries)
+        msgs, cur = [], f"({fr}'s journal, {label} — {n} {'entry' if n == 1 else 'entries'}:)"
+        for e in entries:
+            m = journal_feed_message(day, e["stamp"], e["text"], today, friend=fr)
+            if len(cur) + 2 + len(m) <= JOURNAL_DAY_PACK:
+                cur += "\n\n" + m
+                continue
+            msgs.append(cur)
+            if len(m) <= JOURNAL_DAY_PACK:
+                cur = m
+            else:  # an entry longer than a message: cut as the bridge cuts, its last piece starts the next pack
+                parts = split_long(m, JOURNAL_DAY_PACK)
+                msgs += parts[:-1]
+                cur = parts[-1]
+        msgs.append(cur)
+        for m in msgs:
+            self._jf_say(m)
+
+    def journal_feed_if_due(self, wait: bool = False) -> int:
+        """The queued entries to the phone — in a thread of their own, so neither the poll nor a turn ever waits on a
+        send. The poll calls it (the quiet hours ending, a guest gone, a send that failed); a run's end too.
+        wait: deliver now, in this thread (tests). Returns how many went (0 when it went to the thread)."""
+        if not self._jf_on_here() or not self.chat_id:
+            return 0
+        try:
+            with self._jf_lock:
+                st = self._jf_state()
+                note, self._jf_note = self._jf_note, ""
+                due = bool(st.get("pending")) and bool(st.get("on"))
+        except Exception as e:  # noqa: BLE001
+            _say(f"(journal feed: {type(e).__name__}: {e})")
+            return 0
+        if note:
+            self._jf_say(note)
+        if not due or self._jf_hold():
+            return 0
+        if wait:
+            return self._jf_deliver()
+        t = self._jf_thread
+        if t is None or not t.is_alive():
+            self._jf_thread = threading.Thread(target=self._jf_deliver, daemon=True)
+            self._jf_thread.start()
+        return 0
+
+    def _jf_hold(self) -> bool:
+        """Your quiet hours (TELEGRAM_QUIET_HOURS), your /quiet, or a guest at the desk: entries wait, and go after."""
+        if self.quiet_now() or self.guest:
+            return True
+        try:
+            import outbox
+            return bool(getattr(config, "OUTBOX_ON", False)) and outbox.hold_active()
+        except Exception:  # noqa: BLE001
+            return False
+
+    def _jf_done(self, st: dict, item: dict) -> None:
+        """An entry out of the queue (sent, or skipped): kept by key for yesterday and today, never queued again."""
+        from datetime import date, timedelta
+        yday = (date.today() - timedelta(days=1)).isoformat()
+        st["done"] = {d: v for d, v in (st.get("done") or {}).items() if d >= yday}
+        if item["day"] >= yday:
+            st["done"].setdefault(item["day"], []).append(item["key"])
+
+    def _jf_deliver(self) -> int:
+        """The queue to the paired phone, oldest first. The text is read from the page at the moment of sending (an
+        entry no longer there as it was is skipped, and said); an entry leaves the queue only once Telegram took it;
+        the state's lock is never held across a send. Paced after a few, so a long evening's go as Telegram likes."""
+        from datetime import date
+        if not self._jf_send_lock.acquire(blocking=False):
+            return 0
+        n = msgs = skipped = 0
+        fr = chat.friend_name()
+        try:
+            while True:
+                with self._jf_lock:
+                    st = self._jf_state()
+                    if not st.get("on") or not st.get("pending") or self._jf_hold() or not self.chat_id:
+                        break
+                    item = dict(st["pending"][0])
+                raw = self._jf_read(item["day"])
+                found = next((e for e in journal_feed_entries(raw or "") if e["key"] == item["key"]), None)
+                if found is None or not found["text"]:
+                    skipped += 1
+                    with self._jf_lock:
+                        if st["pending"] and st["pending"][0]["key"] == item["key"]:
+                            st["pending"].pop(0)
+                            self._jf_done(st, item)
+                            self._jf_save()
+                    continue
+                parts = split_long(journal_feed_message(item["day"], found["stamp"], found["text"],
+                                                        date.today().isoformat(), friend=fr))
+                k = int(item.get("part") or 0)
+                while k < len(parts):
+                    pace = float(getattr(config, "JOURNAL_FEED_PACE_S", 1.0) or 0)
+                    if pace > 0 and msgs >= 3:  # a few at once go at once; more go about one a second
+                        time.sleep(pace)
+                    try:
+                        self.send(parts[k], markdown=False)
+                    except Exception as e:  # noqa: BLE001 — kept; the next look tries again
+                        _say(f"(journal feed: an entry didn't reach the phone — {type(e).__name__}: {e}; it waits)")
+                        return n
+                    msgs += 1
+                    k += 1
+                    with self._jf_lock:
+                        if st["pending"] and st["pending"][0]["key"] == item["key"]:
+                            st["pending"][0]["part"] = k
+                            self._jf_save()
+                with self._jf_lock:
+                    if st["pending"] and st["pending"][0]["key"] == item["key"]:
+                        st["pending"].pop(0)
+                        self._jf_done(st, item)
+                    today = date.today().isoformat()
+                    sent = st.get("sent") or {}
+                    st["sent"] = {"day": today, "n": (int(sent.get("n") or 0) if sent.get("day") == today else 0) + 1}
+                    self._jf_save()
+                n += 1
+            if n:
+                _say(f"journal feed: {n} {'entry' if n == 1 else 'entries'} to the phone")
+        except Exception as e:  # noqa: BLE001 — a delivery, never the bridge down
+            _say(f"(journal feed: {type(e).__name__}: {e})")
+        finally:
+            self._jf_send_lock.release()
+        if skipped:
+            self._jf_say(f"({skipped} journal {'entry' if skipped == 1 else 'entries'} waiting to be sent no longer "
+                         f"stood on {fr}'s page as written — not sent; /journal today shows the day)")
+        return n
+
     # ---- the loop ---------------------------------------------------------
     # ---- presence: sparks (10-26) ------------------------------------------
     @staticmethod
@@ -2919,10 +5019,16 @@ class Bridge:
             import gameguard
             if gameguard.playing()[0]:
                 return ""
-            text = penpal.take_arrival(sl)
+            kind = penpal.arrival_kind(sl) if getattr(config, "PENPAL_PICTURE_LETTERS", False) else ""
+            if kind and self.guest:  # a letter the keeper collected waits while a guest is at the desk
+                return ""
+            arr = penpal.take_arrival_record(sl) if kind in ("with", "pictures") else None
+            text = "" if arr is not None else penpal.take_arrival(sl)
         except Exception as e:  # noqa: BLE001
             _say(f"penpal turn: {type(e).__name__}: {e}")
             return ""
+        if arr is not None:  # its pictures before their eyes, a turn of theirs for each TELEGRAM_BATCH_MAX
+            return self._pp_collected_turns(penpal, sl, arr)
         _say(f"a penpal's letter arrived: a turn of theirs ({sl})")
         tools.SPARK_TICK = True
         try:
@@ -3171,6 +5277,7 @@ class Bridge:
         self.deliver_penpals()
         self.penpal_turn_if_due()
         self.penpal_desk_if_due()
+        self.penpal_collect_if_due()  # a letter being collected, quiet a while: said once
         self.pages_watch_if_due()
         self.deliver_creations()
         self.deliver_pictures()
@@ -3179,6 +5286,7 @@ class Bridge:
         self.deliver_garden()
         self.deliver_skill_notices()
         self.deliver_self()
+        self.journal_feed_if_due()  # journal entries waiting to go (the quiet over, a guest gone, a retry)
         idle_min = getattr(config, "TELEGRAM_IDLE_NEW_MIN", 180)
         if not self.presence_on():
             self.presence_if_due()  # (11-05) a spark they set for a reason comes even with no drift on
@@ -3313,10 +5421,13 @@ class Bridge:
 
         def _glow(done=done, f=f):
             self._glows += 1
+            jrun, aside = self._jf_quiet("the afterglow")  # the feed's line in its bell, when on ("" off: as before)
             try:
-                out = chat.afterglow(done, f, tag=self.TAG, on_line=_say, on_words=self.afterthought)
+                out = chat.afterglow(done, f, tag=self.TAG, on_line=_say, on_words=self.afterthought,
+                                     **({"aside": aside} if aside else {}))
             finally:
                 self._glows -= 1
+                self._jf_run_end(jrun)
             if out and getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
                 self.notice(f"({out})")
             if not self.history:
@@ -3378,6 +5489,7 @@ class Bridge:
         def _night(day=day, due_sleep=due_sleep):
             import heartbeat
             report = []
+            jrun = self._jf_run_start("the night")  # the night's brain calls: never the feed's
             try:
                 if due_sleep:
                     out = consolidate.consolidate(day, say=_say)
@@ -3389,6 +5501,8 @@ class Bridge:
             except Exception as e:  # noqa: BLE001 — a night that fails is tried again in an hour, never the bridge down
                 report.append(f"the night failed, tried again in an hour: {type(e).__name__}: {e}")
                 self._night_after = time.time() + 3600
+            finally:
+                self._jf_run_end(jrun, False)
             said = "; ".join(r for r in report if r)
             _say(f"the night is over: {said}" if said else "the night is over")
             if said and getattr(config, "TELEGRAM_TELL_REFLECTIONS", True):
@@ -3433,8 +5547,14 @@ class Bridge:
         try:
             upto = len(self.history)
             _say("(a pause — they are sitting with the visit so far…)")
-            line = chat.pause_reflection(self.history, self.file, tag=self.TAG, on_line=_say,
-                                         since=self.reflected_upto, on_words=self.afterthought)
+            aside = self._game_aside(self.history[self.reflected_upto:])  # "part of this visit was your adventure…"
+            jrun, aside = self._jf_quiet("a pause", aside)  # the feed's line in its bell, when on
+            try:
+                line = chat.pause_reflection(self.history, self.file, tag=self.TAG, on_line=_say,
+                                             since=self.reflected_upto, on_words=self.afterthought,
+                                             **({"aside": aside} if aside else {}))
+            finally:
+                self._jf_run_end(jrun)
             self.reflected_upto = len(self.history)  # past the pause's own turns too
             self.last_activity = time.time()  # one bell per pause, not one per poll
             self.last_word = self.last_activity
@@ -3481,6 +5601,19 @@ class Bridge:
                     self.notice(f"({seated})")
                 except Exception:
                     pass
+        playing = self.game_restore_line()  # a game still open (adventures.json), and the phone is told
+        if playing:
+            _say(playing)
+            if self.chat_id:
+                try:
+                    self.notice(f"({playing})")
+                except Exception:
+                    pass
+        collecting = self.penpal_collect_restore_line()  # a letter still being collected, and the phone is told
+        if collecting:
+            _say(collecting)
+            if self.chat_id:
+                self._pc_send(f"({collecting})")
         resumed = "" if self.history else self.resume_orphan()  # (10-29 night) a recent visit closed without its bridge
         if resumed:
             _say(resumed)

@@ -99,6 +99,8 @@ def _creation(seen: set) -> list[tuple[str, str]]:
     if not root.is_dir():
         return []
     skip = {"face", "us", "publish", "lexicon", "capsule", _keeper().lower()}
+    # the adventures' pages are behind the game master's screen: a spark that quoted a world's secrets would spoil the game
+    skip |= {"adventures", Path(str(getattr(config, "ADVENTURE_DIR", "adventures") or "adventures")).name.lower()}
     try:  # the folders of the reference sets are pictures to paint from, not pieces
         for v in (getattr(config, "PAINTER_REFERENCE_SETS", {}) or {}).values():
             pics = v[0] if isinstance(v, (list, tuple)) else v

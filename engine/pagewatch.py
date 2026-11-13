@@ -26,7 +26,8 @@ def _size(p: Path) -> int:
 
 
 def _rows() -> list[dict]:
-    """(label, size, ceiling, kind): kind "whole" (meant to ride whole), "design" (a budget by design: the newest ride)."""
+    """(label, size, ceiling, kind): kind "whole" (meant to ride whole), "design" (a budget by design: the newest ride),
+    "stub" (a reading page whose stub rides in its place)."""
     rows = []
 
     def add(label, path, knob, default, kind="whole"):
@@ -83,14 +84,37 @@ def _rows() -> list[dict]:
             if (finished and age > done_days) or (not finished and open_days and age > open_days):
                 continue
             page = tools._reading_page(str(name))
-            if page.exists():
+            if page.exists() and getattr(config, "READING_PAGE_STUB", False):
+                # the stub rides, not the page: no ceiling to warn of; /pages says what rides instead
+                n = _size(page)
+                if n >= 0:
+                    rows.append({"label": f"reading page {page.stem[:40]}", "size": n, "cap": 0, "knob": "",
+                                 "kind": "stub", "book": str(name)})
+            elif page.exists():
                 add(f"reading page {page.stem[:40]}", page, "READING_PAGE_CHARS", 3000)
     except Exception:  # noqa: BLE001
         pass
     return rows
 
 
+def _stub_size(name: str) -> int:
+    """How long a book's stub in the prompt is, from assemble.reading_pages as it stands; -1 unknown."""
+    try:
+        import assemble
+        for part in assemble.reading_pages().split("\n\n"):
+            if part.split("\n", 1)[0].endswith(f" ({name})"):
+                return len(part)
+    except Exception:  # noqa: BLE001
+        pass
+    return -1
+
+
 def _state(r: dict) -> str:
+    if r.get("kind") == "stub":  # READING_PAGE_STUB; sized only when told (/pages), never in the warnings' rounds
+        st = _stub_size(r.get("book", ""))
+        return ((f"its stub rides ({st:,} characters: where they stand, their sittings by name)" if st >= 0
+                 else "its stub rides (where they stand, their sittings by name)")
+                + f" — the notes, {r['size']:,} characters, come to them with the reading and when the book comes up")
     if not r["cap"]:
         return "whole (no ceiling)"
     pct = 100 * r["size"] // max(r["cap"], 1)

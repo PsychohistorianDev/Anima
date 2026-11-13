@@ -37,6 +37,16 @@ import live_voice
 HOST, PORT = "127.0.0.1", 8765
 
 
+def _pp_turn(guest: str | None) -> None:
+    """Whose turn begins ("" — the keeper's; a guest's name) or that it ended (None), for a penpal's letter in
+    pictures (penpal.turn_mark): a guest's turn can't write one out. Never takes a turn down."""
+    try:
+        import penpal
+        penpal.turn_mark(guest)
+    except Exception as e:  # noqa: BLE001
+        print(f"  (penpal turn: {type(e).__name__}: {e})", flush=True)
+
+
 class Session:
     """One visit: a history, pending images, and the turn-runner."""
 
@@ -87,6 +97,7 @@ class Session:
                 if carried:
                     self.history, self.reflected_upto = carried, len(carried)  # the pauses start past them
                     print(f"({chat.carry_line(carried)})")
+            _pp_turn(self.guest_label())  # a guest's turn can't write out a penpal's letter in pictures
             try:
                 beginning = len(self.history)
                 started = time.monotonic()
@@ -114,6 +125,8 @@ class Session:
                 return {"error": f"brain offline — {e}"}
             except Exception as e:  # nothing in one turn ends the visit
                 return {"error": f"hiccup, the conversation is fine — {type(e).__name__}: {e}"}
+            finally:
+                _pp_turn(None)
         thinking = "\n\n".join(e["payload"] for e in events if e["kind"] == "thinking")
         tool_events = [e["payload"] for e in events if e["kind"] == "tool"]
         notes = [e["payload"] for e in events if e["kind"] == "note"]

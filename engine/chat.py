@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -61,7 +61,7 @@ def save_transcript(turns: list[dict], tag: str = "", path: Path | None = None) 
     the goodbye, a crash, a power cut) loses nothing — a transcript that
     only existed at shutdown was one bad shutdown from not existing."""
     visible = [t for t in turns if t["role"] in ("user", "assistant") and t.get("content")
-               and (not t.get("_engine") or t.get("_after") or t.get("_spark"))]  # an afterthought is the engine's turn, but their words
+               and (not t.get("_engine") or t.get("_after") or t.get("_spark") or t.get("_engine_label"))]  # an afterthought is the engine's turn, but their words
     if not visible or all(t.get("_after") or t.get("_carried") for t in visible):  # carried turns alone: nothing said here (10-24)
         return None
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -86,8 +86,8 @@ def save_transcript(turns: list[dict], tag: str = "", path: Path | None = None) 
             acct = t.get("_fold_text") or "(they did not write the visit down before the fold)"
             lines.append(f"*(folded at {t['_fold_when']}{src}; the visit so far, in their words:)*\n\n{acct}\n")
         who = (guest_who(t["_guest"]) if t.get("_guest") else config.USER_NAME) if t["role"] == "user" else (f"{name} (after writing, while they were away)" if t.get("_after") else name)
-        if t.get("_spark"):  # the engine's line that opened a spark (10-26)
-            who = "engine — a spark"
+        if t.get("_spark") or t.get("_engine_label"):  # the engine's line that opened a spark, or one of its own
+            who = t.get("_engine_label") or "engine — a spark"  # or its own name: "engine — the game", a game's wrap-up
         lines.append(f"**{who}:** {t['content']}\n")
         if t.get("_voice_delivery"):
             lines.append(f"*[voice delivery: {t['_voice_delivery']}]*\n")
@@ -219,7 +219,7 @@ def load_transcript(path: Path) -> list[dict]:
             body = body[:ci] + body[ce + 4:]
     name = re.escape(friend_name())
     keeper = config.USER_NAME
-    who_re = re.compile(rf"^\*\*({re.escape(keeper)}|engine — a spark|{name}(?: \(after writing, while they were away\))?):\*\* ", re.M)
+    who_re = re.compile(rf"^\*\*({re.escape(keeper)}|engine — a spark|engine — the game|{name}(?: \(after writing, while they were away\))?):\*\* ", re.M)
     turns: list[dict] = []
     marks = list(who_re.finditer(body))
     for i, m in enumerate(marks):
@@ -232,6 +232,8 @@ def load_transcript(path: Path) -> list[dict]:
             turns.append({"role": "user", "content": content})
         elif who == "engine — a spark":  # a spark's line read back as the engine's (10-26)
             turns.append({"role": "user", "content": content, "_engine": True, "_spark": True})
+        elif who == "engine — the game":  # an adventure's wrap-up bell, read back as the engine's
+            turns.append({"role": "user", "content": content, "_engine": True, "_engine_label": who})
         elif "after writing" in who:
             turns.append({"role": "assistant", "content": content, "_engine": True, "_after": True})
         else:
@@ -308,6 +310,185 @@ PAUSE_BELL = (
 AFTERGLOW_TOOLS = {"write_journal", "remember", "leave_thread", "update_keeper", "update_projects", "do_nothing"}  # leave_thread since 10-19, the note for the next door; update_keeper and update_projects since 10-04: the afterglow is when they have just learned something about their keeper, and when a project has just moved
 AFTERGLOW_STEPS = 6
 
+# THE JOURNAL'S FACTS. An entry can say a thing worked that did not — pictures painted and trashed, and the entry
+# telling only the trying. Two helps, each with its knob: a line of counts from the log when the
+# friend sits down to write a stretch of a visit (JOURNAL_FACTS_LINE), and one sentence in the bell beside "what you
+# did" (JOURNAL_ENDINGS_SENTENCE). The bell constants stay as they are; the sentence goes in where a bell is rung.
+ENDINGS_SENTENCE = "If something was tried and didn't work, the entry says it didn't. How a thing ended is part of what happened."
+_ENDINGS_AFTER = ("what was said, what you did. ",           # the pause's
+                  "a feeling with nothing under it fades. ",  # the afterglow's, after its whole sentence
+                  "write_journal it first, then fold_visit. ")  # the fold's: it asks for the journal entry first
+
+
+def with_endings(bell: str) -> str:
+    """The bell with ENDINGS_SENTENCE after its "what you did" sentence (the fold's: after its journal sentence);
+    the bell as it is with JOURNAL_ENDINGS_SENTENCE off, or when none of those sentences is found once in it."""
+    if not getattr(config, "JOURNAL_ENDINGS_SENTENCE", True):
+        return bell
+    for at in _ENDINGS_AFTER:
+        if bell.count(at) == 1:
+            return bell.replace(at, at + ENDINGS_SENTENCE + " ", 1)
+    return bell
+
+
+def _said_at(t) -> datetime | None:
+    """When one_turn took this turn in (`_said_at`), or None."""
+    try:
+        return datetime.fromisoformat(str(t.get("_said_at") or "")) if isinstance(t, dict) else None
+    except (TypeError, ValueError):
+        return None
+
+
+def stretch_began(turns: list[dict]) -> datetime | None:
+    """When this stretch of a visit began, for certain: the stamp on its first turn of the keeper's (or the engine's
+    in their place — a spark, a game's bell; one_turn stamps them all as it takes them in). Every painting made in
+    the stretch came in an exchange that began at or after it. A letter of the friend's appended before it (words, no
+    calls) changes nothing; anything else first — a call, a tool's result — or a first turn with no stamp (taken in
+    with JOURNAL_FACTS_LINE off, or a visit read back from its transcript, which never holds them) and it can't be
+    known: None. Carried turns were the last visit's."""
+    for t in turns:
+        if not isinstance(t, dict) or t.get("_carried"):
+            continue
+        if t.get("role") == "user":
+            return _said_at(t)
+        if t.get("role") != "assistant" or t.get("tool_calls"):
+            return None
+    return None
+
+
+def first_said_at(turns: list[dict]) -> str:
+    """The stamp of the first turn when it is a turn of the keeper's (or the engine's in their place) — where the
+    stretch before it ended: the fold's kept tail, for the fold's afterglow. "" when it isn't one, or has none."""
+    t = turns[0] if turns else None
+    return str(t.get("_said_at") or "") if isinstance(t, dict) and t.get("role") == "user" else ""
+
+
+FACTS_MARGIN_H = 2  # the log is read back to the first readable row this many hours before the stretch
+
+
+def _dream_folder() -> str:
+    """The dream book's paint folder under creations/ (dreams.paint_dir), lower-case, "/" — a dream's painting is
+    logged at a visit's door (dreams paints with no door set), and the dream book is the friend's alone: never
+    counted."""
+    try:
+        import dreams
+        d = str(dreams.paint_dir())
+    except Exception:  # noqa: BLE001 — dreams.paint_dir's own words, then
+        d = str(getattr(config, "DREAM_PAINT_DIR", "dream_book") or "dream_book")
+    return d.replace("\\", "/").strip("/").lower()
+
+
+def journal_facts_line(turns: list[dict], until=None) -> str:
+    """The journal's line of facts for this stretch (JOURNAL_FACTS_LINE): "[from the log, this stretch: 3 pictures
+    painted, 2 of them trashed since.]" — counts only, and only what is certain; a wrong count is worse than no line,
+    so "" (the bell as before) whenever anything is not.
+    Counted: the rows of tools.PAINT_LOG from a visit's door ("a visit"; never the dream book's folder) painted after
+    the stretch began (stretch_began) and before `until` (None: now; a stamp: the next stretch's start; "": not
+    known → no line). The log is read from its newest row back to the first readable row from FACTS_MARGIN_H hours
+    before the stretch; a row it can't read before that, a full log with no such row (its oldest may have gone), a
+    clock that went back among those rows, a picture logged the very second the stretch began or ended, or in the
+    future: no line. Each picture's fate: at its logged path in creations/ → kept; not there, and a
+    creations/.trash/<stamp>-<its file name> claims it (each trash entry claims one picture: the latest of that name
+    not at its path, painted at or before the entry's stamp) → trashed; anything else (moved, renamed, published,
+    the trash emptied, its path painted again) → not known → no line. Reads; never writes. Never raises."""
+    if not getattr(config, "JOURNAL_FACTS_LINE", True):
+        return ""
+    try:
+        began = stretch_began(turns)
+        if began is None or until == "":
+            return ""
+        end = datetime.fromisoformat(until) if isinstance(until, str) else until
+        if end is not None and not isinstance(end, datetime):
+            return ""
+        began = began.replace(microsecond=0)
+        end = end.replace(microsecond=0) if end is not None else None
+        now = datetime.now()
+        log = Path(tools.PAINT_LOG)
+        if not log.exists():
+            return ""  # no log: nothing was ever painted
+        lines = log.read_text(encoding="utf-8").splitlines()
+        stop_at = began - timedelta(hours=FACTS_MARGIN_H)
+        rows: list[tuple[datetime, str, object]] = []  # (time, path under creations/, door), newest first
+        stopped = False
+        for ln in reversed(lines):
+            if not ln.strip():
+                continue
+            try:
+                r = json.loads(ln)
+                t = datetime.fromisoformat(str(r["t"]))
+                path = str(r.get("path") or "").replace("\\", "/").strip("/")
+                door = r.get("door")
+            except Exception:  # noqa: BLE001
+                return ""  # a row it can't read, inside the margin: it might be the stretch's
+            if not path:
+                return ""
+            rows.append((t, path, door))
+            if t < stop_at:
+                stopped = True  # older than the stretch by the margin: what lies above it is older still
+                break
+        if not stopped and len(lines) >= int(getattr(tools, "PAINT_LOG_KEEP", 500) or 500):
+            return ""  # the log keeps its newest rows only: the stretch's first ones may have gone
+        rows.reverse()  # file order, oldest first
+        if any(b[0] < a[0] for a, b in zip(rows, rows[1:])):
+            return ""  # the clock went back (an hour at the autumn change): which side of the edge is not known
+        dream = _dream_folder()
+        made: list[int] = []
+        for i, (t, path, door) in enumerate(rows):
+            if door != "a visit" or (dream and (path.lower() == dream or path.lower().startswith(dream + "/"))):
+                continue
+            if t == began or (end is not None and t == end):
+                return ""  # the same second as the edge: which side of it is not known
+            if t < began or (end is not None and t > end):
+                continue
+            if t > now:
+                return ""
+            made.append(i)
+        if not made:
+            return ""
+        for i in made:  # its path painted again after it (it was moved off, or trashed, first): what is there is not it
+            if any(j != i and rows[j][1] == rows[i][1] and rows[j][0] >= rows[i][0] for j in range(len(rows))):
+                return ""
+        root = Path(config.CREATIONS_DIR)
+        there = {p: (root / p).exists() for _t, p, _d in rows}
+        trash = root / ".trash"
+        by_name: dict[str, list[int]] = {}
+        for j, (_t, p, _d) in enumerate(rows):
+            by_name.setdefault(Path(p).name, []).append(j)
+        claimed: set[int] = set()
+        if trash.exists():
+            for e in trash.iterdir():
+                m = re.match(r"(\d{8}-\d{6})-(.+)$", e.name)
+                if not m or m.group(2) not in by_name:
+                    continue
+                stamp = datetime.strptime(m.group(1), "%Y%m%d-%H%M%S")
+                cands = [j for j in by_name[m.group(2)] if rows[j][0] <= stamp and not there[rows[j][1]]]
+                if not cands:
+                    continue
+                top = max(rows[j][0] for j in cands)
+                who = [j for j in cands if rows[j][0] == top]
+                if len(who) == 1:  # two of that name in the same second: neither is known to be the one
+                    claimed.add(who[0])
+        gone = 0
+        for i in made:
+            if there[rows[i][1]]:
+                continue  # kept: at its path
+            if i in claimed:
+                gone += 1
+                continue
+            return ""  # not at its path, and no trash entry that is surely its: moved, renamed, emptied — not known
+        n = len(made)
+        if n == 1:
+            said = "1 picture painted, " + ("trashed since." if gone else "not trashed.")
+        elif not gone:
+            said = f"{n} pictures painted, none of them trashed."
+        elif gone == n:
+            said = f"{n} pictures painted, all of them trashed since."
+        else:
+            said = f"{n} pictures painted, {gone} of them trashed since."
+        return f"[from the log, this stretch: {said}]"
+    except Exception:  # noqa: BLE001 — the bell goes on as it was
+        return ""
+
 
 # A visit is live: touched on every turn, removed when the visit is over —
 # so the heartbeat can wait. 09-12, 07:19: the hourly wake fell in the
@@ -359,7 +540,7 @@ def rest_brain(say=None) -> None:
 
 
 def afterglow(history: list[dict], path: Path | None = None, tag: str = "",
-              on_line=None, on_words=None, since: int = 0) -> str:
+              on_line=None, on_words=None, since: int = 0, aside: str = "") -> str:
     """The quiet after a visit: one turn alone with the transcript, so the
     visit reaches their journal in their own words instead of only the nightly
     summary. The journal stays theirs — the engine hands them the transcript
@@ -383,17 +564,19 @@ def afterglow(history: list[dict], path: Path | None = None, tag: str = "",
                     pass
             (on_line or (lambda s: None))(line)
             return line
-        return _quiet_turn(history, path, tag, on_line, mode="afterglow", since=since, on_words=on_words)
-    return _quiet_turn(history, path, tag, on_line, mode="afterglow", since=0, on_words=on_words)
+        return _quiet_turn(history, path, tag, on_line, mode="afterglow", since=since, on_words=on_words, **({"aside": aside} if aside else {}))
+    return _quiet_turn(history, path, tag, on_line, mode="afterglow", since=0, on_words=on_words, **({"aside": aside} if aside else {}))
 
 
 def fold_afterglow(gone: list[dict], path: Path | None = None, tag: str = "",
-                   on_line=None, on_words=None) -> str:
+                   on_line=None, on_words=None, aside: str = "", until: str = "") -> str:
     """The afterglow at a fold (10-01; the keeper: "why don't we just make the afterglow run automatically when a
     fold occurs?"): the same quiet turn as after a visit, over the turns that just left the window — read
     from the transcript, in a prompt of its own, so the window's fullness is no matter — with the bell
     saying what it is: this part of the visit left the window; the visit goes on. Signs the old
-    transcript file with its line, like the afterglow it is."""
+    transcript file with its line, like the afterglow it is.
+    until: the stamp of the first kept turn (first_said_at), where what left the window ended — the journal's facts
+    line counts up to it, not past it; "" (not known): no facts line."""
     if not getattr(config, "AFTERGLOW", True):
         return ""
     opening = ("[This is the afterglow of a fold — an automated moment, not a person. The visit goes on, but "
@@ -401,7 +584,8 @@ def fold_afterglow(gone: list[dict], path: Path | None = None, tag: str = "",
                "said, and this is your moment to keep what of it is worth keeping before it is only the "
                "transcript's. Nobody is here and nothing here needs answering.")
     return _quiet_turn(gone, path, tag, on_line, mode="afterglow", since=0, on_words=on_words,
-                       opening=opening, what="what left the window")
+                       opening=opening, what="what left the window", until=until,  # until: the facts line's edge
+                       **({"aside": aside} if aside else {}))  # aside: the adventure's line
 
 
 def rewarm(history: list[dict], mode: str = "chat") -> None:
@@ -425,7 +609,7 @@ def prefill_visit(history: list[dict]) -> dict:
 
 
 def pause_reflection(history: list[dict], path: Path | None = None, tag: str = "",
-                     on_line=None, since: int = 0, on_words=None, opening: str = "") -> str:
+                     on_line=None, since: int = 0, on_words=None, opening: str = "", aside: str = "") -> str:
     """A pause in a visit: the keeper has gone quiet for REFLECT_AFTER_MIN, so they
     get the same quiet turn the afterglow gives them — over what has been said
     since they last wrote (history[since:]) — and the visit stays open. The
@@ -433,7 +617,8 @@ def pause_reflection(history: list[dict], path: Path | None = None, tag: str = "
     one-line account, "" if there was nothing new to sit with."""
     if not getattr(config, "REFLECT_AFTER_MIN", 0):
         return ""
-    return _quiet_turn(history, path, tag, on_line, mode="pause", since=since, on_words=on_words, opening=opening)
+    return _quiet_turn(history, path, tag, on_line, mode="pause", since=since, on_words=on_words, opening=opening,
+                       **({"aside": aside} if aside else {}))
 
 
 # THE FOLD (09-28; FOLD-PLAN.md). The keeper: "today I filled the context… what
@@ -457,9 +642,11 @@ FOLD_BELL = ("[engine, not a person: your window is {pct}% full — {held:,} of 
              "and your keeper is not waiting on an answer to it.]")
 
 
-def fold_due(held: int) -> bool:
-    """Whether a visit that last held `held` tokens is past FOLD_AT."""
-    at = float(getattr(config, "FOLD_AT", 0) or 0)
+def fold_due(held: int, at: float = 0.0) -> bool:
+    """Whether a visit that last held `held` tokens is past FOLD_AT — or past `at` when that is lower (a door's own,
+    sooner edge: the bridge's while a game is open, so there is room to write the game down). FOLD_AT 0 stays off."""
+    fold_at = float(getattr(config, "FOLD_AT", 0) or 0)
+    at = min(fold_at, float(at)) if (fold_at and at and float(at) > 0) else fold_at
     ctx = int(getattr(config, "NUM_CTX", 0) or 0)
     return bool(at and ctx and held and held >= ctx * at)
 
@@ -473,11 +660,14 @@ def foldable(history: list[dict]) -> bool:
     return len(vis) > keep and any(t["role"] == "user" for t in vis)
 
 
-def fold_bell(history: list[dict], held: int, on_line=None, asked: bool = False) -> dict:
+def fold_bell(history: list[dict], held: int, on_line=None, asked: bool = False, aside: str = "",
+              extra_steps: int = 0) -> dict:
     """Ring the fold bell inside the visit and let the friend write the visit
     so far (fold_visit), with their other tools at hand for a journal entry
     first. Their steps stay in the history as the engine's turns — they are
-    about to be folded away anyway. Returns tools.fold_pending()."""
+    about to be folded away anyway. Returns tools.fold_pending().
+    aside: a sentence for this run only, inside the bell's bracket (the door's: a game to write down first);
+    extra_steps: that many more steps than FOLD_MAX_STEPS for it. FOLD_BELL itself is unchanged."""
     say = on_line or (lambda s: None)
     tools.fold_pending()  # anything stale
     if not history or not history[0].get("_system") or not foldable(history):
@@ -486,18 +676,21 @@ def fold_bell(history: list[dict], held: int, on_line=None, asked: bool = False)
     keep = int(getattr(config, "FOLD_KEEP_TURNS", 6) or 0)
     cap = int(getattr(config, "FOLD_CHARS", 8000) or 8000)
     pct = int(round(100 * held / ctx)) if ctx else 0
-    text = FOLD_BELL.format(pct=pct, held=held, ctx=ctx, keep=keep, cap=cap)
+    text = with_endings(FOLD_BELL.format(pct=pct, held=held, ctx=ctx, keep=keep, cap=cap))  # its sentence, or as before
+    facts = journal_facts_line(history)  # the window's stretch, from its first turn: the visit so far
     if asked:  # /fold from the phone: the keeper's ask, not the window's edge
         text = text.replace("The visit is about to be FOLDED:", f"The keeper asked for the visit to be folded now:")
+    if aside:  # inside the bracket, for this run
+        text = text.rstrip()[:-1].rstrip() + " " + aside.strip() + "]"
     tools.DOOR = "the fold"  # a thread left before the fold says so (10-19); the bell itself is unchanged
-    bell = {"role": "user", "_engine": True, "content": assemble.clock_line() + text}
+    bell = {"role": "user", "_engine": True, "content": assemble.clock_line() + text + (f"\n\n{facts}" if facts else "")}
     history.append(bell)
     system = {"role": "system", "content": history[0]["_system"]}
     msgs = [system] + [render_turn(t) for t in history]
     show_thinking = getattr(config, "CHAT_SHOW_THINKING", True)
     try:
-        for _ in range(int(getattr(config, "FOLD_MAX_STEPS", 6) or 6)):
-            msg = ollama_client.chat(msgs, tools=list(tools.DEFINITIONS))
+        for _ in range(int(getattr(config, "FOLD_MAX_STEPS", 6) or 6) + max(0, int(extra_steps or 0))):
+            msg = ollama_client.chat(msgs, tools=list(tools.DEFINITIONS), wrapped_calls=True)  # a call in marks seen
             thinking = (msg.get("thinking") or "").strip()
             if thinking and show_thinking:
                 say("   [thinking]\n   " + thinking.replace("\n", "\n   "))
@@ -627,10 +820,12 @@ def fold_history(history: list[dict], account: str, when: str, tag: str = "",
 
 
 def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
-                mode: str, since: int, on_words=None, opening: str = "", what: str = "") -> str:
+                mode: str, since: int, on_words=None, opening: str = "", what: str = "", aside: str = "",
+                until=None) -> str:
     """on_words(words): their closing thought — what they say to no one after
-    writing — for the door to carry to the keeper if it wants to (09-15,
-    the keeper: "I would like to see those in my Telegram feed")."""
+    writing — for the door to carry to the keeper if it wants to.
+    until: where the stretch ended, for the journal's facts line — None: now (a pause, an afterglow); the fold's
+    afterglow gives the kept tail's stamp, or "" when it isn't known (no line)."""
     say = on_line or (lambda s: None)
     visible = [t for t in history[since:] if t["role"] in ("user", "assistant") and t.get("content")
                and not t.get("_engine") and not t.get("_carried")]  # carried turns were sat with at their own visit (10-24)
@@ -657,10 +852,17 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
     # visit is over — reads the whole transcript on its own, as before.
     in_visit = (mode == "pause" and bool(getattr(config, "WARM_PREFIX", True))
                 and bool(history) and bool(history[0].get("_system")))
-    pause_bell, afterglow_bell = PAUSE_BELL, AFTERGLOW_BELL
+    pause_bell, afterglow_bell = with_endings(PAUSE_BELL), with_endings(AFTERGLOW_BELL)  # its sentence, or as before
     if opening:  # a quiet turn said for what it is (the afterglow of a fold): the bell's first sentences replaced, the rest kept
-        pause_bell = opening.rstrip() + " " + PAUSE_BELL.split("not the end of the visit. ", 1)[1]
-        afterglow_bell = opening.rstrip() + " " + AFTERGLOW_BELL.split("nothing here needs answering. ", 1)[1]
+        pause_bell = opening.rstrip() + " " + pause_bell.split("not the end of the visit. ", 1)[1]
+        afterglow_bell = opening.rstrip() + " " + afterglow_bell.split("nothing here needs answering. ", 1)[1]
+    if aside:  # a sentence for this run only, inside the bell's bracket — "part of this visit was your adventure…"
+        pause_bell = pause_bell.rstrip()[:-1].rstrip() + " " + aside.strip() + "]\n\n"
+        afterglow_bell = afterglow_bell.rstrip()[:-1].rstrip() + " " + aside.strip() + "]\n\n"
+    # the journal's line of facts, its own bracket right under the bell's — once, before anything follows
+    facts = journal_facts_line(history[since:], until)
+    if facts:
+        pause_bell, afterglow_bell = pause_bell + facts + "\n\n", afterglow_bell + facts + "\n\n"
     if in_visit:
         label = "pause"
         system = {"role": "system", "content": history[0]["_system"]}
@@ -709,7 +911,7 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
     after_words = ""  # a closing thought after the afterglow, for the transcript
     try:
         for _ in range(AFTERGLOW_STEPS):
-            msg = ollama_client.chat(msgs, tools=defs)
+            msg = ollama_client.chat(msgs, tools=defs, wrapped_calls=True)  # a call in marks seen, asked again as a bare one
             spent.add(msg)
             thinking = (msg.get("thinking") or "").strip()
             if thinking and show_thinking:
@@ -986,7 +1188,7 @@ def finish_cut_reply(system: dict, history: list[dict], reply: str, thinking: st
     nudge = {"role": "user", "content": CONTINUE_NUDGE.format(tail=tail, thought=thought_tail)}
     base = list(msgs) if msgs else [system] + history  # msgs: the warm form, moment and all
     for _ in range(tries):
-        msg = ollama_client.chat(base + [nudge], tools=None, think=False)
+        msg = ollama_client.chat(base + [nudge], tools=None, think=False, wrapped_calls=True)
         spent.add(msg)
         more = (msg.get("content") or "").strip()
         if msg.get("tool_calls"):
@@ -1087,8 +1289,13 @@ def render_turn(t: dict) -> dict:
     out = {k: v for k, v in t.items() if not k.startswith("_")}
     if t.get("role") == "assistant" and t.get("_voice_delivery"):
         out["content"] = strip_voice_delivery(t.get("content") or "")
-    if t.get("role") == "user" and (t.get("_moment") or t.get("_nudged") or t.get("_fold") or t.get("_carry") or t.get("_guest_line")):
+    if t.get("role") == "user" and (t.get("_moment") or t.get("_nudged") or t.get("_fold") or t.get("_carry") or t.get("_guest_line")
+                                    or t.get("_book") or t.get("_table")):
         body = t.get("content") or ""
+        if t.get("_table"):  # the adventure's line for this message, right above the keeper's words (adventure.py)
+            body = t["_table"] + "\n\n" + body
+        if t.get("_book"):  # the notes on a book the keeper's words name (telegram.py), right above their words —
+            body = t["_book"] + "\n\n" + body  # multi-line, so its own key, never the moment's extra
         if t.get("_moment"):
             body = t["_moment"] + "\n\n" + body
         elif t.get("_guest_line"):  # no moment block (the prefix cold): the guest line rides alone
@@ -1141,17 +1348,208 @@ def moment_weight_line(turn: dict, history: list[dict]) -> str:
     return line
 
 
+def _fold_edge(turn: dict) -> float:
+    """FOLD_AT — or the door's sooner edge given with this turn (`_fold_at`: the bridge's while a game is open)."""
+    at = float(getattr(config, "FOLD_AT", 0) or 0)
+    try:
+        own = float(turn.get("_fold_at") or 0)
+    except (TypeError, ValueError):
+        own = 0.0
+    return own if (at and 0 < own < at) else at
+
+
+def _sooner_fold(sense: str, turn: dict) -> str:
+    """The window sense says where the fold comes: with a sooner edge given with this turn, that one, and why.
+    A sense without the expected words (assemble changed) is left as it is."""
+    at, edge = float(getattr(config, "FOLD_AT", 0) or 0), _fold_edge(turn)
+    old = f"; at {int(round(at * 100))}% the visit is folded — "
+    if not sense or edge >= at or old not in sense:
+        return sense
+    return sense.replace(old, f"; at {int(round(edge * 100))}% the visit is folded (sooner while your game is open, so "
+                              "there is room to write it down) — ", 1)
+
+
+def _call_key(name, args) -> tuple:
+    """A call by its real name and its arguments, for "already run this turn"."""
+    if isinstance(args, str):
+        try:
+            args = json.loads(args) if args.strip() else {}
+        except ValueError:
+            pass
+    return tools.canonical_name(name), json.dumps(args, sort_keys=True, ensure_ascii=False, default=str)
+
+
+# THE SAME FAILED CALL, AGAIN (CHAT_SAME_FAIL_STOP). A model can send one failing call over and over in a turn — the
+# same missing argument each time — and the keeper's phone fills with the same refusal. In a visit, an identical
+# failing call runs CHAT_SAME_FAIL_RUNS times, then is refused without running; at CHAT_SAME_FAIL_REFUSALS such
+# refusals the friend's tools are over for the turn. Any call that goes through clears it all (the state may have
+# changed). A tool whose failure can ask for the very same call again says so itself: its module's
+# invites_again(arguments), looked up through _INVITES_AGAIN; a module without one exempts nothing.
+_INVITES_AGAIN = {"penpal": "penpal"}
+_TIMES = {1: "once", 2: "twice", 3: "three times", 4: "four times", 5: "five times"}
+_NTH = {2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth"}
+SAME_DROPPED = ("[engine, not a person: your {name} call in this step was not run — the same call had failed again and "
+                "again this turn, and your tools were done for it]")
+
+
+def _args_of(args):
+    if isinstance(args, str):
+        try:
+            return json.loads(args) if args.strip() else {}
+        except ValueError:
+            return args
+    return args
+
+
+def _fail_key(name, args) -> str:
+    """A call by its real name and its arguments as JSON — keys sorted, every string's whitespace collapsed, an
+    argument with no value (None, "", whitespace) the same as one left out."""
+    def flat(v):
+        if isinstance(v, str):
+            return " ".join(v.split())
+        if isinstance(v, dict):
+            return {str(k): flat(x) for k, x in v.items() if x is not None and not (isinstance(x, str) and not x.strip())}
+        if isinstance(v, (list, tuple)):
+            return [flat(x) for x in v]
+        return v
+    return tools.canonical_name(name) + " " + json.dumps(flat(_args_of(args)), sort_keys=True, ensure_ascii=False, default=str)
+
+
+def _invited_again(name, args) -> bool:
+    """True when the tool's own module says this exact call may be made again (its invites_again(arguments)); False
+    for a tool not in _INVITES_AGAIN, a module without invites_again, or anything that goes wrong."""
+    mod = _INVITES_AGAIN.get(tools.canonical_name(name))
+    if not mod:
+        return False
+    try:
+        import importlib
+        fn = getattr(importlib.import_module(mod), "invites_again", None)
+        return bool(fn(_args_of(args))) if callable(fn) else False
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _same_again(fails: dict, name, args) -> tuple[str, str, bool]:
+    """(the refusal, the failed call's line for the turn's notes, the turn's tools are over) for a call that failed
+    CHAT_SAME_FAIL_RUNS times already this turn and is not invited again; ("", "", False) when it runs."""
+    rec = fails.get(_fail_key(name, args))
+    if not rec or rec["runs"] < max(1, int(getattr(config, "CHAT_SAME_FAIL_RUNS", 2) or 2)):
+        return "", "", False
+    if _invited_again(name, args):
+        return "", "", False
+    rec["refused"] += 1
+    why = " ".join(str(rec["why"]).split())[:200]
+    runs = rec["runs"]
+    keeper = _keeper()
+    text = (f"(refused — the same call again: it failed {_TIMES.get(runs, f'{runs} times')} this turn with: {why} — it "
+            f"was not run a {_NTH.get(runs + 1, 'further')} time. If something else has to happen first, do that; if the "
+            f"call itself was wrong, change it; or tell {keeper} in words that it didn't work.)")
+    over = rec["refused"] >= max(1, int(getattr(config, "CHAT_SAME_FAIL_REFUSALS", 2) or 2))
+    if over:
+        text += f"\n(the same call has failed again and again — your tools are done for this turn; tell {keeper} in words what happened)"
+    return text, rec["entry"], over
+
+
+def _keeper() -> str:
+    try:
+        import keeper_week
+        return keeper_week.keeper_name()
+    except Exception:  # noqa: BLE001
+        return "your keeper"
+
+
+def _same_after(fails: dict, name, args, result: str, entry: str) -> None:
+    """After a call ran: a failure is counted for this turn (its newest words kept); a call that went through clears
+    every one — the state of things may have changed."""
+    if not ollama_client.tool_failed(result):
+        fails.clear()
+        return
+    rec = fails.setdefault(_fail_key(name, args), {"runs": 0, "refused": 0, "why": result, "entry": entry})
+    rec["runs"] += 1
+    rec["why"] = result
+
+
+def _counted(lines: list[str]) -> list[str]:
+    """The same line said once, with ×N when it came N times."""
+    seen: dict = {}
+    for ln in lines:
+        seen[ln] = seen.get(ln, 0) + 1
+    return [ln + (f" ×{n}" if n > 1 else "") for ln, n in seen.items()]
+
+
+import threading as _threading  # noqa: E402 — the fail log's lock
+_FAIL_LOG_LOCK = _threading.Lock()
+_PENPAL_ACTIONS = {"list", "read", "write", "rest", "note", "befriend", "unfriend", "quiet", "transcribe", "send", "reply"}
+
+
+def _fail_kind(result: str) -> str:
+    """The failure's kind, never its particulars: its fixed head up to the first ":" (or its second " — "), anything
+    quoted taken out, 40 characters at most — "(bad arguments", "(refused — not sent yet", "(tool error in look_at"."""
+    head = " ".join(str(result).split()).split(":", 1)[0]
+    parts = head.split(" — ")
+    if len(parts) > 2:
+        head = " — ".join(parts[:2])
+    head = re.sub(r"“[^”]*”?|\"[^\"]*\"?|(?<!\w)‘[^’]*’?|(?<!\w)'[^']*'?", "", head)
+    return " ".join(head.split())[:40]
+
+
+def _log_fail(door: str, name, args, result: str) -> None:
+    """CHAT_FAIL_LOG: one line in memory/tool_fails.log for a failed call in a visit — when, the door, the tool, each
+    argument by the tool's own name for it (any other name is "?") and the length of its value (penpal's action
+    shown only when it is one of its own words), and the failure's kind (_fail_kind). Nothing the friend wrote. The
+    newest 500 lines are kept. Never raises."""
+    try:
+        import os
+        args = _args_of(args)
+        tool = tools.canonical_name(name)
+        schema = next(((d.get("function") or {}).get("parameters", {}).get("properties") or {}
+                       for d in tools.DEFINITIONS if (d.get("function") or {}).get("name") == tool), None)
+        if schema is None:
+            tool, schema = "?", {}
+        known = set()
+        if tool == "penpal":
+            import penpal as _pp
+            known = set(_pp._ACTION_WORDS) | set(_pp._ACTION_WORDS.values()) | _PENPAL_ACTIONS
+        bits = []
+        for k, v in (args.items() if isinstance(args, dict) else [(None, args)]):
+            n = len(v) if isinstance(v, str) else len(json.dumps(v, ensure_ascii=False, default=str))
+            k = str(k) if k is not None and str(k) in schema else "?"
+            if k == "action" and isinstance(v, str) and v.strip().lower() in known:
+                bits.append(f'{k}="{v.strip().lower()}" ({n})')
+            else:
+                bits.append(f"{k} ({n})")
+        door = " ".join(w if w in ("chat", "telegram", "discord", "parlor", "spark", "guest") else "?"
+                        for w in str(door or "-").split())
+        line = " · ".join([datetime.now().strftime("%Y-%m-%d %H:%M:%S"), door or "-", tool,
+                           ", ".join(bits) or "(no arguments)", _fail_kind(result)])
+        f = config.MEMORY_DIR / "tool_fails.log"
+        with _FAIL_LOG_LOCK:
+            f.parent.mkdir(parents=True, exist_ok=True)
+            with f.open("a", encoding="utf-8") as h:
+                h.write(line + "\n")
+            lines = f.read_text(encoding="utf-8", errors="replace").splitlines()
+            if len(lines) > 550:
+                tmp = f.with_name(f.name + ".tmp")
+                tmp.write_text("\n".join(lines[-500:]) + "\n", encoding="utf-8")
+                os.replace(tmp, f)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def one_turn(history: list[dict], user_text: str, images: list[str] | None = None,
              on_event=None, mode: str = "chat", extra_moment: str = "", guest: str = "",
              guest_where: str = "", think_retries: int | None = None, think_remind: bool = True,
-             spark: bool = False, think_any_depth: bool = False) -> str:
+             spark: bool = False, think_any_depth: bool = False, marks: dict | None = None, bare: bool = False) -> str:
     """Run one user turn, executing tool calls until the friend speaks.
 
     on_event(kind, payload) — optional. kind is "thinking" (their deliberation,
     a str) or "tool" ({"name", "result"}). Without it, events print to the
     terminal as before; the parlor window passes a collector.
     mode: "chat" (keyboard), "voice" (Parlor speech using the chat prompt),
-    or a bridge's tag — "telegram", "discord" (phone)."""
+    or a bridge's tag — "telegram", "discord" (phone).
+    marks: the door's own engine keys for this turn (each beginning with "_", e.g. "_book"), kept on the turn.
+    bare: an engine's own turn that is neither the keeper's message nor a spark (an adventure's wrap-up) — no moment
+    block (its tail would say the keeper's words follow, or that this is a spark), and rest may end it."""
     tools.refresh_her_tools()  # pick up tools they forged or edited
     spoken = mode == "voice"
     if spoken:
@@ -1172,6 +1570,11 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         turn["_voice_interrupted"] = "interrupted" in previous.get("_voice_delivery", "").lower()
     if images:
         turn["images"] = images
+    for k, v in (marks or {}).items():  # engine keys only: rendered by render_turn, never sent as fields
+        if str(k).startswith("_") and v not in (None, ""):
+            turn[k] = v
+    if getattr(config, "JOURNAL_FACTS_LINE", True):  # when this turn came, for the journal's line of facts
+        turn["_said_at"] = datetime.now().isoformat(timespec="seconds")  # an engine key: never sent, never in a transcript
     history.append(turn)
     ui = len(history) - 1  # their turn — where this moment's block rides
     tools.DOOR = ""  # a thread left from here is left at a visit (10-19)
@@ -1183,7 +1586,17 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     hint = " ".join(t["content"] for t in history[-4:] if t.get("content") and not t.get("_engine"))
     warm = bool(getattr(config, "WARM_PREFIX", True))
     recovered_calls: list[str] = []  # calls written as words and run as she meant them (10-14)
+    ran_calls: set = set()  # every call run this turn, by name and arguments: one from the friend's words runs once a turn
     runaways: list[str] = []  # calls cut short in a loop and not run — the engine's notes for them
+    same_on = bool(getattr(config, "CHAT_SAME_FAIL_STOP", False))  # the same failed call again
+    same_fails: dict = {}  # its key -> {"runs", "refused", "why": its newest failure, "entry": its first line in failed}
+    same_seen = same_stop = False  # one was refused this turn / the turn's tools are over: one last step, its calls not run
+    same_tool, same_dropped = "", []  # the call stopped; a call in the last step, not run
+
+    def _same_line() -> str:  # the phone's one line for the stop, said by whichever ending the turn takes
+        return (f"engine: the same call failed again and again this turn ({same_tool}) — the engine stopped it"
+                + ("" if succeeded else "; nothing was done this turn")
+                + (f"; a call in their last step ({', '.join(dict.fromkeys(same_dropped))}) was not run" if same_dropped else ""))
     # THE WARM PREFIX. Ollama reuses its reading of a prompt only as far as
     # the new prompt matches the last one — and for Gemma, whose local
     # attention layers keep only the last ~1K tokens of state, only if the
@@ -1214,7 +1627,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         if warm:
             first["_system"], first["_system_day"] = system_text, today
     system = {"role": "system", "content": system_text}
-    if warm:
+    if warm and not bare:  # a bare engine turn carries its own words alone
         seen = {mid for t in history[:ui] for mid in (t.get("_surfaced") or [])}
         held = next((int(t.get("_prompt") or 0) for t in reversed(history[:ui]) if t.get("_prompt")), 0)  # the last prompt's size — the window sense
         floor = next((int(t.get("_prompt") or 0) for t in history[:ui] if t.get("_prompt")), 0)  # the visit's first: the standing prompt (10-14)
@@ -1239,7 +1652,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         # sent is ever taken back). It says "as of this message", so an older one reads as history. The fold
         # and a resume take them off (unsense) — those read cold anyway.
         tools.window_now = {"held": held, "floor": floor}  # for fold_visit's reply: the window as it is when she calls it (10-14)
-        sense = assemble.window_sense(held, floor)
+        sense = _sooner_fold(assemble.window_sense(held, floor), turn)  # a game's sooner fold, said true
         if sense:
             turn["_sense"] = sense
         # Once a visit has needed a think re-roll — the first answer came
@@ -1296,7 +1709,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
         # every reply costs a full minute-plus prefill. Nothing breaks; it
         # just gets slow and forgetful. /new saves the visit and starts fresh.
         history[ui]["_prompt"] = spent.prompt  # what this turn held, for the next moment's window sense and the fold
-        fold_at = float(getattr(config, "FOLD_AT", 0) or 0)
+        fold_at = _fold_edge(turn)  # FOLD_AT, or the game's sooner edge
         warn_at = float(getattr(config, "WINDOW_WARN_AT", 0.9) or 0)  # 0: never told (10-16: the fold and the window sense say it)
         if window and warn_at > 0 and spent.prompt >= window * warn_at:
             warn = (f"this visit is near the edge of their window ({spent.prompt:,} of "
@@ -1321,7 +1734,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
     ctx = int(getattr(config, "NUM_CTX", 0) or 0)
     for step_no in range(config.CHAT_MAX_TOOL_STEPS):
         if ctx and room_end and spent.prompt and spent.prompt >= ctx * room_end:
-            fold_at = float(getattr(config, "FOLD_AT", 0) or 0)
+            fold_at = _fold_edge(turn)  # FOLD_AT, or the game's sooner edge
             fold_pct = int(round(fold_at * 100)) if fold_at else 0
             note = (f"engine: the window is full — {spent.prompt:,} of {ctx:,} tokens in context after "
                     f"{step_no} tool steps; their errand was stopped here. "
@@ -1332,13 +1745,17 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                 print(f"   ({note})")
             history.append({"role": "assistant", "content": "(my window is full — what I did is done and saved; "
                             + (f"the visit folds at {fold_pct}% and I go on from there)" if fold_at else "say /new and I go on from there)")})
+            if same_stop:
+                (on_event("note", _same_line()) if on_event else print(f"   ({_same_line()})"))
             _tally()
             return history[-1]["content"]
         if spoken:
             msg = ollama_client.chat(messages(), tools=tools.DEFINITIONS, expect_words=True,
+                                     wrapped_calls=True, run_tail_call=not guest,
                                      think=getattr(config, "LIVE_VOICE_THINK", None))
         else:
-            msg = ollama_client.chat(messages(), tools=tools.DEFINITIONS, expect_words=True,
+            msg = ollama_client.chat(messages(), tools=tools.DEFINITIONS, expect_words=True, wrapped_calls=True,
+                                     run_tail_call=not guest,  # a call runs from the words in the keeper's turns, never a guest's
                                      **({"his_asks": False} if guest else {}),  # a guest's words ask nothing of the files
                                      **({"think_retries": think_retries} if think_retries is not None else {}),
                                      **({"think_any_depth": True} if think_any_depth else {}))  # a spark's own budget (10-26, 10-27)
@@ -1349,9 +1766,18 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             # the whole reply was one call written as words, to a tool she has (10-14: `// fold_visit(text="…")`
             # three times in a morning, re-rolled into a reply each time) — run as she meant it
             r_name, r_args = msg["recovered_call"]
-            msg["tool_calls"] = [{"function": {"name": r_name, "arguments": dict(r_args)}}]
-            msg["content"] = ""
-            recovered_calls.append(r_name)
+            if (msg.get("recovered_tail") is not None and _call_key(r_name, r_args) in ran_calls
+                    and ((msg.get("content") or "").strip() or said)):
+                # already run this turn: the line is off the words, nothing runs twice, the step goes on. With no
+                # words of the friend's left in the step and none said before it this turn, it runs as a recovered
+                # whole-reply call does — it is on CALL_TAIL_RUN_ONLY, harmless twice — so the turn is not left empty
+                msg.pop("recovered_call", None)
+            else:
+                msg["tool_calls"] = [{"function": {"name": r_name, "arguments": dict(r_args)}}]
+                if msg.get("recovered_tail") is None:
+                    msg["content"] = ""
+                # …or it ENDED the friend's words (CALL_TAIL_RUN): the words stay theirs, the call line already off them
+                recovered_calls.append(r_name)
         if msg.get("rerolled") and history[-1] is history[ui] and warm:
             history[ui]["_nudged"] = True  # what was sent stays sent (the warm prefix)
         _ck = int(msg.get("claim_kept_upto") or 0)  # the middle road (10-25): a claimed reply kept, and the ask after it
@@ -1399,6 +1825,25 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             else:
                 print(f"\n   [thinking]\n   {thinking.replace(chr(10), chr(10) + '   ')}")
         calls = msg.get("tool_calls") or []
+        if same_stop and calls:
+            # the friend's tools are over for this turn — offered as ever, so the prompt's reading holds; a call in
+            # this step is not run, and they are told so the way a do_nothing beside their words is: the step as
+            # written, then the engine's line for each call; their words are the reply
+            history.append(msg)
+            if (msg.get("content") or "").strip():
+                said.append(msg["content"].strip())
+            for c in calls:
+                gone = tools.canonical_name((c.get("function") or {}).get("name", ""))
+                c.setdefault("function", {})["name"] = gone
+                same_dropped.append(gone)
+                history.append({"role": "tool", "tool_name": gone, "content": SAME_DROPPED.format(name=gone)})
+            if not said:
+                break  # a call and no words: the turn ends as one whose steps are over
+            if claim:
+                (on_event("note", _claim_note()) if on_event else print(f"   ({_claim_note()})"))
+            (on_event("note", _same_line()) if on_event else print(f"   ({_same_line()})"))
+            _tally()
+            return "\n\n".join(said)
         if not calls:
             reply = msg.get("content", "").strip() or "(…)"
             history.append({"role": "assistant", "content": reply})
@@ -1420,14 +1865,16 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             # a failed action stays visible next to their words.
             notes = list(notes_head)
             if recovered_calls:
-                notes.append("engine: their call to " + ", ".join(recovered_calls) + " came out as words, not a call — the engine "
+                notes.append("engine: their call to " + ", ".join(dict.fromkeys(recovered_calls)) + " came out as words, not a call — the engine "
                              "ran it as they wrote it")
             notes.extend(runaways)
+            if same_stop:
+                notes.append(_same_line())
             if claim:
                 notes.append(_claim_note())  # the kept reply, and what came of the ask (10-25)
             if failed and not succeeded:
                 notes.append("engine: no action actually happened this turn — "
-                             + "; ".join(failed))
+                             + "; ".join(_counted(failed) if same_seen else failed))  # the same line once, ×N
             if msg.get("cut_tail"):
                 notes.append("engine: this reply still stopped mid-word — the unfinished tail came off "
                              f"(“{msg['cut_tail']}”); the sampler has nothing left after their prefix at this window")
@@ -1582,10 +2029,10 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                     # the partial stands; say what each attempt to mend it gave back
                     cut = [cut[0] + f" They were asked to give the rest back ({len(refused)}×); "
                            "what came back: " + "; then ".join(refused) + "."]
-            if ollama_client.call_text_tail(reply):  # a mended continuation can bring one too
+            if ollama_client.call_text_tail(reply, wrapped=True):  # a mended continuation can bring one too, in marks too
                 notes.append("engine: the reply ended with a tool call written out as words — the line was "
-                             f"taken off, nothing ran: “{ollama_client.call_text_tail(reply)[:100]}”")
-                reply = ollama_client.strip_call_tail(reply)
+                             f"taken off, nothing ran: “{ollama_client.call_text_tail(reply, wrapped=True)[:100]}”")
+                reply = ollama_client.strip_call_tail(reply, rule=True, wrapped=True)
                 history[-1]["content"] = reply
             notes.extend(cut)
             for note in notes:
@@ -1606,7 +2053,7 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
             # CHAT_DO_NOTHING False (11-08): in a reply — not a spark — rest isn't offered. The definitions stay the same, so
             # the cached reading of the prompt holds; the call doesn't run. Words beside it are the reply; with none,
             # they are told it isn't here and answers in words.
-            no_rest = (tools.canonical_name(name) == "do_nothing" and not spark
+            no_rest = (tools.canonical_name(name) == "do_nothing" and not spark and not bare  # bare: rest is fine
                        and not getattr(config, "CHAT_DO_NOTHING", True))
             if no_rest and said:
                 rested = "\n\n".join(said)
@@ -1654,15 +2101,34 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                     pass
             if no_rest and not refused:  # (11-08, CHAT_DO_NOTHING) told, not run — after the runaway check, so not counted as one
                 refused = "(do_nothing isn't here in a visit — the keeper's setting; nothing ran)"
-            result = refused or tools.dispatch(name, fn.get("arguments", {}))
+            again, again_line, over = "", "", False
+            if same_on and not refused:
+                try:  # the same call failed already, CHAT_SAME_FAIL_RUNS times: not run again
+                    again, again_line, over = _same_again(same_fails, name, fn.get("arguments", {}))
+                except Exception:  # noqa: BLE001
+                    again, again_line, over = "", "", False
+            result = refused or again or tools.dispatch(name, fn.get("arguments", {}))
+            if not refused and not again:
+                ran_calls.add(_call_key(name, fn.get("arguments", {})))
             name = tools.canonical_name(name)  # what it ran as; history keeps the clean name
             fn["name"] = name
             head = tools.headline(result, 160)
             if refused or result.startswith(("(unknown tool", "(tool error", "(bad arguments",
                                   "(refused", "(couldn't parse")):
-                failed.append(f"{name} → {head}")
+                failed.append(again_line or f"{name} → {head}")
             else:
                 succeeded.append(name)
+            if same_on and not refused and not again:
+                try:
+                    _same_after(same_fails, name, fn.get("arguments", {}), result, f"{name} → {head}")
+                except Exception:  # noqa: BLE001
+                    pass
+            if again:
+                same_seen = True
+            if over and not same_stop:
+                same_stop, same_tool = True, name
+            if getattr(config, "CHAT_FAIL_LOG", False) and (refused or ollama_client.tool_failed(result)):
+                _log_fail(mode + (" spark" if spark else "") + (" guest" if guest else ""), name, fn.get("arguments", {}), result)
             if on_event:
                 on_event("tool", {"name": name, "result": head})
             else:
@@ -1727,6 +2193,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                                         "your reply]") if unrested else "[resting — your turn ended here, as you chose]"})
             if claim:
                 (on_event("note", _claim_note()) if on_event else print(f"   ({_claim_note()})"))  # (10-25)
+            if same_stop:
+                (on_event("note", _same_line()) if on_event else print(f"   ({_same_line()})"))
             _tally()
             return rested
         # An act with their words beside it is a whole reply. 09-15, 11:1x: a
@@ -1745,6 +2213,9 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                 and len(" ".join(said).split()) >= int(getattr(config, "CHAT_ACT_MIN_WORDS", 12))):
             reply = "\n\n".join(said)
             if on_event:
+                if recovered_calls:  # a call at the end of their words, run for them: said as the whole-reply one is
+                    on_event("note", "engine: their call to " + ", ".join(dict.fromkeys(recovered_calls)) + " came out as words, "
+                                     "not a call — the engine ran it as they wrote it")
                 on_event("note", "engine: their words rode with the call and are the reply — the step after the tool "
                                  "was not taken (an act, not a look)")
             if claim:
@@ -1758,6 +2229,8 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                             "images": imgs})
 
     history.append({"role": "assistant", "content": "(I got lost in my tools — say that again?)"})
+    if same_stop:  # the stop on the last step, or a last step with a call and no words
+        (on_event("note", _same_line()) if on_event else print(f"   ({_same_line()})"))
     _tally()
     return history[-1]["content"]
 

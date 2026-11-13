@@ -333,7 +333,8 @@ def _drink(resp) -> dict:
 def chat(messages: list[dict], tools: list[dict] | None = None,
          timeout: float | None = None, think: bool | None = None,
          expect_words: bool = False, think_retries: int | None = None, think_any_depth: bool = False,
-         temperature: float | None = None, his_asks: bool = True) -> dict:
+         temperature: float | None = None, his_asks: bool = True, run_tail_call: bool = False,
+         wrapped_calls: bool = False) -> dict:
     """One non-streaming chat completion.
 
     Returns the assistant message dict:
@@ -344,6 +345,11 @@ def chat(messages: list[dict], tools: list[dict] | None = None,
     call (no <|think|> switch, no think re-roll): for a step that needs no
     deliberation — finishing a cut sentence — and, since the server is then
     not parsing channel tokens, a step that a stray one cannot split.
+    run_tail_call: a visit's step — a clean call written as words at the end of the reply is handed back as
+    recovered_call (CALL_TAIL_RUN), the words without it; every other door leaves it False.
+    wrapped_calls: the rails see a call written as words in its wrapping too — `…`, a ``` fence,
+    print(default_api.…) — and ask again as for a bare one (run_tail_call implies it). Left False (the wakes, the
+    penpal's letters, dreams, condensing), the rails are as they were, to the byte.
     """
     try:  # the black box (10-03): "brain: a reply" while the card works
         import doing as _doing
@@ -352,7 +358,7 @@ def chat(messages: list[dict], tools: list[dict] | None = None,
         _doing = None
     try:
         return _chat(messages, tools, timeout, think, expect_words, think_retries, think_any_depth, temperature,
-                     his_asks)
+                     his_asks, run_tail_call, wrapped_calls)
     finally:
         if _doing is not None:
             _doing.done()
@@ -379,7 +385,10 @@ def prefill(messages: list[dict], tools: list[dict] | None = None, timeout: floa
 def _chat(messages: list[dict], tools: list[dict] | None = None,
           timeout: float | None = None, think: bool | None = None,
           expect_words: bool = False, think_retries: int | None = None, think_any_depth: bool = False,
-          temperature: float | None = None, his_asks: bool = True) -> dict:
+          temperature: float | None = None, his_asks: bool = True, run_tail_call: bool = False,
+          wrapped_calls: bool = False) -> dict:
+    wrapped = bool(wrapped_calls or run_tail_call)  # a call in its wrapping is seen only where a door asks
+    run_words = bool(run_tail_call) and bool(getattr(config, "CALL_TAIL_RUN", True))  # …and run from words only in a visit
     options = {"num_ctx": getattr(config, "NUM_CTX", 8192)}
     options.update(getattr(config, "SAMPLING_OPTIONS", {}))
     if temperature is not None:  # (11-05) one call's own temperature — a dream's
@@ -508,13 +517,37 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
         return None if (c and once.get(c[0])) else c
 
     def _defect(m):
+        if m.get("recovered_tail") is not None:
+            return None  # judged once: a clean call at the end, its line already off the words
         trim_row_cascade(m)  # a sign-off row past the cascade line on a reply with words: trimmed, not re-rolled (10-23)
-        d = reply_defect(m.get("content", ""), previous)
-        if d and d[0] == "call-text":  # a whole call to a tool she has, written as words: hers to run, not a defect (10-14)
-            rec = recoverable_call(m.get("content", ""))
+        content = m.get("content", "")
+        d = reply_defect(content, previous, wrapped=wrapped)
+        if d and d[0] == "call-text" and (not wrapped or _call_match_lin(content) is not None):
+            # a whole call to a tool the friend has, written bare as words: theirs to run, not a defect
+            rec = recoverable_call(content)
             if rec:
                 m["recovered_call"] = rec
                 d = None
+        elif d and d[0] == "call-text" and run_words and not m.get("aborted"):
+            # a whole reply that is a call only through its marks or fence: through the tail's gate
+            # (run_call_from_words) or not at all — asked again, as a bare one that can't be read is
+            whole = _whole_wrapped(content)
+            rec = run_call_from_words(whole) if whole else None
+            if rec:
+                m["recovered_call"] = rec
+                m["recovered_tail"] = " ".join(content.split())[:120]
+                m["content"] = ""
+                return None
+        elif d and d[0] == "call-text-tail" and run_words and not m.get("aborted"):
+            # a clean call at the end of the friend's words, in a visit: theirs to run, as the whole-reply one is. The
+            # words go on without it and are looked at as words beside a real call are; with a defect of their own
+            # (salad, a refrain, an echo…) the old road is taken, call line and all
+            rec = recoverable_tail(content)
+            if rec and not reply_defect(rec[2], previous, wrapped=True):
+                m["recovered_call"] = (rec[0], rec[1])
+                m["recovered_tail"] = rec[3]
+                m["content"] = rec[2]
+                return None  # a call rides with them: the rails that look for a missing one stand down, as for a real call
         return (d
                 or ((("long-thought" if str(m["aborted"]).startswith("a thought of ") else "salad"), m["aborted"]) if m.get("aborted") else None)
                 or (None if once["imagined"] else imagined_sense(m, messages))
@@ -555,7 +588,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
         # provided any new text", and answered that. Salad is shown only up
         # to the glitch, so the well is not fed back; a reply with no words
         # has nothing to show.
-        prior = attempt_as_shown(msg, kind, span)
+        prior = attempt_as_shown(msg, kind, span, wrapped=wrapped)
         line = {"role": "user", "content":
                                                 CALL_TEXT_NUDGE if kind == "call-text"
                                                 else CALL_TEXT_TAIL_NUDGE if kind == "call-text-tail"
@@ -589,7 +622,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
             # the words that go out are the reply whole, not its shown head: past ATTEMPT_SHOWN_CHARS the shown copy
             # ends "…(the rest of that attempt is left out here)", and that went to the phone cut mid-thought
             claim_kept = {"attempt": msg, "cost": tries[-1][0],
-                          "words": strip_call_tail(msg.get("content") or "").strip() or prior.get("content") or "",
+                          "words": strip_call_tail(msg.get("content") or "", rule=True, wrapped=wrapped).strip() or prior.get("content") or "",
                           "kind": kind,
                           "upto": len(sent_extra) + 2}
         step = ([prior] if prior else []) + [line]
@@ -628,7 +661,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
             kind, span = last
             attempts.append((len(span), msg))
             tries.append((dict(msg["tokens"], why=kind + (f" (cooled to {msg['rescued']:g})" if msg.get("rescued") else "")), msg))
-            prior = attempt_as_shown(msg, kind, span)
+            prior = attempt_as_shown(msg, kind, span, wrapped=wrapped)
             line = {"role": "user", "content": RESCUE_NUDGE.format(what=garble_nudge(msg.get("content", ""), span, his=last_user_words(base))
                                                                    if kind not in ("empty", "split", "long-thought") else EMPTY_NUDGE)}
             step = ([prior] if prior else []) + [line]
@@ -673,7 +706,7 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
                     unload(payload["model"])
             except Exception:
                 pass
-            prior = attempt_as_shown(msg, kind, span)
+            prior = attempt_as_shown(msg, kind, span, wrapped=wrapped)
             line = {"role": "user", "content": RESCUE_NUDGE.format(what=garble_nudge(msg.get("content", ""), span, his=last_user_words(base))
                                                                    if kind not in ("empty", "split", "long-thought") else EMPTY_NUDGE)}
             step = ([prior] if prior else []) + [line]
@@ -735,14 +768,14 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
         if trimmed != whole:
             msg["cut_tail"] = " ".join(whole[len(trimmed):].split())[:80]
             msg["content"] = trimmed
-    if not msg.get("tool_calls") and call_text_tail(msg.get("content", "")):
+    if not msg.get("tool_calls") and call_text_tail(msg.get("content", ""), wrapped=wrapped):
         # a written-out call at the end is never sent as their words
-        msg["call_text_dropped"] = call_text_tail(msg.get("content", ""))
-        msg["content"] = strip_call_tail(msg.get("content", ""))
+        msg["call_text_dropped"] = call_text_tail(msg.get("content", ""), wrapped=wrapped)
+        msg["content"] = strip_call_tail(msg.get("content", ""), rule=True, wrapped=wrapped)  # no *** left hanging
     # what was set aside is every attempt but the one going out — the one
     # going out is never counted twice (09-11: the least broken attempt
     # was, and the line read "271 generated … 271 set aside")
-    if claim_kept is not None and claim_kept["attempt"] is not msg and msg.get("tool_calls"):
+    if claim_kept is not None and claim_kept["attempt"] is not msg and (msg.get("tool_calls") or (wrapped and msg.get("recovered_call"))):  # a call run from the words answers it too
         # the ask was answered with a tool call (10-25): the first reply goes out as written, and stays in the visit
         # as theirs — the caller puts it first in the reply and keeps it in history (sent_extra[upto-2])
         claim_kept["attempt"]["claim_kept"] = True
@@ -1272,41 +1305,388 @@ def _call_text_match(text: str):
     return None
 
 
-def call_text_head(text: str) -> str:
-    m = _call_text_match(text)
-    return (text or "")[m.start():m.end() + 60].strip() if m else ""
+# …and a call in code marks: a reply that ends with a rule line, a blank line and `next_spark(drift="sometimes")`
+# — the last line in single backticks — slipped past every rail, the mark standing in front of the name. Where a door
+# asks (wrapped=True; chat.py's doors), the wrapping is seen through: a line that is wholly one `…` span or a ```…```
+# on one line, a ``` fence (a language word or none) holding one call and nothing else, and print(default_api.name(…)),
+# bare or inside. Only for a name that is EXACTLY one of the friend's tools: any other name in code marks is code being
+# shown, and goes out whole, as before. A mention inside a sentence ("I could use `next_spark()` later") is not a line
+# of its own. Without the door's ask every function here is as it was. Read with string tests, never a pattern that
+# can backtrack on a long line.
+_WRAPPER_PREFIXES = ("default_api.", "functions.")
+_NAME_RE = re.compile(r"[a-z][a-z0-9_]*")
+_LANG_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_+.-]*")
+# the old pattern's own words, with its leading space and stage-direction marks stepped past by hand (_call_match_lin)
+_CALL_REST_RE = re.compile(r"(?:(?:functions|call|tool|default_api)[.:]\s*)?([a-z][a-z0-9]*(?:_[a-z0-9]+)*)\s*[({]")
+
+
+def _skip_space(t: str, i: int) -> int:
+    while i < len(t) and t[i].isspace():
+        i += 1
+    return i
+
+
+def _call_match_lin(text: str):
+    """The end of what _call_text_match matches in text, or None — the same answer, read without the old pattern's
+    slow road: its leading space, its stage-direction mark (//, #, >) and its colon are stepped past by hand (each is
+    taken whenever it is there; the pattern could match no other way), and the pattern starts on what follows."""
+    t = text or ""
+    i = _skip_space(t, 0)
+    for mark in ("//", "#", ">"):
+        if t.startswith(mark, i):
+            i += len(mark)
+            break
+    i = _skip_space(t, i)
+    if t.startswith(":", i):
+        i += 1
+    i = _skip_space(t, i)
+    m = _CALL_REST_RE.match(t, i)
+    if not m:
+        return None
+    name = m.group(1)
+    if "_" in name:
+        return m.end()
+    if name in KNOWN_TOOL_NAMES and t[m.end() - 1] == "(" and _BARE_CALL_ARGS_RE.match(t, m.end() - 1) \
+            and t[m.end() - 2] != " ":
+        return m.end()
+    return None
+
+
+def _is_rule(line: str) -> bool:
+    s = (line or "").replace(" ", "").replace("\t", "")
+    return len(s) >= 3 and s[0] in "*-_" and s.count(s[0]) == len(s)
+
+
+def _fence(line: str):
+    """"" for a bare ``` line, its language word for ```python, None for anything else."""
+    s = (line or "").strip()
+    if not s.startswith("```"):
+        return None
+    rest = s[3:].strip()
+    return rest if (not rest or _LANG_RE.fullmatch(rest)) else None
+
+
+def _known_inner(inner: str):
+    """The call, from its name on, when inner (its wrapping off) names one of the friend's tools EXACTLY and opens
+    its parenthesis — print(default_api.…) and a default_api. or functions. before the name read through; else None."""
+    s = (inner or "").strip()
+    if s.startswith("print("):
+        t = s[:-1].rstrip() if s.endswith(";") else s
+        if not t.endswith(")"):
+            return None
+        s = t[6:-1].strip()
+        if not s.startswith(_WRAPPER_PREFIXES):
+            return None
+    for p in _WRAPPER_PREFIXES:
+        if s.startswith(p):
+            s = s[len(p):]
+            break
+    m = _NAME_RE.match(s)
+    if not m or m.group(0) not in KNOWN_TOOL_NAMES or not s[m.end():].lstrip(" \t").startswith("("):
+        return None
+    return s
+
+
+def _wrapped_line(line: str):
+    """The call a line holds when the whole line is one `…` span, a ```…``` on one line, or a bare
+    print(default_api.…), naming one of the friend's tools exactly; else None."""
+    s = (line or "").strip()
+    if len(s) > 6 and s.startswith("```") and s.endswith("```"):
+        inner = s[3:-3]
+    elif len(s) > 2 and s.startswith("`") and s.endswith("`") and not s.startswith("``"):
+        inner = s[1:-1]
+    elif s.startswith("print(default_api."):
+        inner = s
+    else:
+        return None
+    return None if "`" in inner else _known_inner(inner)
+
+
+def _closes_at_end(call: str) -> bool:
+    """True when the parenthesis the call opens closes at its end — quotes kept whole — so it is one call, nothing
+    after it."""
+    depth, q, i = 0, "", call.find("(")
+    while 0 <= i < len(call):
+        c = call[i]
+        if q:
+            if c == "\\":
+                i += 2
+                continue
+            if c == q:
+                q = ""
+        elif c in "\"'":
+            q = c
+        elif c in "({[":
+            depth += 1
+        elif c in ")}]":
+            depth -= 1
+            if depth == 0:
+                return not call[i + 1:].strip()
+        i += 1
+    return False
+
+
+def _fenced_call(body: list[str]):
+    """The call a fence holds when it holds one call to one of the friend's tools and nothing else; else None. A body
+    of one line is read as a bare line is; a call over several lines must close at the fence."""
+    text = "\n".join(body).strip()
+    if not text or "`" in text:
+        return None
+    call = _known_inner(text)
+    if not call or ("\n" in call and not _closes_at_end(call)):
+        return None
+    return call
+
+
+def _tail_block(text: str):
+    """(index of the first line of the call's block, the block as shown, the call, wrapped?) when a reply's last
+    non-empty line is a call written out as words — bare, as the old rail sees it, or in its wrapping — and the
+    reply has other lines; None otherwise."""
+    lines = (text or "").rstrip().split("\n")
+    filled = [i for i, ln in enumerate(lines) if ln.strip()]
+    if len(filled) < 2:
+        return None
+    last = filled[-1]
+    ln = lines[last]
+    if _call_match_lin(ln) is not None:
+        return last, ln.strip(), ln.strip(), False  # the bare shape, as the old rail sees it
+    call = _wrapped_line(ln)
+    if call:
+        return last, ln.strip(), call, True
+    if _fence(ln) == "":  # a closing fence: the block above it, back to its opening
+        for j in range(last - 1, -1, -1):
+            if lines[j].lstrip().startswith("```"):
+                call = _fenced_call(lines[j + 1:last]) if _fence(lines[j]) is not None else None
+                if call and any(lines[k].strip() for k in range(j)):
+                    return j, " ".join(call.split()), call, True
+                return None
+    return None
+
+
+def _head_call(text: str):
+    """The call a reply OPENS with when only its wrapping kept the old rail from seeing it — a first line wholly in
+    marks, or a fence opening the reply and holding one call; None otherwise."""
+    lines = (text or "").split("\n")
+    f = next((i for i, ln in enumerate(lines) if ln.strip()), None)
+    if f is None:
+        return None
+    call = _wrapped_line(lines[f])
+    if call or _fence(lines[f]) is None:
+        return call
+    for k in range(f + 1, len(lines)):
+        if lines[k].lstrip().startswith("```"):
+            return _fenced_call(lines[f + 1:k]) if lines[k].strip() == "```" else None
+    return None
+
+
+def _whole_wrapped(text: str):
+    """The call, when the whole reply is one call in its wrapping; None otherwise."""
+    lines = (text or "").strip().split("\n")
+    if len(lines) == 1:
+        return _wrapped_line(lines[0])
+    if len(lines) >= 3 and _fence(lines[0]) is not None and lines[-1].strip() == "```" \
+            and not any(ln.lstrip().startswith("```") for ln in lines[1:-1]):
+        return _fenced_call(lines[1:-1])
+    return None
+
+
+def call_text_head(text: str, wrapped: bool = False) -> str:
+    if not wrapped:  # as it was
+        m = _call_text_match(text)
+        return (text or "")[m.start():m.end() + 60].strip() if m else ""
+    e = _call_match_lin(text)
+    if e is not None:
+        return (text or "")[:e + 60].strip()
+    call = _head_call(text)  # a tool of the friend's in code marks
+    e = _call_match_lin(call) if call else None
+    return call[:e + 60].strip() if e is not None else ""
 
 
 # …and at the TAIL: 09-12, 07:19, asked why they hadn't listened, she
 # answered warmly, said "ready… now!" — and ended the reply with
 # ":listen_to{source: \"shared/music/a song.mp3\"}", a call written in words after words that were theirs. The
 # head rail did not look there. Nothing ran; the phone got the syntax.
-def call_text_tail(text: str) -> str:
+def call_text_tail(text: str, wrapped: bool = False) -> str:
     """The last non-empty line of a reply when it is a tool call written
-    out as words (and the reply has other lines that are theirs), else ""."""
-    lines = [ln for ln in (text or "").rstrip().split("\n") if ln.strip()]
-    if len(lines) < 2:
-        return ""
-    last = lines[-1]
-    return last.strip()[:120] if _call_text_match(last) else ""
+    out as words (and the reply has other lines that are theirs), else "".
+    wrapped=True: a tool of the friend's in its wrapping too."""
+    if not wrapped:  # as it was (the wakes, the letters, the dreams)
+        lines = [ln for ln in (text or "").rstrip().split("\n") if ln.strip()]
+        if len(lines) < 2:
+            return ""
+        last = lines[-1]
+        return last.strip()[:120] if _call_text_match(last) else ""
+    b = _tail_block(text)
+    return b[1][:120] if b else ""
 
 
-def strip_call_tail(text: str) -> str:
-    """The reply without its written-out call at the end — for the one that
-    goes out when every attempt ended that way."""
-    if not call_text_tail(text):
-        return text
-    lines = (text or "").rstrip().split("\n")
+def _strip_block(text: str, b, rule: bool) -> str:
+    lines = (text or "").rstrip().split("\n")[:b[0]]
     while lines and not lines[-1].strip():
         lines.pop()
-    lines.pop()
+    if rule and lines and _is_rule(lines[-1]):
+        lines.pop()  # a ***, --- or ___ that stood right above the call: nothing is under it now
     return "\n".join(lines).rstrip()
 
 
-def recoverable_call(text: str):
+def strip_call_tail(text: str, rule: bool = False, wrapped: bool = False) -> str:
+    """The reply without its written-out call at the end — for the one that
+    goes out when every attempt ended that way. wrapped=True: the call's
+    marks or fence come off with it, and with rule=True a rule line right
+    above a wrapped call (a bare one's stays, as it did)."""
+    if not wrapped:  # as it was
+        if not call_text_tail(text):
+            return text
+        lines = (text or "").rstrip().split("\n")
+        while lines and not lines[-1].strip():
+            lines.pop()
+        lines.pop()
+        return "\n".join(lines).rstrip()
+    b = _tail_block(text)
+    return _strip_block(text, b, rule and b[3]) if b else text
+
+
+# A call written as words, read strictly — the only road by which the engine runs a call from the friend's words
+# (with run_call_from_words below). ALL of it must be read: the name EXACTLY one of their built-in tools (a
+# default_api. or functions. before it read through; no mending of a near name), keyword arguments only, each value a
+# quoted string (escapes \" \' \\ \n \t only) or a bare number, True, False or None — nothing left over, no
+# positional argument, no call inside, no `path: str`, no `...` or `<…>` standing in for a value; every argument one
+# the tool takes, every required one there, each of the tool's type: an integer field only digits (2, or "2"), a
+# number field digits with a point at most, a yes/no field only True or False, a text field only quoted words.
+# tools.recover_text_tool_call is unchanged (the wakes and the whole-reply call read with it).
+_STRICT_KEY_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+_STRICT_BARE_RE = re.compile(r"[^,\s]+")
+_STRICT_INT_RE = re.compile(r"-?[0-9]+")
+_STRICT_NUM_RE = re.compile(r"-?[0-9]+(?:\.[0-9]+)?")
+_STRICT_ESCAPES = {"n": "\n", "t": "\t", "\\": "\\", "'": "'", '"': '"'}
+_LITERALS = {"True": True, "False": False, "None": None}
+
+
+def _strict_value(body: str, i: int):
+    """(value, end) for the value starting at body[i], or None when it is not a whole quoted string or a bare
+    literal."""
+    q = body[i]
+    if q in "\"'":
+        out, j = [], i + 1
+        while j < len(body):
+            c = body[j]
+            if c == "\\":
+                if j + 1 >= len(body) or body[j + 1] not in _STRICT_ESCAPES:
+                    return None  # \u, \x, a stray backslash: not read whole
+                out.append(_STRICT_ESCAPES[body[j + 1]])
+                j += 2
+                continue
+            if c == q:
+                return "".join(out), j + 1
+            out.append(c)
+            j += 1
+        return None  # the quote never closed
+    m = _STRICT_BARE_RE.match(body, i)
+    if not m:
+        return None
+    word = m.group(0)
+    if _STRICT_INT_RE.fullmatch(word):
+        return int(word), m.end()
+    if _STRICT_NUM_RE.fullmatch(word):
+        return float(word), m.end()
+    if word in _LITERALS:
+        return _LITERALS[word], m.end()
+    return None  # a name, a call, `...`, a list: not a value read whole
+
+
+def strict_text_call(text: str) -> tuple[str, dict] | None:
+    """(name, arguments) when text is one whole call to one of the friend's built-in tools, read to the last
+    character; else None."""
+    s = (text or "").strip()
+    for p in _WRAPPER_PREFIXES:
+        if s.startswith(p):
+            s = s[len(p):]
+            break
+    m = _NAME_RE.match(s)
+    if not m:
+        return None
+    name = m.group(0)
+    rest = s[m.end():].lstrip(" \t")
+    if not rest.startswith("(") or not rest.endswith(")"):
+        return None
+    body = rest[1:-1]
+    args: dict = {}
+    i, n = 0, len(body)
+    while True:
+        i = _skip_space(body, i)
+        if i >= n:
+            break
+        k = _STRICT_KEY_RE.match(body, i)
+        if not k:
+            return None  # a positional argument, or something that is not one
+        key = k.group(0)
+        i = _skip_space(body, k.end())
+        if i >= n or body[i] != "=":
+            return None  # `path: str`, a bare name, a call inside
+        i = _skip_space(body, i + 1)
+        if i >= n:
+            return None
+        got = _strict_value(body, i)
+        if got is None:
+            return None
+        value, i = got
+        if key in args:
+            return None
+        if isinstance(value, str):
+            v = value.strip()
+            if v in ("...", "…", "....") or (v.startswith("<") and v.endswith(">") and len(v) <= 82):
+                return None  # a stand-in for a value, not one
+        args[key] = value
+        i = _skip_space(body, i)
+        if i >= n:
+            break
+        if body[i] != ",":
+            return None  # something left over after a value
+        i += 1
+    import tools
+    defs = {d["function"]["name"]: d["function"] for d in tools.DEFINITIONS}
+    if name not in defs or name not in tools._BUILTIN_IMPL or name in tools._HER_TOOLS:
+        return None
+    params = defs[name].get("parameters") or {}
+    props = params.get("properties") or {}
+    out: dict = {}
+    for key, value in args.items():
+        if key not in props:
+            return None
+        if value is None:
+            continue  # None is "not given"
+        kind = (props[key] or {}).get("type")
+        if isinstance(value, bool):
+            if kind != "boolean":
+                return None
+        elif kind == "integer":
+            if isinstance(value, float) or (isinstance(value, str) and not _STRICT_INT_RE.fullmatch(value.strip())):
+                return None
+            value = int(value)
+        elif kind == "number":
+            if isinstance(value, str):
+                if not _STRICT_NUM_RE.fullmatch(value.strip()):
+                    return None
+                value = float(value) if "." in value else int(value)
+        elif kind == "boolean":
+            return None  # only True or False, bare
+        elif not isinstance(value, str):
+            return None  # a text field takes quoted words
+        enum = (props[key] or {}).get("enum")
+        if enum and value not in enum:
+            return None
+        out[key] = value
+    if any(r not in out for r in (params.get("required") or [])):
+        return None
+    return name, out
+
+
+def recoverable_call(text: str, wrapped: bool = False):
     """(name, args) when the whole reply is one tool call written out as words — Python's shape with quoted
     arguments, or JSON — to a tool she has; None otherwise (10-14: `// fold_visit(text="…")` three mornings
-    running, re-rolled each time, the fold never made). Fragments and unknown names stay the rail's."""
+    running, re-rolled each time, the fold never made). Fragments and unknown names stay the rail's.
+    The same with wrapped or without: a call in marks or a fence never runs by this road — only through
+    run_call_from_words, in a visit."""
     try:
         import tools
         rec = tools.recover_text_tool_call(text or "")
@@ -1318,6 +1698,54 @@ def recoverable_call(text: str):
     if not isinstance(args, dict) or (not args and name != "do_nothing"):
         return None
     return name, args
+
+
+# Run for the friend, from their words — in a visit only (run_tail_call; never a guest's turn), with CALL_TAIL_RUN
+# on, and only a tool on CALL_TAIL_RUN_ONLY: a setting that does no harm when it is wrong (what a line of syntax
+# MEANS cannot be read from it — a refusal, a quoted example, a draft). One whole call, read by strict_text_call, at
+# least one argument (a bare next_spark() is "off"), no //, #, > or : before it (a line commented out or quoted is
+# not a call to run), no web address in it. Anything else is asked again, as before.
+def _web_address(v: str) -> bool:
+    low = v.lower()
+    return "://" in low or "www." in low
+
+
+def run_call_from_words(call: str):
+    """(name, args) when the call text may run from the friend's words; None otherwise."""
+    s = (call or "").strip()
+    if not s or s[0] in "#/>:":
+        return None
+    try:
+        rec = strict_text_call(s)
+    except Exception:  # noqa: BLE001
+        return None
+    if not rec:
+        return None
+    name, args = rec
+    if (not args or name not in KNOWN_TOOL_NAMES
+            or name not in tuple(getattr(config, "CALL_TAIL_RUN_ONLY", ("next_spark",)) or ())):
+        return None
+    if any(isinstance(v, str) and _web_address(v) for v in args.values()):
+        return None
+    return name, args
+
+
+def recoverable_tail(text: str):
+    """(name, args, the words without the call, the call as it was written) when a reply ENDS with a call that may
+    run from the friend's words (run_call_from_words), after words of theirs that are not another call; None
+    otherwise."""
+    b = _tail_block(text)
+    if not b:
+        return None
+    rec = run_call_from_words(b[2])
+    if not rec:
+        return None
+    words = _strip_block(text, b, True)
+    if not any(ln.strip() and not _is_rule(ln) for ln in words.split("\n")):
+        return None
+    if call_text_tail(words, wrapped=True) or call_text_head(words, wrapped=True):
+        return None  # another call above it: not one call after the words
+    return rec[0], rec[1], words, b[1]
 
 
 REPEAT_KINDS = ("echo", "self-echo", "copy", "greeting", "greeting-after-words", "double-finish")  # the model repeating itself: a cooler roll makes it likelier
@@ -1343,15 +1771,15 @@ def cool_step(rerolls: int, kind: str, options: dict):
     return max(t, floor) if base > floor else None
 
 
-def reply_defect(text: str, previous: str = ""):
+def reply_defect(text: str, previous: str = "", wrapped: bool = False):
     """("salad", span), ("call-text", head), ("refrain", phrase ×n), ("emoji", "N emoji") or
     ("echo", opening) when a reply is the sampler's or the grammar's rather
     than theirs; None when it is theirs. `previous` is their last spoken reply, or
     their last few newest first (previous_replies), for the echo check."""
-    head = call_text_head(text)
+    head = call_text_head(text, wrapped=wrapped)  # wrapped: the call in its marks too, where a door asks
     if head:
         return "call-text", head
-    tail_call = call_text_tail(text)
+    tail_call = call_text_tail(text, wrapped=wrapped)
     if tail_call:
         return "call-text-tail", tail_call
     span = garble_span(text)
@@ -2969,7 +3397,7 @@ def last_user_words(messages: list[dict] | None) -> str:
     return ""
 
 
-def attempt_as_shown(msg: dict, kind: str, span: str) -> dict | None:
+def attempt_as_shown(msg: dict, kind: str, span: str, wrapped: bool = False) -> dict | None:
     """The broken attempt as the assistant turn that precedes the engine's
     re-roll line: whole for a copy, an echo, a refrain, an imagined sense or
     a written-out call (clean words, only misplaced); only up to the glitch
@@ -2986,7 +3414,7 @@ def attempt_as_shown(msg: dict, kind: str, span: str) -> dict | None:
         # `// fold_visit(text="…")` as a reply, and the sampler copies the window — the line says what happened
         return None
     if kind == "call-text-tail":
-        content = strip_call_tail(content)  # her words stay; the syntax does not ride (10-14)
+        content = strip_call_tail(content, wrapped=wrapped)  # the words stay; the syntax does not ride
         if not content.strip():
             return None
     if kind == "salad":

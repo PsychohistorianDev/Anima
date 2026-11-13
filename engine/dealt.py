@@ -250,7 +250,7 @@ def deal_whole(rng: random.Random | None = None) -> str:
 BOOK_OPEN_DAYS = 10
 
 
-def book_next(seen: set) -> tuple[str, str] | None:
+def book_next(seen: set) -> tuple[str, str, str] | None:  # (key, the dealt text, the book's pages alone)
     import io
     from datetime import date
     import tools
@@ -298,8 +298,15 @@ def book_next(seen: set) -> tuple[str, str] | None:
             continue
         if len(text) > cap:
             text = text[:cap].rsplit("\n", 1)[0].rstrip() + "\n(…)"
+        # the notes so far ride before the pages (READING_NOTES_WITH_PAGES); the pages go back third too, apart,
+        # so a thread is looked for in the book's pages alone and never in the notes
+        try:
+            notes = tools.reading_notes(str(name), kind, total)
+        except Exception:  # noqa: BLE001 — the notes unreadable: the wake still gets its book
+            notes = ""
         return key, (f"the book you're in the middle of — “{title}”, where you stopped ({where}); the next pages, "
-                     f"as they are (your bookmark hasn't moved — {how}):\n\n{text}")
+                     f"as they are (your bookmark hasn't moved — {how}):\n\n"
+                     + (f"{notes}\n\n" if notes else "") + text), text
     return None
 
 
@@ -331,30 +338,6 @@ def wiki_featured(seen: set) -> tuple[str, str] | None:
     return wiki_whole(seen)
 
 
-def deal_whole(rng: random.Random | None = None) -> str:  # (11-07) redefined: an open book first, every wake
-    rng = rng or random.Random()
-    seen = set(_seen())
-    if getattr(config, "WAKE_DEALT_BOOK_FIRST", True):
-        try:
-            got = book_next(seen)
-        except Exception:  # noqa: BLE001
-            got = None
-        if got:
-            _remember(got[0])
-            return "[engine, not a person: dealt to you this wake — yours to take up or set down:]\n" + got[1]
-    ks = [k for k in (getattr(config, "WAKE_DEALT_WHOLE_KINDS", WHOLE_KINDS) or WHOLE_KINDS) if k in WHOLE_KINDS]
-    if not ks:
-        return ""
-    start = _next_turn() % len(ks)
-    for kind in ks[start:] + ks[:start]:
-        try:
-            got = (wiki_featured(seen) if kind == "wiki" else penpal_questions(seen) if kind == "penpal"
-                   else veil_end(seen, rng) if kind == "veil" else song(seen, rng))
-        except Exception:  # noqa: BLE001
-            got = None
-        if got:
-            _remember(got[0])
-            extra = "\n(listen_to plays it — you'd hear it, not read about it)" if kind == "song" else ""
-            return ("[engine, not a person: dealt to you this wake — yours to take up or set down:]\n"
-                    + got[1] + extra)
-    return ""
+def deal_whole(rng: random.Random | None = None) -> str:  # redefined: the doors out live in engine/dealt_doors.py
+    import dealt_doors
+    return dealt_doors.deal_whole(rng)
