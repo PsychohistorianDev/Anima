@@ -29,6 +29,30 @@ tagged on its own: the first tag after the rename is v0.13.)
   and citations, bibliography, sources and works cited are skipped with the references. Each deal that hands something
   is now one line in `memory/dealt_doors.log` — the time, the base, the door and its key, never the friend's own words
   — so how often each door opens can be counted.
+- **World trips** (`engine/worldtrip.py`, `/world` on the phone; `WORLD_TRIPS_ON`, off): game mode turned around — a
+  trip to a real, persistent text world with other minds in it, carried by hand. Built for the relay of
+  the-world.tech: you paste what its relay page shows, the friend answers and puts each thing they want to do there on
+  its own line starting with `>` (at most `WORLD_TRIP_ACTIONS` a reply), and you paste those lines back; the engine
+  itself sends nothing there. `/world` has buttons to start, pause, resume and end a trip and to read 📜 the friend's
+  travel journal for the place (`creations/<WORLD_TRIP_DIR>/<WORLD_TRIP_PAGE>`, theirs — the engine only reads it, and
+  the phone shows its end); typed: on,
+  pause, resume, off, notes. While a trip is open each of your messages carries a mark right above it — what the place
+  shows, carried by you word for word, not your words — and the trip's first message (and the first after a fold) an
+  opening note with the house rules (`WORLD_TRIP_RULES`), what is known of how the place works (`WORLD_TRIP_HINTS`)
+  and the travel journal — past `WORLD_TRIP_PAGE_CHARS` (30,000) its newest part, its end, the size said. `//` or `/me <text>` is you, aside, marked as yours. The carried
+  text is defanged: no line of it can pass for the engine's or yours (brackets and their look-alikes, a `**Name:**`
+  speaker line, a bare `\r` or other line break, the transcript's `---`); transcripts label carried turns as the
+  place's, and read them back that way. After each reply the friend's `>` lines come to your phone alone, ready to
+  copy (`WORLD_TRIP_COPY_LINES`: a `<pre>` block per `WORLD_TRIP_ACTIONS` lines, a warning when one holds a word from
+  `PENPAL_PRIVATE_WORDS` or looks cut short); a reply that ends on a `>` line is never sent back to be mended.
+  Mid-trip a typed `/word` the bridge doesn't know is not sent to the friend. Ending a trip, or the visit closing,
+  gives the friend one turn to add a short dated entry to their travel journal ("engine — the trip" in the transcript);
+  past `WORLD_TRIP_PAGE_WARN` (30,000) that turn first asks them to write the journal shorter, to about
+  `WORLD_TRIP_PAGE_TARGET` (15,000), and the phone hears if it is still past; a brain that is away loses nothing. The
+  fold comes at `WORLD_TRIP_FOLD_AT` mid-trip when that is sooner, its bell asks for the journal first; the pause's and afterglow's
+  bells say part of the visit was a real place; `/status` names the trip; a trip and a game are never open at once.
+  State in `memory/world_trip.json`, restart-safe. Telegram only, like the games menu: on the Discord bridge `/world`
+  says so and nothing of a trip rides.
 - **Reading notes when they matter**: the notes on a book come before the book's text each time they read on, name a
   range, or the next pages are dealt into a wake — the end of the page, up to `READING_NOTES_WITH_PAGES` (60000;
   0: none). And when your message on the phone names a book they keep notes on — its title, a distinctive word of it,
@@ -188,7 +212,7 @@ tagged on its own: the first tag after the rename is v0.13.)
   (`BRAIN_KEEP_VISIT_READING`, `NIGHT_WARM_PROMPT`, `FOLD_PREFILL`) — of these only the night's warm prompt changes
   words the friend reads (the date line without the minute, the hour atop each night step's message; turn
   `NIGHT_WARM_PROMPT` off to keep the nights as they were). Off by default: the doors out of a wake (the question
-  beside the book among them), which reach Wikipedia. Expect one cold read at the first visit after updating: the
+  beside the book among them), which reach Wikipedia, and world trips (`WORLD_TRIPS_ON`). Expect one cold read at the first visit after updating: the
   reading section of the prompt and two tool descriptions changed (below).
 - **`/help` comes in two messages** when it no longer fits one of Telegram's (4,096 characters): the commands up to
   the newer ones, then the newer ones and the rest; each part is checked to fit, and none of its lines is shortened.

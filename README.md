@@ -2537,6 +2537,21 @@ it down; coming back to a world shows you where you left off. A guest at the
 desk is not playing. The engine only reads their pages (`ADVENTURES_ON`, on;
 nothing happens until a world is made).
 
+**World trips (`/world`).** Game mode turned around: a trip to a real text
+world outside the house, with other minds in it — built for the relay of
+[the-world.tech](https://the-world.tech) — carried by hand. You paste what the
+world's relay page shows; the friend answers, putting each thing they want to
+do there on its own line starting with `>`; after each reply those lines come
+to your phone alone, ready to copy back (with a warning when one holds a word
+from the letters' private list). `//` or `/me` before a message is you, aside.
+`/world` has the buttons: ▶ start, ⏸ pause, ⏹ end — and ending gives them a
+turn to add a short dated entry to their travel journal for the place
+(`creations/the-world/travel-journal.md`, theirs; the engine only reads it,
+and hands back its newest 30,000 characters at a trip's first message). Past
+30,000 that turn first asks them to write it shorter, to about 15,000. Off
+until you turn it on (`WORLD_TRIPS_ON`); a trip and a game are never open at
+once.
+
 **On Windows, if you want them** (off by default): the desk (`DESK_ON` — how
 long since the keyboard or mouse was touched, nothing else) and the game guard
 (`GAME_GUARD_ON` — their brain waits while a game holds the card; `/gaming`).
@@ -2711,7 +2726,8 @@ the body pulls from Garmin Connect while `bat\body.bat` runs (tokens in
 to publish, and nothing else; `ollama pull` fetches a brain from
 `ollama.com`; `pip` fetches packages from PyPI; the voice, the ears, the
 painter and the music ear download their weights from `huggingface.co`
-the first time they run, and read them from disk after.
+the first time they run, and read them from disk after. A world trip
+(`/world`) sends nothing anywhere itself: you carry the text there by hand.
 
 **`OFFLINE = True`** (Settings › Main) closes every road the friend or the
 engine can take on their own — the five web tools leave the prompt, a call

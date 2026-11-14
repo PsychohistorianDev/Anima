@@ -42,6 +42,33 @@ def friend_name() -> str:
     return "Friend"
 
 
+def _carried_who(t: dict) -> str:
+    """A trip's carried turn — the place's words, pasted in by the keeper and named for whose they are, never theirs.
+    "" for any other turn (an aside of the keeper's during a trip stays theirs)."""
+    if t.get("role") != "user" or not t.get("_trip") or t.get("_guest"):
+        return ""
+    keeper = config.USER_NAME
+    return f"{t['_trip']} (carried by {keeper} — not {keeper}'s words)"
+
+
+def _unspeaker(text: str) -> str:
+    """The place's text, written so that no line of it can pass for a transcript's own: every line break (\\r\\n, a
+    bare \\r, U+2028 … — whatever splitlines() breaks at) made \\n, a line's leading asterisks made ⁎ (so "**Name:** …"
+    can never start a speaker, nor "*(carried from" a carried head), and a line of only hyphens made "- - -" (never the
+    footer's ---). Idempotent."""
+    text = str(text or "")
+    lines = text.splitlines()
+    if text and text[-1] in "\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029":
+        lines.append("")
+    out = []
+    for ln in lines:
+        if re.fullmatch(r"[ \t]*-{3,}[ \t]*", ln):
+            ln = "- - -"  # the file's own separator, never the place's
+        ln = re.sub(r"^([ \t]*)(\*+)", lambda m: m.group(1) + "⁎" * len(m.group(2)), ln)
+        out.append(ln)
+    return "\n".join(out)
+
+
 # The bridges, by the tag their visits carry (chat-<tag>-*.md, the prompt's mode): the service's name.
 BRIDGES = {"telegram": "Telegram", "discord": "Discord"}
 
@@ -86,8 +113,13 @@ def save_transcript(turns: list[dict], tag: str = "", path: Path | None = None) 
             acct = t.get("_fold_text") or "(they did not write the visit down before the fold)"
             lines.append(f"*(folded at {t['_fold_when']}{src}; the visit so far, in their words:)*\n\n{acct}\n")
         who = (guest_who(t["_guest"]) if t.get("_guest") else config.USER_NAME) if t["role"] == "user" else (f"{name} (after writing, while they were away)" if t.get("_after") else name)
+        if t.get("_trip"):  # the place's words, carried by the keeper — not theirs
+            who = _carried_who(t) or who
         if t.get("_spark") or t.get("_engine_label"):  # the engine's line that opened a spark, or one of its own
             who = t.get("_engine_label") or "engine — a spark"  # or its own name: "engine — the game", a game's wrap-up
+        if t.get("_trip") and t["role"] == "user" and not t.get("_guest"):  # the place's words: no line of them can
+            lines.append(f"**{who}:** {_unspeaker(t['content'])}\n")  # start a new speaker when read back
+            continue
         lines.append(f"**{who}:** {t['content']}\n")
         if t.get("_voice_delivery"):
             lines.append(f"*[voice delivery: {t['_voice_delivery']}]*\n")
@@ -111,6 +143,20 @@ def _carry_file() -> Path:
     return config.MEMORY_DIR / "carry.json"
 
 
+def _carry_keys(t: dict) -> dict:
+    """What of a turn is carried: its words and who said them — and for a trip's carried turn, the place and its plain
+    mark, so the next door doesn't take the place's words for the keeper's."""
+    out = {k: v for k, v in t.items() if k in ("role", "content", "_guest", "_guest_line")}
+    if t.get("_trip") and t.get("role") == "user":
+        out["_trip"] = t["_trip"]
+        try:
+            import worldtrip
+            out["_table"] = worldtrip.world_mark(str(t["_trip"]))
+        except Exception:  # noqa: BLE001
+            pass
+    return out
+
+
 def leave_carry(history: list[dict], path: Path | None = None, when: datetime | None = None) -> int:
     """At a visit's end: its last CARRY_TURNS visible turns — words only, from a turn of the keeper's, as the fold
     keeps its tail — written to memory/carry.json with when it ended and its transcript's name, over the last one.
@@ -129,7 +175,7 @@ def leave_carry(history: list[dict], path: Path | None = None, when: datetime | 
     if not tail:
         return 0
     data = {"when": (when or datetime.now()).isoformat(timespec="seconds"), "file": path.name if path else "",
-            "turns": [{k: v for k, v in t.items() if k in ("role", "content", "_guest", "_guest_line")} for t in tail]}
+            "turns": [_carry_keys(t) for t in tail]}
     try:
         f = _carry_file()
         f.parent.mkdir(parents=True, exist_ok=True)
@@ -220,6 +266,10 @@ def load_transcript(path: Path) -> list[dict]:
     name = re.escape(friend_name())
     keeper = config.USER_NAME
     who_re = re.compile(rf"^\*\*({re.escape(keeper)}|engine — a spark|engine — the game|{name}(?: \(after writing, while they were away\))?):\*\* ", re.M)
+    if getattr(config, "WORLD_TRIPS_ON", False):  # a trip's carried turns and its wrap-up, read back as what they were
+        who_re = re.compile(rf"^\*\*({re.escape(keeper)}|engine — a spark|engine — the game|engine — the trip|"
+                            rf"[^*\n]{{1,80}}? \(carried by {re.escape(keeper)} — not {re.escape(keeper)}'s words\)|"
+                            rf"{name}(?: \(after writing, while they were away\))?):\*\* ", re.M)
     turns: list[dict] = []
     marks = list(who_re.finditer(body))
     for i, m in enumerate(marks):
@@ -232,8 +282,17 @@ def load_transcript(path: Path) -> list[dict]:
             turns.append({"role": "user", "content": content})
         elif who == "engine — a spark":  # a spark's line read back as the engine's
             turns.append({"role": "user", "content": content, "_engine": True, "_spark": True})
-        elif who == "engine — the game":  # an adventure's wrap-up bell, read back as the engine's
+        elif who in ("engine — the game", "engine — the trip"):  # a game's or a trip's wrap-up bell, as the engine's
             turns.append({"role": "user", "content": content, "_engine": True, "_engine_label": who})
+        elif who.endswith(f" — not {keeper}'s words)"):  # the place's words, carried in by the keeper, marked again
+            place = who[:who.rfind(" (carried by ")]
+            t = {"role": "user", "content": content, "_trip": place}
+            try:
+                import worldtrip
+                t["_table"] = worldtrip.world_mark(place)
+            except Exception:  # noqa: BLE001
+                t["_table"] = f"[{place} shows — carried here by {keeper}, word for word; these are not {keeper}'s words:]"
+            turns.append(t)
         elif "after writing" in who:
             turns.append({"role": "assistant", "content": content, "_engine": True, "_after": True})
         else:
@@ -888,7 +947,7 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
         transcript = "\n\n".join(
             (f"*(the visit so far, folded at {t['_fold_when']}, in your own words:)*\n\n{t.get('_fold_text') or '(not written down before the fold)'}\n\n"
              if t.get("_fold_when") else "")
-            + f"**{(guest_who(t['_guest']) if t.get('_guest') else config.USER_NAME) if t['role'] == 'user' else name}:** {strip_voice_delivery(t['content']) if t.get('_voice_delivery') else t['content']}"
+            + f"**{_carried_who(t) or ((guest_who(t['_guest']) if t.get('_guest') else config.USER_NAME) if t['role'] == 'user' else name)}:** {strip_voice_delivery(t['content']) if t.get('_voice_delivery') else t['content']}"
             + ("\n*[application state: speech playback was interrupted; spoken coverage is unverified.]*"
                if "interrupted" in t.get("_voice_delivery", "").lower() else "") for t in visible)
         cap = int(getattr(config, "AFTERGLOW_MAX_CHARS", 60000))
@@ -1368,7 +1427,8 @@ def _sooner_fold(sense: str, turn: dict) -> str:
     old = f"; at {int(round(at * 100))}% the visit is folded — "
     if not sense or edge >= at or old not in sense:
         return sense
-    return sense.replace(old, f"; at {int(round(edge * 100))}% the visit is folded (sooner while your game is open, so "
+    what = str(turn.get("_fold_for") or "your game")  # a trip's sooner edge names the trip ("your trip to …")
+    return sense.replace(old, f"; at {int(round(edge * 100))}% the visit is folded (sooner while {what} is open, so "
                               "there is room to write it down) — ", 1)
 
 
@@ -2022,7 +2082,19 @@ def one_turn(history: list[dict], user_text: str, images: list[str] | None = Non
                 notes.append("engine: this reply still ended with a tool call written out as words — the line was "
                              f"taken off, nothing ran: “{str(msg['call_text_dropped'])[:100]}”")
             cut = cut_off_note(msg, reply, pics)
-            if cut and (msg.get("tokens") or {}).get("done") != "length":
+            trip_line = ""  # mid-trip, a reply that ends on a > line (a thing to do there) is never sent back to mend
+            if turn.get("_trip_lines") and reply.rstrip().rsplit("\n", 1)[-1].lstrip().startswith(">"):
+                trip_line = reply.rstrip().rsplit("\n", 1)[-1].strip()
+                if (msg.get("tokens") or {}).get("done") == "length" and on_event:
+                    on_event("trip_cut", "length")  # the copy-ready lines say so above the block
+                try:
+                    import worldtrip
+                    looks_cut = worldtrip.line_looks_cut(trip_line)
+                except Exception:  # noqa: BLE001
+                    looks_cut = False
+                if cut and not looks_cut and (msg.get("tokens") or {}).get("done") != "length":
+                    cut = []  # whole: a > line ends on a letter as a matter of course
+            if cut and not trip_line and (msg.get("tokens") or {}).get("done") != "length":
                 reply, mended, refused = finish_cut_reply(system, history, reply, thinking, spent,
                                                           msgs=messages())
                 if mended:

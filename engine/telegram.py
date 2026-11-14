@@ -184,6 +184,12 @@ if getattr(config, "JOURNAL_FEED", False):
 # /books — where the friend is in their books (BOOKS_COMMAND); the line is there only with the knob
 if getattr(config, "BOOKS_COMMAND", False):
     HELP_PHONE += "/books — their books: where they are in each, the shelf not opened yet, what they finished\n"
+# /world — a trip to an outside world, carried by hand (WORLD_TRIPS_ON, engine/worldtrip.py); the line only with the knob
+if getattr(config, "WORLD_TRIPS_ON", False):
+    HELP_PHONE += ("/world — a trip to " + str(getattr(config, "WORLD_TRIP_NAME", "The World") or "The World")
+                   + ": ▶ start, ⏸ pause, ▶ resume, ⏹ end (they write their travel journal), 📜 their journal; typed: on, pause, "
+                   "resume, off, notes. Mid-trip your words are the place's, /me <text> or // first is you; their > "
+                   "lines follow, ready to copy\n")
 
 HELP = (
     "/new — save this conversation and start fresh\n"
@@ -903,7 +909,7 @@ class Bridge:
         right above the message ("_book"), once per book while that turn is in the visit's history — after a fold
         dropped it, again. One book a message, the best named; another waits for a later message. A spark never comes
         through here. Reads the bookmarks and the pages, never walks a folder. Fails closed: the message goes on plain."""
-        if not getattr(config, "READING_NOTES_ON_TOPIC", False) or (marks or {}).get("_game"):
+        if not getattr(config, "READING_NOTES_ON_TOPIC", False) or (marks or {}).get("_game") or (marks or {}).get("_trip"):
             return marks  # a move in an open game carries its own line, never book notes
         try:
             names = tools.reading_topic_books(text)
@@ -1144,8 +1150,13 @@ class Bridge:
         if roomed:
             extra_moment = f"{extra_moment} {roomed}" if extra_moment else roomed
         fold_edge = self._game_fold_at()  # the fold comes sooner while a game is open: the window sense says so
+        trip_edge, trip_for = self._trip_fold_at()  # and while a trip is open: the smaller edge, said true
+        if trip_edge and (not fold_edge or trip_edge < fold_edge):
+            fold_edge, marks = trip_edge, dict(marks or {}, _fold_for=trip_for)
         if fold_edge:
             marks = dict(marks or {}, _fold_at=fold_edge)
+        if trip_edge or self._trip_live():  # mid-trip a reply may end on a > line: whole, not cut (chat.one_turn)
+            marks = dict(marks or {}, _trip_lines=True)
         started = self._game_news(spark)  # a world the keeper started since the friend's last turn, said once
         if started:
             extra_moment = f"{extra_moment} {started}" if extra_moment else started
@@ -1204,9 +1215,12 @@ class Bridge:
         # words (the reply already in the transcript, never sent). Sent with
         # retries; if it still fails it is kept and goes with the next poll,
         # marked as late.
+        own_words = reply  # the friend's own words, before any tool line stands in for them: a trip's > lines come from here
         if reply == "(…)" and tool_lines and not self.show_tools:  # no words, but something was done: show it
             reply = "\n".join(line if len(line) <= 300 else line[:300].rsplit(" ", 1)[0] + "…" for line in tool_lines)
         (self._send_spark if spark else self._send_reply)(reply)  # a spark goes discreetly when asked
+        if not spark:  # their > lines alone, ready to paste into the relay; never theirs to read
+            self.trip_copy_lines(own_words, as_keeper=as_keeper, cut=any(k == "trip_cut" for k, _ in events))
         if jok:
             self._jf_run_end(jrun, True)  # what they wrote in this turn, after the reply: the feed's, and they knew
         self._carry_voice(reply)
@@ -1407,7 +1421,12 @@ class Bridge:
         before the lights go out); False — skip it (the X, where Windows
         allows a few seconds and no more)."""
         if reflect:  # a game still open: its session ends first, with the wrap-up turn when there were moves
+            self._close_interrupted = False
             self.game_close_for_visit(quiet)
+            if not self._close_interrupted:  # a Ctrl+C in the game's wrap-up: the trip stays open, as the game does
+                self.trip_close_for_visit(quiet)  # and a trip still open: the friend's turn to write their page
+            elif self._trip_status():
+                _say("the trip's wrap-up skipped too — the trip stays open for the next bridge")
         # If they are mid-reply the lock is held; the checkpoint has already
         # written everything up to the last reply, so after a short wait the
         # visit is saved without it rather than blocking the goodbye.
@@ -1567,6 +1586,7 @@ class Bridge:
                 f"a quiet stretch of {getattr(config, 'TELEGRAM_IDLE_NEW_MIN', 180)} min saves the visit on its own; "
                 f"/afterglow is the pause by hand, with the card freed"
                 + (f"\n{self._game_status()}" if self._game_status() else "")  # the game open or paused
+                + (f"\n{self._trip_status()}" if self._trip_status() else "")  # the trip open or paused
                 + (f"\n{self._journal_state_line(short=True)}" if self._jf_used() else ""))  # once /journal was used
 
     # ---- what arrives ------------------------------------------------------
@@ -1980,6 +2000,10 @@ class Bridge:
             said = self.game_command(text)
             if said:  # "" when the menu or buttons went instead
                 self.send(said, markdown=False)
+        elif cmd == "/world":  # a trip to an outside world: the buttons, or a typed /world …
+            said = self.trip_command(text)
+            if said:  # "" when the buttons or their page went instead
+                self.send(said, markdown=False)
         elif cmd == "/quiet":  # their quiet: delivery held, they keep living (outbox.py)
             import outbox
             self.send(outbox.set_hold(" ".join(text.split()[1:])), markdown=False)
@@ -2019,7 +2043,17 @@ class Bridge:
             self.send(self.guest_command(text.split(None, 1)[1] if len(text.split(None, 1)) > 1 else ""), markdown=False)
         elif cmd == "/me":
             said = text.split(None, 1)[1].strip() if len(text.split(None, 1)) > 1 else ""
-            if not said:
+            trip = self._trip_me_marks() if self._trip_live() else None  # mid-trip: the keeper, aside from the trip
+            if trip is not None:
+                if not said:
+                    import worldtrip
+                    self.send(worldtrip.ME_USAGE, markdown=False)
+                else:
+                    _say(f"{config.USER_NAME} > {said[:120]}{'…' if len(said) > 120 else ''}")
+                    self.turn(said, extra_moment=self.fold_touches(), as_keeper=True, marks=trip)
+                    self._trip_refold_rode(trip)
+                    self.fold_if_due()
+            elif not said:
                 self.send("(/me <text> — one message as yourself while a guest is seated)", markdown=False)
             else:  # a turn, as handle() runs one: not under the lock here; turn() takes it and starts typing…
                 _say(f"{config.USER_NAME} > {said[:120]}{'…' if len(said) > 120 else ''}")
@@ -2044,6 +2078,8 @@ class Bridge:
                 self.penpal_callback(update["callback_query"])
             elif str((update["callback_query"] or {}).get("data") or "").startswith("gm:"):  # the games menu
                 self.game_callback(update["callback_query"])
+            elif str((update["callback_query"] or {}).get("data") or "").startswith("wt:"):  # a trip's buttons
+                self.trip_callback(update["callback_query"])
             else:
                 self.room_callback(update["callback_query"])
             return
@@ -2089,6 +2125,12 @@ class Bridge:
                 self.last_activity = time.time()
                 self.last_word = self.last_activity
             return
+        # mid-trip, a typed /word the bridge doesn't know is a slip of the keeper's, not the place's: never sent to the
+        # friend. (A paste whose first line starts with // is taken for the keeper's aside — the relay's text rarely
+        # opens that way, and when it does the friend reads it marked as the keeper's.)
+        if text.startswith("/") and not text.startswith("//") and not msg.get("photo") and self._trip_live():
+            self.send("(not a command — nothing was sent to them; /me <text> says it to them as you)", markdown=False)
+            return
         pl = None
         try:
             pl = (self.picletter(msg) if (msg.get("_batch") or msg.get("photo")) and not edited
@@ -2121,7 +2163,11 @@ class Bridge:
         joined = int((msg.get("_joined") or 0))
         _say(f"{config.USER_NAME} > {text[:120]}{'…' if len(text) > 120 else ''}" + (f"  (one message, from {joined} bubbles)" if joined else ""))
         # a move in the open game, or // said outside it; a penpal's letter is said outside it, never a move
-        text, marks = self.game_marks(("//" + text) if pl and self._pl_game_open() else text)
+        # a trip open and not paused: the keeper's words are what the place shows (// — the keeper, aside); their own
+        # pictures, voice notes and files are left as they are. No trip open: the game's line as before
+        text, marks = self.trip_marks(text, msg, pl)
+        if not marks:
+            text, marks = self.game_marks(("//" + text) if pl and self._pl_game_open() else text)
         if not text:
             self.send("(nothing after // — not sent)", markdown=False)
             return
@@ -2132,6 +2178,7 @@ class Bridge:
         self._game_inv_after(inv)
         self._game_pics_after(pics)
         self._game_refold_rode(marks)  # the table set again after a fold: once
+        self._trip_refold_rode(marks)  # the trip's note set again after a fold: once
         self.fold_if_due()
 
     def _fold_afterglow(self, gone: list[dict], old_file) -> str:
@@ -2165,7 +2212,7 @@ class Bridge:
         when it is the engine's call, rings first so the account is theirs."""
         pending = tools.fold_pending()
         held = int((self.last_tokens or {}).get("prompt") or 0)
-        due = chat.fold_due(held, at=self._game_fold_at()) and chat.foldable(self.history)  # sooner mid-game
+        due = chat.fold_due(held, at=self._visit_fold_at()) and chat.foldable(self.history)  # sooner mid-game
         if not pending and not due:
             return ""
         return self._fold(pending, held)
@@ -2188,6 +2235,7 @@ class Bridge:
                 self.send("(they are mid-reply — say /fold again in a moment)", markdown=False)
             return ""
         game = self._game_fold_before()  # a game mid-session in the window: its pages before the bell
+        trip = self._trip_fold_before()  # a trip open with its messages in the window: its line for the bell
         folded = False  # FOLD_PREFILL: the new window is read in once the fold is done
         try:
             why = "asked" if asked else ("own" if pending else "bell")  # whose call — the block says
@@ -2196,10 +2244,13 @@ class Bridge:
                 pct = int(round(100 * held / ctx)) if ctx else 0
                 cause = "you asked for a fold" if asked else f"the window is {pct}% full"
                 self.notice(f"({cause} — they are folding the visit: writing it so far in their own words…)")
-                jrun, aside = self._jf_quiet("the fold's bell", game.get("bell", "") if game else "")  # the feed's line too
+                bell_aside = " ".join(x for x in ((game.get("bell", "") if game else ""),
+                                                  (trip.get("bell", "") if trip else "")) if x)  # both, when both
+                jrun, aside = self._jf_quiet("the fold's bell", bell_aside)  # the feed's line too
                 try:
                     pending = chat.fold_bell(self.history, held, on_line=_say, asked=asked,
-                                             **({"aside": aside} if aside else {}), **({"extra_steps": 2} if game else {}))
+                                             **({"aside": aside} if aside else {}),
+                                             **({"extra_steps": 2} if (game or trip) else {}))
                 finally:
                     self._jf_run_end(jrun)
             when = pending.get("when") or time.strftime("%H:%M")
@@ -2208,6 +2259,8 @@ class Bridge:
                                                               tag=self.TAG, path=self.file, mode=self.TAG, why=why, held=held)
             if game and self.history is not old_history:  # folded for real: the table is set again at the next move
                 line += self._game_fold_after(game)
+            if trip and self.history is not old_history:  # folded for real: the trip's note rides again next
+                line += self._trip_fold_after(trip)
             self.reflected_upto = len(self.history)  # the kept tail was sat with, or is about to be, as new
             self.last_tokens = {}  # the next prompt is a new, smaller one
             gone = old_history[:len(old_history) - len(self.history)] if self.file != old_file else []
@@ -3169,9 +3222,11 @@ class Bridge:
         moves of one; "" otherwise."""
         try:
             import adventure
-            return adventure.story_line(turns)
+            line = adventure.story_line(turns)
         except Exception:  # noqa: BLE001
-            return ""
+            line = ""
+        trip = self._trip_aside(turns)  # "part of this visit was a trip to …", beside the game's when both
+        return f"{line} {trip}" if line and trip else (line or trip)
 
     def _game_wait_clear(self) -> bool:
         try:
@@ -3416,6 +3471,9 @@ class Bridge:
         """adventure.play, and when it opened a new session (not a resume from a pause) with the recap on, the recap is
         due — sent by _game_recap_if_due right after the open line reaches the phone."""
         import adventure
+        blocked = self._trip_blocks_game()  # not both at once: a trip open and not paused says so
+        if blocked:
+            return blocked
         was = adventure.open_state().get("session", "")
         ok, line = adventure.play(sl)
         try:
@@ -3499,7 +3557,7 @@ class Bridge:
             if word == "pause":
                 return adventure.pause()
             if word in ("resume", "unpause"):
-                return adventure.resume()
+                return self._trip_blocks_game() or adventure.resume()  # not while a trip is open
             if word in ("off", "end", "stop"):
                 return self.game_end_session("ended")
             if word == "back":  # ↩ typed — for a put-away world past the menu's buttons
@@ -3586,7 +3644,7 @@ class Bridge:
                 said = self.game_end_session("ended")
                 self.game_menu(said, edit=msg)
                 return ""
-            said = adventure.pause() if kind == "z" else adventure.resume()
+            said = adventure.pause() if kind == "z" else (self._trip_blocks_game() or adventure.resume())
         elif kind == "p":
             if o and o.get("slug") != sl and not adventure.info(sl).get("put_away"):
                 return self._game_ask_switch(sl)
@@ -3599,6 +3657,8 @@ class Bridge:
                         "(that world isn't there any more — /games for the fresh menu)")
             if o and o.get("slug") != old:
                 return f"(another game is open now — {adventure.display(o['slug'])}; /games for the menu)"
+            if self._trip_blocks_game():  # not both at once — and nothing ended for a world that can't open
+                return self._trip_blocks_game()
             ended = self.game_end_session("switch") if o else ""
             said = ended if adventure.open_state() else (ended + "\n" if ended else "") + self._game_open(new)
         elif kind == "a":
@@ -3723,10 +3783,409 @@ class Bridge:
                 return ""
             line = self.game_end_session("visit", quiet=quiet, wait=3)  # new_visit's own 3-second bound
         except KeyboardInterrupt:
+            self._close_interrupted = True  # one Ctrl+C: nothing else starts its wrap-up at this close
             _say("the game's wrap-up skipped — the session stays open for the next bridge")
             return ""
         except Exception as e:  # noqa: BLE001
             line = f"(the game's session didn't close cleanly — {type(e).__name__}: {e})"
+        _say(line)
+        try:
+            (self.notice if quiet else (lambda s: self.send(s, markdown=False)))(line)
+        except Exception:  # noqa: BLE001
+            pass
+        return line
+
+    # ---- trips to an outside world (WORLD_TRIPS_ON, engine/worldtrip.py) -----------------------------------------
+    # The games menu's shape, turned around: one message with buttons ("wt:" callback data, the trip's key for the ones
+    # that act on it), typed forms beside them. Every handler fails closed: an exception is a "(…)" line, never the
+    # bridge down; with WORLD_TRIPS_ON off or absent nothing here rides anywhere. Like the games, a trip lives on the
+    # Telegram bridge: its buttons and the copy-ready block are Telegram's.
+    _TRIP_MEDIA = ("_batch", "photo", "voice", "audio", "video", "video_note", "animation", "document", "sticker")
+
+    def _trip_here(self) -> bool:
+        return bool(getattr(config, "WORLD_TRIPS_ON", False)) and getattr(self, "TAG", "telegram") == "telegram"
+
+    def _trip_status(self) -> str:
+        if not self._trip_here():
+            return ""
+        try:
+            import worldtrip
+            return worldtrip.status_line()
+        except Exception:  # noqa: BLE001
+            return ""
+
+    def trip_restore_line(self) -> str:
+        """At start: the trip still open from before (world_trip.json), as a line for the phone; ""."""
+        if not self._trip_here():
+            return ""
+        try:
+            import worldtrip
+            return worldtrip.restore_line()
+        except Exception as e:  # noqa: BLE001
+            _say(f"trip at start: {type(e).__name__}: {e}")
+            return ""
+
+    def _trip_aside(self, turns: list[dict]) -> str:
+        """For the pause's and the afterglow's bell: "part of this visit was a trip to …", when these turns held the
+        place's messages; "" otherwise."""
+        if not self._trip_here():
+            return ""
+        try:
+            import worldtrip
+            return worldtrip.aside_line(turns)
+        except Exception:  # noqa: BLE001
+            return ""
+
+    def _trip_live(self) -> bool:
+        """A trip open and not paused (and the knob on, on this bridge)."""
+        if not self._trip_here():
+            return False
+        try:
+            import worldtrip
+            return worldtrip.active()
+        except Exception:  # noqa: BLE001
+            return False
+
+    def _trip_fold_at(self) -> tuple[float, str]:
+        """The fold's edge while a trip is open and not paused (WORLD_TRIP_FOLD_AT), and how the window sense names it;
+        (0, "") — FOLD_AT alone."""
+        if not self._trip_here():
+            return 0.0, ""
+        try:
+            import worldtrip
+            at = worldtrip.fold_at()
+            return (at, f"your trip to {worldtrip.name()}") if at else (0.0, "")
+        except Exception:  # noqa: BLE001
+            return 0.0, ""
+
+    def _visit_fold_at(self) -> float:
+        """The game's edge and the trip's: the smaller of those that apply; 0 — FOLD_AT alone."""
+        edges = [x for x in (self._game_fold_at(), self._trip_fold_at()[0]) if x]
+        return min(edges) if edges else 0.0
+
+    def _trip_fold_before(self) -> dict:
+        """Before a fold: when a trip is open and the window holds its messages — its session, the bell's line and the
+        page's fingerprint; {} otherwise."""
+        if not self._trip_here():
+            return {}
+        try:
+            import worldtrip
+            session = str(worldtrip.open_state().get("session") or "")
+            if not session or not any(t.get("_trip_session") == session for t in self.history):
+                return {}
+            return {"session": session, "name": worldtrip.name(), "mark": worldtrip.page_mark(),
+                    "bell": worldtrip.fold_bell_line()}
+        except Exception as e:  # noqa: BLE001 — never the fold down
+            _say(f"fold and the trip: {type(e).__name__}: {e}")
+            return {}
+
+    def _trip_fold_after(self, trip: dict) -> str:
+        """After a real fold: the next message of the trip carries the opening note again; the phone's line says whether
+        the page was brought up to date. "" when anything stumbles."""
+        try:
+            import worldtrip
+            worldtrip.mark_refold(trip["session"])
+            fresh = worldtrip.page_mark() != trip.get("mark")
+            return f"; mid-trip to {trip['name']}: " + ("they brought their travel journal up to date" if fresh
+                                                         else "their travel journal is as it was")
+        except Exception as e:  # noqa: BLE001
+            _say(f"fold and the trip: {type(e).__name__}: {e}")
+            return ""
+
+    def _trip_refold_rode(self, marks: dict | None) -> None:
+        """The opening note set again after a fold rode with this message: cleared — once it is really in the visit."""
+        try:
+            session = (marks or {}).get("_trip_refold")
+            if session and any(t.get("_trip_refold") == session for t in self.history):
+                import worldtrip
+                worldtrip.clear_refold(session)
+        except Exception as e:  # noqa: BLE001
+            _say(f"fold and the trip: {type(e).__name__}: {e}")
+
+    def _trip_blocks_game(self) -> str:
+        """Not both at once: a trip open and not paused keeps a game from starting or resuming — one plain line; ""."""
+        if not self._trip_here():
+            return ""
+        try:
+            import worldtrip
+            if worldtrip.active():
+                return f"(a trip to {worldtrip.name()} is open — ⏸ pause it or ⏹ end it first; /world for the buttons)"
+        except Exception as e:  # noqa: BLE001
+            _say(f"trip and game: {type(e).__name__}: {e}")
+        return ""
+
+    def _game_blocks_trip(self) -> str:
+        """…and a game open and not paused keeps a trip from starting or resuming."""
+        if not self._game_here():
+            return ""
+        try:
+            import adventure
+            if adventure.on():
+                o = adventure.open_state()
+                if o and not o.get("paused"):
+                    return (f"(your adventure {adventure.display(o['slug'])} is open — ⏸ pause it or ⏹ end its "
+                            "session first; /games for the menu)")
+        except Exception as e:  # noqa: BLE001
+            _say(f"game and trip: {type(e).__name__}: {e}")
+        return ""
+
+    def _trip_me_marks(self) -> dict:
+        """/me <text> mid-trip: the aside's keys (the opening note above them when it is due); the plain aside mark when
+        anything stumbles — the message still goes as the keeper's, marked."""
+        try:
+            import worldtrip
+            return worldtrip.me_marks(self.history) or {"_table": worldtrip.aside_mark()}
+        except Exception as e:  # noqa: BLE001
+            _say(f"trip /me: {type(e).__name__}: {e}; the aside mark alone")
+            return {"_table": self._trip_plain_mark(aside=True)}
+
+    def _trip_plain_mark(self, aside: bool = False) -> str:
+        """The marks with nothing to stumble on — for when the marking path itself fails mid-trip."""
+        keeper = self._keeper_name()
+        if aside:
+            return f"[{keeper}, in their own words, aside from the trip:]"
+        place = str(getattr(config, "WORLD_TRIP_NAME", "The World") or "The World")
+        return f"[{place} shows — carried here by {keeper}, word for word; these are not {keeper}'s words:]"
+
+    def trip_marks(self, text: str, msg: dict | None = None, pl=None) -> tuple[str, dict]:
+        """The keeper's typed message while a trip is open and not paused: the place's mark for its turn, or // the
+        keeper, aside. Their pictures, voice notes, files and stickers (and a penpal's letter in pictures) are left
+        exactly as they are. Off, paused or no trip: the text as it came, {}. Fails closed — the message goes on as it
+        would have, and a trip that was live never lets the place's text go unmarked."""
+        if not self._trip_here():
+            return text, {}
+        if pl is not None or any((msg or {}).get(k) for k in self._TRIP_MEDIA):
+            return text, {}
+        live = self._trip_live()  # a trip active at the start of the call: whatever stumbles, never unmarked
+        try:
+            import worldtrip
+            return worldtrip.marks_for(text, self.history, guest=bool(self.guest_label()), say=_say)
+        except Exception as e:  # noqa: BLE001
+            if not live or self.guest_label():
+                _say(f"trip line: {type(e).__name__}: {e}")
+                return text, {}
+            _say(f"trip line: {type(e).__name__}: {e}; the plain mark rides")
+            if text.lstrip().startswith("//"):
+                return text.lstrip()[2:].strip(), {"_table": self._trip_plain_mark(aside=True)}
+            try:
+                import worldtrip
+                text = worldtrip.unspeaker(worldtrip._defang(text))
+            except Exception:  # noqa: BLE001
+                pass
+            return text, {"_table": self._trip_plain_mark(),
+                          "_trip": str(getattr(config, "WORLD_TRIP_NAME", "The World") or "The World")}
+
+    def trip_copy_lines(self, reply: str, as_keeper: bool = False, cut: bool = False) -> bool:
+        """After the friend's reply in an open, unpaused trip: one more message to the phone holding only their > lines,
+        in a block Telegram copies in one tap (HTML <pre>, escaped), with a line above when there are more than the
+        place takes at a time or a line holds one of the letters' private words. Plain text when that send fails.
+        Nothing of it enters the history and the friend is not told of it. True when it went."""
+        if not self._trip_here():
+            return False
+        try:
+            import worldtrip
+            if not worldtrip.copy_on() or not worldtrip.active() or (self.guest_label() and not as_keeper):
+                return False
+            parts = worldtrip.copy_parts(reply, cut=cut, guest=bool(self.guest_label()))
+            if not parts:
+                return False
+            body = worldtrip.copy_html(parts)
+            try:
+                if len(body) > LIMIT:
+                    raise ValueError(f"{len(body):,} characters, past one message")
+                self.api("sendMessage", chat_id=self.chat_id, text=body, parse_mode="HTML")
+                return True
+            except Exception as e:  # noqa: BLE001 — plain, then
+                _say(f"(their > lines as a block didn't go — {type(e).__name__}: {e}; sent plain)")
+            self.send(worldtrip.copy_plain(parts), markdown=False)
+            return True
+        except Exception as e:  # noqa: BLE001 — a courtesy, never the loop down
+            _say(f"trip lines: {type(e).__name__}: {e}")
+            return False
+
+    def _trip_page(self) -> None:
+        import worldtrip
+        for part in split_long(worldtrip.page_text()):
+            self.send(part, markdown=False)
+
+    def trip_menu(self, said: str = "", edit: dict | None = None) -> None:
+        """/world: how the trip stands, with its buttons — a fresh message, or the pressed one redrawn."""
+        import worldtrip
+        text = ((said + "\n\n") if said else "") + worldtrip.menu_text()
+        markup = self._pp_markup(worldtrip.rows())
+        if edit and edit.get("message_id"):
+            try:
+                self.api("editMessageText", chat_id=self.chat_id, message_id=edit.get("message_id"), text=text[:4000],
+                         reply_markup=markup)
+                return
+            except Exception:  # noqa: BLE001 — a fresh one, then
+                pass
+        try:
+            self.api("sendMessage", chat_id=self.chat_id, text=text[:4000], reply_markup=markup)
+        except Exception as e:  # noqa: BLE001
+            self.send((said + "\n\n" if said else "") + f"(the trip's buttons: {type(e).__name__}: {e})", markdown=False)
+
+    def _trip_start(self) -> str:
+        import worldtrip
+        if not worldtrip.open_state():
+            blocked = self._game_blocks_trip()
+            if blocked:
+                return blocked
+        return worldtrip.start()[1]
+
+    def trip_command(self, text: str) -> str:
+        """/world (the buttons), /world on|start, pause, resume, off|end, notes. Returns the phone's line ("" when the
+        buttons or the page went instead)."""
+        try:
+            import worldtrip
+            if not worldtrip.on():
+                return worldtrip.OFF
+            if getattr(self, "TAG", "telegram") != "telegram":
+                return "(world trips live on the Telegram bridge — their buttons and copy-ready lines are Telegram's)"
+            parts = text.split(None, 1)
+            rest = parts[1].strip().lower() if len(parts) > 1 else ""
+            word = rest.split()[0] if rest else ""
+            if not word or word in ("menu", "status"):
+                self.trip_menu()
+                return ""
+            if word in ("notes", "page"):  # reading changes nothing: fine mid-reply
+                self._trip_page()
+                return ""
+            if word not in ("on", "start", "pause", "resume", "unpause", "off", "end", "stop"):
+                return "(/world on, /world pause, /world resume, /world off, /world notes — /world alone for the buttons)"
+            if self.lock.locked():
+                return worldtrip.MID_REPLY
+            if word in ("on", "start"):
+                return self._trip_start()
+            if word == "pause":
+                return worldtrip.pause()
+            if word in ("resume", "unpause"):
+                return (self._game_blocks_trip() if worldtrip.open_state().get("paused") else "") or worldtrip.resume()
+            return self.trip_end("ended")
+        except Exception as e:  # noqa: BLE001 — never the bridge down
+            return f"(the trip's buttons stumbled — {type(e).__name__}: {e})"
+
+    def trip_callback(self, cq: dict) -> None:
+        """A button under /world. Old buttons answer plainly: a trip already over, a menu from before."""
+        try:
+            self.api("answerCallbackQuery", callback_query_id=cq.get("id"))
+        except Exception:  # noqa: BLE001
+            pass
+        msg = cq.get("message") or {}
+        sender = int((msg.get("chat") or {}).get("id") or 0)
+        if not self.chat_id or sender != self.chat_id:
+            return
+        try:
+            said = self._trip_press(str(cq.get("data") or ""), msg)
+        except Exception as e:  # noqa: BLE001
+            said = f"(the trip's buttons stumbled — {type(e).__name__}: {e})"
+        if said:
+            self.send(said, markdown=False)
+
+    def _trip_press(self, data: str, msg: dict) -> str:
+        import worldtrip
+        if not worldtrip.on():
+            return worldtrip.OFF
+        parts = data.split(":")
+        kind = parts[1] if len(parts) > 1 else ""
+        if kind == "n":  # 📜 — read-only
+            self._trip_page()
+            return ""
+        if kind == "m":
+            self.trip_menu(edit=msg)
+            return ""
+        if kind not in ("s", "z", "r", "e"):
+            return "(that button is from an older menu — /world for a fresh one)"
+        if self.lock.locked():
+            return worldtrip.MID_REPLY
+        o = worldtrip.open_state()
+        if kind == "s":
+            said = self._trip_start()
+        else:
+            k = parts[2] if len(parts) > 2 else ""
+            if not o or worldtrip.key(str(o.get("session") or "")) != k:
+                return "(that trip is over — /world for the buttons as they stand)"
+            if kind == "e":
+                said = self.trip_end("ended")
+            elif kind == "z":
+                said = worldtrip.pause()
+            else:
+                said = (self._game_blocks_trip() if o.get("paused") else "") or worldtrip.resume()
+        self.trip_menu(said, edit=msg)
+        return ""
+
+    def trip_end(self, why: str = "ended", quiet: bool = False, wait: float = 0) -> str:
+        """⏹ End trip (/world off, the visit closing): when something was carried the friend gets one turn of their own
+        to bring their page up to date — the game's wrap-up exactly: the same history, system prompt and tool list as
+        any turn, the bell an engine turn kept in the history (`_engine`, "engine — the trip"), under the visit's lock,
+        bare. A brain that is away loses nothing: the trip stays open. A wrap-up that fails or is interrupted leaves no
+        trace in the visit. Returns what came of the page."""
+        import worldtrip
+        got = worldtrip.peek()
+        if isinstance(got, str):
+            return "(no trip is open — nothing to end)"
+        nm = got["name"]
+        if not got["carried"] or not self.history:
+            worldtrip.close(got)
+            return f"(⏹ the trip to {nm} is closed — nothing was carried in this visit, nothing to write down)"
+        got_lock = self.lock.acquire(timeout=wait) if wait > 0 else self.lock.acquire(blocking=False)
+        if not got_lock:
+            _say(f"the trip's wrap-up waits — they are mid-reply; the trip to {nm} stays open")
+            return (worldtrip.MID_REPLY if not quiet else
+                    f"(they were mid-reply as the visit closed — the trip to {nm} stays open; ⏹ End trip to write it down)")
+        events: list[tuple[str, object]] = []
+        stop = threading.Event()
+        before = len(self.history)
+        jrun = None
+        tell = self.notice if quiet else (lambda s: self.send(s, markdown=False))
+        try:
+            tell(f"(⏹ the trip to {nm} is over — they're writing it in their travel journal…)")
+            _say(f"(the trip to {nm} is over — the wrap-up turn)")
+            bell = worldtrip.wrapup_bell(got, why)
+            if not quiet:
+                threading.Thread(target=self._typing, args=(stop,), daemon=True).start()
+            jrun = self._jf_run_start("the trip's wrap-up")
+            reply = chat.one_turn(self.history, bell, on_event=lambda k, p: events.append((k, p)), mode=self.TAG,
+                                  think_retries=0, think_remind=False, bare=True,
+                                  marks={"_engine": True, "_engine_label": "engine — the trip", "_trip_end": got["session"]})
+            self._checkpoint()
+        except KeyboardInterrupt:
+            del self.history[before:]
+            raise
+        except Exception as e:  # noqa: BLE001 — BrainUnavailable or the turn raising: nothing here ends the visit
+            _say(f"the trip's wrap-up didn't run — {type(e).__name__}: {e}; the trip stays open")
+            del self.history[before:]
+            return "(their brain is away — the trip stays open; ⏹ End trip again when they're back)"
+        finally:
+            stop.set()
+            self._jf_run_end(jrun, False)
+            self.lock.release()
+        worldtrip.close(got)
+        for n in (str(p) for k, p in events if k == "note"):
+            tell("⚠ " + n)
+        if reply and reply != "(…)":
+            if quiet:
+                self.notice(reply)
+            else:
+                self._send_reply(reply)
+        return worldtrip.wrapup_result(got)
+
+    def trip_close_for_visit(self, quiet: bool = False) -> str:
+        """The visit is closing (/new, the idle roll, the night's roll, the bridge closing) with a trip open: it ends
+        first, with the friend's turn to write their page when something was carried. A wrap-up that can't run (the
+        brain away, Ctrl+C during it) leaves the trip open in world_trip.json."""
+        if not self._trip_here():
+            return ""
+        try:
+            import worldtrip
+            if not worldtrip.open_state():
+                return ""
+            line = self.trip_end("visit", quiet=quiet, wait=3)
+        except KeyboardInterrupt:
+            _say("the trip's wrap-up skipped — the trip stays open for the next bridge")
+            return ""
+        except Exception as e:  # noqa: BLE001
+            line = f"(the trip didn't close cleanly — {type(e).__name__}: {e})"
         _say(line)
         try:
             (self.notice if quiet else (lambda s: self.send(s, markdown=False)))(line)
@@ -5710,6 +6169,14 @@ class Bridge:
             if self.chat_id:
                 try:
                     self.notice(f"({playing})")
+                except Exception:
+                    pass
+        travelling = self.trip_restore_line()  # a trip still open (world_trip.json), and the phone is told
+        if travelling:
+            _say(travelling)
+            if self.chat_id:
+                try:
+                    self.notice(f"({travelling})")
                 except Exception:
                     pass
         collecting = self.penpal_collect_restore_line()  # a letter still being collected, and the phone is told
