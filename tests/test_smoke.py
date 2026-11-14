@@ -19256,17 +19256,25 @@ _bk_r = _bk.report(_bk_T)
 check("books (0.16): eleven finished — the newest eight named, then +3 earlier",
       "Finished (11):" in _bk_r and _bk_r.endswith("\n+3 earlier") and "Extra 7" in _bk_r and "Extra 4" in _bk_r
       and "Extra 3" not in _bk_r, _bk_r[-300:])
-# the unopened shelf
+# the unopened shelf — every top-level name lower-case, so code-point and Windows' case-blind Path order agree
 _bk_led(_bk_FIN)
-_bk_shelf("books/Neon Harbour.pdf", "Snowfield.epub", "music/x.mp3", "loose.pdf", "books/Tidewater.pdf",
+_bk_shelf("books/Neon Harbour.pdf", "attic/Snowfield.epub", "music/x.mp3", "loose.pdf", "books/Tidewater.pdf",
           *[f"books/More {i:02}.pdf" for i in range(10)])
 _bk_r = _bk.report(_bk_T)
-check("books (0.16): the shelf not opened yet — EPUBs anywhere and PDFs under books/, by name, ten then +N more; a book "
-      "with a bookmark, a loose PDF and a song never; the sections in order",
-      "\n\nOn the shelf, not opened yet (12): " in _bk_r and "Snowfield" in _bk_r and "(+2 more)" in _bk_r
-      and "loose" not in _bk_r and "x.mp3" not in _bk_r and ".pdf" not in _bk_r and ".epub" not in _bk_r
+check("books (0.16): the shelf not opened yet — EPUBs in any folder and PDFs under books/, by file name in the shelf's "
+      "own order, ten then +N more; a book with a bookmark, a loose PDF and a song never; the sections in order",
+      "\n\nOn the shelf, not opened yet (12): Snowfield, " + ", ".join(f"More {i:02}" for i in range(9)) + " (+2 more)\n\n"
+      in _bk_r and "loose" not in _bk_r and "x.mp3" not in _bk_r and ".pdf" not in _bk_r and ".epub" not in _bk_r
       and _bk_r.count("Tidewater") == 1
       and _bk_r.index("No book in hand") < _bk_r.index("On the shelf") < _bk_r.index("Finished (4)"), _bk_r)
+# a capitalised EPUB at the top level sorts before or after books/ by platform: asked as a set, never in an order
+_bk_shelf("Snowfield.epub", "books/Neon Harbour.pdf", "Glass Orchard.epub", "loose.pdf")
+_bk_r = _bk.report(_bk_T)
+_bk_top = _bk_r.split("\n\nOn the shelf, not opened yet (2): ", 1)[-1].split("\n\n", 1)[0]
+check("books (0.16): an EPUB at the shelf's top level is unopened; a top-level EPUB with a bookmark and a loose PDF "
+      "never — the names whatever their order",
+      "\n\nOn the shelf, not opened yet (2): " in _bk_r and sorted(_bk_top.split(", ")) == ["Neon Harbour", "Snowfield"],
+      _bk_r)
 _bk_led({"tiny.pdf": {"page": 2, "total": 5, "kind": "pdf", "date": "2026-11-12"}})
 _bk_shelf()
 check("books (0.16): no book at all in the ledger — none in hand, none finished",
@@ -19358,8 +19366,8 @@ b.handle(_msg("/pages"))
 b.TAG = "telegram"
 check("books (0.16): on the Discord bridge /books answers as there, like /pages", _bk_pg == 1
       and phone.sent[0][0].startswith("Juniper's books — ") and len(phone.sent) == 2, phone.sent)
-# the line when a book is finished
-_bk_shelf("books/Neon Harbour.pdf", "Snowfield.epub")
+# the line when a book is finished (attic/ sorts before books/ in both orders: "Snowfield, Neon Harbour")
+_bk_shelf("books/Neon Harbour.pdf", "attic/Snowfield.epub")
 phone.sent.clear()
 
 
