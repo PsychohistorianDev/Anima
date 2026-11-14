@@ -823,6 +823,17 @@ FOLD_AT = 0.90
 # journal and in the window. One cold read, once per fold; a message sent meanwhile
 # waits for it. Needs AFTERGLOW.
 FOLD_AFTERGLOW = True
+# The fold's afterglow sits only with what the pauses have not: with FOLD_AFTERGLOW_SINCE_PAUSE it reads only what left
+# the window after the last pause (the bridge's mark of what was already sat with), and its bell and section head say
+# so; when the pauses covered all of it there is no afterglow at all — no brain call, the old transcript signed, the
+# phone told. A journal entry written at the fold's bell (the whole window in front of the friend) counts for all of
+# it. The mark then follows the turns into the new window, so kept turns no pause covered are sat with at the next
+# pause, once. False: the fold's afterglow over all that left, as before.
+FOLD_AFTERGLOW_SINCE_PAUSE = True
+# FOLD_BELL_PICKUP: one sentence in the fold's bell saying where the journal ends and the time now, so an entry at the
+# bell continues from there, and the account for fold_visit is the whole visit so far. One sentence only (the window
+# is nearly full at the bell): no journal tail. Needs JOURNAL_PICKUP_LINE. False: the bell as before, to the byte.
+FOLD_BELL_PICKUP = True
 FOLD_KEEP_TURNS = 6       # visible turns kept whole, the most recent ones
 FOLD_CHARS = 8000         # the account's ceiling (cut at a paragraph past it, said)
 FOLD_MAX_STEPS = 6        # steps allowed at the fold (a journal entry first, then the fold)

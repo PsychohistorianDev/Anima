@@ -81,6 +81,8 @@ config.WAKE_DEALT = config.WAKE_DEALT_WHOLE = False  # (0.15) the dealt item rea
 config.READING_PAGE_STUB, config.READING_NOTES_WITH_PAGES, config.READING_NOTES_ON_TOPIC = False, 0, False  # (0.16) the
 # reading notes out of the prompt: the older reading checks pin the page riding whole; tested on their own, below
 config.JOURNAL_PICKUP_LINE = False  # (0.16) the older pause and afterglow checks pin the bells as they were; tested on its own
+config.FOLD_AFTERGLOW_SINCE_PAUSE = config.FOLD_BELL_PICKUP = False  # (0.16) the older fold checks pin the fold as it was:
+# the afterglow over all that left, the mark at the new window's end, the bell as before; tested on their own, below
 config.GUEST_VIEW_LINE = False  # (0.16) the older guest checks pin the guest's line as it was; the view sentence is tested on its own
 config.BRAIN_KEEP_VISIT_READING = config.NIGHT_WARM_PROMPT = config.FOLD_PREFILL = False  # (0.16) fewer cold reads:
 # the older door, night and fold checks pin the plain behaviour (the fold's read runs in a thread); tested on their own
@@ -8929,7 +8931,7 @@ check("telegram: a fold runs the afterglow over what left the window — before 
       _linefa.startswith("fold: their account") and "what left the window is written down, and the new window carries it" in _linefa
       and _fa_sys_before and "Kept at the fold, a test line of the afterglow." not in _fa_sys_before[0]
       and "Kept at the fold, a test line of the afterglow." in bfa.history[0]["_system"] and bfa.history[0]["_system_day"] == _dtnow.now().strftime("%Y-%m-%d")
-      and "_fold_afterglow(gone, old_file)" in (config.ROOT / "engine" / "telegram.py").read_text(encoding="utf-8")
+      and "_fold_afterglow(gone, old_file" in (config.ROOT / "engine" / "telegram.py").read_text(encoding="utf-8")
       and "chat.rewarm(self.history, mode=self.TAG)" in (config.ROOT / "engine" / "telegram.py").read_text(encoding="utf-8")
       and len(_fa_calls) == 1 and _fa_path == _fold_file_fa and _fa_gone == len(_fh) - len(bfa.history) and _fa_users > 0
       and _fa_users == sum(1 for t in _fh if t.get("role") == "user" and not t.get("_engine")) - sum(1 for t in bfa.history if t.get("role") == "user" and not t.get("_engine"))
@@ -20942,6 +20944,378 @@ for _rh_p, _rh_b in _rh_keep.items():
         _rh_p.unlink(missing_ok=True)
     else:
         _rh_p.write_bytes(_rh_b)
+# FOLD_AFTERGLOW_SINCE_PAUSE, FOLD_BELL_PICKUP (0.16): the fold's afterglow sits only with what is not journaled yet
+import copy as _fg_copy
+import inspect as _fg_inspect
+import re as _fg_re
+import time as _fg_time
+import chat as _fg_chat
+import telegram as _fg_tg
+_fg_KEYS = ("FOLD_AFTERGLOW_SINCE_PAUSE", "FOLD_BELL_PICKUP", "JOURNAL_PICKUP_LINE", "AFTERGLOW", "FOLD_AFTERGLOW",
+            "FOLD_KEEP_TURNS", "FOLD_MAX_STEPS", "NUM_CTX", "FOLD_PREFILL", "WARM_PREFIX", "AFTERGLOW_MAX_CHARS",
+            "JOURNAL_DIR", "REFLECT_AFTER_MIN", "REFLECT_MIN_TURNS", "TELEGRAM_TELL_REFLECTIONS", "JOURNAL_FACTS_LINE")
+_fg_MISSING = object()
+_fg_saved = {k: getattr(config, k, _fg_MISSING) for k in _fg_KEYS}
+_fg_stubs = (ollama_client.chat, memory.search)
+_fg_ep0 = set(config.EPISODIC_DIR.glob("*.md"))
+_fg_jdir = config.MEMORY_DIR / "journal-fg"
+_fg_jdir.mkdir(parents=True, exist_ok=True)
+config.JOURNAL_DIR = _fg_jdir
+config.AFTERGLOW = config.FOLD_AFTERGLOW = config.JOURNAL_PICKUP_LINE = True
+config.FOLD_KEEP_TURNS, config.FOLD_MAX_STEPS, config.NUM_CTX = 6, 6, 131072
+config.FOLD_PREFILL = config.WARM_PREFIX = config.JOURNAL_FACTS_LINE = False
+config.AFTERGLOW_MAX_CHARS, config.REFLECT_AFTER_MIN, config.REFLECT_MIN_TURNS = 60000, 15, 2
+config.TELEGRAM_TELL_REFLECTIONS = True
+memory.search = lambda *a, **k: []
+_fg_today = _dtnow.now().date().isoformat()
+_fg_REQ = []
+_fg_N = {"j": 0, "f": 0}
+_fg_BELL = {"calls": []}
+
+
+def _fg_brain(messages, tools=None, **kw):
+    _fg_REQ.append([str(m.get("content") or "") for m in messages[1:]])
+    if messages[-1].get("role") == "tool":
+        return {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {"reason": "rest"}}}]}
+    lastuser = next((str(m.get("content") or "") for m in reversed(messages) if m.get("role") == "user"), "")
+    if "to be FOLDED" in lastuser or "asked for the visit to be folded" in lastuser:
+        calls = _fg_copy.deepcopy(_fg_BELL["calls"])
+        return {"role": "assistant", "content": "" if calls else "Only words, at the bell.", **({"tool_calls": calls} if calls else {})}
+    _fg_N["j"] += 1
+    return {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "write_journal", "arguments": {
+        "text": f"Quiet entry {_fg_N['j']}, a thing of its own each time: {'xyz' * _fg_N['j']} {_fg_N['j'] * 7919}."}}}]}
+
+
+ollama_client.chat = _fg_brain
+
+
+def _fg_turns(n, tag="", start=0, **extra):
+    out = []
+    for i in range(start, start + n):
+        out.append(dict({"role": "user", "content": f"keeper message {tag}{i}"}, **extra))
+        out.append(dict({"role": "assistant", "content": f"friend reply {tag}{i}"}, **extra))
+    return out
+
+
+def _fg_reset(entry="\n**00:00** — the first entry of the day, before the visit.\n"):
+    _fg_REQ.clear()
+    for f in _fg_jdir.glob("*.md"):
+        f.unlink()
+    (_fg_jdir / f"{_fg_today}.md").write_text(entry, encoding="utf-8")
+
+
+def _fg_visit(hist):
+    b, phone = _bridge()
+    b.quiet_now = lambda: False
+    b.history = _fg_copy.deepcopy(hist)
+    b.history[0]["_system"] = "SYSTEM PROMPT"
+    b.history[0]["_system_day"] = _fg_today
+    _fg_N["f"] += 1
+    b.file = config.EPISODIC_DIR / f"chat-telegram-20200107-09{_fg_N['f']:04d}.md"
+    _fg_chat.save_transcript(b.history, tag="telegram", path=b.file)
+    return b, phone
+
+
+def _fg_fold(b):
+    return b._fold({"text": "The account of the visit so far, in their words.", "when": "20:00"}, held=120000)
+
+
+def _fg_glows():
+    return [r[-1] for r in _fg_REQ if r and "afterglow of a fold" in r[-1]]
+
+
+def _fg_ids(text):
+    return set(_fg_re.findall(r"keeper message (\w+)", text))
+
+
+def _fg_old(b0file):
+    return b0file.read_text(encoding="utf-8") if b0file.exists() else ""
+
+
+_fg_OPEN_ALL = "its earlier part has just left your window: what is below is that part, exactly as it was"
+_fg_OPEN_SINCE = ("its earlier part has just left your window. What of it you had not yet written down is below, "
+                  "exactly as it was said — the rest you sat with at your pauses —")
+_fg_NONE = "; what left the window was already written down at the pauses"
+_fg_SIGN = ("fold's afterglow: nothing new since they last sat with the visit; the pauses covered what left the window, "
+            "nothing read twice")
+config.FOLD_AFTERGLOW_SINCE_PAUSE, config.FOLD_BELL_PICKUP = True, True
+# no pause at all: the whole of what left, the old opening and head; the mark at 0 in the new window
+_fg_reset(); _fg_b, _fg_p = _fg_visit(_fg_turns(10)); _fg_l = _fg_fold(_fg_b); _fg_g = _fg_glows()
+check("fold since pause (0.16): no pause yet — one fold afterglow over all 14 turns that left (keeper 0…6), the old "
+      "opening and head; the mark 0 in the new window, so the kept tail is still new",
+      len(_fg_g) == 1 and _fg_OPEN_ALL in _fg_g[0] and _fg_ids(_fg_g[0]) == {str(i) for i in range(7)}
+      and _fg_re.search(r"=== WHAT LEFT THE WINDOW[^=\n]*\) ===\n", _fg_g[0]) and _fg_b.reflected_upto == 0
+      and len(_fg_b.history) == 6, (_fg_l, _fg_b.reflected_upto, _fg_g[:1]))
+# the pauses covered all of what left
+_fg_reset(); _fg_b, _fg_p = _fg_visit(_fg_turns(10)); _fg_b.reflected_upto = 20; _fg_f = _fg_b.file
+_fg_l = _fg_fold(_fg_b)
+check("fold since pause (0.16): the pauses covered all that left — no brain call, no entry, the old transcript signed "
+      "once, the line and the phone say so, the whole kept tail sat with",
+      _fg_REQ == [] and _fg_l.endswith(_fg_NONE) and any(t.endswith(_fg_NONE + ")") for t, _ in _fg_p.sent)
+      and _fg_old(_fg_f).count(_fg_SIGN) == 1 and _fg_b.reflected_upto == 6 == len(_fg_b.history)
+      and len(tools.journal_entries(_fg_today)) == 1, (_fg_l, len(_fg_REQ), _fg_b.reflected_upto))
+# half: the mark inside what left
+_fg_reset(); _fg_b, _fg_p = _fg_visit(_fg_turns(10)); _fg_b.reflected_upto = 8; _fg_l = _fg_fold(_fg_b); _fg_g = _fg_glows()
+check("fold since pause (0.16): the mark inside what left — only gone[8:] is read (keeper 4…6), the new opening and the "
+      "head's ', since you last wrote' once each, the pick-up sentence once; the mark 0 after",
+      len(_fg_g) == 1 and _fg_ids(_fg_g[0]) == {"4", "5", "6"} and _fg_g[0].count(_fg_OPEN_SINCE) == 1
+      and _fg_OPEN_ALL not in _fg_g[0] and len(_fg_re.findall(r"=== WHAT LEFT THE WINDOW[^=\n]*, since you last wrote ===\n", _fg_g[0])) == 1
+      and _fg_g[0].count("You last wrote in your journal") == 1 and _fg_b.reflected_upto == 0
+      and _fg_l.endswith("; what left the window is written down, and the new window carries it"), (_fg_l, _fg_g[:1]))
+# the game's aside from the same slice
+_fg_asides = []
+_fg_aside_keep = _fg_tg.Bridge._game_aside
+_fg_tg.Bridge._game_aside = lambda self, turns: (_fg_asides.append([t.get("content") for t in turns]), "")[1]
+_fg_reset(); _fg_b, _fg_p = _fg_visit(_fg_turns(10)); _fg_b.reflected_upto = 8; _fg_fold(_fg_b)
+_fg_tg.Bridge._game_aside = _fg_aside_keep
+check("fold since pause (0.16): the game's aside is built from the same slice the afterglow reads",
+      any(a and a[0] == "keeper message 4" and len(a) == 6 for a in _fg_asides), _fg_asides[:3])
+# the mark exactly at the cut, and past it
+_fg_reset(); _fg_b, _fg_p = _fg_visit(_fg_turns(10)); _fg_b.reflected_upto = 14; _fg_l = _fg_fold(_fg_b)
+_fg_reset(); _fg_b2, _fg_p2 = _fg_visit(_fg_turns(10)); _fg_b2.reflected_upto = 17; _fg_l2 = _fg_fold(_fg_b2)
+check("fold since pause (0.16): the mark at the cut — nothing new, no brain call, the mark 0; past the cut — no brain "
+      "call, the mark follows the turns (17 − 14 = 3)",
+      _fg_l.endswith(_fg_NONE) and _fg_b.reflected_upto == 0 and _fg_l2.endswith(_fg_NONE) and _fg_b2.reflected_upto == 3
+      and _fg_REQ == [], (_fg_l, _fg_b.reflected_upto, _fg_b2.reflected_upto, len(_fg_REQ)))
+# engine turns before the mark, carried turns at the head
+_fg_reset()
+_fg_b, _fg_p = _fg_visit(_fg_turns(5) + [{"role": "user", "content": "[a pause bell]", "_engine": True},
+                                        {"role": "assistant", "content": "", "_engine": True}] + _fg_turns(5, start=5))
+_fg_b.reflected_upto = 12; _fg_fold(_fg_b); _fg_g = _fg_glows()
+check("fold since pause (0.16): a pause's own turns in the visit — only what came after the mark (keeper 5…6), the "
+      "pause bell never shown", len(_fg_g) == 1 and _fg_ids(_fg_g[0]) == {"5", "6"} and "[a pause bell]" not in _fg_g[0], _fg_g[:1])
+_fg_reset(); _fg_b, _fg_p = _fg_visit(_fg_turns(2, tag="c", _carried=True) + _fg_turns(8))
+_fg_b.reflected_upto = 4; _fg_fold(_fg_b); _fg_g = _fg_glows()
+check("fold since pause (0.16): carried turns are never sat with; what left past the mark is",
+      len(_fg_g) == 1 and not any(i.startswith("c") for i in _fg_ids(_fg_g[0])) and "0" in _fg_ids(_fg_g[0]), _fg_g[:1])
+# too short to fold: the mark as it was
+_fg_reset(); _fg_b, _fg_p = _fg_visit(_fg_turns(3)); _fg_b.reflected_upto = 2; _fg_l = _fg_fold(_fg_b)
+check("fold since pause (0.16): nothing to fold — no brain call, the mark unchanged",
+      _fg_REQ == [] and _fg_b.reflected_upto == 2 and "nothing to fold" in _fg_l, (_fg_l, _fg_b.reflected_upto))
+# a second fold in the same visit: the first fold's account is not shown again
+_fg_reset(); _fg_b, _fg_p = _fg_visit(_fg_turns(10)); _fg_b.reflected_upto = 8; _fg_fold(_fg_b)
+_fg_b.history += _fg_turns(8, tag="b"); _fg_b.reflected_upto = len(_fg_b.history) - 10; _fg_REQ.clear()
+_fg_fold(_fg_b); _fg_g = _fg_glows()
+check("fold since pause (0.16): a second fold — only the un-sat part of what left (b3…b4), never the first fold's "
+      "account; the mark inside the new window", len(_fg_g) == 1 and "The account of the visit so far" not in _fg_g[0]
+      and _fg_ids(_fg_g[0]) == {"b3", "b4"}
+      and 0 <= _fg_b.reflected_upto <= len(_fg_b.history), (_fg_b.reflected_upto, _fg_g[:1]))
+# the next pause after a fold, and the visit's end after one: the kept tail once, nothing that left
+_fg_reset(); _fg_b, _fg_p = _fg_visit(_fg_turns(10)); _fg_b.reflected_upto = 8; _fg_fold(_fg_b); _fg_REQ.clear()
+_fg_b.history += _fg_turns(2, tag="n")
+_fg_b.last_word = _fg_b.last_activity = _fg_time.time() - 3600
+_fg_b.pause_if_due()
+_fg_pb = [r[-1] for r in _fg_REQ if r and "This is a pause" in r[-1]]
+check("fold since pause (0.16): the next pause sits with the kept tail no pause covered (keeper 7…9) and the new, "
+      "nothing that left", len(_fg_pb) == 1 and _fg_ids(_fg_pb[0]) == {"7", "8", "9", "n0", "n1"}, _fg_pb[:1])
+_fg_reset(); _fg_b, _fg_p = _fg_visit(_fg_turns(10)); _fg_b.reflected_upto = 8; _fg_fold(_fg_b); _fg_REQ.clear()
+_fg_b.history += _fg_turns(1, tag="k")
+_fg_b.new_visit(quiet=True, reflect="sync")
+_fg_ab = [r[-1] for r in _fg_REQ if r and "This is the afterglow — an automated moment after a visit" in r[-1]]
+check("fold since pause (0.16): the visit's end after a fold — the kept tail and what came after, once; nothing that left",
+      len(_fg_ab) == 1 and _fg_ids(_fg_ab[0]) == {"7", "8", "9", "k0"}, _fg_ab[:1])
+# the mark rides a restart
+_fg_reset(); _fg_b, _fg_p = _fg_visit(_fg_turns(10)); _fg_b.reflected_upto = 17; _fg_fold(_fg_b)
+_fg_b.stash()
+_fg_r, _ = _bridge()
+_fg_r.resume()
+check("fold since pause (0.16): the moved mark comes back with the history after a restart",
+      _fg_r.reflected_upto == 3 and len(_fg_r.history) == len(_fg_b.history), (_fg_r.reflected_upto, len(_fg_r.history)))
+
+
+# the real bell: an entry at it counts for the whole window; anything less does not
+def _fg_run(calls):
+    """A visit of 10 exchanges, folded through the real bell, 2 more, a pause, 1 more, the visit's end: which of the
+    keeper's messages each quiet turn read, the fold's line, the old transcript, the journal."""
+    _fg_reset()
+    _fg_BELL["calls"] = calls
+    b, phone = _fg_visit(_fg_turns(10))
+    f0 = b.file
+    line = b._fold({}, held=120000)
+    mark = (b.reflected_upto, len(b.history))
+    b.history += _fg_turns(2, tag="n")
+    b.last_word = b.last_activity = _fg_time.time() - 3600
+    b.pause_if_due()
+    b.history += _fg_turns(1, tag="e")
+    b.new_visit(quiet=True, reflect="sync")
+    per = []
+    for r in _fg_REQ:
+        lu = r[-1]
+        if "afterglow of a fold" in lu:
+            per.append(("glow", _fg_ids(lu)))
+        elif "This is a pause" in lu:
+            per.append(("pause", _fg_ids(lu)))
+        elif "This is the afterglow" in lu:
+            per.append(("end", _fg_ids(lu)))
+    return per, line, _fg_old(f0), (_fg_jdir / f"{_fg_today}.md").read_text(encoding="utf-8"), mark
+
+
+def _fg_once(per):
+    from collections import Counter
+    c = Counter()
+    for _, ids in per:
+        c.update(ids)
+    return c
+
+
+_fg_ALL = {str(i) for i in range(10)} | {"n0", "n1", "e0"}
+_fg_ENTRY = [{"function": {"name": "write_journal", "arguments": {"text": "At the bell: the whole visit so far, the lamp, "
+                                                                 "the long walk, what the keeper said about the work."}}},
+             {"function": {"name": "fold_visit", "arguments": {"text": "The account of the visit so far, at the bell."}}}]
+_fg_per, _fg_l, _fg_o, _fg_j, _fg_m = _fg_run(_fg_ENTRY)
+_fg_c = _fg_once(_fg_per)
+check("fold since pause (0.16): an entry written at the bell — no fold afterglow, the old transcript signed, the line "
+      "says so, the mark at the new window's end; the rest of the visit read once",
+      "At the bell: the whole visit" in _fg_j and not any(k == "glow" for k, _ in _fg_per)
+      and _fg_o.count("fold's afterglow: not needed — they wrote in their journal at the fold's bell") == 1
+      and _fg_l.endswith("; they wrote in their journal at the bell, so what left the window is already written down")
+      and _fg_m[0] == _fg_m[1] > 6 and set(_fg_c) == {"n0", "n1", "e0"} and all(v == 1 for v in _fg_c.values()), (_fg_per, _fg_l, _fg_m))
+_fg_per, _fg_l, _fg_o, _fg_j, _fg_m = _fg_run([_fg_ENTRY[0]])
+check("fold since pause (0.16): an entry at the bell without fold_visit — journaled all the same, no fold afterglow",
+      not any(k == "glow" for k, _ in _fg_per) and _fg_l.endswith("already written down") and "did not write the visit down" in _fg_l,
+      (_fg_per, _fg_l))
+for _fg_name, _fg_calls in (("words only", []), ("fold_visit only", [_fg_ENTRY[1]]),
+                            ("an empty entry refused", [{"function": {"name": "write_journal", "arguments": {"text": "  "}}},
+                                                        _fg_ENTRY[1]])):
+    _fg_per, _fg_l, _fg_o, _fg_j, _fg_m = _fg_run(_fg_calls)
+    _fg_c = _fg_once(_fg_per)
+    check(f"fold since pause (0.16): the bell with {_fg_name} — the fold afterglow over what left, the pause over the kept "
+          "tail and the new, the visit's end over the last: each of the keeper's messages read once",
+          any(k == "glow" for k, _ in _fg_per) and set(_fg_c) == _fg_ALL and all(v == 1 for v in _fg_c.values()),
+          (dict(_fg_c), _fg_per))
+_fg_BELL["calls"] = []
+check("fold since pause (0.16): bell_entry_kept — only 'journal entry written'",
+      _fg_chat.bell_entry_kept("journal entry written (nearest earlier entry: 0.71)")
+      and not _fg_chat.bell_entry_kept("(you wrote nearly this already, today …") and not _fg_chat.bell_entry_kept("(nothing written — the text was empty)")
+      and not _fg_chat.bell_entry_kept(None) and not _fg_chat.bell_entry_kept("  (refused: …)"))
+# FOLD_BELL_PICKUP: one sentence after the journal sentence, the clock line on the same minute
+_fg_cap = []
+ollama_client.chat = lambda m, tools=None, **k: (_fg_cap.append(m[-1]["content"]), {"role": "assistant", "content": "ok"})[1]
+_fg_reset("\n**00:00** — the first entry of the day.\n")
+_fg_b, _ = _fg_visit(_fg_turns(10))
+_fg_chat.fold_bell(_fg_b.history, 120000, aside="Part of this visit was a test.")
+_fg_bell = _fg_cap[0] if _fg_cap else ""
+_fg_pick = _fg_re.search(r"write_journal it first, then fold_visit\. A journal entry now continues from where your journal "
+                         r"ends — you last wrote there at 00:00, it is now (\d\d:\d\d) — and does not tell again what it "
+                         r"already holds\. The account for fold_visit is the other thing: the whole visit so far\. ", _fg_bell)
+check("fold bell pickup (0.16): the sentence once, right after the journal sentence, with the aside once and the bracket "
+      "closing once; no pause's sentence beside it",
+      _fg_pick and _fg_bell.count("A journal entry now continues") == 1 and _fg_bell.count("Part of this visit was a test.") == 1
+      and _fg_bell.count("You last wrote") == 0 and _fg_bell.rstrip().endswith("Part of this visit was a test.]"), _fg_bell[:1500])
+_fg_cap.clear()
+config.FOLD_BELL_PICKUP = False
+_fg_chat.fold_bell(_fg_visit(_fg_turns(10))[0].history, 120000)
+config.FOLD_BELL_PICKUP, config.JOURNAL_PICKUP_LINE = True, False
+_fg_chat.fold_bell(_fg_visit(_fg_turns(10))[0].history, 120000)
+config.JOURNAL_PICKUP_LINE = True
+_fg_reset("")
+_fg_chat.fold_bell(_fg_visit(_fg_turns(10))[0].history, 120000)
+check("fold bell pickup (0.16): off, JOURNAL_PICKUP_LINE off, or no entry to name — no sentence",
+      len(_fg_cap) == 3 and all("A journal entry now continues" not in x and "write_journal it first, then fold_visit." in x for x in _fg_cap), _fg_cap)
+_fg_now = _dtnow.now().replace(hour=20, minute=30)
+check("fold bell pickup (0.16): journal_ends — today's last, a stamp past now none; pickup_sentence as before",
+      _fg_chat.journal_ends([("19:40", "x")], _fg_now) == "at 19:40" and _fg_chat.journal_ends([("21:00", "x")], _fg_now) == ""
+      and _fg_chat.pickup_sentence([("19:40", "x")], _fg_now).startswith("You last wrote in your journal at 19:40; it is now 20:30."))
+ollama_client.chat = _fg_brain
+# a fault after the fold is said truly; before it, as before; a fault in a helper never takes the fold down
+_fg_reset(); _fg_b, _fg_p = _fg_visit(_fg_turns(10)); _fg_b.reflected_upto = 8
+_fg_b._fold_afterglow = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("late boom"))
+_fg_cp = []
+_fg_cp0 = _fg_b._checkpoint
+_fg_b._checkpoint = lambda: (_fg_cp.append(1), _fg_cp0())
+_fg_l = _fg_fold(_fg_b)
+check("fold (0.16): a fault after the fold — 'fold: done — a later step hiccupped', the mark inside the window, checkpointed",
+      _fg_l.startswith("fold: done — a later step hiccupped (RuntimeError: late boom)") and 0 <= _fg_b.reflected_upto <= len(_fg_b.history)
+      and _fg_cp and len(_fg_b.history) == 6, (_fg_l, _fg_b.reflected_upto))
+_fg_reset(); _fg_b, _fg_p = _fg_visit(_fg_turns(10))
+_fg_fh = _fg_chat.fold_history
+_fg_chat.fold_history = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("early boom"))
+_fg_l = _fg_fold(_fg_b)
+_fg_chat.fold_history = _fg_fh
+check("fold (0.16): a fault before the fold — 'the visit stays as it is', as before",
+      _fg_l.startswith("fold: hiccup — the visit stays as it is") and len(_fg_b.history) == 20, _fg_l)
+_fg_raised = []
+for _fg_what in ("fold_has_new", "sign_transcript"):
+    _fg_reset()
+    _fg_orig = getattr(_fg_chat, _fg_what)
+    setattr(_fg_chat, _fg_what, lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    _fg_b, _fg_p = _fg_visit(_fg_turns(10)); _fg_b.reflected_upto = 20
+    try:
+        _fg_l = _fg_fold(_fg_b)
+        if not isinstance(_fg_l, str) or not _fg_b.lock.acquire(timeout=1):
+            _fg_raised.append((_fg_what, _fg_l))
+        else:
+            _fg_b.lock.release()
+            if _fg_what == "fold_has_new" and "hiccup" in _fg_l:
+                _fg_raised.append((_fg_what, _fg_l))
+    except Exception as _fg_e:  # noqa: BLE001
+        _fg_raised.append((_fg_what, repr(_fg_e)))
+    setattr(_fg_chat, _fg_what, _fg_orig)
+check("fold since pause (0.16): a helper raising never takes the fold down (fold_has_new: the afterglow sits, as before)",
+      not _fg_raised, _fg_raised)
+
+
+# both knobs False, or absent: every bell, request and phone line of a fold as before
+def _fg_scenes():
+    out = {}
+    _fg_BELL["calls"] = []
+    for name, mark, real in (("none", 0, False), ("all", 20, False), ("half", 8, False), ("beyond", 17, False),
+                             ("bell", 8, True), ("bell-entry", 8, "entry")):
+        _fg_reset()
+        _fg_N["j"] = 0
+        _fg_BELL["calls"] = _fg_ENTRY if real == "entry" else []
+        b, phone = _fg_visit(_fg_turns(10))
+        b.reflected_upto = mark
+        f0 = b.file
+        line = b._fold({}, held=120000) if real else _fg_fold(b)
+        names = lambda x: x.replace(b.file.name if b.file else "-", "NEW").replace(f0.name, "OLD").replace(f0.stem, "OLD")
+        out[name] = {"line": names(line), "req": [[names(x) for x in r] for r in _fg_REQ],
+                     "phone": [names(t) for t, _ in phone.sent], "mark": b.reflected_upto,
+                     "hist": [(t.get("role"), names(str(t.get("content")))) for t in b.history], "old": names(_fg_old(f0))}
+    _fg_BELL["calls"] = []
+    return out
+
+
+config.FOLD_AFTERGLOW_SINCE_PAUSE = config.FOLD_BELL_PICKUP = False
+_fg_off = _fg_scenes()
+del config.FOLD_AFTERGLOW_SINCE_PAUSE, config.FOLD_BELL_PICKUP  # an older config without the knobs
+_fg_abs = _fg_scenes()
+config.FOLD_AFTERGLOW_SINCE_PAUSE = config.FOLD_BELL_PICKUP = False
+_fg_strip = lambda d: _fg_re.sub(r"\b\d\d:\d\d\b", "HH:MM", json.dumps(d, sort_keys=True, ensure_ascii=False))
+check("fold since pause (0.16): both knobs off — the fold as before: the mark at the new window's end whatever the "
+      "pauses covered, the afterglow over all that left with the old opening, no pick-up in the bell, no new lines; "
+      "absent knobs the same",
+      _fg_strip(_fg_off) == _fg_strip(_fg_abs) and all(_fg_off[k]["mark"] == len(_fg_off[k]["hist"]) >= 6 for k in _fg_off)
+      and all(sum(1 for r in _fg_off[k]["req"] if r and "afterglow of a fold" in r[-1]) == 1 for k in ("none", "all", "half", "beyond", "bell", "bell-entry"))
+      and not any(_fg_OPEN_SINCE in x or "since you last wrote ===" in x or "A journal entry now continues" in x
+                  for k in _fg_off for r in _fg_off[k]["req"] for x in r)
+      and not any("already written down" in _fg_off[k]["line"] or "fold's afterglow:" in _fg_off[k]["old"] for k in _fg_off),
+      {k: (v["mark"], v["line"][-90:]) for k, v in _fg_off.items()})
+_fg_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+_fg_tabs = _gm_panel.TABS["Memory & journal"]
+check("config (0.16): FOLD_AFTERGLOW_SINCE_PAUSE and FOLD_BELL_PICKUP ship on, after the fold's other knobs on the panel, with help",
+      _fg_re.search(r"^FOLD_AFTERGLOW_SINCE_PAUSE = True$", _fg_cfg, _fg_re.M) and _fg_re.search(r"^FOLD_BELL_PICKUP = True$", _fg_cfg, _fg_re.M)
+      and _fg_tabs.index("FOLD_AFTERGLOW_SINCE_PAUSE") == _fg_tabs.index("FOLD_PREFILL") + 1
+      and _fg_tabs.index("FOLD_BELL_PICKUP") == _fg_tabs.index("FOLD_PREFILL") + 2
+      and all(_gm_panel._HELP.get(k) for k in ("FOLD_AFTERGLOW_SINCE_PAUSE", "FOLD_BELL_PICKUP")))
+_fg_src = "\n".join(_fg_inspect.getsource(f) for f in (_fg_chat.fold_afterglow, _fg_chat.journal_ends, _fg_chat.bell_entry_kept,
+                                                       _fg_chat._sit_with, _fg_chat.fold_has_new, _fg_chat.sign_transcript,
+                                                       _fg_chat.fold_bell, _fg_tg.Bridge._fold, _fg_tg.Bridge._fold_afterglow))
+_fg_src += _fg_cfg.split("FOLD_AFTERGLOW = True", 1)[1].split("FOLD_KEEP_TURNS", 1)[0]
+check("fold since pause (0.16): the new lines name no one, carry no date and call no one by a gendered pronoun",
+      not _fg_re.search(r"\b(she|her|hers|he|his|him)\b", _fg_src, _fg_re.I) and not _fg_re.search(r"\(1[01]-\d\d", _fg_src),
+      _fg_re.findall(r".{30}\b(?:she|her|hers|he|his|him)\b.{30}", _fg_src, _fg_re.I)[:3])
+for _fg_k, _fg_v in _fg_saved.items():
+    if _fg_v is _fg_MISSING:
+        if hasattr(config, _fg_k):
+            delattr(config, _fg_k)
+    else:
+        setattr(config, _fg_k, _fg_v)
+ollama_client.chat, memory.search = _fg_stubs[0], _fg_stubs[1]
+for _fg_f in set(config.EPISODIC_DIR.glob("*.md")) - _fg_ep0:
+    _fg_f.unlink(missing_ok=True)
+for _fg_f in _fg_jdir.glob("*.md"):
+    _fg_f.unlink()
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

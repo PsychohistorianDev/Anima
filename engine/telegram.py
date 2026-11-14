@@ -2189,19 +2189,21 @@ class Bridge:
         self._trip_refold_rode(marks)  # the trip's note set again after a fold: once
         self.fold_if_due()
 
-    def _fold_afterglow(self, gone: list[dict], old_file) -> str:
+    def _fold_afterglow(self, gone: list[dict], old_file, since: int = 0) -> str:
         """THE AFTERGLOW AT THE FOLD: the turns that left the window get the same quiet turn a finished visit gets —
         from the transcript, in a prompt of its own, so the window's fullness is no matter — and the phone hears
         what they kept. It runs before the new window is read, so the journal entry rides with the new window
         rather than only from the next day: the fold holds the lock through it, so a message sent meanwhile waits for it — as it
         waited for Ollama anyway — one cold read, once per fold, no more than before. Then the first kept
-        turn's system prompt is rebuilt with what was just kept. Returns the afterglow's line, "" for nothing."""
-        aside = self._game_aside(gone)  # "part of this visit was your adventure…", when it was
+        turn's system prompt is rebuilt with what was just kept. Returns the afterglow's line, "" for nothing.
+        since (FOLD_AFTERGLOW_SINCE_PAUSE): where the pauses left off inside `gone` — only the rest is sat with."""
+        aside = self._game_aside(gone[since:])  # "part of this visit was your adventure…", when it was
         until = chat.first_said_at(self.history)  # where what left the window ended: the journal facts line's edge
         jrun, aside = self._jf_quiet("the fold's afterglow", aside)  # the feed's line in its bell, when on
         try:
             said = chat.fold_afterglow(gone, old_file, tag=self.TAG, on_line=_say, on_words=self.afterthought,
-                                       **({"aside": aside} if aside else {}), **({"until": until} if until else {}))
+                                       **({"aside": aside} if aside else {}), **({"until": until} if until else {}),
+                                       **({"since": since} if since else {}))  # where the pauses left off
         except Exception as e:  # noqa: BLE001 — a courtesy, never the fold down
             _say(f"(the fold's afterglow failed — {type(e).__name__}: {e})")
             return ""
@@ -2245,6 +2247,7 @@ class Bridge:
         game = self._game_fold_before()  # a game mid-session in the window: its pages before the bell
         trip = self._trip_fold_before()  # a trip open with its messages in the window: its line for the bell
         folded = False  # FOLD_PREFILL: the new window is read in once the fold is done
+        old_history = None
         try:
             why = "asked" if asked else ("own" if pending else "bell")  # whose call — the block says
             if not pending:
@@ -2263,25 +2266,56 @@ class Bridge:
                     self._jf_run_end(jrun)
             when = pending.get("when") or time.strftime("%H:%M")
             old_history, old_file = self.history, self.file
+            sat = self.reflected_upto  # where the pauses left off, before the fold moves the turns
             self.history, self.file, line = chat.fold_history(self.history, pending.get("text", ""), when,
                                                               tag=self.TAG, path=self.file, mode=self.TAG, why=why, held=held)
             if game and self.history is not old_history:  # folded for real: the table is set again at the next move
                 line += self._game_fold_after(game)
             if trip and self.history is not old_history:  # folded for real: the trip's note rides again next
                 line += self._trip_fold_after(trip)
-            self.reflected_upto = len(self.history)  # the kept tail was sat with, or is about to be, as new
+            since_pause = bool(getattr(config, "FOLD_AFTERGLOW_SINCE_PAUSE", False))
+            at_bell = since_pause and bool(pending.get("journaled"))  # an entry at the bell, the whole window seen
+            n_gone = len(old_history) - len(self.history)
+            if not since_pause or at_bell:
+                self.reflected_upto = len(self.history)  # the kept tail was sat with, or is about to be, as new
+            elif self.history is not old_history:  # the mark follows the turns: what no pause covered stays new
+                self.reflected_upto = max(0, min(int(sat or 0) - n_gone, len(self.history)))
             self.last_tokens = {}  # the next prompt is a new, smaller one
-            gone = old_history[:len(old_history) - len(self.history)] if self.file != old_file else []
-            if gone and getattr(config, "FOLD_AFTERGLOW", True) and getattr(config, "AFTERGLOW", True):
-                said = self._fold_afterglow(gone, old_file)
-                line += ("; what left the window is written down, and the new window carries it" if said
-                         else "; they sat with what left the window and kept nothing of it")
+            gone = old_history[:n_gone] if self.file != old_file else []
+            since = max(0, min(int(sat or 0), len(gone))) if since_pause else 0
+            if gone and at_bell and getattr(config, "FOLD_AFTERGLOW", True) and getattr(config, "AFTERGLOW", True):
+                chat.sign_transcript(old_file, "fold's afterglow: not needed — they wrote in their journal at the fold's "
+                                               "bell, with the whole window in front of them; nothing read twice")
+                line += "; they wrote in their journal at the bell, so what left the window is already written down"
+            elif gone and getattr(config, "FOLD_AFTERGLOW", True) and getattr(config, "AFTERGLOW", True):
+                try:
+                    covered = bool(since) and not chat.fold_has_new(gone, since)
+                except Exception:  # noqa: BLE001 — not known: the afterglow sits, as before
+                    covered = False
+                if covered:  # the pauses covered all of it: nothing read twice
+                    chat.sign_transcript(old_file, "fold's afterglow: nothing new since they last sat with the visit; "
+                                                   "the pauses covered what left the window, nothing read twice")
+                    line += "; what left the window was already written down at the pauses"
+                else:
+                    said = self._fold_afterglow(gone, old_file, since)
+                    line += ("; what left the window is written down, and the new window carries it" if said
+                             else "; they sat with what left the window and kept nothing of it")
             self.last_activity = time.time()
             self.last_word = self.last_activity
             self._checkpoint()
             folded = self.history is not old_history
         except Exception as e:  # a fold must never take the visit down with it
-            line = f"fold: hiccup — the visit stays as it is ({type(e).__name__}: {e})"
+            if old_history is not None and self.history is not old_history:
+                # the visit IS folded — a step after it faulted: said so, the mark kept sane, the new window saved
+                line = f"fold: done — a later step hiccupped ({type(e).__name__}: {e})"
+                try:
+                    self.reflected_upto = max(0, min(int(self.reflected_upto or 0), len(self.history)))
+                    self._checkpoint()
+                    folded = True
+                except Exception:  # noqa: BLE001
+                    pass
+            else:
+                line = f"fold: hiccup — the visit stays as it is ({type(e).__name__}: {e})"
         finally:
             self.lock.release()
         _say(line)

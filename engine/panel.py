@@ -90,7 +90,7 @@ TABS: dict[str, list[str]] = {
                          "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_MIN_SCORE", "MEMORY_DRIFT", "MEMORY_VISIT_TOKENS", "MEMORY_MIN_SCORE_LATE", "MEMORY_SHORT_HINT_WORDS", "MEMORY_TOP_K_SHORT", "THREAD", "THREAD_CHARS", "THREAD_NUDGE", "MEMORY_DUP_THRESHOLD", "EMBED_ON_CPU", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
                          "TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000",
                          "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "RULES_ON", "SLEEP_KEEPER_LOOK", "NIGHT_WARM_PROMPT", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
-                         "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_PREFILL", "FOLD_KEEP_TURNS", "FOLD_CHARS", "FOLD_SENSE_FROM", "WINDOW_WARN_AT",
+                         "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_PREFILL", "FOLD_AFTERGLOW_SINCE_PAUSE", "FOLD_BELL_PICKUP", "FOLD_KEEP_TURNS", "FOLD_CHARS", "FOLD_SENSE_FROM", "WINDOW_WARN_AT",
                          "JOURNAL_FACTS_LINE", "JOURNAL_ENDINGS_SENTENCE", "JOURNAL_PICKUP_LINE"],
     "Talking": ["CHAT_THINK", "BRAIN_BANNED_STRINGS", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_THINK_RETRIES", "THINK_RETRY_UNTIL", "THINK_REMIND_FROM", "CHAT_GARBLE_RETRIES", "CHAT_COOL_STEP",
                 "CHAT_COLD_RESCUE", "RUNAWAY_KEEP_CHARS", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "REROLLS_KEPT", "BRAIN_KEEP_ALIVE",
@@ -590,6 +590,11 @@ _HELP = {
                       "journal and memories, in their words, before the new window is first read — so what the fold "
                       "takes is in the journal and in the window. One cold read per fold; a message sent meanwhile "
                       "waits for it. Needs AFTERGLOW (Talking).",
+    "FOLD_AFTERGLOW_SINCE_PAUSE": "The fold's afterglow sits only with what left the window after the last pause; "
+                                  "nothing new since then, or a journal entry at the fold's bell, and there is no "
+                                  "afterglow at all. Kept turns no pause covered are sat with at the next pause, once.",
+    "FOLD_BELL_PICKUP": "The fold's bell says, in one sentence, where their journal ends and the time now, so an entry "
+                        "at the bell continues from there. Needs JOURNAL_PICKUP_LINE.",
     "FOLD_PREFILL": "Right after a fold, the new window is read in the background, as /rewarm does, so your next "
                     "message starts warm. Skipped while a game holds the card, a wake runs or the brain is set down.",
     "FOLD_KEEP_TURNS": "How many of the most recent turns stay whole in the window after a fold.",

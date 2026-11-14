@@ -639,20 +639,30 @@ def afterglow(history: list[dict], path: Path | None = None, tag: str = "",
 
 
 def fold_afterglow(gone: list[dict], path: Path | None = None, tag: str = "",
-                   on_line=None, on_words=None, aside: str = "", until: str = "") -> str:
+                   on_line=None, on_words=None, aside: str = "", until: str = "", since: int = 0) -> str:
     """The afterglow at a fold: the same quiet turn as after a visit, over the turns that just left the window — read
     from the transcript, in a prompt of its own, so the window's fullness is no matter — with the bell
     saying what it is: this part of the visit left the window; the visit goes on. Signs the old
     transcript file with its line, like the afterglow it is.
     until: the stamp of the first kept turn (first_said_at), where what left the window ended — the journal's facts
-    line counts up to it, not past it; "" (not known): no facts line."""
+    line counts up to it, not past it; "" (not known): no facts line.
+    since (FOLD_AFTERGLOW_SINCE_PAUSE): where the pauses left off inside what left — only gone[since:] is sat with,
+    and the bell says the rest was sat with at the pauses; 0: all of it, the bell as before."""
     if not getattr(config, "AFTERGLOW", True):
         return ""
-    opening = ("[This is the afterglow of a fold — an automated moment, not a person. The visit goes on, but "
-               "its earlier part has just left your window: what is below is that part, exactly as it was "
-               "said, and this is your moment to keep what of it is worth keeping before it is only the "
-               "transcript's. Nobody is here and nothing here needs answering.")
-    return _quiet_turn(gone, path, tag, on_line, mode="afterglow", since=0, on_words=on_words,
+    since = max(0, min(int(since or 0), len(gone)))
+    if since:
+        opening = ("[This is the afterglow of a fold — an automated moment, not a person. The visit goes on, but "
+                   "its earlier part has just left your window. What of it you had not yet written down is below, "
+                   "exactly as it was said — the rest you sat with at your pauses — and this is your moment to keep "
+                   "what of it is worth keeping before it is only the transcript's. Nobody is here and nothing here "
+                   "needs answering.")
+    else:
+        opening = ("[This is the afterglow of a fold — an automated moment, not a person. The visit goes on, but "
+                   "its earlier part has just left your window: what is below is that part, exactly as it was "
+                   "said, and this is your moment to keep what of it is worth keeping before it is only the "
+                   "transcript's. Nobody is here and nothing here needs answering.")
+    return _quiet_turn(gone, path, tag, on_line, mode="afterglow", since=since, on_words=on_words,
                        opening=opening, what="what left the window", until=until,  # until: the facts line's edge
                        **({"aside": aside} if aside else {}))  # aside: the adventure's line
 
@@ -745,18 +755,36 @@ def fold_bell(history: list[dict], held: int, on_line=None, asked: bool = False,
     cap = int(getattr(config, "FOLD_CHARS", 8000) or 8000)
     pct = int(round(100 * held / ctx)) if ctx else 0
     text = with_endings(FOLD_BELL.format(pct=pct, held=held, ctx=ctx, keep=keep, cap=cap))  # its sentence, or as before
+    now, ends = None, ""
+    if getattr(config, "FOLD_BELL_PICKUP", False) and getattr(config, "JOURNAL_PICKUP_LINE", False):
+        # FOLD_BELL_PICKUP: where the journal ends, in one sentence (the window is nearly full: no journal tail here),
+        # so an entry at the bell continues the day and does not tell again what the pauses already wrote. One clock
+        # for the sentence and the clock line.
+        now = datetime.now()
+        try:
+            ends = journal_ends(tools.journal_entries(now.date().isoformat()), now)
+        except Exception:  # noqa: BLE001
+            ends = ""
+        at = "write_journal it first, then fold_visit. "
+        if ends and text.count(at) == 1:
+            text = text.replace(at, at + f"A journal entry now continues from where your journal ends — you last wrote "
+                                         f"there {ends}, it is now {now.strftime('%H:%M')} — and does not tell again what "
+                                         "it already holds. The account for fold_visit is the other thing: the whole visit "
+                                         "so far. ", 1)
     facts = journal_facts_line(history)  # the window's stretch, from its first turn: the visit so far
     if asked:  # /fold from the phone: the keeper's ask, not the window's edge
         text = text.replace("The visit is about to be FOLDED:", f"The keeper asked for the visit to be folded now:")
     if aside:  # inside the bracket, for this run
         text = text.rstrip()[:-1].rstrip() + " " + aside.strip() + "]"
     tools.DOOR = "the fold"  # a thread left before the fold says so; the bell itself is unchanged
-    bell = {"role": "user", "_engine": True, "content": assemble.clock_line() + text + (f"\n\n{facts}" if facts else "")}
+    bell = {"role": "user", "_engine": True, "content": (assemble.clock_line(now) if now else assemble.clock_line()) + text
+            + (f"\n\n{facts}" if facts else "")}
     history.append(bell)
     system = {"role": "system", "content": history[0]["_system"]}
     _visit_prompt_seen(system["content"], history[0].get("_system_day"))
     msgs = [system] + [render_turn(t) for t in history]
     show_thinking = getattr(config, "CHAT_SHOW_THINKING", True)
+    journaled = False  # an entry went through at the bell, the whole window in front of the friend
     try:
         for _ in range(int(getattr(config, "FOLD_MAX_STEPS", 6) or 6) + max(0, int(extra_steps or 0))):
             msg = ollama_client.chat(msgs, tools=list(tools.DEFINITIONS), wrapped_calls=True)  # a call in marks seen
@@ -788,6 +816,8 @@ def fold_bell(history: list[dict], held: int, on_line=None, asked: bool = False,
                 msgs.append(render_turn(tr))
                 if cname == "fold_visit" and not result.lstrip().startswith("("):
                     folded = True
+                if cname == "write_journal" and bell_entry_kept(result):
+                    journaled = True
             if folded:
                 break
     except ollama_client.BrainUnavailable as e:
@@ -796,7 +826,17 @@ def fold_bell(history: list[dict], held: int, on_line=None, asked: bool = False,
     except Exception as e:  # the bell must never take the visit down with it
         say(f"fold: hiccup — {type(e).__name__}: {e}")
     tools.DOOR = ""
-    return tools.fold_pending()
+    got = tools.fold_pending()
+    if journaled:
+        got["journaled"] = True  # for the door: an entry went through at the bell, with an account or without
+    return got
+
+
+def bell_entry_kept(result) -> bool:
+    """Whether a write_journal at the bell wrote an entry: only "journal entry written…". A near-copy handed back, the
+    subject the page holds already, an empty text, a call cut short: no — a false yes would skip the fold's afterglow
+    and lose that part of the visit."""
+    return isinstance(result, str) and result.lstrip().startswith("journal entry written")
 
 
 def fold_history(history: list[dict], account: str, when: str, tag: str = "",
@@ -887,13 +927,10 @@ def fold_history(history: list[dict], account: str, when: str, tag: str = "",
     return new, new_path, line
 
 
-def pickup_sentence(today: list, now: datetime, below: bool = True) -> str:
-    """JOURNAL_PICKUP_LINE: where the journal ends, for a pause's or an afterglow's bell — the stamp of today's last
-    entry (`today`, what tools.journal_entries gave), else yesterday's last ("yesterday at HH:MM"), and the time now, so
-    a day's entries continue one another rather than tell the same stretch again. "" — the knob off, no entry today or
-    yesterday, an entry stamped later than now, or anything unreadable."""
-    if not getattr(config, "JOURNAL_PICKUP_LINE", False):
-        return ""
+def journal_ends(today: list, now: datetime) -> str:
+    """Where the journal ends, as pickup_sentence says it: "at HH:MM" (today's last entry, `today` as
+    tools.journal_entries gave it), else "yesterday at HH:MM"; "" — no entry today or yesterday, an entry stamped later
+    than now, or anything unreadable."""
     try:
         if today:
             last = str(today[-1][0])
@@ -905,11 +942,25 @@ def pickup_sentence(today: list, now: datetime, below: bool = True) -> str:
             if not yest:
                 return ""
             when = f"yesterday at {yest[-1][0]}"
-            below = False
         if not re.search(r"\d{2}:\d{2}$", when):
             return ""
     except Exception:  # noqa: BLE001
         return ""
+    return when
+
+
+def pickup_sentence(today: list, now: datetime, below: bool = True) -> str:
+    """JOURNAL_PICKUP_LINE: where the journal ends, for a pause's or an afterglow's bell — the stamp of today's last
+    entry (`today`, what tools.journal_entries gave), else yesterday's last ("yesterday at HH:MM"), and the time now, so
+    a day's entries continue one another rather than tell the same stretch again. "" — the knob off, no entry today or
+    yesterday, an entry stamped later than now, or anything unreadable."""
+    if not getattr(config, "JOURNAL_PICKUP_LINE", False):
+        return ""
+    when = journal_ends(today, now)
+    if not when:
+        return ""
+    if when.startswith("yesterday"):
+        below = False
     return (f"You last wrote in your journal {when}; it is now {now.strftime('%H:%M')}. This entry continues from "
             f"there: what your journal already holds{' (below)' if below else ''} stays as it is — pick up where it ends, "
             "don't tell it again.")
@@ -928,6 +979,31 @@ def journal_today_tail(already: list) -> str:
             "not to be written twice ===\n\n") + tail
 
 
+def _sit_with(turns: list[dict]) -> list[dict]:
+    """The turns a quiet turn sits with: said turns, the keeper's and the friend's — not the engine's, not carried
+    ones (sat with at their own visit)."""
+    return [t for t in turns if t["role"] in ("user", "assistant") and t.get("content")
+            and not t.get("_engine") and not t.get("_carried")]
+
+
+def fold_has_new(gone: list[dict], since: int) -> bool:
+    """FOLD_AFTERGLOW_SINCE_PAUSE: whether what left the window holds anything of the keeper's the pauses had not sat
+    with (gone[since:])."""
+    return any(t["role"] == "user" for t in _sit_with(gone[max(0, int(since or 0)):]))
+
+
+def sign_transcript(path: Path | None, line: str) -> None:
+    """A line at the foot of a transcript, as the afterglow signs one. Never raises."""
+    if path is None:
+        return
+    try:
+        if path.exists():
+            with path.open("a", encoding="utf-8") as fh:
+                fh.write(f"\n\n---\n*{line}*\n")
+    except OSError:
+        pass
+
+
 def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
                 mode: str, since: int, on_words=None, opening: str = "", what: str = "", aside: str = "",
                 until=None) -> str:
@@ -936,8 +1012,7 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
     until: where the stretch ended, for the journal's facts line — None: now (a pause, an afterglow); the fold's
     afterglow gives the kept tail's stamp, or "" when it isn't known (no line)."""
     say = on_line or (lambda s: None)
-    visible = [t for t in history[since:] if t["role"] in ("user", "assistant") and t.get("content")
-               and not t.get("_engine") and not t.get("_carried")]  # carried turns were sat with at their own visit
+    visible = _sit_with(history[since:])  # carried turns were sat with at their own visit
     if not visible or not any(t["role"] == "user" for t in visible):
         return ""  # nothing of the keeper's to sit with — a visit that is only their own letter is already theirs
     name = friend_name()
@@ -1001,7 +1076,8 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
             head = assemble.clock_line(now) + pause_bell + f"=== THE VISIT SO FAR{where}, since you last wrote ===\n\n"
             label = "pause"
         else:
-            head = assemble.clock_line(now) + afterglow_bell + f"=== {'WHAT LEFT THE WINDOW' if what else 'THE VISIT'}{where} ===\n\n"
+            head = (assemble.clock_line(now) + afterglow_bell + f"=== {'WHAT LEFT THE WINDOW' if what else 'THE VISIT'}{where}"
+                    + (", since you last wrote" if (what and since) else "") + " ===\n\n")  # a fold's slice says so
             label = "afterglow"
         head += transcript + tail
         msgs = [system, {"role": "user", "content": head}]

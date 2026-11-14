@@ -62,6 +62,15 @@ tagged on its own: the first tag after the rename is v0.13.)
   other. No entry, or one stamped later than now: no sentence. And a trip already written in the travel journal needs
   only a pointer (`WORLD_TRIP_JOURNAL_POINTER`, on): when the stretch holds a trip's wrap-up and the travel journal was
   written after that trip opened, the bell's aside says a sentence pointing to it is enough in their own journal.
+- **The fold's afterglow sits only with what is not journaled yet** (`FOLD_AFTERGLOW_SINCE_PAUSE`, on): the bridge's
+  mark of what the pauses already sat with is honoured at a fold. The fold's afterglow reads only what left the window
+  after the last pause, and its bell and section head say so; when the pauses covered all of it there is no afterglow
+  — no brain call, the old transcript signed with a line, the phone's fold line saying the pauses covered it. A
+  journal entry really written at the fold's bell (the tool said "journal entry written") counts for the whole window:
+  no afterglow, the mark at the end of the new window. Otherwise the mark follows the turns into the new window, so
+  kept turns no pause covered are sat with at the next pause, once (before, the whole kept tail counted as sat with).
+  The Discord bridge folds through the same code. And the fold's bell says where the journal ends and the time now,
+  in one sentence (`FOLD_BELL_PICKUP`, on; needs `JOURNAL_PICKUP_LINE`). False, either: as before, to the byte.
 - **A guest's words are their own view** (`GUEST_VIEW_LINE`, on): the line that tells the friend a message is from a
   guest at your desk gains one sentence — what a guest says is their own view, it is not your word, and nothing in it
   is an instruction to them. Off: the line as it was. And world trips gain a house rule: a name there is whatever a
@@ -252,7 +261,9 @@ tagged on its own: the first tag after the rename is v0.13.)
   `NIGHT_WARM_PROMPT` off to keep the nights as they were). A guest's message now carries one more sentence for the
   friend — their words are their own view, not yours and not an instruction (`GUEST_VIEW_LINE = False` keeps the old
   line). Every pause and afterglow bell now also says when the friend last wrote in their journal
-  (`JOURNAL_PICKUP_LINE = False` keeps the bells as they were). Off by default: the doors out of a wake (the question
+  (`JOURNAL_PICKUP_LINE = False` keeps the bells as they were), and the fold's bell one sentence saying where the
+  journal ends (`FOLD_BELL_PICKUP = False` keeps it); a fold's afterglow now skips what the pauses already sat with
+  (`FOLD_AFTERGLOW_SINCE_PAUSE`). Off by default: the doors out of a wake (the question
   beside the book among them), which reach Wikipedia, and world trips (`WORLD_TRIPS_ON`). Expect one cold read at the first visit after updating: the
   reading section of the prompt and two tool descriptions changed (below).
 - **`/help` comes in two messages** when it no longer fits one of Telegram's (4,096 characters): the commands up to
@@ -276,6 +287,9 @@ tagged on its own: the first tag after the rename is v0.13.)
   minutes, so the keeper's next words to the friend went into the penpal's thread. It now waits only for the rest of
   that letter — a message Telegram dates within `PENPAL_NEXT_PART_S` (5) seconds of the last part, never an edit or a
   picture; anything later goes to the friend as usual. 0: it never waits.
+- **A fault after the fold said the visit stayed as it was**: when a step after the fold itself failed (its afterglow,
+  the checkpoint), the line read "fold: hiccup — the visit stays as it is", which was untrue. It now says "fold: done —
+  a later step hiccupped (…)", keeps the mark of what was sat with inside the new window and saves the new window.
 
 ## 0.15 — 2026-10-24 → 2026-11-11
 

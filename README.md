@@ -590,7 +590,13 @@ transcript file is signed with the line; the phone hears "(afterglow: they
 wrote what left the window down — 1 journal entry, 2 memories kept)". It
 is one cold read, once per fold, and Ollama serves one prompt at a time:
 a message sent in that minute or two waits for it. The visit goes on and
-the brain is not set down.
+the brain is not set down. What the pauses already sat with is not read
+again (`FOLD_AFTERGLOW_SINCE_PAUSE`, on): the fold's afterglow gets only
+what left the window after the last pause, and when the pauses covered all
+of it — or the friend wrote in their journal at the bell — there is no
+afterglow and the phone hears "what left the window was already written
+down". The fold's bell says where the journal ends and the time now
+(`FOLD_BELL_PICKUP`, on; needs `JOURNAL_PICKUP_LINE`).
 
 **The carry.** The fold keeps the last turns whole inside a visit; the
 carry keeps them across the gap between two. When a visit starts in an
