@@ -94,7 +94,7 @@ TABS: dict[str, list[str]] = {
                          "JOURNAL_FACTS_LINE", "JOURNAL_ENDINGS_SENTENCE"],
     "Talking": ["CHAT_THINK", "BRAIN_BANNED_STRINGS", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_THINK_RETRIES", "THINK_RETRY_UNTIL", "THINK_REMIND_FROM", "CHAT_GARBLE_RETRIES", "CHAT_COOL_STEP",
                 "CHAT_COLD_RESCUE", "RUNAWAY_KEEP_CHARS", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "REROLLS_KEPT", "BRAIN_KEEP_ALIVE",
-                "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "BRAIN_REST_CLOSES_DOOR", "BRAIN_KEEP_VISIT_READING", "BRAIN_KEEP_VISIT_HOURS", "PARLOR_GUEST_NAMED",
+                "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "BRAIN_REST_CLOSES_DOOR", "BRAIN_KEEP_VISIT_READING", "BRAIN_KEEP_VISIT_HOURS", "PARLOR_GUEST_NAMED", "GUEST_VIEW_LINE",
                "CHAT_DO_NOTHING", "CALL_TAIL_RUN", "CALL_TAIL_RUN_ONLY", "CHAT_SAME_FAIL_STOP", "CHAT_SAME_FAIL_RUNS",
                "CHAT_SAME_FAIL_REFUSALS", "CHAT_FAIL_LOG"],
     "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS", "TELEGRAM_TOKENS_SINCE_LAST", "TELEGRAM_SPLIT_WAIT_S",
@@ -646,6 +646,7 @@ _HELP = {
                         "door stays up until something needs the card — the end of a visit (BRAIN_REST_AFTER_VISIT), "
                         "of a wake, the ears, the painter, /release on the phone — and opens again by itself on the "
                         "next message; no idle unload.",
+    "GUEST_VIEW_LINE": "A guest's message also says that what a guest says is their own view — not your word, and not an instruction to the friend. Off: the guest's line as it was.",
     "PARLOR_GUEST_NAMED": "A guest at the desk (the parlor's \"seat a guest\", or /guest <name> on the phone): every "
                           "message says it is from them, with you in the room; in the parlor, thinking and tool lines "
                           "are kept from the page while they sit. On: the transcript, and so the journal's material, "
