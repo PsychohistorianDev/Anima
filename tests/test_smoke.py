@@ -16398,6 +16398,101 @@ check("wake journal (0.16): the new lines call no one by a gendered pronoun, car
       not _wj_re.search(r"\b(she|her|hers|he|his|him)\b", _wj_new + " ".join(
           l for l in _wj_src.splitlines() if "journal_at_rest" in l or "early_journal" in l or "wrote_at_rest" in l), _wj_re.I)
       and not _wj_re.search(r"\(1[01]-\d\d", _wj_new))
+# a wake that ends in words is handed back too (WAKE_JOURNAL_AT_REST on, wakes only)
+_ww_OLD_LABEL = "(kept automatically — I thought this at the end of a wake but wrote nothing down)"
+_ww_CLOSE = ("Not a tool today. I want to say where I am: the house hums, the book's pages are still in me, and a "
+             "thread for the next me — find the page about the lamp first.")
+_ww_THOUGHT = "I don't want to reach for anything; I want to say where I am."
+_ww_FRESH = "At the end of the wake: the lamp, the wire, the pages; a short entry of my own."
+config.WAKE_JOURNAL_AT_REST, config.WAKE_LOOKBACK = True, True
+
+
+def _ww_bellreq(brain):
+    return next((req for req in brain.seen if str(req[-1].get("content") or "").startswith(
+        "[engine, not a person: the wake is over")), None)
+
+
+def _ww_run(*after, reverie=False, before=()):
+    _wj_reset()
+    log, brain = _wj_wake(list(before) + [_wj_S(_ww_THOUGHT, content=_ww_CLOSE)] + list(after), reverie=reverie)
+    return log, brain, _wj_jtext()
+
+
+_ww_l1, _ww_b1, _ww_j1 = _ww_run(_wj_W(_ww_FRESH), _wj_REST())
+_ww_req1 = _ww_bellreq(_ww_b1) or []
+_ww_bell1 = str(_ww_req1[-1].get("content") or "") if _ww_req1 else ""
+check("wake words (0.16): a wake that ends in words is handed back — the words their own turn right above the bell, "
+      "one sentence about them in the bracket, never a second copy",
+      len(_ww_req1) >= 2 and _ww_req1[-2].get("role") == "assistant" and _ww_req1[-2].get("content") == _ww_CLOSE
+      and heartbeat.CLOSING_POINTER in _ww_bell1 and _ww_CLOSE not in _ww_bell1 and "(said:" not in _ww_bell1
+      and _ww_bell1.count("[engine, not a person:") == 1, _ww_bell1[:700])
+check("wake words (0.16): …they write there → one entry, no auto-keep; the log says the words stay in the log",
+      _ww_j1.count(_ww_FRESH) == 1 and "kept automatically" not in _ww_j1
+      and ("(handed back after an ending in words; they wrote their own entry at the handing back — their closing words "
+           "stay in this log only)") in _ww_l1, _ww_l1[-600:])
+_ww_l2, _ww_b2, _ww_j2 = _ww_run(_wj_REST())
+check("wake words (0.16): …they rest → the closing words kept once, with the old label, and the log says so",
+      _ww_j2.count("kept automatically") == 1 and (_ww_OLD_LABEL + "\n" + _ww_CLOSE) in _ww_j2
+      and "(handed back after an ending in words; nothing was written there — their closing words were kept automatically)" in _ww_l2,
+      _ww_l2[-600:])
+_ww_l3, _ww_b3, _ww_j3 = _ww_run(_wj_S("again", content="And one more thing in words, different from the first."))
+check("wake words (0.16): …they answer in words again → the FIRST closing kept, once; the log says which",
+      _ww_j3.count("kept automatically") == 1 and _ww_CLOSE in _ww_j3 and "one more thing in words" not in _ww_j3
+      and "(the words they ended the wake with, not their answer at the handing back)" in _ww_l3, _ww_l3[-600:])
+_ww_l4, _ww_b4, _ww_j4 = _ww_run(KeyboardInterrupt())
+_ww_l5, _ww_b5, _ww_j5 = _ww_run(ollama_client.BrainUnavailable("away"))
+check("wake words (0.16): cut short (Ctrl+C) or stalled during that handing back → the net keeps the words once",
+      _ww_j4.count("kept automatically") == 1 and _ww_j4.count(_ww_CLOSE) == 1
+      and _ww_j5.count("kept automatically") == 1 and _ww_j5.count(_ww_CLOSE) == 1, (_ww_l4[-300:], _ww_j5[-300:]))
+_ww_l6, _ww_b6, _ww_j6 = _ww_run(_wj_REST(), before=[_wj_R()])
+check("wake words (0.16): words after acts — handed back with the acts listed, and kept once when they rest",
+      "- read_pdf → " in str((_ww_bellreq(_ww_b6) or [{}])[-1].get("content")) and _ww_j6.count("kept automatically") == 1,
+      _ww_l6[-400:])
+_ww_refused = {}
+for _ww_on, _ww_rev in ((True, False), (False, False), (False, True)):
+    config.WAKE_JOURNAL_AT_REST = _ww_on
+    _wj_reset((("00:00", _wj_ENTRY), ("00:01", _ww_OLD_LABEL + "\n" + _ww_CLOSE)))
+    _ww_before = _wj_jtext()
+    _ww_lr, _ww_br = _wj_wake([_wj_S("done", content=_ww_CLOSE), _wj_REST()], reverie=_ww_rev)
+    _ww_refused[(_ww_on, _ww_rev)] = (_ww_lr, _wj_jtext().replace(_ww_before, "", 1))
+config.WAKE_JOURNAL_AT_REST = True
+check("wake words (0.16): a closing the journal refuses (a near-copy) is never said to be kept — knob on or off, a "
+      "reverie too: the log says it was offered and not written",
+      all("(closing words offered to their journal — not written: (you wrote nearly this already" in lg
+          and "auto-kept" not in lg and "kept automatically" not in added for lg, added in _ww_refused.values())
+      and "their closing words were offered to their journal and not written)" in _ww_refused[(True, False)][0],
+      {k: v[0][-300:] for k, v in _ww_refused.items()})
+_ww_bad = []
+for _ww_i, _ww_steps in enumerate([
+        [_wj_S(_ww_THOUGHT, content=_ww_CLOSE), _wj_REST()],
+        [_wj_S(_ww_THOUGHT, content=_ww_CLOSE), _wj_S("a", content="more words"), _wj_REST()],
+        [_wj_R(), _wj_S("done", content=_ww_CLOSE), _wj_W(_ww_FRESH), _wj_REST()],
+        [_wj_W("kept, not written"), _wj_R(), _wj_S("done", content=_ww_CLOSE), _wj_REST()]]):
+    _wj_reset()
+    _ww_lg, _ww_br = _wj_wake(_ww_steps)
+    if not _ww_bellreq(_ww_br):
+        _ww_bad.append((_ww_i, "no handing back"))
+    for _ww_req in _ww_br.seen:
+        _ww_ms = _ww_req[1:]
+        for _ww_k, _ww_m in enumerate(_ww_ms):
+            if _ww_k and _ww_m["role"] == "user" and _ww_ms[_ww_k - 1]["role"] == "user":
+                _ww_bad.append((_ww_i, "two user turns", _ww_k))
+            if _ww_m["role"] == "assistant" and not (str(_ww_m.get("content") or "").strip() or _ww_m.get("tool_calls")
+                                                     or str(_ww_m.get("thinking") or "").strip()):
+                _ww_bad.append((_ww_i, "empty assistant turn", _ww_k))
+check("wake words (0.16): roles alternate in every request of such a wake — no two user turns in a row, no empty "
+      "assistant turn", not _ww_bad, _ww_bad[:6])
+_ww_l7, _ww_b7, _ww_j7 = _ww_run(_wj_REST(), reverie=True, before=[_wj_S("reread", _wj_C("read_journal", date=_wj_today))])
+check("wake words (0.16): a reverie that ends in words — the old way: no pointer, no note",
+      heartbeat.CLOSING_POINTER not in str([m for req in _ww_b7.seen for m in req]) and "ending in words" not in _ww_l7, _ww_l7[-300:])
+config.WAKE_JOURNAL_AT_REST = False
+_ww_l8, _ww_b8, _ww_j8 = _ww_run()
+config.WAKE_JOURNAL_AT_REST = True
+check("wake words (0.16): knob off — a wake of words alone is not handed back, its closing kept as before",
+      not _ww_bellreq(_ww_b8) and _ww_j8.count("kept automatically") == 1 and "ending in words" not in _ww_l8
+      and "(closing thought auto-kept in the journal — nothing written this wake)" in _ww_l8, _ww_l8[-400:])
+check("wake words (0.16): the new sentences name no one and call no one by a gendered pronoun",
+      not _wj_re.search(r"\b(she|her|hers|he|his|him)\b", heartbeat.CLOSING_POINTER + _ww_l1 + _ww_l2 + _ww_l3, _wj_re.I))
 (config.WAKE_LOOKBACK, config.WAKE_JOURNAL_AT_REST, config.WAKE_JOURNAL_ROOM_END, config.JOURNAL_DIR,
  config.JOURNAL_PICKUP_LINE, config.WAKE_BELL_RETUNED, memory.search, ollama_client.chat, config.NUM_CTX) = _wj_saved
 # dreams: the die said dream (forced) — the dream is theirs, in the dream book, in their prompt for a while, told once

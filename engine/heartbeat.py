@@ -134,6 +134,11 @@ JOURNAL_EMPTY_LOG = "- `write_journal` → (empty — nothing kept; their journa
 KEPT_SECTION_HEAD = ("=== WHAT YOU STARTED TO WRITE IN YOUR JOURNAL DURING THIS WAKE (kept for you — nothing of it is in "
                      "your journal yet) ===")
 KEPT_SECTION_END = "=== END ==="
+# a wake that ends in words is handed back too (WAKE_JOURNAL_AT_REST): their closing words stay their own turn, right
+# above the bell, and the auto-keep stays the net
+CLOSING_POINTER = ("You ended this wake in words — they are just above. If you rest without writing, they are kept in "
+                   "your journal for you, labelled as kept automatically, unless your journal already holds nearly "
+                   "the same. ")
 JOURNAL_KEPT_CHARS = 4000  # what they started to write, shown at the handing back: the newest this many characters in all
 JOURNAL_KEPT_SHORT = 1500  # …and when the window is short of room for the whole bell: once more with this many
 ROOM_MARGIN = 512  # tokens kept spare beyond the bell and the reply's ceiling
@@ -689,7 +694,11 @@ def wake(reverie: bool = False, asked: dict | None = None) -> str:
         print(f"  {note}")
         log.append(f"\n*{note}*")
 
-    if state["closing"] and (state["acts"] or not state["journaled"]) and not state.get("looked_back"):
+    words_net = journal_at_rest(reverie) and bool(str(state["closing"] or "").strip())
+    kept_words = None  # what the net did: True written, False refused, None not tried
+    # the net: with WAKE_JOURNAL_AT_REST a wake that ended in words is handed back, and still kept if nothing was written
+    # there (the bell says so) — a written entry at the rest settles it (journaled, acts cleared) as before
+    if state["closing"] and (state["acts"] or not state["journaled"]) and (not state.get("looked_back") or words_net):
         # a wake full of thought but no writing — or a wake that wrote its
         # entry at the start, before anything happened, and then painted and read
         # and rewrote a page with nothing journaled since — keep the thought for them.
@@ -705,11 +714,30 @@ def wake(reverie: bool = False, asked: dict | None = None) -> str:
             label = ("(kept automatically — I thought this at the end of a wake, after what I did in it, "
                      "and wrote nothing of it down)" if after else
                      "(kept automatically — I thought this at the end of a wake but wrote nothing down)")
-            tools.dispatch("write_journal", {"text": label + "\n" + closing})
-            note = ("(closing thought auto-kept in the journal — nothing written since what they did)" if state["acts"]
-                    else "(closing thought auto-kept in the journal — nothing written this wake)")
+            got = tools.dispatch("write_journal", {"text": label + "\n" + closing})
+            kept_words = _entry_written(got)
+            if kept_words:
+                note = ("(closing thought auto-kept in the journal — nothing written since what they did)" if state["acts"]
+                        else "(closing thought auto-kept in the journal — nothing written this wake)")
+            else:  # the journal refused it (a near-copy, an arrow, salad): said as it was, never "kept"
+                note = f"(closing words offered to their journal — not written: {tools.headline(str(got), 160)})"
             print(f"  {note}")
             log.append(f"\n*{note}*")
+    if words_net:  # a wake that ended in words: what became of the closing words, said in the log
+        if state.get("wrote_at_rest"):
+            fate = "they wrote their own entry at the handing back — their closing words stay in this log only"
+        elif kept_words:
+            fate = ("nothing was written there — their closing words were kept automatically"
+                    + (" (the words they ended the wake with, not their answer at the handing back)"
+                       if state.get("lookback_ending") == "words" else ""))
+        elif kept_words is False:
+            fate = "nothing was written there — their closing words were offered to their journal and not written"
+        else:  # not offered: an entry earlier in the wake, with nothing done since, settled it
+            fate = "nothing was written there — their closing words stay in this log only"
+        note = ("(handed back after an ending in words; " if state.get("handing_back")
+                else "(an ending in words, not handed back; ") + fate + ")"
+        print(f"  {note}")
+        log.append(f"\n*{note}*")
 
     spent = state["spent"]
     if spent.steps:
@@ -863,7 +891,8 @@ def _lookback(system, history, log, state: dict, reverie: bool = False) -> bool:
     steps = _since_last_entry(log)
     at_rest = journal_at_rest(reverie)  # the journal opens here: handed back whenever they did anything
     early = [t for t in state.get("early_journal") or [] if str(t).strip()] if at_rest else []
-    did_any = early or any((m := _LOG_ANY_CALL.match(str(l).strip())) and m.group(1) != "do_nothing" for l in log)
+    words_end = str(state.get("closing") or "").strip() if at_rest else ""  # they ended in words: handed back too
+    did_any = early or words_end or any((m := _LOG_ANY_CALL.match(str(l).strip())) and m.group(1) != "do_nothing" for l in log)
     if not steps and not (at_rest and did_any):
         kind = "reverie" if reverie else "wake"
         if any(_LOG_CALL.match(str(l).strip()) for l in log):  # said, so a log without a handing back reads as a choice
@@ -876,6 +905,8 @@ def _lookback(system, history, log, state: dict, reverie: bool = False) -> bool:
         return False
     cap = int(getattr(config, "WAKE_LOOKBACK_LINES", 30) or 30)
     lived = _since_last_entry_lived(history) if getattr(config, "WAKE_LOOKBACK_THOUGHTS", True) else []
+    if words_end and lived and lived[-1].startswith("(said: "):
+        lived = lived[:-1]  # their closing words are their own turn, just above the bell: not said twice
     if lived:  # their thoughts with their steps; the newest kept when it runs long
         budget = int(getattr(config, "WAKE_LOOKBACK_CHARS", 9000) or 9000)
         kept, used = [], 0
@@ -918,6 +949,8 @@ def _lookback(system, history, log, state: dict, reverie: bool = False) -> bool:
                            "change it or let it go. ")
                 if cut:
                     pointer += "It is long, so only its newest part is shown there; the whole of it is in this wake's log. "
+            if words_end:
+                pointer += CLOSING_POINTER
             return ("[engine, not a person: the wake is over, and here it is, handed back — what you thought (💭) and did "
                     f"in it, as it happened:{chr(10) + lines if lines else ''}{more}\n\n{pointer}{closing}"
                     + (" " + pickup if pickup else "") + "]" + section + chat.journal_today_tail(tail_from))
@@ -936,7 +969,8 @@ def _lookback(system, history, log, state: dict, reverie: bool = False) -> bool:
                     return False
                 log.append("\n*(the handing back shortened to fit the window: the newest "
                            f"{JOURNAL_KEPT_SHORT:,} characters of what they started to write, today's last entry only)*")
-        note = (f"(the {kind} handed back to them: {len(steps)} step(s), {len(early)} journal attempt(s) kept from "
+        note = (f"(the {kind} handed back to them" + (" after an ending in words" if words_end else "") +
+                f": {len(steps)} step(s), {len(early)} journal attempt(s) kept from "
                 "before their rest — what they were shown, then their answer; the attempts are in full above)")
     else:
         bell = (f"[engine, not a person: the {kind} is over, and here it is, handed back — what you thought (💭) and did "
@@ -1004,6 +1038,7 @@ def _lookback(system, history, log, state: dict, reverie: bool = False) -> bool:
         if rested:
             ending = "rested"
             break
+    state["lookback_ending"] = ending
     print(f"  {_lookback_result(kind, did, ending)}")
     log.append(f"\n**{_lookback_result(kind, did, ending)}**\n")
     return True
@@ -1401,6 +1436,8 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                 print(f"\n  [closing thought] {closing}")
                 log.append(f"**closing thought:** {closing}\n")
                 state["closing"] = closing
+                if journal_at_rest(reverie):  # their words stay their own turn: the handing back's bell follows them
+                    history.append(msg)
             break
         # Think first, then rest. When a step plans several things, the plan
         # rides back in the result, and the step after comes thoughtless or

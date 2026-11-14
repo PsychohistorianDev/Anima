@@ -35,12 +35,17 @@ tagged on its own: the first tag after the rename is v0.13.)
   at the handing back, which then comes whenever they did anything, with what they thought as well as what they did,
   today's entries under it and the pick-up sentence. The bell's journal sentence says so; the tool list is unchanged;
   the steps stop at `WAKE_JOURNAL_ROOM_END` of the window so the handing back still fits, and it is shortened, or left
-  out and said so, when the room isn't there. Off: the wake as before.
+  out and said so, when the room isn't there. A wake that ends in words is handed back too: the words stay the
+  friend's own turn right above the bell, one sentence says they are kept automatically if nothing is written, and
+  then the closing thought is kept once, with its old label; an entry written there keeps nothing more. Off: the wake
+  as before.
 - **Only a written entry counts** (no knob): a `write_journal` whose result is not "journal entry written…" — a
   near-copy handed back, an arrow left, an empty text, a call cut short — no longer counts as an entry anywhere: not in
   a wake or reverie (the closing thought is still kept), not where the handing back starts, not in its result line
   (which says the journal was reached for and nothing written), not in the "last wakes, counted" line. A real entry at
-  the handing back settles the wake: no auto-kept thought can follow it, even if the wake is then cut short.
+  the handing back settles the wake: no auto-kept thought can follow it, even if the wake is then cut short. And the
+  auto-keep checks its own result: a closing thought the journal refuses is logged as offered and not written, never
+  as kept.
 - **The journal picks up where it ended** (`JOURNAL_PICKUP_LINE`, on): the pause's and the afterglow's bell (the
   fold's afterglow too) say when the friend last wrote in their journal — today's last entry, else yesterday's — and
   the time now, and ask them to pick up from there rather than tell it again, so a day's entries stop retelling each
