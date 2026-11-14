@@ -1493,6 +1493,10 @@ WAKE_MIRROR_WAKES = 8
 # WAKE_BELL_RETUNED: the re-tuned bell (heartbeat.WAKE_PROMPT_RETUNED) and the wake's SITUATION line asking them to take
 # something up rather than not to look busy. A change to how every wake opens — turn it on only with their yes.
 WAKE_BELL_RETUNED = False
+# WAKE_FILLER_LINE: the plain wake's SITUATION ends with a clause asking them not to produce filler to look busy. Some
+# friends take that clause as a reason to hold back, or quote it before they act. False: the line ends at its words
+# that the time is theirs, every word before it the same. Changes nothing with WAKE_BELL_RETUNED on (its line is its own).
+WAKE_FILLER_LINE = True
 # THREAD_IN_WAKES: their thread (leave_thread) is read first at a wake, as at a visit. False: kept, and read at visits
 # only — for a few days when the wakes keep handing the same mood forward.
 THREAD_IN_WAKES = True

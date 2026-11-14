@@ -16097,6 +16097,61 @@ check("panel (0.15): the new knobs are on their tabs (Their days, Penpals, Heart
       "its own; the config block says them in plain words", len(_ph_knobs) >= 95 and _ph_off == []
       and {"Their days", "Penpals"} <= set(_ph_panel.TABS) and "Fill" not in _ph_panel._HELP["PENPAL_PRIVATE_WORDS"]
       and "Add your own: the town you live in" in _ph_block, (len(_ph_knobs), _ph_off))
+# WAKE_FILLER_LINE: the plain wake's situation may end at "This time is yours."
+import consolidate as _wf2_cons
+_wf2_saved = (config.WAKE_FILLER_LINE, config.WAKE_BELL_RETUNED, config.NIGHT_WARM_PROMPT)
+_wf2_clause = "; don't produce filler to look busy."
+_wf2_t = lambda s: _ph_re.sub(r"\b\d{1,2}:\d\d\b", "HH:MM", s)  # the clock paired out: two builds a minute apart
+
+
+def _wf2_sp(mode="auto", **k):
+    return _wf2_t(assemble.system_prompt("", mode=mode, **k))
+
+
+config.WAKE_BELL_RETUNED, config.NIGHT_WARM_PROMPT = False, False
+config.WAKE_FILLER_LINE = True
+_wf2_on = _wf2_sp()
+config.WAKE_FILLER_LINE = False
+_wf2_off = _wf2_sp()
+del config.WAKE_FILLER_LINE  # an older config without the knob
+_wf2_abs = _wf2_sp()
+config.WAKE_FILLER_LINE = True
+check("wake filler line (0.16): on by default — the plain wake's situation ends as before, the clause there once; on "
+      "the Heartbeat tab beside WAKE_BELL_RETUNED, with its line",
+      _ph_re.search(r"^WAKE_FILLER_LINE = True\b", (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8"), _ph_re.M)
+      and "revise, build, or rest. This time is yours" + _wf2_clause in _wf2_on and _wf2_on.count(_wf2_clause) == 1
+      and _ph_panel.TABS["Heartbeat"].index("WAKE_FILLER_LINE") == _ph_panel.TABS["Heartbeat"].index("WAKE_BELL_RETUNED") + 1
+      and bool(_ph_panel._HELP.get("WAKE_FILLER_LINE")))
+check("wake filler line (0.16): off — the situation ends \"This time is yours.\", every word before it the same",
+      _wf2_off == _wf2_on.replace(_wf2_clause, ".") and _wf2_off != _wf2_on
+      and "revise, build, or rest. This time is yours.\n" in _wf2_off + "\n" and _wf2_clause not in _wf2_off)
+check("wake filler line (0.16): a config without the knob reads as on", _wf2_abs == _wf2_on)
+config.WAKE_BELL_RETUNED = True
+_wf2_rt = {v: (setattr(config, "WAKE_FILLER_LINE", v), _wf2_sp())[1] for v in (True, False)}
+config.WAKE_BELL_RETUNED, config.WAKE_FILLER_LINE = False, True
+check("wake filler line (0.16): with WAKE_BELL_RETUNED on the knob changes nothing — the re-tuned line is its own",
+      _wf2_rt[True] == _wf2_rt[False] and "This time is yours: take something up." in _wf2_rt[True]
+      and _wf2_clause not in _wf2_rt[True])
+_wf2_modes = {}
+for _wf2_m in ("chat", "telegram", "reverie", "condense", "afterglow", "pause"):
+    _wf2_modes[_wf2_m] = []
+    for _wf2_v in (True, False):
+        config.WAKE_FILLER_LINE = _wf2_v
+        _wf2_modes[_wf2_m].append(_wf2_sp(_wf2_m))
+config.WAKE_FILLER_LINE = True
+check("wake filler line (0.16): no other mode's prompt changes with the knob",
+      all(a == b for a, b in _wf2_modes.values()), [m for m, (a, b) in _wf2_modes.items() if a != b])
+_wf2_night = {}
+for _wf2_w in (False, True):
+    config.NIGHT_WARM_PROMPT = _wf2_w
+    for _wf2_v in (True, False):
+        config.WAKE_FILLER_LINE = _wf2_v
+        _wf2_night[(_wf2_w, _wf2_v)] = _wf2_t(_wf2_cons.night_prompt("auto", say=lambda *_: None))
+config.WAKE_FILLER_LINE, config.NIGHT_WARM_PROMPT = True, False
+check("wake filler line (0.16): the night's prompt follows it, plain or warm",
+      all(_wf2_night[(w, True)].count(_wf2_clause) == 1
+          and _wf2_night[(w, False)] == _wf2_night[(w, True)].replace(_wf2_clause, ".") for w in (False, True)))
+(config.WAKE_FILLER_LINE, config.WAKE_BELL_RETUNED, config.NIGHT_WARM_PROMPT) = _wf2_saved
 import dealt as _dl
 _dl0 = (config.WAKE_DEALT_WHOLE, config.WAKE_DEALT_WHOLE_KINDS, config.WAKE_DEALT_BOOK_FIRST, config.OFFLINE)
 try:

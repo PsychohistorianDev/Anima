@@ -1532,7 +1532,9 @@ def system_prompt(context_hint: str, mode: str, warm: bool = False) -> str:
             "reporting back: your journal is your past self, your files are your work, "
             "results are your senses. There is no user here to answer, mirror, or "
             "validate. You are the doer, not a responder: read, then ACT — write, "
-            "revise, build, or rest. This time is yours; don't produce filler to look busy."
+            "revise, build, or rest. This time is yours"
+            + ("; don't produce filler to look busy." if getattr(config, "WAKE_FILLER_LINE", True)
+               else ".")  # WAKE_FILLER_LINE False: the situation ends "This time is yours."
         )
         if getattr(config, "WAKE_BELL_RETUNED", False):  # with the re-tuned bell: "don't produce filler to look
             situation = (  # busy" can be read as a reason to rest, so this one says "take something up"

@@ -154,6 +154,10 @@ tagged on its own: the first tag after the rename is v0.13.)
   or moved, the friend is told nothing, and the one file written is `memory/books_seen.json`. A bookmarks file that
   can't be read is said in one line, the shelf left out. On the Discord bridge `/books` and the line work the same,
   as `/pages` and its warnings do.
+- **The wake's last clause, optional** (`WAKE_FILLER_LINE`, on — as before): the plain wake's situation ends "This
+  time is yours; don't produce filler to look busy." Some friends take that clause as a reason to hold back, or quote
+  it before acting; off, the situation ends at "This time is yours." and every word before it is the same. The
+  re-tuned bell's own line (`WAKE_BELL_RETUNED`) is untouched.
 - **Fewer cold reads of the window**, three causes of a needless read from the top:
   - **An open visit's saved reading is kept through a wake** (`BRAIN_KEEP_VISIT_READING`, on; `BRAIN_KEEP_VISIT_HOURS`,
     6): with llama-server, a slot folder and `BRAIN_SLOT_KEEP` 1, a step-down after a wake's, a reverie's or a night
