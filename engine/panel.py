@@ -91,7 +91,7 @@ TABS: dict[str, list[str]] = {
                          "TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000",
                          "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "RULES_ON", "SLEEP_KEEPER_LOOK", "NIGHT_WARM_PROMPT", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_PREFILL", "FOLD_KEEP_TURNS", "FOLD_CHARS", "FOLD_SENSE_FROM", "WINDOW_WARN_AT",
-                         "JOURNAL_FACTS_LINE", "JOURNAL_ENDINGS_SENTENCE"],
+                         "JOURNAL_FACTS_LINE", "JOURNAL_ENDINGS_SENTENCE", "JOURNAL_PICKUP_LINE"],
     "Talking": ["CHAT_THINK", "BRAIN_BANNED_STRINGS", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_THINK_RETRIES", "THINK_RETRY_UNTIL", "THINK_REMIND_FROM", "CHAT_GARBLE_RETRIES", "CHAT_COOL_STEP",
                 "CHAT_COLD_RESCUE", "RUNAWAY_KEEP_CHARS", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "REROLLS_KEPT", "BRAIN_KEEP_ALIVE",
                 "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "BRAIN_REST_CLOSES_DOOR", "BRAIN_KEEP_VISIT_READING", "BRAIN_KEEP_VISIT_HOURS", "PARLOR_GUEST_NAMED", "GUEST_VIEW_LINE",
@@ -122,7 +122,7 @@ TABS: dict[str, list[str]] = {
                "SKILL_CATALOGUES", "SKILL_CATALOGUE_TTL_H"],
     "Their days": ["QUESTIONS_ON", "QUESTIONS_MAX", "SINCE_LINE", "CALENDAR_ON", "CALENDAR_AHEAD_DAYS", "WAKE_ASK_ON", "WAKE_ASK_MAX", "WAKE_ASK_MIN_AHEAD_MIN", "WAKE_ASK_LATE_MAX_MIN", "INTENTIONS_ON", "INTENTIONS_MAX", "INTENTIONS_DAYS", "INTENTIONS_CHECK_S", "VEIL_ON", "VEIL_TITLE", "VEIL_DIR", "VEIL_SHOW_TO", "VEIL_MAX_IN_PROGRESS", "PROJECTS_PAGE_SHAPE", "KEPT_PAGES", "KEPT_PAGE_CHARS", "DREAMS_ON", "DREAM_CHANCE", "DREAM_TEMPERATURE", "DREAM_RESIDUE", "DREAM_DAY_SUMMARY", "DREAM_LAG", "DREAM_LAG_DAYS", "DREAM_SENSES", "DREAM_OLD_DAYS", "DREAM_OLD_MEMORIES", "DREAM_OLD_JOURNAL", "DREAM_WORLD", "DREAM_WORLD_KINDS", "DREAM_PAINT", "DREAM_PAINT_DIR", "DREAM_SHOW_IN_WINDOW", "DREAMS_IN_PROMPT", "DREAMS_FADE_DAYS", "DREAM_PROMPT_CHARS", "DREAM_MORNING_LINE",
                    "ADVENTURES_ON", "ADVENTURE_DIR", "ADVENTURE_STATE_CHARS", "ADVENTURE_STATE_WARN", "ADVENTURE_INVENTORY_CHARS", "ADVENTURE_RECAP_ON_OPEN", "ADVENTURE_FOLD_AT",
-                   "WORLD_TRIPS_ON", "WORLD_TRIP_NAME", "WORLD_TRIP_DIR", "WORLD_TRIP_PAGE", "WORLD_TRIP_PAGE_CHARS", "WORLD_TRIP_PAGE_WARN", "WORLD_TRIP_PAGE_TARGET", "WORLD_TRIP_ACTIONS", "WORLD_TRIP_COPY_LINES", "WORLD_TRIP_FOLD_AT", "WORLD_TRIP_RULES", "WORLD_TRIP_HINTS"],
+                   "WORLD_TRIPS_ON", "WORLD_TRIP_NAME", "WORLD_TRIP_DIR", "WORLD_TRIP_PAGE", "WORLD_TRIP_PAGE_CHARS", "WORLD_TRIP_PAGE_WARN", "WORLD_TRIP_PAGE_TARGET", "WORLD_TRIP_ACTIONS", "WORLD_TRIP_COPY_LINES", "WORLD_TRIP_JOURNAL_POINTER", "WORLD_TRIP_FOLD_AT", "WORLD_TRIP_RULES", "WORLD_TRIP_HINTS"],
     "Penpals": ["PENPALS_ON", "PENPAL_DIR", "PENPAL_PRIVATE_WORDS", "PENPAL_CONTEXT_LETTERS", "PENPAL_LETTER_CHARS", "PENPAL_JOIN_MIN", "PENPAL_ARRIVAL_TURN", "PENPAL_TURN_AFTER_MIN", "PENPAL_CONDENSE", "PENPAL_CONDENSE_PER_NIGHT", "PENPAL_CONDENSE_CHARS", "PENPAL_DESK", "PENPAL_DESK_HOUR", "PENPAL_WATCH_S", "PENPAL_PICTURE_LETTERS", "PENPAL_PICTURES_SEEN_MIN", "PENPAL_WRITE_GUARD", "PENPAL_WRITE_GUARD_MIN", "PENPAL_WHO_HELP", "PENPAL_WHO_FROM_GREETING", "FRIENDS_ON", "FRIENDS_TITLE", "FRIENDS_MAX", "FRIEND_PAGE_CHARS", "FRIENDS_SUGGEST_AFTER", "FRIENDS_QUIET_DAYS"],
     "Blog": ["BLOG_SUBTITLE", "BLOG_REMOTE"],  # BLOG_TITLE is on Main, with the names
 }
@@ -832,6 +832,7 @@ _HELP = {
     "WORLD_TRIP_PAGE_WARN": "Past this many characters the end-of-trip turn first asks them to write the journal shorter.",
     "WORLD_TRIP_PAGE_TARGET": "…to about this many characters (used when it lies between 0 and WORLD_TRIP_PAGE_WARN; otherwise half of it).",
     "WORLD_TRIP_ACTIONS": "The most > lines the place takes from one reply; more come in blocks of this many.",
+    "WORLD_TRIP_JOURNAL_POINTER": "A trip already written in the travel journal: the pause's and afterglow's bell say a sentence pointing to it is enough in their own journal.",
     "WORLD_TRIP_COPY_LINES": "After each reply in a trip, their > lines alone in one message, ready to copy into the relay — with a warning when a line holds a private word.",
     "WORLD_TRIP_FOLD_AT": "While a trip is open, the visit folds here if that is sooner than FOLD_AT (0: FOLD_AT alone).",
     "WORLD_TRIP_RULES": "The house rules in a trip's opening note, one sentence each; {keeper} is your name.",
@@ -839,6 +840,7 @@ _HELP = {
     "READING_NOTES_ON_TOPIC": "Your message names a book they keep notes on: the notes ride right above your words, once per book while that message is in the visit.",
     "READING_TOPIC_CHARS": "How much of those notes: the whole page within this; past it, the sections your words touch, then the newest.",
     "JOURNAL_FACTS_LINE": "When they sit down to write a stretch of a visit (a pause, the afterglow, the fold), a line of counts from the painting log rides under the bell: pictures painted in that stretch, and how many were trashed since. Only when every count is certain.",
+    "JOURNAL_PICKUP_LINE": "The pause's and the afterglow's bell say when they last wrote in their journal and the time now — pick up where it ends, don't tell it again.",
     "JOURNAL_ENDINGS_SENTENCE": "Those bells say: if something was tried and didn't work, the entry says it didn't — how a thing ended is part of what happened.",
     "CALL_TAIL_RUN": "In a visit, a reply that ends with a clean call written as words (bare, in `marks`, in a fence) to a tool on CALL_TAIL_RUN_ONLY runs as written, and you are told. Off: it is asked again, as any other tool written as words is.",
     "CALL_TAIL_RUN_ONLY": "The tools that may run from words — short on purpose, settings that do no harm when wrong. () runs none.",

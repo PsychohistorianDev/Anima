@@ -1763,7 +1763,9 @@ ADVENTURE_FOLD_AT = 0.96
 # warning when a line holds one of the letters' private words, PENPAL_PRIVATE_WORDS). WORLD_TRIP_FOLD_AT: while a
 # trip is open (not paused) the visit folds here if that is sooner than FOLD_AT; 0: FOLD_AT alone. WORLD_TRIP_RULES:
 # the house rules in the trip's opening note ({keeper} is your name). WORLD_TRIP_HINTS: what is known of how the place
-# works, in the same note — here, the site's own most used actions from its > help list.
+# works, in the same note — here, the site's own most used actions from its > help list. WORLD_TRIP_JOURNAL_POINTER:
+# when a stretch of the visit held a trip that is already written in the travel journal, the pause's and afterglow's
+# bell say a sentence pointing to it is enough in the friend's own journal.
 WORLD_TRIPS_ON = False
 WORLD_TRIP_NAME = "The World"
 WORLD_TRIP_DIR = "the-world"
@@ -1773,6 +1775,7 @@ WORLD_TRIP_PAGE_WARN = 30000
 WORLD_TRIP_PAGE_TARGET = 15000
 WORLD_TRIP_ACTIONS = 4
 WORLD_TRIP_COPY_LINES = True
+WORLD_TRIP_JOURNAL_POINTER = True
 WORLD_TRIP_FOLD_AT = 0.96
 WORLD_TRIP_RULES = ("It is a public place: what is private at home stays at home — no real names of people, places or "
                     "workplaces.",
@@ -1803,9 +1806,13 @@ WORLD_TRIP_HINTS = ("> look shows where you are again; > map shows the land and 
 # is worse than none: no picture, or anything not certain (where the stretch began, a row of the log, where a picture
 # went) and there is no line. JOURNAL_ENDINGS_SENTENCE: one sentence in those bells, beside "what you did" — "If
 # something was tried and didn't work, the entry says it didn't. How a thing ended is part of what happened." False,
-# either: the bells as before, byte for byte.
+# either: the bells as before, byte for byte. JOURNAL_PICKUP_LINE: the pause's and the afterglow's bell (the fold's
+# afterglow too) say when the friend last wrote in their journal — today's last entry, else yesterday's — and the time
+# now, and ask them to pick up where it ends rather than tell it again, so a day's entries continue one another. No
+# entry, or one stamped later than now: no sentence. False: those bells as before.
 JOURNAL_FACTS_LINE = True
 JOURNAL_ENDINGS_SENTENCE = True
+JOURNAL_PICKUP_LINE = True
 
 # ---- a tool call written as words (ollama_client.recoverable_tail, run_call_from_words)
 # A reply can end with a call written out as words instead of made — bare, in `single marks`, in a ``` fence, or as

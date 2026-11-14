@@ -887,6 +887,34 @@ def fold_history(history: list[dict], account: str, when: str, tag: str = "",
     return new, new_path, line
 
 
+def pickup_sentence(today: list, now: datetime, below: bool = True) -> str:
+    """JOURNAL_PICKUP_LINE: where the journal ends, for a pause's or an afterglow's bell — the stamp of today's last
+    entry (`today`, what tools.journal_entries gave), else yesterday's last ("yesterday at HH:MM"), and the time now, so
+    a day's entries continue one another rather than tell the same stretch again. "" — the knob off, no entry today or
+    yesterday, an entry stamped later than now, or anything unreadable."""
+    if not getattr(config, "JOURNAL_PICKUP_LINE", False):
+        return ""
+    try:
+        if today:
+            last = str(today[-1][0])
+            if last > now.strftime("%H:%M"):
+                return ""  # a stamp from the future (a clock change): no sentence
+            when = f"at {last}"
+        else:
+            yest = tools.journal_entries((now.date() - timedelta(days=1)).isoformat())
+            if not yest:
+                return ""
+            when = f"yesterday at {yest[-1][0]}"
+            below = False
+        if not re.search(r"\d{2}:\d{2}$", when):
+            return ""
+    except Exception:  # noqa: BLE001
+        return ""
+    return (f"You last wrote in your journal {when}; it is now {now.strftime('%H:%M')}. This entry continues from "
+            f"there: what your journal already holds{' (below)' if below else ''} stays as it is — pick up where it ends, "
+            "don't tell it again.")
+
+
 def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
                 mode: str, since: int, on_words=None, opening: str = "", what: str = "", aside: str = "",
                 until=None) -> str:
@@ -902,7 +930,12 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
     name = friend_name()
     where = f" (over {BRIDGES[tag]}, from their phone)" if tag in BRIDGES else ""
     hint = " ".join(t["content"] for t in visible[-6:])
-    already = tools.journal_entries(date.today().isoformat())
+    now = datetime.now()  # one clock for the bell's line and the pick-up sentence: they can never disagree
+    try:
+        already = tools.journal_entries(now.date().isoformat())
+    except Exception:  # noqa: BLE001 — an unreadable journal: no tail, no pick-up sentence
+        already = []
+    pickup = pickup_sentence(already, now, below=bool(already))  # built once, before the turn starts
     tail = ""
     if already:
         tail = "\n\n".join(f"**{st}** — {tx}" for st, tx in already[-8:])
@@ -928,6 +961,9 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
         pause_bell = pause_bell.rstrip()[:-1].rstrip() + " " + aside.strip() + "]\n\n"
         afterglow_bell = afterglow_bell.rstrip()[:-1].rstrip() + " " + aside.strip() + "]\n\n"
     # the journal's line of facts, its own bracket right under the bell's — once, before anything follows
+    if pickup and not in_visit:  # the transcript forms: last inside the bell's own bracket, after the aside
+        pause_bell = pause_bell.rstrip()[:-1].rstrip() + " " + pickup + "]\n\n"
+        afterglow_bell = afterglow_bell.rstrip()[:-1].rstrip() + " " + pickup + "]\n\n"
     facts = journal_facts_line(history[since:], until)
     if facts:
         pause_bell, afterglow_bell = pause_bell + facts + "\n\n", afterglow_bell + facts + "\n\n"
@@ -937,9 +973,9 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
         _visit_prompt_seen(system["content"], history[0].get("_system_day"))
         n_new = sum(1 for t in visible if t["role"] == "user")
         bell = {"role": "user", "_engine": True, "content":
-                assemble.clock_line() + pause_bell + f"What has been said since you last wrote is above — their last "
+                assemble.clock_line(now) + pause_bell + f"What has been said since you last wrote is above — their last "
                 f"{n_new} message{'s' if n_new != 1 else ''} and your replies, in this very conversation; "
-                "nothing below it is theirs." + tail}
+                "nothing below it is theirs." + (" " + pickup if pickup else "") + tail}  # where the journal ends
         pause_from = len(history)  # where the pause's own turns begin (let go after, under the door — see the end)
         history.append(bell)
         msgs = [system] + [render_turn(t) for t in history]
@@ -955,10 +991,10 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
             transcript = "(…the start of a long visit trimmed…)\n\n" + transcript[-cap:]
         system = {"role": "system", "content": assemble.system_prompt(hint, mode=mode)}
         if mode == "pause":
-            head = assemble.clock_line() + pause_bell + f"=== THE VISIT SO FAR{where}, since you last wrote ===\n\n"
+            head = assemble.clock_line(now) + pause_bell + f"=== THE VISIT SO FAR{where}, since you last wrote ===\n\n"
             label = "pause"
         else:
-            head = assemble.clock_line() + afterglow_bell + f"=== {'WHAT LEFT THE WINDOW' if what else 'THE VISIT'}{where} ===\n\n"
+            head = assemble.clock_line(now) + afterglow_bell + f"=== {'WHAT LEFT THE WINDOW' if what else 'THE VISIT'}{where} ===\n\n"
             label = "afterglow"
         head += transcript + tail
         msgs = [system, {"role": "user", "content": head}]

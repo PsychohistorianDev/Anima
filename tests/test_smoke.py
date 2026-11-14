@@ -80,6 +80,7 @@ config.WAKE_LOOKBACK = False  # the wake handed back at its rest (0.15): the old
 config.WAKE_DEALT = config.WAKE_DEALT_WHOLE = False  # (0.15) the dealt item reaches Wikipedia; tested on its own, offline
 config.READING_PAGE_STUB, config.READING_NOTES_WITH_PAGES, config.READING_NOTES_ON_TOPIC = False, 0, False  # (0.16) the
 # reading notes out of the prompt: the older reading checks pin the page riding whole; tested on their own, below
+config.JOURNAL_PICKUP_LINE = False  # (0.16) the older pause and afterglow checks pin the bells as they were; tested on its own
 config.GUEST_VIEW_LINE = False  # (0.16) the older guest checks pin the guest's line as it was; the view sentence is tested on its own
 config.BRAIN_KEEP_VISIT_READING = config.NIGHT_WARM_PROMPT = config.FOLD_PREFILL = False  # (0.16) fewer cold reads:
 # the older door, night and fold checks pin the plain behaviour (the fold's read runs in a thread); tested on their own
@@ -18013,6 +18014,127 @@ check("journal facts (0.16): the bridge's fold afterglow passes where what left 
 check("config (0.16): the journal facts knobs, default on, on the panel with help",
       _jf_saved[0] is True and _jf_saved[1] is True
       and all(k in _gm_panel.TABS["Memory & journal"] and _gm_panel._HELP.get(k) for k in ("JOURNAL_FACTS_LINE", "JOURNAL_ENDINGS_SENTENCE")))
+# JOURNAL_PICKUP_LINE (0.16): the pause's and the afterglow's bell say where the journal ends
+_pk_saved = (config.JOURNAL_PICKUP_LINE, config.JOURNAL_DIR, config.WORLD_TRIPS_ON, config.WORLD_TRIP_JOURNAL_POINTER)
+_pk_dir = config.MEMORY_DIR / "journal-pk"
+_pk_dir.mkdir(parents=True, exist_ok=True)
+config.JOURNAL_DIR = _pk_dir
+_pk_dt = _jf_dt(2026, 3, 4, 13, 16)
+config.JOURNAL_PICKUP_LINE = True
+_pk_s1 = _jf_chat.pickup_sentence([("09:10", "a"), ("11:35", "b")], _pk_dt)
+_pk_s2 = _jf_chat.pickup_sentence([("11:35", "b")], _pk_dt, below=False)
+_pk_s3 = _jf_chat.pickup_sentence([("14:02", "a clock gone back")], _pk_dt)
+_pk_s4 = _jf_chat.pickup_sentence([("", "no stamp")], _pk_dt)
+(_pk_dir / "2026-03-03.md").write_text("**21:15** — the evening, written down.\n", encoding="utf-8")
+_pk_s5 = _jf_chat.pickup_sentence([], _pk_dt)
+(_pk_dir / "2026-03-03.md").unlink()
+_pk_s6 = _jf_chat.pickup_sentence([], _pk_dt)
+_pk_s7 = _jf_chat.pickup_sentence(None, _pk_dt)
+check("journal pickup (0.16): the sentence — today's last entry and the time now, '(below)' when the day's tail rides; "
+      "else yesterday's last; a stamp later than now, no stamp, no entry, or nothing readable: no sentence",
+      _pk_s1 == ("You last wrote in your journal at 11:35; it is now 13:16. This entry continues from there: what your "
+                 "journal already holds (below) stays as it is — pick up where it ends, don't tell it again.")
+      and _pk_s2 == _pk_s1.replace(" (below)", "")
+      and _pk_s5 == ("You last wrote in your journal yesterday at 21:15; it is now 13:16. This entry continues from there: "
+                     "what your journal already holds stays as it is — pick up where it ends, don't tell it again.")
+      and _pk_s3 == _pk_s4 == _pk_s6 == _pk_s7 == "", (_pk_s1, _pk_s5, _pk_s3, _pk_s4))
+_pk_today = _jf_dt.now().date().isoformat()
+(_pk_dir / f"{_pk_today}.md").write_text("\n**00:00** — the first lines of the day.\n", encoding="utf-8")
+_pk_RX = (r"You last wrote in your journal at \d\d:\d\d; it is now \d\d:\d\d\. This entry continues from there: what your "
+          r"journal already holds \(below\) stays as it is — pick up where it ends, don't tell it again\.")
+_pk_P = lambda b: (_gm_re.search(_pk_RX, b) or [""])[0]
+_pk_p = _jf_ring(lambda: _jf_chat.pause_reflection(_jf_visit(), None, since=0))
+_pk_pa = _jf_ring(lambda: _jf_chat.pause_reflection(_jf_visit(), None, since=0, opening="An opening, once.",
+                                                    aside="Part of this visit was a test."))
+_pk_pv = _jf_ring(lambda: _jf_chat.pause_reflection(_jf_visit(system=True), None, since=4))
+_pk_a = _jf_ring(lambda: _jf_chat.afterglow(_jf_visit(), None))
+_pk_v = _jf_visit()
+_pk_f = _jf_ring(lambda: _jf_chat.fold_afterglow(_pk_v[:6], None, until=_jf_chat.first_said_at(_pk_v[6:])))
+check("journal pickup (0.16): the day's own first entry is the one named",
+      all("You last wrote in your journal at 00:00;" in b for b in (_pk_p, _pk_a, _pk_f, _pk_pv)))
+check("journal pickup (0.16): the pause, the afterglow and the fold's afterglow carry it last inside the bell's bracket, "
+      "before the facts line; once each",
+      all(_pk_P(b) and (" " + _pk_P(b) + "]\n\n" + _jf_ALL) in b and b.count("You last wrote in your journal") == 1
+          for b in (_pk_p, _pk_a)) and _pk_P(_pk_f) and (" " + _pk_P(_pk_f) + "]\n\n") in _pk_f
+      and _pk_f.count("You last wrote") == 1, (_pk_p[:900], _pk_f[:900]))
+check("journal pickup (0.16): with an aside and an opening line, still once, after the aside, the facts line once",
+      _pk_pa.count("You last wrote in your journal") == 1 and ("Part of this visit was a test. " + _pk_P(_pk_pa) + "]") in _pk_pa
+      and _pk_pa.count("[from the log") == 1, _pk_pa[:1200])
+check("journal pickup (0.16): a pause inside the visit says it right after 'nothing below it is theirs.', the day's "
+      "tail under it", ("nothing below it is theirs. " + _pk_P(_pk_pv) + "\n\n=== ALREADY IN YOUR JOURNAL TODAY") in _pk_pv
+      and _pk_pv.count("You last wrote") == 1, _pk_pv[-900:])
+_pk_n0 = len(tools.journal_entries(_pk_today))
+tools.dispatch("write_journal", {"text": "Written in the middle of the visit, by the friend."})
+_pk_own = tools.journal_entries(_pk_today)[-1][0]
+_pk_mid = _jf_ring(lambda: _jf_chat.afterglow(_jf_visit(), None))
+check("journal pickup (0.16): an entry the friend wrote mid-visit is the one named",
+      len(tools.journal_entries(_pk_today)) == _pk_n0 + 1 and f"You last wrote in your journal at {_pk_own}; it is now" in _pk_mid,
+      (_pk_own, _pk_mid[:600]))
+config.JOURNAL_PICKUP_LINE = False
+_pk_off = (_jf_ring(lambda: _jf_chat.pause_reflection(_jf_visit(), None, since=0)), _jf_ring(lambda: _jf_chat.afterglow(_jf_visit(), None)))
+del config.JOURNAL_PICKUP_LINE  # an older config without the knob
+_pk_abs = (_jf_ring(lambda: _jf_chat.pause_reflection(_jf_visit(), None, since=0)), _jf_ring(lambda: _jf_chat.afterglow(_jf_visit(), None)))
+config.JOURNAL_PICKUP_LINE = True
+_pk_on = (_jf_ring(lambda: _jf_chat.pause_reflection(_jf_visit(), None, since=0)), _jf_ring(lambda: _jf_chat.afterglow(_jf_visit(), None)))
+check("journal pickup (0.16): off, or a config without the knob — the bells as before: the knob-on bells less the "
+      "sentence", _pk_off == _pk_abs and all(_pk_P(on) and on.replace(" " + _pk_P(on), "") == off for on, off in zip(_pk_on, _pk_off))
+      and not any("You last wrote" in b for b in _pk_off), (_pk_off[0][:500], _pk_on[0][:500]))
+(_pk_dir / f"{_pk_today}.md").unlink()
+_pk_none = _jf_ring(lambda: _jf_chat.afterglow(_jf_visit(), None))
+_pk_real0 = tools.journal_entries
+tools.journal_entries = lambda day: (_ for _ in ()).throw(OSError("unreadable"))
+try:
+    _pk_err, _pk_bad = "", _jf_ring(lambda: _jf_chat.afterglow(_jf_visit(), None))
+except Exception as _pk_e:  # noqa: BLE001
+    _pk_err, _pk_bad = repr(_pk_e), ""
+tools.journal_entries = _pk_real0
+check("journal pickup (0.16): no entry today or yesterday — no sentence; a journal that can't be read — no sentence, "
+      "no tail, the bell still rings", "You last wrote" not in _pk_none and not _pk_err and _pk_bad
+      and "You last wrote" not in _pk_bad and "ALREADY IN YOUR JOURNAL" not in _pk_bad, (_pk_err, _pk_bad[:300]))
+check("config (0.16): JOURNAL_PICKUP_LINE and WORLD_TRIP_JOURNAL_POINTER default on, on the panel with help",
+      _pk_saved[3] is True and _gm_re.search(r"^JOURNAL_PICKUP_LINE = True$", (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8"), _gm_re.M)
+      and _gm_panel.TABS["Memory & journal"].index("JOURNAL_PICKUP_LINE") == _gm_panel.TABS["Memory & journal"].index("JOURNAL_ENDINGS_SENTENCE") + 1
+      and "WORLD_TRIP_JOURNAL_POINTER" in _gm_panel.TABS["Their days"]
+      and all(_gm_panel._HELP.get(k) for k in ("JOURNAL_PICKUP_LINE", "WORLD_TRIP_JOURNAL_POINTER")))
+# the trip pointer: a trip already in the travel journal needs only a sentence pointing to it
+import worldtrip as _pk_wt
+import os as _pk_os
+config.WORLD_TRIPS_ON = True
+_pk_pp = _pk_wt.page_path()
+_pk_keep = _pk_pp.read_bytes() if _pk_pp.exists() else None
+_pk_pp.parent.mkdir(parents=True, exist_ok=True)
+_pk_pp.write_text("# The World\n2026-03-04: the plaza, Ana.\n", encoding="utf-8")
+_pk_t0 = __import__("time").time()
+_pk_turns = lambda *starts: ([{"role": "user", "content": "x", "_trip": "The World"}]
+                            + [{"role": "user", "content": "bell", "_engine": True, "_trip_end": f"trip@{s:.3f}"} for s in starts])
+_pk_POINT = (" Your trip is already written in your travel journal (creations/the-world/travel-journal.md); in your "
+             "journal a sentence that points to it is enough.")
+_pk_os.utime(_pk_pp, (_pk_t0 - 100, _pk_t0 - 100))
+_pk_w1 = _pk_wt.aside_line(_pk_turns(_pk_t0 - 3600))
+_pk_w2 = _pk_wt.aside_line(_pk_turns(_pk_t0 - 3600, _pk_t0 - 50))
+_pk_w3 = _pk_wt.aside_line(_pk_turns(_pk_t0 - 10))
+_pk_w4 = _pk_wt.aside_line(_pk_turns()[:1])
+_pk_os.utime(_pk_pp, (_pk_t0 + 7200, _pk_t0 + 7200))
+_pk_w5 = _pk_wt.aside_line(_pk_turns(_pk_t0 - 3600))
+_pk_os.utime(_pk_pp, (_pk_t0 - 100, _pk_t0 - 100))
+config.WORLD_TRIP_JOURNAL_POINTER = False
+_pk_w6 = _pk_wt.aside_line(_pk_turns(_pk_t0 - 3600))
+config.WORLD_TRIP_JOURNAL_POINTER = True
+check("world trips (0.16): a stretch with a trip's wrap-up and the travel journal written after that trip opened — the "
+      "aside points to it; the latest of two trips not written, a journal older than the trip, no wrap-up in the "
+      "stretch, a journal dated in the future, or the knob off — no pointer",
+      _pk_w1.endswith("not said by " + _pk_wt._keeper() + "." + _pk_POINT) and _pk_w1.count(_pk_POINT) == 1
+      and all(_pk_POINT not in w and w.startswith("Part of this visit was a trip to The World") for w in (_pk_w2, _pk_w3, _pk_w4, _pk_w5, _pk_w6)),
+      (_pk_w1[-200:], _pk_w2[-120:]))
+if _pk_keep is None:
+    _pk_pp.unlink()
+else:
+    _pk_pp.write_bytes(_pk_keep)
+_pk_src = (Path(config.ROOT) / "engine" / "chat.py").read_text(encoding="utf-8").split("def pickup_sentence", 1)[1].split("def _quiet_turn", 1)[0]
+_pk_src += (Path(config.ROOT) / "engine" / "worldtrip.py").read_text(encoding="utf-8").split("def _journal_pointer", 1)[1].split("def fold_at", 1)[0]
+check("journal pickup (0.16): the new sentences call no one by a gendered pronoun and carry no date or name",
+      not _gm_re.search(r"\b(she|her|hers|he|his|him)\b", _pk_src, _gm_re.I) and not _gm_re.search(r"\(1[01]-\d\d", _pk_src))
+(config.JOURNAL_PICKUP_LINE, config.JOURNAL_DIR, config.WORLD_TRIPS_ON, config.WORLD_TRIP_JOURNAL_POINTER) = _pk_saved
 (config.JOURNAL_FACTS_LINE, config.JOURNAL_ENDINGS_SENTENCE, tools.PAINT_LOG, tools.PAINT_LOG_KEEP, ollama_client.chat,
  assemble.clock_line, config.AFTERGLOW, config.REFLECT_AFTER_MIN, config.FOLD_KEEP_TURNS, config.NUM_CTX,
  config.AFTERGLOW_SINCE_PAUSE, config.DREAM_PAINT_DIR) = _jf_saved

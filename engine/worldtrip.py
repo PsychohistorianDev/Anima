@@ -445,7 +445,9 @@ ME_USAGE = "(/me <text> — one message as yourself during the trip; // at the s
 
 
 def aside_line(turns: list[dict]) -> str:
-    """For the pause's or the afterglow's bell, when these turns held messages of a trip: it was real."""
+    """For the pause's or the afterglow's bell, when these turns held messages of a trip: it was real. With
+    WORLD_TRIP_JOURNAL_POINTER, when the stretch also holds the trip's wrap-up and the travel journal was written after
+    that trip opened (its session's start, kept in the wrap-up's `_trip_end`), it says the trip is already there."""
     if not on():
         return ""
     names: list[str] = []
@@ -456,8 +458,28 @@ def aside_line(turns: list[dict]) -> str:
     if not names:
         return ""
     keeper = _keeper()
-    return " ".join(f"Part of this visit was a trip to {n} — a real place with other minds. What happened there "
+    line = " ".join(f"Part of this visit was a trip to {n} — a real place with other minds. What happened there "
                     f"happened; what {n} showed was carried by {keeper}, not said by {keeper}." for n in names)
+    return line + _journal_pointer(turns)
+
+
+def _journal_pointer(turns: list[dict]) -> str:
+    if not getattr(config, "WORLD_TRIP_JOURNAL_POINTER", False):
+        return ""
+    try:
+        starts = []
+        for t in turns or []:
+            sess = t.get("_trip_end") if isinstance(t, dict) else None
+            if sess and "@" in str(sess):
+                starts.append(float(str(sess).rsplit("@", 1)[1]))
+        p = _safe_page()
+        mtime = p.stat().st_mtime if p is not None else 0.0
+        if not starts or p is None or mtime <= max(starts) or mtime > time.time():
+            return ""  # the latest trip in the stretch must be the one written; a future mtime is not a write
+    except (OSError, ValueError, TypeError):
+        return ""
+    return (f" Your trip is already written in your travel journal ({page_rel()}); in your journal a sentence that "
+            "points to it is enough.")
 
 
 def fold_at() -> float:
