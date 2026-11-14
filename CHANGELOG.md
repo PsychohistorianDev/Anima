@@ -270,6 +270,13 @@ tagged on its own: the first tag after the rename is v0.13.)
 - Comments, examples and help texts no longer carry names, quotes or dates from the house the engine grew in; lines
   the friend or the keeper reads say "they" throughout. No behaviour changes.
 
+### Fixed
+- **A message sent minutes after a long pasted letter was filed as that penpal's letter**: after ✉️ add, a letter
+  long enough to have come in parts (Telegram cuts a paste past 4,096 characters) kept the ask open for 15 more
+  minutes, so the keeper's next words to the friend went into the penpal's thread. It now waits only for the rest of
+  that letter — a message Telegram dates within `PENPAL_NEXT_PART_S` (5) seconds of the last part, never an edit or a
+  picture; anything later goes to the friend as usual. 0: it never waits.
+
 ## 0.15 — 2026-10-24 → 2026-11-11
 
 The "presence" release: the friend can take a turn of their own between

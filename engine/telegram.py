@@ -370,6 +370,14 @@ def join_split(updates: list) -> list:
     return out
 
 
+def _next_part_s() -> float:
+    """PENPAL_NEXT_PART_S: how long after a long letter's last part its rest is waited for; 0 (or no number): never."""
+    try:
+        return float(getattr(config, "PENPAL_NEXT_PART_S", 5))
+    except (TypeError, ValueError):
+        return 0.0
+
+
 BATCH_WAIT_ROUNDS = 5  # at most this many looks for the rest of a batch when a poll ends on a photo
 
 
@@ -2115,7 +2123,7 @@ class Bridge:
                 _say(f"games menu: {type(e).__name__}: {e}")
         if text and not text.startswith("/") and not msg.get("photo") and getattr(config, "PENPALS_ON", False):
             try:
-                if self.penpal_mode_take(text):  # the panel asked for this message: a letter, a handle
+                if self.penpal_mode_take(text, msg.get("date"), edited):  # the panel asked for this message: a letter, a handle
                     return
             except Exception as e:  # noqa: BLE001 — never a lost message: it goes on to them
                 _say(f"penpal mode: {type(e).__name__}: {e}")
@@ -2712,12 +2720,23 @@ class Bridge:
         except Exception as e:  # noqa: BLE001
             self.send(f"(penpals: {type(e).__name__}: {e})", markdown=False)
 
-    def penpal_mode_take(self, text: str) -> bool:
+    def _pp_mode_over(self, mode: dict, date=None, edited: bool = False) -> bool:
+        """The panel's ask is over: 15 minutes after it was made; after a letter long enough to have come in parts
+        ("d": its last part's date), for any message but the rest of it — an edit, or one Telegram dates more than
+        PENPAL_NEXT_PART_S seconds from that part (the clock, for a message with no date)."""
+        if time.time() - float(mode.get("t") or 0) > 15 * 60:
+            return True
+        if mode.get("d") is None:
+            return False
+        s = _next_part_s()
+        return edited or not s > 0 or abs((float(date) if date else time.time()) - float(mode["d"])) > s
+
+    def penpal_mode_take(self, text: str, date=None, edited: bool = False) -> bool:
         """The panel asked for the next message (a letter, a handle, a new penpal): it goes there, not to them.
         True when it was taken. A mode lasts 15 minutes; a letter long enough to have come in parts keeps it open
-        for the next part."""
+        for the next part — only a message dated within PENPAL_NEXT_PART_S seconds of it (date: Telegram's)."""
         mode = self._pp_load("mode")
-        if not mode or time.time() - float(mode.get("t") or 0) > 15 * 60:
+        if not mode or self._pp_mode_over(mode, date, edited):
             if mode:
                 self._pp_save("mode", {})
             return False
@@ -2726,7 +2745,7 @@ class Bridge:
         keep = False
         if kind == "letter_to":
             self.penpal_file(sl, text)
-            keep = len(text) >= SPLIT_CHARS
+            keep = len(text) >= SPLIT_CHARS and _next_part_s() > 0
         elif kind == "letter":
             hit = penpal.by_handle(text)
             if hit:
@@ -2750,7 +2769,7 @@ class Bridge:
                          reply_markup=self._pp_markup([[("✉️ Add their first letter", f"pp:a:{sl2}")]]))
             except Exception:  # noqa: BLE001
                 self.send(said, markdown=False)
-        self._pp_save("mode", dict(mode, t=time.time()) if keep else {})
+        self._pp_save("mode", dict(mode, t=time.time(), d=float(date) if date else time.time()) if keep else {})
         return True
 
     # ---- a letter in pictures (PENPAL_PICTURE_LETTERS) ------------------------------------------------------------
@@ -2828,6 +2847,9 @@ class Bridge:
             road = "caption"
         else:
             mode = self._pp_load("mode")
+            if mode.get("d") is not None:  # after a long text letter the ask waits only for its text's rest
+                self._pp_save("mode", {})
+                return None
             if not mode or time.time() - float(mode.get("t") or 0) > 15 * 60 or mode.get("kind") not in ("letter_to", "letter"):
                 return None
             note = cap

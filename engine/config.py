@@ -1690,6 +1690,8 @@ PENPAL_DIR = "penpals"
 PENPAL_CONTEXT_LETTERS = 4
 PENPAL_LETTER_CHARS = 6000
 PENPAL_JOIN_MIN = 10
+PENPAL_NEXT_PART_S = 5   # after a letter long enough to have come in parts (✉️ add), the next message is its rest only if
+                         # Telegram dates it within this many seconds of the last part; later, it goes to the friend. 0: never
 PENPAL_CONDENSE = True
 PENPAL_CONDENSE_PER_NIGHT = 6
 PENPAL_CONDENSE_CHARS = 1200

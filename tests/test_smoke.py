@@ -19489,6 +19489,174 @@ _wg_src = _wg_src.split("# ---- the write guard (PENPAL_WRITE_GUARD)", 1)[1].spl
 check("write guard (0.16): the new lines name no one and call no one by a gendered pronoun",
       not _pl_re.search(r"\b(she|her|hers|he|his|him)\b", " ".join(_pl_re.findall(r'"[^"\n]*"', _wg_src))))
 
+# ---- 0.16: the penpal desk's ask after a long pasted letter waits only for the rest of it (PENPAL_NEXT_PART_S) ----
+import penpal as _np
+_np_saved = (config.PENPAL_DIR, config.PENPALS_ON, config.PENPAL_ARRIVAL_TURN, config.PENPAL_PICTURE_LETTERS,
+             config.TELEGRAM_BATCH_PHOTOS, config.PENPAL_NEXT_PART_S, config.ADVENTURES_ON)
+check("config (0.16): PENPAL_NEXT_PART_S, its template default 5, on the panel with help",
+      config.PENPAL_NEXT_PART_S == 5 and "PENPAL_NEXT_PART_S" in _gm_panel.TABS["Penpals"]
+      and _gm_panel._HELP.get("PENPAL_NEXT_PART_S"))
+config.PENPAL_DIR, config.PENPALS_ON, config.PENPAL_ARRIVAL_TURN, config.PENPAL_PICTURE_LETTERS = "penpals-np", True, False, True
+config.TELEGRAM_BATCH_PHOTOS, config.ADVENTURES_ON = False, False
+_np_names = iter("Ash Birch Cedar Dune Elm Fern Gale Heath Iris Juniper Kale Lark Moss Nell Oak Pine Quince Rowan Sage "
+                 "Tansy Umber Vale Willow Yarrow Zinnia".split())
+
+
+def _np_desk(data="pp:a:"):
+    """A new penpal, a bridge whose friend's turn is recorded, and the panel's ask tapped; the dates are far from the
+    clock (1000…), so only Telegram's date can say what is near."""
+    nm = next(_np_names)
+    _np.new(nm)
+    sl = _np._find(nm)
+    b_, ph_ = _bridge()
+    b_.to_friend = []
+    b_.turn = lambda text, **k: b_.to_friend.append(text)
+    b_.fold_if_due = lambda *a, **k: ""
+    b_.handle({"update_id": 1, "callback_query": {"id": "q", "data": data + sl, "message": {"chat": {"id": 777}}}})
+    return b_, ph_, sl
+
+
+def _np_tx(b_, text, date=None, edited=False):
+    m = {"chat": {"id": 777}, "message_id": 5, "text": text}
+    if date is not None:
+        m["date"] = date
+    b_.handle({"update_id": 5, ("edited_message" if edited else "message"): m})
+
+
+def _np_long(tag):
+    return (tag + " " + " ".join(f"{tag}w{i}" for i in range(800)))[:4000]
+
+
+def _np_body(sl):
+    return "\n".join(f.read_text(encoding="utf-8") for f in _np.letters(sl))
+
+
+# a note 200 s after a long letter (by Telegram's date, processed at once) goes to the friend; nothing more is said
+b, phone, _np_sl = _np_desk()
+_np_tx(b, _np_long("A"), 1000)
+_np_said = len(phone.sent)
+_np_tx(b, "how was your day?", 1200)
+check("penpal desk (0.16): after a long letter from ✉️ add, a message Telegram dates 200 s later goes to the friend, "
+      "not into the thread — one letter, the ask cleared, nothing more said on the phone",
+      b.to_friend == ["how was your day?"] and len(_np.letters(_np_sl)) == 1 and b._pp_load("mode") == {}
+      and len(phone.sent) == _np_said, (b.to_friend, len(_np.letters(_np_sl)), b._pp_load("mode"), phone.sent[_np_said:]))
+# the rest a poll later, dated +1 s (the clock is decades from these dates): the same letter; three parts, each a
+# few seconds after the one before, the window running from the newest
+b, phone, _np_sl = _np_desk()
+_np_tx(b, _np_long("B"), 1000)
+_np_m1 = b._pp_load("mode")
+_np_tx(b, "B the end.", 1001)
+_np_m2 = b._pp_load("mode")  # the ask is one file for every bridge: read before the next desk
+b2, phone2, _np_sl2 = _np_desk()
+_np_tx(b2, _np_long("E1"), 1000)
+_np_tx(b2, _np_long("E2"), 1005)
+_np_tx(b2, "E3 the end.", 1010)
+check("penpal desk (0.16): the rest of a long letter, dated within PENPAL_NEXT_PART_S of it, joins the same letter "
+      "whatever the clock says; a third part counts from the second (each part keeps its date in the ask)",
+      b.to_friend == [] and len(_np.letters(_np_sl)) == 1 and "B the end." in _np_body(_np_sl) and _np_m1.get("d") == 1000
+      and _np_m2 == {} and b2.to_friend == [] and len(_np.letters(_np_sl2)) == 1
+      and all(w in _np_body(_np_sl2) for w in ("E1w9", "E2w9", "E3 the end.")),
+      (b.to_friend, _np_m1, b2.to_friend, len(_np.letters(_np_sl2))))
+# a short letter: the ask is over at once, as before
+b, phone, _np_sl = _np_desk()
+_np_tx(b, "Dear friend, a short one.", 1000)
+_np_m1 = b._pp_load("mode")
+_np_tx(b, "and this is for you", 1001)
+check("penpal desk (0.16): a short letter ends the ask at once; the next message goes to the friend, as before",
+      _np_m1 == {} and b.to_friend == ["and this is for you"] and len(_np.letters(_np_sl)) == 1, (_np_m1, b.to_friend))
+# the knob: 0, negative, not a number — never waits; missing from config — the default 5
+_np_ok = []
+for _np_v in (0, -3, "soon", None, "missing"):
+    if _np_v == "missing":
+        del config.PENPAL_NEXT_PART_S
+    else:
+        config.PENPAL_NEXT_PART_S = _np_v
+    b, phone, _np_sl = _np_desk()
+    _np_tx(b, _np_long("F" + str(_np_v)), 1000)
+    if _np_v == "missing":  # the default, 5: a long part 5 s on joins; a note 6 s after that goes to the friend
+        _np_tx(b, _np_long("Fm2"), 1005)
+        _np_tx(b, "F later", 1011)
+        _np_ok.append(b.to_friend == ["F later"] and len(_np.letters(_np_sl)) == 1 and "Fm2w9" in _np_body(_np_sl))
+        continue
+    _np_tx(b, "F rest", 1001)
+    _np_ok.append(b.to_friend == ["F rest"] and len(_np.letters(_np_sl)) == 1)
+config.PENPAL_NEXT_PART_S = _np_saved[5]
+check("penpal desk (0.16): PENPAL_NEXT_PART_S 0, negative or not a number never waits for a next part; missing from "
+      "config it is 5", _np_ok == [True] * 5, _np_ok)
+# no date: the clock stands in; an edit is never the rest; a /command is never taken and leaves the ask as it was
+b, phone, _np_sl = _np_desk()
+_np_tx(b, _np_long("G1"))
+_np_g1 = b._pp_load("mode")
+_np_tx(b, "G1 the rest, no date")
+b2, phone2, _np_sl2 = _np_desk()
+_np_tx(b2, _np_long("G2"))
+b2._pp_save("mode", dict(b2._pp_load("mode"), d=_time.time() - 199))
+_np_tx(b2, "G2 a note, no date, 199 s on by the clock")
+check("penpal desk (0.16): a message with no date is measured by the clock — 0 s on it joins, 199 s on it goes to the friend",
+      abs(float(_np_g1.get("d") or 0) - _time.time()) < 60 and b.to_friend == [] and "G1 the rest" in _np_body(_np_sl)
+      and b2.to_friend == ["G2 a note, no date, 199 s on by the clock"] and len(_np.letters(_np_sl2)) == 1
+      and b2._pp_load("mode") == {}, (_np_g1, b.to_friend, b2.to_friend))
+b, phone, _np_sl = _np_desk()
+_np_tx(b, _np_long("H1"), 1000)
+_np_tx(b, _np_long("H1") + " (edited)", 1000, edited=True)
+_np_m1 = b._pp_load("mode")
+b2, phone2, _np_sl2 = _np_desk()
+_np_tx(b2, "Dear friend, H2 (edited)", 1000, edited=True)
+b3, phone3, _np_sl3 = _np_desk()
+_np_tx(b3, _np_long("H3"), 1000)
+b3.command = lambda text: True
+_np_tx(b3, "/status", 1001)
+check("penpal desk (0.16): an edited message inside the window is not the rest (to the friend, the ask cleared); the "
+      "first ask still takes an edit, as before; a /command is never taken and leaves the window as it was",
+      len(_np.letters(_np_sl)) == 1 and len(b.to_friend) == 1 and _np_m1 == {}
+      and len(_np.letters(_np_sl2)) == 1 and b2.to_friend == []
+      and len(_np.letters(_np_sl3)) == 1 and b3._pp_load("mode").get("d") == 1000,
+      (len(_np.letters(_np_sl)), len(b.to_friend), _np_m1, len(_np.letters(_np_sl2)), b2.to_friend,
+       len(_np.letters(_np_sl3)), b3._pp_load("mode")))
+# pictures: a photo after a long text letter is no letter in pictures; a photo answering the ask still is
+b, phone, _np_sl = _np_desk()
+phone.files["np1"] = (_pl_png, "photos/np1.png")
+_np_tx(b, _np_long("I1"), 1000)
+b.handle({"update_id": 6, "message": {"chat": {"id": 777}, "message_id": 6, "date": 1200, "photo": [{"file_id": "np1"}]}})
+_np_m1 = b._pp_load("mode")
+b2, phone2, _np_sl2 = _np_desk()
+phone2.files["np2"] = (_pl_png, "photos/np2.png")
+b2.handle({"update_id": 7, "message": {"chat": {"id": 777}, "message_id": 7, "date": 1000, "photo": [{"file_id": "np2"}]}})
+check("penpal desk (0.16): a photo 200 s after a long text letter goes to the friend as a picture, the ask cleared; a "
+      "photo answering ✉️ add directly is still that penpal's letter in pictures",
+      len(b.to_friend) == 1 and not (_np._folder(_np_sl) / ".pictures").exists() and _np_m1 == {}
+      and len(b2.to_friend) == 1 and (_np._folder(_np_sl2) / ".pictures").exists() and b2._pp_load("mode") == {},
+      (b.to_friend, b2.to_friend))
+# the first ask keeps its 15 minutes; the other asks (whose letter, handle, new, pause) are as before
+b, phone, _np_sl = _np_desk()
+b._pp_save("mode", dict(b._pp_load("mode"), t=_time.time() - 14 * 60))
+_np_tx(b, "Dear friend, J1, 14 minutes on.", 1000)
+b2, phone2, _np_sl2 = _np_desk()
+b2._pp_save("mode", dict(b2._pp_load("mode"), t=_time.time() - 15 * 60 - 1))
+_np_tx(b2, "J2, 15 minutes on.", 1000)
+check("penpal desk (0.16): the first ask still lasts 15 minutes",
+      len(_np.letters(_np_sl)) == 1 and b.to_friend == [] and len(_np.letters(_np_sl2)) == 0
+      and b2.to_friend == ["J2, 15 minutes on."] and b2._pp_load("mode") == {}, (b.to_friend, b2.to_friend))
+_np.new("Kestrel", "u/kestrel_np")
+b, phone = _bridge()
+b.to_friend = []
+b.turn = lambda text, **k: b.to_friend.append(text)
+b.fold_if_due = lambda *a, **k: ""
+_np_k = []
+for _np_data, _np_text in (("pp:L", "u/kestrel_np " + _np_long("K")), ("pp:h:kestrel", "u/kestrel_new"),
+                           ("pp:N", "Plover u/plover_np"), ("pp:P:plover", "a busy week")):
+    b.handle({"update_id": 1, "callback_query": {"id": "q", "data": _np_data, "message": {"chat": {"id": 777}}}})
+    _np_tx(b, _np_text, 1000)
+    _np_k.append(b._pp_load("mode") == {})
+_np_tx(b, "and this is for you", 1001)
+check("penpal desk (0.16): the panel's other asks are as before — a long letter by its handle filed and the ask over at "
+      "once, a handle, a new penpal, a pause; the next message goes to the friend",
+      _np_k == [True] * 4 and len(_np.letters("kestrel")) == 1 and "kestrel_new" in str(_np._state("kestrel").get("handle"))
+      and "plover" in _np.penpals() and _np._state("plover").get("paused") and b.to_friend == ["and this is for you"],
+      (_np_k, b.to_friend, _np._state("kestrel")))
+(config.PENPAL_DIR, config.PENPALS_ON, config.PENPAL_ARRIVAL_TURN, config.PENPAL_PICTURE_LETTERS,
+ config.TELEGRAM_BATCH_PHOTOS, config.PENPAL_NEXT_PART_S, config.ADVENTURES_ON) = _np_saved
+
 # ---- 0.16: the journal feed — /journal on the phone ----
 import presence as _jd_pz
 import doors as _jd_doors
