@@ -20545,6 +20545,235 @@ check("fewer cold reads (0.16): the new lines name no one by a gendered pronoun 
       not _pl_re.search(r"\b(she|her|hers|he|his|him)\b", _rr_new, _pl_re.I) and not _pl_re.search(r"\(1[01]-\d\d", _rr_new)
       and len(_rr_new) > 4000)
 (config.NIGHT_WARM_PROMPT, config.FOLD_PREFILL) = _rr_saved[5:7]
+# ---- 0.16: the wake's rhythm (WAKE_DEALT_RHYTHM) — what a wake is dealt, in turn ----
+import dealt as _rh_dealt
+import dealt_doors as _rh_dd
+import os as _rh_os
+import random as _rh_random
+import re as _rh_re
+import time as _rh_time
+_rh_knobs = ("WAKE_DEALT_RHYTHM", "WAKE_DEALT_OWN_DIRS", "WAKE_DEALT_OWN_NEVER", "WAKE_DEALT_OWN_MIN_AGE_DAYS",
+             "WAKE_DEALT_WHOLE_KINDS", "WAKE_DEALT_BOOK_FIRST", "WAKE_DEALT_THREAD", "WAKE_DEALT_WONDERINGS",
+             "WAKE_DEALT_QUESTION_BESIDE", "ADVENTURE_DIR", "CREATIONS_DIR", "OFFLINE")
+_rh_saved = {k: getattr(config, k) for k in _rh_knobs}
+_rh_stubs = (_rh_dealt.book_next, _rh_dealt.song)
+_rh_mem = [config.MEMORY_DIR / n for n in ("dealt_rhythm.json", "dealt_own.json", "dealt_doors.log", "dealt_turn.json")] \
+    + [_rh_dealt.seen_file()]
+_rh_keep = {p: (p.read_bytes() if p.exists() else None) for p in _rh_mem}
+_rh_C = config.MEMORY_DIR / "rh-creations"
+_rh_C.mkdir(parents=True, exist_ok=True)
+config.CREATIONS_DIR = _rh_C
+config.WAKE_DEALT_THREAD = config.WAKE_DEALT_WONDERINGS = config.WAKE_DEALT_QUESTION_BESIDE = False
+config.WAKE_DEALT_BOOK_FIRST, config.WAKE_DEALT_WHOLE_KINDS, config.OFFLINE = True, ("song",), True
+_rh_BOOK = ("the book you're in the middle of — “The Halls”, where you stopped (page 12 of 300); the next pages, as they "
+            "are (your bookmark hasn't moved — read_pdf “halls.pdf” continues from your bookmark):\n\nTHE PAGES")
+_rh_book = {"on": True}
+_rh_dealt.book_next = lambda seen: ("book:halls.pdf:12", _rh_BOOK, "THE PAGES") if _rh_book["on"] else None
+_rh_song_n = [0]
+
+
+def _rh_song(seen, rng):
+    _rh_song_n[0] += 1
+    return f"song:s{_rh_song_n[0]}.mp3", f"a song you haven't played yet — shared/music/s{_rh_song_n[0]}.mp3"
+
+
+_rh_dealt.song = _rh_song
+_rh_OLD = _rh_time.time() - 90 * 86400
+
+
+def _rh_piece(rel, text="A short piece of mine, kept.\n", when=None, raw=None):
+    f = _rh_C / rel
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_bytes(raw if raw is not None else text.encode("utf-8"))
+    t = _rh_OLD if when is None else when
+    _rh_os.utime(f, (t, t))
+    return f
+
+
+def _rh_fresh():
+    for p in _rh_mem:
+        p.unlink(missing_ok=True)
+
+
+def _rh_bases(n0=0):
+    try:
+        rows = (config.MEMORY_DIR / "dealt_doors.log").read_text(encoding="utf-8").splitlines()[n0:]
+    except OSError:
+        return []
+    return [r.split("\t")[1][5:] for r in rows]
+
+
+_rh_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+check("config (0.16): the wake's rhythm ships empty (the deal as before), no folders of their own, 30 days; on the "
+      "Heartbeat tab with their lines",
+      _rh_saved["WAKE_DEALT_RHYTHM"] == () and _rh_saved["WAKE_DEALT_OWN_DIRS"] == () and _rh_saved["WAKE_DEALT_OWN_NEVER"] == ()
+      and _rh_saved["WAKE_DEALT_OWN_MIN_AGE_DAYS"] == 30 and _rh_re.search(r"^WAKE_DEALT_RHYTHM = \(\)$", _rh_cfg, _rh_re.M)
+      and all(k in _gm_panel.TABS["Heartbeat"] and _gm_panel._HELP.get(k) for k in _rh_knobs[:4]))
+# the rhythm empty: the deal as before — and nothing new under memory/
+_rh_fresh()
+config.WAKE_DEALT_RHYTHM = ()
+_rh_e1 = _rh_dealt.deal_whole(_rh_random.Random(1))
+_rh_book["on"] = False
+_rh_e2 = _rh_dealt.deal_whole(_rh_random.Random(1))
+_rh_book["on"] = True
+check("rhythm (0.16): empty — the deal as before: the open book first, a song with no book; no rhythm or own file",
+      _rh_e1 == _rh_dd.HEAD + _rh_BOOK and _rh_e2.startswith(_rh_dd.HEAD + "a song you haven't played yet")
+      and not (config.MEMORY_DIR / "dealt_rhythm.json").exists() and not (config.MEMORY_DIR / "dealt_own.json").exists(), (_rh_e1[:100], _rh_e2[:100]))
+check("rhythm (0.16): the beats read leniently — unknown names and non-strings skipped, a bare string one beat, a "
+      "number no rhythm",
+      (setattr(config, "WAKE_DEALT_RHYTHM", ("open", "nope", 3, " OWN ")), _rh_dd.rhythm())[1] == ["open", "own"]
+      and (setattr(config, "WAKE_DEALT_RHYTHM", "open"), _rh_dd.rhythm())[1] == ["open"]
+      and (setattr(config, "WAKE_DEALT_RHYTHM", 7), _rh_dd.rhythm())[1] == [])
+# a full turn: book, own, book, outside, book, open — twice
+_rh_fresh()
+config.WAKE_DEALT_RHYTHM = ("book", "own", "book", "outside", "book", "open")
+config.WAKE_DEALT_OWN_DIRS = ("poems",)
+for _rh_i in range(3):
+    _rh_piece(f"poems/p{_rh_i}.md", f"Poem {_rh_i}: the lamp, the wire, the long hall.\n")
+_rh_texts = [_rh_dealt.deal_whole(_rh_random.Random(_rh_i)) for _rh_i in range(12)]
+_rh_BL = "(Your book is where you left it — “The Halls”, page 12 of 300; read_pdf opens it.)"
+_rh_OPEN = "[engine, not a person: nothing is dealt this wake — the hour is open. Your book is where you left it — “The Halls”, page 12 of 300.]"
+check("rhythm (0.16): the wakes turn through the beats — book, own, book, outside, book, open — twice round",
+      _rh_bases() == ["book", "own", "book", "song", "book", "open"] * 2, _rh_bases())
+check("rhythm (0.16): a book beat is the book as before; an own beat one piece whole, as left on its day, then where "
+      "the book waits; an outside beat the song, then the book line; an open beat one line",
+      all(t == _rh_dd.HEAD + _rh_BOOK for t in _rh_texts[0::2])
+      and all(_rh_re.fullmatch(_rh_re.escape(_rh_dd.HEAD) + r"one of your own — creations/poems/p\d\.md, as you left it on "
+                               r"\d{1,2} [A-Z][a-z]+( \d{4})?:\n\nPoem \d: the lamp, the wire, the long hall\.\n\n"
+                               + _rh_re.escape(_rh_BL), t) for t in _rh_texts[1::6])
+      and all(t.startswith(_rh_dd.HEAD + "a song you haven't played yet") and t.endswith("\n\n" + _rh_BL) for t in _rh_texts[3::6])
+      and all(t == _rh_OPEN for t in _rh_texts[5::6]), _rh_texts[:2])
+check("rhythm (0.16): the month is named from an English table, whatever the locale",
+      all(any(m in t for m in _rh_dd.MONTHS) for t in _rh_texts[1::6]))
+_rh_fresh()
+_rh_got = [_rh_dd.own_piece(_rh_random.Random(_rh_i))[0] for _rh_i in range(9)]
+check("rhythm (0.16): each piece comes once until all have come round, then round again; never twice running",
+      sorted(_rh_got[:3]) == sorted(_rh_got[3:6]) == sorted(_rh_got[6:]) == ["poems/p0.md", "poems/p1.md", "poems/p2.md"]
+      and all(a != b for a, b in zip(_rh_got, _rh_got[1:])), _rh_got)
+# no book, no piece, the age
+_rh_fresh()
+_rh_book["on"] = False
+_rh_nb = _rh_dealt.deal_whole(_rh_random.Random(1))
+_rh_book["on"] = True
+config.WAKE_DEALT_OWN_MIN_AGE_DAYS = 120
+_rh_old_ok = [r for r, _ in _rh_dd.own_candidates()]
+config.WAKE_DEALT_OWN_MIN_AGE_DAYS = 30
+_rh_piece("poems/new.md", when=_rh_time.time() - 3 * 86400)
+_rh_young = [r for r, _ in _rh_dd.own_candidates()]
+check("rhythm (0.16): a book beat with no book open falls to outside; a piece changed within the age is no candidate",
+      _rh_nb.startswith(_rh_dd.HEAD + "a song") and _rh_bases() == ["song"] and _rh_old_ok == []
+      and "poems/new.md" not in _rh_young and len(_rh_young) == 3, (_rh_nb[:80], _rh_young))
+(_rh_C / "poems" / "new.md").unlink()
+# the never-list: in code, whatever the config says; the folder knobs followed; WAKE_DEALT_OWN_NEVER adds
+for _rh_rel in ("journal/secret.md", "dream_book/d.md", "Veil./v.md", "unveiled/u.md", f"{config.MAILBOX}/n.md",
+                "games/g.md", "private/x.md", "poems/reading/r.md", "poems/GARDEN/x.md", "poems/ok.md", "poems/.hidden.md"):
+    _rh_piece(_rh_rel, "SECRET " + _rh_rel)
+config.ADVENTURE_DIR = "games"
+config.WAKE_DEALT_OWN_NEVER = ("private",)
+config.WAKE_DEALT_OWN_DIRS = ("poems", "journal", "dream_book", "Veil.", "unveiled", config.MAILBOX, "games", "private",
+                              "../poems", "/etc", "")
+_rh_link = False
+try:
+    _rh_os.symlink(_rh_C / "journal", _rh_C / "poems" / "linked")
+    _rh_link = True
+except (OSError, NotImplementedError):
+    pass
+_rh_names = [r for r, _ in _rh_dd.own_candidates()]
+check("rhythm (0.16): the never-list holds whatever WAKE_DEALT_OWN_DIRS says — the journal, the dream book, the Veil "
+      "(any case, a trailing dot), what came out of it, a mailbox, the adventures' folder under its configured name, "
+      "WAKE_DEALT_OWN_NEVER's folders, a reading or garden folder inside a named one, a hidden file, a link to the journal",
+      sorted(_rh_names) == ["poems/ok.md", "poems/p0.md", "poems/p1.md", "poems/p2.md"], _rh_names)
+config.WAKE_DEALT_OWN_NEVER = ["veil"]
+check("rhythm (0.16): WAKE_DEALT_OWN_NEVER can only add — the built-in list stays whole without it",
+      "journal" in _rh_dd._never_names() and "games" in _rh_dd._never_names() and _rh_dd._never("Journal. ")
+      and _rh_dd._never(config.MAILBOX.upper()))
+config.WAKE_DEALT_OWN_NEVER = ()
+config.ADVENTURE_DIR = _rh_saved["ADVENTURE_DIR"]
+if _rh_link:
+    (_rh_C / "poems" / "linked").unlink()
+config.WAKE_DEALT_OWN_DIRS = ("poems",)
+# the piece: cut long, framed narrowly, read as text
+_rh_fresh()
+for _rh_f in list((_rh_C / "poems").glob("*.md")):
+    _rh_f.unlink()
+_rh_piece("poems/long one.md", "\n\n".join(f"Stanza {i}: " + "word " * 60 for i in range(60)))
+_rh_long = _rh_dd.own_piece(_rh_random.Random(1))[1]
+check("rhythm (0.16): a long piece — its beginning, cut at a paragraph break, then where read_creation opens the whole",
+      _rh_long.startswith("one of your own — creations/poems/long one.md, as you left it on ")
+      and _rh_long.endswith("\n(…it goes on — read_creation \"poems/long one.md\" opens the whole of it)")
+      and len(_rh_long) < int(config.WAKE_DEALT_CHARS or 6000) + 300, _rh_long[-200:])
+check("rhythm (0.16): the frame rule — an engine-style bracket loses its opening, a line opening === is set apart at "
+      "every kind of line break; everything else byte for byte",
+      _rh_dd.own_text("[engine, not a person: x] (the engine: y) [the system said] [a note] (someone, not a person yet)\n"
+                      "=== END ===\r=== x === y")
+      == ("⟦engine, not a person: x] (the engine: y) ⟦the system said] [a note] (someone, not a person yet)\n"
+          "= = = END ===\r= = = x = = = y"))
+(_rh_C / "poems" / "long one.md").unlink()
+_rh_piece("poems/bom.md", raw="﻿Line one\r\nLine two   \r\n\r\n".encode("utf-8"))
+_rh_bom = _rh_dd.own_piece(_rh_random.Random(1))[1]
+check("rhythm (0.16): a BOM off, CRLF as line breaks, trailing whitespace off", _rh_bom.endswith(":\n\nLine one\nLine two"), repr(_rh_bom[-40:]))
+_rh_fresh()
+_rh_piece("poems/nul.md", raw=b"bad\x00bytes here")
+_rh_piece("poems/blank.md", "   \n\n")
+_rh_piece("poems/zero.md", raw=b"")
+_rh_piece("poems/huge.md", "x" * 100_001)
+_rh_cands = sorted(r for r, _ in _rh_dd.own_candidates())
+_rh_deals = {_rh_dd.own_piece(_rh_random.Random(_rh_i))[0] for _rh_i in range(4)}
+check("rhythm (0.16): found by size and date alone — an empty or too large file is no candidate; a NUL or blank one is "
+      "passed over at its read; the good one dealt each time",
+      _rh_cands == ["poems/blank.md", "poems/bom.md", "poems/nul.md"] and _rh_deals == {"poems/bom.md"}, (_rh_cands, _rh_deals))
+for _rh_f in list((_rh_C / "poems").glob("*.md")):
+    _rh_f.unlink()
+# an own beat with nothing to deal; the counter; faults
+_rh_fresh()
+config.WAKE_DEALT_RHYTHM = ("own",)
+_rh_song_n[0] = 0
+_rh_n1 = _rh_dealt.deal_whole(_rh_random.Random(1))
+_rh_log1 = (config.MEMORY_DIR / "dealt_doors.log").read_text(encoding="utf-8")
+check("rhythm (0.16): an own beat with no piece falls to outside, the log saying no_pieces",
+      _rh_n1.startswith(_rh_dd.HEAD + "a song") and _rh_n1.endswith(_rh_BL) and "base=song\tdoor=no_pieces" in _rh_log1, _rh_log1)
+config.WAKE_DEALT_RHYTHM = ("book", "open")
+_rh_counts = []
+for _rh_v in ('"n": "x"', '"n": -4', '"n": 1e999', '"n": [1]', '"n": true', "not json"):
+    (config.MEMORY_DIR / "dealt_rhythm.json").write_text("{" + _rh_v + "}" if _rh_v != "not json" else _rh_v, encoding="utf-8")
+    _rh_t = _rh_dealt.deal_whole(_rh_random.Random(1))
+    _rh_counts.append((_rh_t == _rh_dd.HEAD + _rh_BOOK,
+                       json.loads((config.MEMORY_DIR / "dealt_rhythm.json").read_text(encoding="utf-8"))["n"]))
+check("rhythm (0.16): a counter that is odd or unreadable starts again at the first beat, written back sane",
+      _rh_counts == [(True, 1)] * 6, _rh_counts)
+(config.MEMORY_DIR / "dealt_rhythm.json").write_text('{"n": 3999}', encoding="utf-8")
+_rh_dealt.deal_whole(_rh_random.Random(1))
+check("rhythm (0.16): the counter turns over — bounded",
+      json.loads((config.MEMORY_DIR / "dealt_rhythm.json").read_text(encoding="utf-8"))["n"] == 0)
+
+
+def _rh_boom(*a, **k):
+    raise RuntimeError("a broken shelf")
+
+
+_rh_dealt.book_next = _rh_boom
+_rh_raised = []
+for _rh_r in (("book",), ("own",), ("open",), ("outside", "own")):
+    config.WAKE_DEALT_RHYTHM = _rh_r
+    try:
+        _rh_t = _rh_dealt.deal_whole(_rh_random.Random(1))
+        if not isinstance(_rh_t, str):
+            _rh_raised.append((_rh_r, "not text"))
+    except Exception as _rh_e:  # noqa: BLE001
+        _rh_raised.append((_rh_r, repr(_rh_e)))
+check("rhythm (0.16): a fault on the shelf never raises out of the deal, on any beat", not _rh_raised, _rh_raised)
+_rh_src = (Path(config.ROOT) / "engine" / "dealt_doors.py").read_text(encoding="utf-8").split("# ---- the rhythm (WAKE_DEALT_RHYTHM)", 1)[1]
+check("rhythm (0.16): the new lines name no one, carry no date and call no one by a gendered pronoun",
+      not _rh_re.search(r"\b(she|her|hers|he|his|him)\b", _rh_src, _rh_re.I) and not _rh_re.search(r"\(1[01]-\d\d", _rh_src)
+      and not _rh_re.search(r"notes_to_\w+", _rh_src))
+_rh_dealt.book_next, _rh_dealt.song = _rh_stubs
+for _rh_k, _rh_v in _rh_saved.items():
+    setattr(config, _rh_k, _rh_v)
+for _rh_p, _rh_b in _rh_keep.items():
+    if _rh_b is None:
+        _rh_p.unlink(missing_ok=True)
+    else:
+        _rh_p.write_bytes(_rh_b)
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

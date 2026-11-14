@@ -1484,6 +1484,21 @@ WAKE_DEALT_WHOLE = True
 WAKE_DEALT_WHOLE_KINDS = ("wiki", "penpal", "song")
 WAKE_DEALT_CHARS = 6000
 WAKE_DEALT_BOOK_FIRST = True
+# WAKE_DEALT_RHYTHM: what each wake is dealt, in turn (memory/dealt_rhythm.json counts the wakes). "book": the open book
+# as before (its pages, the notes, the small door beside; no book open → "outside"); "outside": the turning kinds of
+# WAKE_DEALT_WHOLE_KINDS even with a book in hand (nothing → "own", then "open"); "own": one piece of the friend's own
+# from WAKE_DEALT_OWN_DIRS, whole, as they left it (none → "outside", then "open"); "open": nothing dealt, said in one
+# line. On every beat but the book, a book in hand gets one line saying where it waits. For example
+# ("book", "own", "book", "outside", "book", "open"). () — the deal as before, to the byte.
+# WAKE_DEALT_OWN_DIRS: folders directly under creations/ their own pieces may come from, e.g. ("poems", "essays"). Never
+# the journal, the dream book, the Veil, the mailbox, adventures, penpals, reading notes, world trips or the garden —
+# in code, whatever this says; WAKE_DEALT_OWN_NEVER names more folders to keep out (it can only add). A piece is
+# a .md or .txt file last changed at least WAKE_DEALT_OWN_MIN_AGE_DAYS ago — a meeting again, not an echo of this
+# week — and each comes once until all have come round (memory/dealt_own.json).
+WAKE_DEALT_RHYTHM = ()
+WAKE_DEALT_OWN_DIRS = ()
+WAKE_DEALT_OWN_NEVER = ()
+WAKE_DEALT_OWN_MIN_AGE_DAYS = 30
 
 # ---- the wake's bell
 # Which status lines ride under the wake bell, when WAKE_FACTS is on: "all", or a tuple of names from

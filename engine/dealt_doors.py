@@ -338,9 +338,9 @@ def wondering_shown(key: str) -> None:
 _last = {"key": ""}   # the key door A or B' remembered this wake
 
 
-def _log(base: str, door: str, key: str = "") -> None:
+def _log(base: str, door: str, key: str = "", keep_key: bool = False) -> None:
     try:
-        key = "wondering" if door == "wondering" else " ".join(str(key or "").split())[:80] or "-"
+        key = "wondering" if door == "wondering" and not keep_key else " ".join(str(key or "").split())[:80] or "-"
         line = f"{datetime.now().isoformat(timespec='seconds')}\tbase={base}\tdoor={door}\t{key}\n"
         _file("dealt_doors.log").parent.mkdir(parents=True, exist_ok=True)
         with _file("dealt_doors.log").open("a", encoding="utf-8") as fh:
@@ -349,47 +349,40 @@ def _log(base: str, door: str, key: str = "") -> None:
         pass
 
 
-# ---- the orchestration dealt.deal_whole delegates to -------------------------------------------------------------—
-def deal_whole(rng: random.Random | None = None) -> str:
-    """The open book first, with one small door beside it (their wondering if due, else a thread from the pages, else
-    a question of the world); with no book, a whole thing turning through the kinds (a question among them), and their
-    wondering beside it when due."""
-    rng = rng or random.Random()
-    seen = set(dealt._seen())
-    due = wondering_due()
-
-    if getattr(config, "WAKE_DEALT_BOOK_FIRST", True):
+# ---- the pieces of a deal, shared by the deal as before and the rhythm -------------------------------------------—
+def _book_deal(got, seen: set, rng: random.Random, due) -> str:
+    """The open book as it is dealt: its pages and the notes, and one small door beside (their wondering if due, else a
+    thread from the pages, else a question of the world). Remembers, logs, and marks the wondering shown."""
+    dealt._remember(got[0])
+    line = HEAD + got[1]
+    extra, door = None, "none"
+    _last["key"] = ""
+    if due:
+        extra, door = due[1], "wondering"
+        wondering_shown(due[0])
+    else:
+        m = re.search(r"“([^”]+)”", got[1])
+        # the book's pages alone, as book_next hands them apart — the notes ride in got[1] before the
+        # pages, and a name in the notes is not a thread from the book
+        pages = got[2] if len(got) > 2 else got[1].split("):\n\n", 1)[-1]
         try:
-            got = dealt.book_next(seen)
+            extra = thread(pages, m.group(1) if m else "", seen)
+            door = "thread" if extra else door
         except Exception:  # noqa: BLE001
-            got = None
-        if got:
-            dealt._remember(got[0])
-            line = HEAD + got[1]
-            extra, door = None, "none"
-            _last["key"] = ""
-            if due:
-                extra, door = due[1], "wondering"
-                wondering_shown(due[0])
-            else:
-                m = re.search(r"“([^”]+)”", got[1])
-                # the book's pages alone, as book_next hands them apart — the notes ride in got[1] before the
-                # pages, and a name in the notes is not a thread from the book
-                pages = got[2] if len(got) > 2 else got[1].split("):\n\n", 1)[-1]
-                try:
-                    extra = thread(pages, m.group(1) if m else "", seen)
-                    door = "thread" if extra else door
-                except Exception:  # noqa: BLE001
-                    extra = None
-                if not extra:  # no wondering, no thread: a question of the world rides beside the pages
-                    try:
-                        extra = question_beside(seen, rng)
-                        door = "question" if extra else door
-                    except Exception:  # noqa: BLE001
-                        extra = None
-            _log("book", door, _last["key"] if door in ("thread", "question") else "")
-            return line + ("\n\n" + extra if extra else "")
+            extra = None
+        if not extra:  # no wondering, no thread: a question of the world rides beside the pages
+            try:
+                extra = question_beside(seen, rng)
+                door = "question" if extra else door
+            except Exception:  # noqa: BLE001
+                extra = None
+    _log("book", door, _last["key"] if door in ("thread", "question") else "")
+    return line + ("\n\n" + extra if extra else "")
 
+
+def _outside_deal(seen: set, rng: random.Random, due, after: str = "", door: str = "") -> str | None:
+    """A whole thing turning through the kinds (WAKE_DEALT_WHOLE_KINDS), their wondering beside it when due, then
+    `after` (the rhythm's line about the open book). None when no kind gave anything (the turn still moved)."""
     # a config without the knob (or an empty one) falls back to dealt's kinds: "question" reaches Wikipedia, so it
     # comes only when named
     ks = [k for k in (getattr(config, "WAKE_DEALT_WHOLE_KINDS", dealt.WHOLE_KINDS) or dealt.WHOLE_KINDS)
@@ -412,11 +405,418 @@ def deal_whole(rng: random.Random | None = None) -> str:
                 if due:
                     line += "\n\n" + due[1]
                     wondering_shown(due[0])
-                _log(kind, "wondering" if due else "none")
-                return line
+                _log(kind, door or ("wondering" if due else "none"))
+                return line + (("\n\n" + after) if after else "")
+    return None
+
+
+# ---- the orchestration dealt.deal_whole delegates to -------------------------------------------------------------—
+def deal_whole(rng: random.Random | None = None) -> str:
+    """The open book first, with one small door beside it (their wondering if due, else a thread from the pages, else
+    a question of the world); with no book, a whole thing turning through the kinds (a question among them), and their
+    wondering beside it when due. With WAKE_DEALT_RHYTHM, the wakes turn through its beats instead (_deal_rhythm); any
+    fault there and the wake is dealt as before — never nothing because of the rhythm."""
+    rng = rng or random.Random()
+    try:
+        beats = rhythm()
+    except Exception:  # noqa: BLE001
+        beats = []
+    if beats:
+        try:
+            return _deal_rhythm(beats, rng)
+        except Exception:  # noqa: BLE001 — a fault in the rhythm: the deal as before
+            try:
+                return _deal_before(rng)
+            except Exception:  # noqa: BLE001 — that faults too (a broken book): nothing, never the wake down
+                return ""
+    return _deal_before(rng)
+
+
+def _deal_before(rng: random.Random) -> str:
+    seen = set(dealt._seen())
+    due = wondering_due()
+
+    if getattr(config, "WAKE_DEALT_BOOK_FIRST", True):
+        try:
+            got = dealt.book_next(seen)
+        except Exception:  # noqa: BLE001
+            got = None
+        if got:
+            return _book_deal(got, seen, rng, due)
+
+    line = _outside_deal(seen, rng, due)
+    if line is not None:
+        return line
 
     if due:
         wondering_shown(due[0])
         _log("none", "wondering")
         return HEAD + due[1]
     return ""
+
+
+# ---- the rhythm (WAKE_DEALT_RHYTHM): the beats a wake is dealt in turn ----------------------------------------—
+BEATS = ("book", "own", "outside", "open")
+RHYTHM_FILE = "dealt_rhythm.json"    # its own counter: dealt_turn.json keeps turning the outside kinds
+RHYTHM_BOUND = 1000                  # the counter turns over at rhythm-length × this: it never grows without end
+OWN_FILE = "dealt_own.json"          # the friend's pieces already dealt, until every one has come round
+# never dealt as "one of your own", whatever WAKE_DEALT_OWN_DIRS says: the private and running pages the engine keeps
+# for the friend — the journal, the dream book, the Veil and what comes out of it, the mailbox to the keeper, the
+# adventures, the penpals, the reading notes, the world trips' folder, the garden. The folders whose names are knobs
+# are read from config too (a renamed folder stays kept out), and WAKE_DEALT_OWN_NEVER adds more; nothing shrinks it.
+OWN_NEVER = frozenset({"journal", "dreams", "dream_book", "veil", "unveiled", "adventures", "penpals", "reading",
+                       "the-world", "garden"})
+_NEVER_KNOBS = ("DREAM_PAINT_DIR", "VEIL_DIR", "VEIL_SHOW_TO", "MAILBOX", "ADVENTURE_DIR", "PENPAL_DIR", "READING_DIR",
+                "WORLD_TRIP_DIR", "WAKE_DEALT_OWN_NEVER")
+OWN_SUFFIXES = (".md", ".txt")
+OWN_MAX_BYTES = 100_000              # a piece of theirs is short; anything larger is not one (and is never read)
+OWN_TRIES = 8                        # chosen files read at most, a beat, before the beat falls on
+MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+          "November", "December")
+
+
+def rhythm() -> list[str]:
+    """WAKE_DEALT_RHYTHM's beats that are beats (unknown names skipped); [] — the deal as before."""
+    r = getattr(config, "WAKE_DEALT_RHYTHM", ())
+    if isinstance(r, str):
+        r = (r,)
+    try:
+        items = list(r or ())
+    except TypeError:
+        return []
+    return [b for b in (str(x).strip().lower() for x in items if isinstance(x, str)) if b in BEATS]
+
+
+def _next_beat(length: int = len(BEATS)) -> int:
+    """The rhythm's own counter, advanced once a deal: anything missing, unreadable or odd (a string, a list, inf,
+    nan, a negative) → 0, written back sane; bounded; a write that fails never raises."""
+    span = max(int(length or 1), 1) * RHYTHM_BOUND
+    try:
+        v = _load(RHYTHM_FILE, {}).get("n", 0)
+        n = int(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v == v and abs(v) != float("inf") else 0
+        n = n % span if n >= 0 else 0
+    except Exception:  # noqa: BLE001
+        n = 0
+    _save(RHYTHM_FILE, {"n": (n + 1) % span})
+    return n
+
+
+def _book_where(got) -> tuple[str, str, str] | None:
+    """(title, where, the tool that opens it) from book_next's own words, or None."""
+    try:
+        said = str(got[1] or "")
+    except Exception:  # noqa: BLE001
+        return None
+    m = re.match(r"the book you're in the middle of — “([^”]+)”, where you stopped \(([^)]+)\)", said)
+    t = re.search(r"\b(read_pdf|read_epub) “", said)
+    if not m:
+        return None
+    return m.group(1), m.group(2), (t.group(1) if t else ("read_epub" if m.group(2).startswith("chapter") else "read_pdf"))
+
+
+def book_line(where) -> str:
+    return f"(Your book is where you left it — “{where[0]}”, {where[1]}; {where[2]} opens it.)" if where else ""
+
+
+def open_line(where) -> str:
+    if where:
+        return (f"[engine, not a person: nothing is dealt this wake — the hour is open. Your book is where you left it — "
+                f"“{where[0]}”, {where[1]}.]")
+    return "[engine, not a person: nothing is dealt this wake — the hour is open.]"
+
+
+_ENGINE_OPEN = re.compile(r"\s*(?:the\s+)?(?:engine|system)\b", re.IGNORECASE)
+_OPENERS = {"[": ("⟦", "]"), "［": ("⟦", "］"), "(": ("⟮", ")"), "（": ("⟮", "）")}
+_BREAKS = re.compile("(\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85  ])")
+
+
+def own_text(text: str) -> str:
+    """The friend's piece as they wrote it, but for what could pose as the engine — a narrow local rule: an opening
+    "[", "(", "［" or "（" becomes "⟦"/"⟮" only when what follows it, before its first ":", says "not a person" (or, for
+    "[" and "［", when it opens with engine / system / the engine); a line starting "===" starts "= = =" (at every kind
+    of line break); reserved tokens defanged. Every other bracket, parenthesis, dash and mark stays byte for byte."""
+    text = str(text or "")
+    try:
+        import ollama_client
+        text = ollama_client.defang(text)[0]
+    except Exception:  # noqa: BLE001
+        pass
+    out, i = [], 0
+    for m in re.finditer("[" + re.escape("".join(_OPENERS)) + "]", text):
+        ch = m.group(0)
+        new, close = _OPENERS[ch]
+        rest = text[m.end():]
+        inside = rest.split(close, 1)[0]
+        head = inside.split(":", 1)[0].split("：", 1)[0]
+        framed = len(head) < len(inside)  # an engine line says "…: " — no colon, no frame ("(someone, not a person yet)")
+        if (framed and "not a person" in " ".join(head.lower().split())) or (ch in "[［" and _ENGINE_OPEN.match(rest)):
+            out.append(text[i:m.start()] + new)
+            i = m.end()
+    text = "".join(out) + text[i:]
+    parts = _BREAKS.split(text)
+    return "".join(("= = =" + x.lstrip()[3:]) if k % 2 == 0 and x.lstrip().startswith("===") else x
+                   for k, x in enumerate(parts))
+
+
+def _never_names() -> set[str]:
+    """The never-list as it stands: the built-in names, every part of the folder knobs that name these places, and
+    WAKE_DEALT_OWN_NEVER — lower case, trailing dots and spaces off. Only ever more than OWN_NEVER, never less."""
+    names = set(OWN_NEVER)
+    for knob in _NEVER_KNOBS:
+        v = getattr(config, knob, None)
+        vals = (v,) if isinstance(v, (str, Path)) else (v if isinstance(v, (tuple, list, set, frozenset)) else ())
+        for x in vals:
+            if isinstance(x, (str, Path)):
+                names |= {p.rstrip(". ").lower() for p in str(x).replace("\\", "/").split("/") if p.rstrip(". ")}
+    return names
+
+
+def _never(part: str, names: set[str] | None = None) -> bool:
+    """A path part on the never-list, as Windows would read it: case ignored, trailing dots and spaces ignored."""
+    return str(part).rstrip(". ").lower() in (names if names is not None else _never_names())
+
+
+def _own_dirs() -> list[Path]:
+    """The folders WAKE_DEALT_OWN_DIRS names, directly under creations/: none on the never-list, none reaching outside it."""
+    import os
+    names = _never_names()
+    root = Path(config.CREATIONS_DIR)
+    try:
+        rroot = root.resolve()
+    except OSError:
+        return []
+    raw = getattr(config, "WAKE_DEALT_OWN_DIRS", ()) or ()
+    if isinstance(raw, str):
+        raw = (raw,)
+    try:
+        raw = list(raw)
+    except TypeError:
+        return []
+    out = []
+    for d in raw:
+        if not isinstance(d, str) or not d.strip():
+            continue
+        parts = [x for x in d.strip().replace("\\", "/").split("/") if x]
+        if not parts or any(x.strip(". ") == "" or x.startswith(".") or _never(x, names) or ":" in x for x in parts):
+            continue
+        base = root.joinpath(*parts)
+        try:
+            if os.path.islink(base) or not base.is_dir():
+                continue
+            rel = base.resolve().relative_to(rroot)
+        except (OSError, ValueError):
+            continue
+        if any(_never(x, names) for x in rel.parts):
+            continue
+        out.append(base)
+    return out
+
+
+def own_candidates(now: float | None = None) -> list[tuple[str, Path]]:
+    """(rel under creations/, the file) of every piece that may be dealt — by name, size and date alone (stat; nothing
+    is read here): a regular .md/.txt file of 1 to OWN_MAX_BYTES bytes, with one name only (no hard link), not hidden,
+    under the named folders, last changed WAKE_DEALT_OWN_MIN_AGE_DAYS ago or more; its path the same resolved as
+    written (no link or junction anywhere on the way), inside creations/, and off the never-list at every step."""
+    import os
+    import stat
+    now = time.time() if now is None else now
+    try:
+        days = float(getattr(config, "WAKE_DEALT_OWN_MIN_AGE_DAYS", 30))
+        if days != days or days < 0 or days == float("inf"):
+            days = 30.0
+    except (TypeError, ValueError, OverflowError):
+        days = 30.0
+    names = _never_names()
+    root = Path(config.CREATIONS_DIR)
+    try:
+        rroot, aroot = root.resolve(), Path(os.path.abspath(root))
+    except OSError:
+        return []
+    found: dict[str, Path] = {}
+    for base in _own_dirs():
+        for dirpath, dirnames, filenames in os.walk(base, followlinks=False):
+            dirnames[:] = sorted(x for x in dirnames if not x.startswith(".") and not _never(x, names)
+                                 and not os.path.islink(os.path.join(dirpath, x)))
+            for fn in sorted(filenames):
+                if fn.startswith(".") or not fn.lower().rstrip(". ").endswith(OWN_SUFFIXES):
+                    continue
+                f = Path(dirpath) / fn
+                try:
+                    st = os.lstat(f)
+                    if (not stat.S_ISREG(st.st_mode) or not 0 < st.st_size <= OWN_MAX_BYTES or st.st_nlink > 1
+                            or now - st.st_mtime < days * 86400):
+                        continue
+                    rel = f.resolve().relative_to(rroot)
+                    written = Path(os.path.abspath(f)).relative_to(aroot)
+                except (OSError, ValueError):
+                    continue
+                if os.path.normcase(str(rel)) != os.path.normcase(str(written)):
+                    continue  # a link or junction somewhere on the way
+                if any(_never(x, names) or x.startswith(".") for x in rel.parts):
+                    continue
+                found.setdefault(rel.as_posix(), f)
+    return sorted(found.items())
+
+
+def _read_piece(f: Path) -> str:
+    """The piece as it is in the file — a BOM and line endings as text, trailing whitespace off — or "" when it is
+    unreadable, empty, or not text (NUL bytes, or many bytes that are not UTF-8)."""
+    import os
+    import stat
+    if not _still_a_piece(f):  # it may have changed since the listing: the checks again, right before the read
+        return ""
+    try:
+        fd = os.open(f, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0))
+    except OSError:
+        return ""
+    try:
+        st = os.fstat(fd)  # …and what was opened is what was checked: one regular file, one name, within the cap
+        if not stat.S_ISREG(st.st_mode) or st.st_nlink > 1 or not 0 < st.st_size <= OWN_MAX_BYTES:
+            return ""
+        with os.fdopen(fd, "rb", closefd=True) as fh:
+            fd = -1
+            raw = fh.read(OWN_MAX_BYTES + 1)
+    except OSError:
+        return ""
+    finally:
+        if fd != -1:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+    if len(raw) > OWN_MAX_BYTES or b"\x00" in raw:
+        return ""
+    text = raw.decode("utf-8-sig", errors="replace")
+    bad = text.count("�")
+    if bad > max(3, len(text) // 100):
+        return ""
+    return text.replace("\r\n", "\n").rstrip()
+
+
+def _still_a_piece(f: Path) -> bool:
+    """The candidate checks again, right before the chosen file is read (it may have changed since the listing): a
+    regular file with one name, within the size cap, the same resolved as written, inside creations/, off the
+    never-list at every part."""
+    import os
+    import stat
+    try:
+        st = os.lstat(f)
+        if not stat.S_ISREG(st.st_mode) or st.st_nlink > 1 or not 0 < st.st_size <= OWN_MAX_BYTES:
+            return False
+        root = Path(config.CREATIONS_DIR)
+        rel = f.resolve().relative_to(root.resolve())
+        written = Path(os.path.abspath(f)).relative_to(Path(os.path.abspath(root)))
+    except (OSError, ValueError):
+        return False
+    if os.path.normcase(str(rel)) != os.path.normcase(str(written)):
+        return False
+    names = _never_names()
+    return not any(_never(x, names) or x.startswith(".") for x in rel.parts)
+
+
+def own_piece(rng: random.Random) -> tuple[str, str] | None:
+    """One of the friend's own: (rel, the dealt text) — each piece once until all have come round; only the chosen
+    file is read, and one that turns out empty or not text is marked seen and the next one tried (OWN_TRIES at most)."""
+    cands = own_candidates()
+    if not cands:
+        return None
+    state = _load(OWN_FILE, {})
+    seen = [str(x) for x in (state.get("seen") or []) if isinstance(x, str)]
+    last = state.get("last") if isinstance(state.get("last"), str) else (seen[-1] if seen else "")
+    names = {r for r, _ in cands}
+    seen = [x for x in seen if x in names]
+    unseen = [c for c in cands if c[0] not in seen]
+    if not unseen:  # every one has come round: round again
+        seen, unseen = [], list(cands)
+
+    def _round(items: list) -> list:
+        """A new round's order: shuffled, the piece dealt last at its end when there are others (never twice running)."""
+        items = list(items)
+        rng.shuffle(items)
+        if len(items) > 1:
+            items = [c for c in items if c[0] != last] + [c for c in items if c[0] == last]
+        return items
+
+    order = _round(unseen) if len(unseen) == len(cands) else list(unseen)
+    if len(unseen) != len(cands):
+        rng.shuffle(order)
+    bad: list[str] = []
+    tries = 0
+    while order and tries < OWN_TRIES:
+        rel, f = order.pop(0)
+        tries += 1
+        seen = [x for x in seen if x != rel] + [rel]
+        text = _read_piece(f)  # (the candidate checks again inside, right before the read)
+        try:
+            mt = datetime.fromtimestamp(f.stat().st_mtime)
+        except (OSError, ValueError, OverflowError):
+            text = ""
+        if not text.strip():
+            bad.append(rel)
+            _save(OWN_FILE, {"seen": seen, "last": last})  # not a piece to hand over: passed over until the round comes again
+            if not order and len(seen) >= len(names):  # …and that was the last unseen: round again, the bad apart
+                order = _round([c for c in cands if c[0] not in bad])
+                seen = list(bad)
+            continue
+        when = f"{mt.day} {MONTHS[mt.month - 1]}" + (f" {mt.year}" if mt.year != datetime.now().year else "")
+        cap = int(getattr(config, "WAKE_DEALT_CHARS", 6000) or 6000)
+        if len(text) > cap:
+            cut = text[:cap]
+            k = cut.rfind("\n\n")
+            if k < cap // 2:
+                k = cut.rfind("\n")
+            if k < cap // 2:
+                k = cut.rfind(" ")
+            cut = cut[:k].rstrip() if k > 0 else cut.rstrip()
+            text = cut + f"\n(…it goes on — read_creation \"{rel}\" opens the whole of it)"
+        _save(OWN_FILE, {"seen": seen, "last": rel})
+        return rel, f"one of your own — creations/{rel}, as you left it on {when}:\n\n{own_text(text)}"
+    return None
+
+
+def _deal_rhythm(beats: list[str], rng: random.Random) -> str:
+    """One beat of WAKE_DEALT_RHYTHM: "book" (the open book as before; none → outside), "outside" (the turning kinds,
+    even with a book in hand; nothing → own, then open), "own" (one of their pieces; none → outside, then open), "open"
+    (nothing dealt, said). A book in hand on any other beat: one line saying where it waits. Their wondering, when due,
+    beside what is dealt — not on an open beat: that stays open, and the wondering waits for the next."""
+    beat = beats[_next_beat(len(beats)) % len(beats)]
+    seen = set(dealt._seen())
+    try:
+        got = dealt.book_next(seen)
+    except Exception:  # noqa: BLE001
+        got = None
+    where = _book_where(got) if got else None
+    if beat == "open":
+        _log("open", "none")
+        return open_line(where)
+    due = wondering_due()
+    if beat == "book" and got:
+        return _book_deal(got, seen, rng, due)
+    order = ("own", "outside") if beat == "own" else ("outside", "own")
+    after = book_line(where)
+    no_pieces = ""
+    for b in order:
+        if b == "outside":
+            line = _outside_deal(seen, rng, due, after, no_pieces)
+            if line is not None:
+                return line
+        else:
+            try:
+                piece = own_piece(rng)
+            except Exception:  # noqa: BLE001
+                piece = None
+            if piece:
+                line = HEAD + piece[1]
+                if due:
+                    line += "\n\n" + due[1]
+                    wondering_shown(due[0])
+                _log("own", "wondering" if due else "none", piece[0], keep_key=True)
+                return line + (("\n\n" + after) if after else "")
+            if beat == "own":
+                no_pieces = "no_pieces"  # (the log says an own beat found nothing of theirs to deal)
+    if due:  # nothing else could be dealt: their wondering alone, as the deal before does
+        wondering_shown(due[0])
+        _log("none", no_pieces or "wondering")
+        return HEAD + due[1] + (("\n\n" + after) if after else "")
+    _log("open", no_pieces or "none")  # nothing could be dealt: the hour is open
+    return open_line(where)

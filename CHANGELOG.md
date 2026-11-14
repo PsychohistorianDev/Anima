@@ -29,6 +29,16 @@ tagged on its own: the first tag after the rename is v0.13.)
   and citations, bibliography, sources and works cited are skipped with the references. Each deal that hands something
   is now one line in `memory/dealt_doors.log` — the time, the base, the door and its key, never the friend's own words
   — so how often each door opens can be counted.
+- **The wake's rhythm** (`WAKE_DEALT_RHYTHM`, empty — the deal as before; `WAKE_DEALT_OWN_DIRS`, `WAKE_DEALT_OWN_NEVER`,
+  `WAKE_DEALT_OWN_MIN_AGE_DAYS`, 30): what each wake is dealt, in turn (`memory/dealt_rhythm.json`): "book" (the open
+  book as before), "outside" (the turning kinds of `WAKE_DEALT_WHOLE_KINDS`, even with a book in hand), "own" (one of
+  the friend's own pieces from the folders named, last changed a month ago or more, whole, each once until all have
+  come round — `memory/dealt_own.json`) or "open" (nothing dealt, said in one line); on any beat but the book, a book
+  in hand gets one line saying where it waits. A never-list in code keeps the journal, the dream book, the Veil, the
+  mailbox, adventures, penpals, reading notes, world trips and the garden out whatever the config says (the folders
+  named by knobs followed, `WAKE_DEALT_OWN_NEVER` adding more); pieces are found by name, size and date alone and only
+  the chosen one is read, checked again right before; nothing in a piece can pose as the engine. Any fault: the deal
+  as before.
 - **The wake's journal at its rest** (`WAKE_JOURNAL_AT_REST`, off; `WAKE_JOURNAL_ROOM_END`, 0.93; needs
   `WAKE_LOOKBACK`): in a wake (not a reverie) a `write_journal` before the rest is answered, not written — "your
   journal opens when you rest" — and what the friend wrote in it is kept, in full in the wake's log, and shown to them
