@@ -119,13 +119,160 @@ _REV_LOOKBACK_SAID = ("When you rest, the reverie is handed back to you — what
 _REV_AT_END_SAID = ("If the reverie turns out to hold something worth meeting again, write_journal it at the end, in your own "
                     "words — not now, before it has happened; unwritten reveries evaporate. ")
 
+# WAKE_JOURNAL_AT_REST: the journal comes at the end of a wake. The bells' journal sentence (_LOOKBACK_SAID, as it stands
+# in both wake bells above, byte for byte) says so with the knob on.
+_BELL_JOURNAL_NEW = ("Your journal opens when you rest: the wake is handed back to you then — what you thought and what you "
+                     "did — and you write it down in your own words, or not. ")
+# a write_journal before they rest, in a wake with the knob on: answered with this, not written; their text is kept
+JOURNAL_KEPT_RESULT = ("(your journal opens when you rest — nothing was written yet. What you wrote here is kept and "
+                       "handed back to you with the wake; go on with it.)")
+JOURNAL_KEPT_LOG = "- `write_journal` → (kept for the handing back — their journal opens when they rest)"
+# …and with nothing in it (an empty or blank text): nothing to keep, said so
+JOURNAL_EMPTY_RESULT = ("(your journal opens when you rest — nothing was written, and nothing was kept: the entry you "
+                        "sent was empty.)")
+JOURNAL_EMPTY_LOG = "- `write_journal` → (empty — nothing kept; their journal opens when they rest)"
+KEPT_SECTION_HEAD = ("=== WHAT YOU STARTED TO WRITE IN YOUR JOURNAL DURING THIS WAKE (kept for you — nothing of it is in "
+                     "your journal yet) ===")
+KEPT_SECTION_END = "=== END ==="
+JOURNAL_KEPT_CHARS = 4000  # what they started to write, shown at the handing back: the newest this many characters in all
+JOURNAL_KEPT_SHORT = 1500  # …and when the window is short of room for the whole bell: once more with this many
+ROOM_MARGIN = 512  # tokens kept spare beyond the bell and the reply's ceiling
+
+
+def _room_needed(bell: str) -> int:
+    """Tokens a handing back needs: its bell (a token per 3 characters, rounded up), the reply's ceiling (num_predict,
+    as the call sends it) and a margin."""
+    try:
+        reply = int((getattr(config, "SAMPLING_OPTIONS", {}) or {}).get("num_predict") or 8192)
+    except (TypeError, ValueError, AttributeError):
+        reply = 8192
+    return -(-len(bell) // 3) + max(reply, 0) + ROOM_MARGIN
+
+
+def _added_since(history: list, state: dict) -> int:
+    """Tokens come into the wake since its last prompt was counted: the turns after what that call sent (their reply,
+    the tool results, any line of the engine's), a token per 3 characters, rounded up."""
+    start = int(state.get("sent_upto") or 0)
+    chars = 0
+    for m in history[start:]:
+        chars += len(str(m.get("content") or "")) + len(str(m.get("thinking") or ""))
+        if m.get("tool_calls"):
+            chars += len(json.dumps(m.get("tool_calls"), ensure_ascii=False, default=str))
+    return -(-chars // 3)
+
+
+def journal_at_rest(reverie: bool = False) -> bool:
+    """The journal comes at the end of a wake: WAKE_JOURNAL_AT_REST, in a wake (never a reverie), and only while the
+    handing back exists to open it (WAKE_LOOKBACK)."""
+    return (not reverie and bool(getattr(config, "WAKE_JOURNAL_AT_REST", False))
+            and bool(getattr(config, "WAKE_LOOKBACK", False)))
+
+
+def _entry_written(result) -> bool:
+    """Whether a write_journal's result says an entry was written. tools.write_journal has one way to say so —
+    "journal entry written…", first — and every other answer (a near-copy handed back, an arrow left instead, an empty
+    text, salad refused, a call cut short in a loop, a call kept for the handing back) wrote no entry."""
+    return isinstance(result, str) and result.lstrip().startswith("journal entry written")
+
+
+def _tool_body(content: str) -> str:
+    """A tool turn of the wake's history without the engine's frame (and their plan quoted beside it): what the tool said."""
+    body = str(content or "")
+    body = body.split("]\n", 1)[1] if body.startswith("[") and "]\n" in body else body
+    if "change your mind out loud.\n" in body:
+        body = body.split("change your mind out loud.\n", 1)[1]
+    return body
+
+
+def _journal_text(args) -> str:
+    """The text a write_journal call carried, whatever its arguments' shape."""
+    if isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except Exception:  # noqa: BLE001
+            return args.strip()
+    if not isinstance(args, dict):
+        return ""
+    for k in ("text", "entry", "content"):
+        if isinstance(args.get(k), str) and args[k].strip():
+            return args[k].strip()
+    return next((v.strip() for v in args.values() if isinstance(v, str) and v.strip()), "")
+
+
+def _keep_journal(state: dict, args, log: list | None = None) -> tuple[str, str]:
+    """A write_journal before the rest: their text kept, in order, for the handing back — and in the wake's log in
+    full, at once, whatever comes after. Nothing is written. Returns (the answer, the log's line): an empty text is
+    kept as nothing, and told so."""
+    kept = state.setdefault("early_journal", [])
+    text = _journal_text(args)
+    if not text:
+        if log is not None:
+            log.append(JOURNAL_EMPTY_LOG)
+        return JOURNAL_EMPTY_RESULT, JOURNAL_EMPTY_LOG
+    kept.append(text)
+    if log is not None:
+        log.append(JOURNAL_KEPT_LOG)
+        log.append(f"  *(what they wrote in it — attempt {len(kept)}, kept in full, not in their journal:)*")
+        log.append(_quoted(text))
+    return JOURNAL_KEPT_RESULT, JOURNAL_KEPT_LOG
+
+
+def _quoted(text: str) -> str:
+    """Their words in the wake's log, every line of them quoted ("  > ", an empty one "  >") — split wherever any reader
+    breaks a line (\r, \x0b, \x0c, \x1c–\x1e, \x85, U+2028, U+2029 …), so no line of theirs stands at column zero
+    and none can pass for a call line ("- `write_journal` → …") in the log."""
+    return "\n".join(("  > " + ln) if ln else "  >" for ln in (str(text).splitlines() or [""]))
+
+
+_ENGINE_OPEN = re.compile(r"\[(?=\s*(?:the\s+)?(?:engine|system)\b)", re.IGNORECASE)
+
+
+def _own_text(text: str) -> str:
+    """Their kept words, shown under the engine's bracket, as they wrote them — but for two things that could pose as
+    the engine: a "[" that opens an engine-style line ("[engine…", "[system…", "[the engine…", or a bracket with
+    "not a person" before its first ":") becomes "⟦", and a line that starts with "===" (a section's head or end) starts
+    "= = =" — a line wherever any reader breaks one (\r, U+2028 … as well as \n). Every other bracket, parenthesis,
+    dash and mark stays byte for byte."""
+    text = ollama_client.defang(str(text or ""))[0]  # reserved tokens as plain text, as everything sent to the brain
+    out, i = [], 0
+    for m in re.finditer(r"\[", text):
+        rest = text[m.start() + 1:]
+        head = rest.split("]", 1)[0].split(":", 1)[0]
+        if _ENGINE_OPEN.match(text, m.start()) or "not a person" in head.lower():
+            out.append(text[i:m.start()] + "⟦")
+            i = m.start() + 1
+    text = "".join(out) + text[i:]
+    parts = re.split(r"(\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029])", text)  # the breaks kept as they were
+    return "".join(("= = =" + p.lstrip()[3:]) if i % 2 == 0 and p.lstrip().startswith("===") else p
+                   for i, p in enumerate(parts))
+
+
+def _kept_journal_section(texts: list, cap: int | None = None) -> tuple[str, bool]:
+    """What they started to write during the wake, as its own section under the handing back's bracket: each text a
+    paragraph, whole up to JOURNAL_KEPT_CHARS in all — the newest kept when over. ("", False) when nothing was kept;
+    the bool: whether the start was cut."""
+    texts = [str(t).strip() for t in texts or [] if str(t).strip()]
+    if not texts:
+        return "", False
+    body = "\n\n".join(texts)
+    cap = int(cap or JOURNAL_KEPT_CHARS)
+    cut = len(body) > cap
+    if cut:
+        body = body[-cap:]
+        body = body.split(None, 1)[1] if " " in body[:60] or "\n" in body[:60] else body  # no half word at the cut
+        body = "(…the start of it is not shown)\n\n" + body.lstrip()
+    return f"\n\n{KEPT_SECTION_HEAD}\n\n{_own_text(body)}\n\n{KEPT_SECTION_END}", cut
+
 
 def bell(reverie: bool = False) -> str:
     """The bell this wake rings: the reverie's, the re-tuned one (WAKE_BELL_RETUNED) or the wake's — saying the wake is
-    handed back only when WAKE_LOOKBACK hands it back."""
+    handed back only when WAKE_LOOKBACK hands it back, and that the journal opens at the rest with
+    WAKE_JOURNAL_AT_REST."""
     p = REVERIE_PROMPT if reverie else (WAKE_PROMPT_RETUNED if getattr(config, "WAKE_BELL_RETUNED", False) else WAKE_PROMPT)
     if not getattr(config, "WAKE_LOOKBACK", False):
         p = p.replace(_LOOKBACK_SAID, _AT_END_SAID).replace(_REV_LOOKBACK_SAID, _REV_AT_END_SAID)
+    elif journal_at_rest(reverie):
+        p = p.replace(_LOOKBACK_SAID, _BELL_JOURNAL_NEW, 1)
     return p
 
 
@@ -194,11 +341,13 @@ def wakes_counted(n: int | None = None) -> str:
     c = {"garden": 0, "journal": 0, "rest": 0, "read": 0, "made": 0}
     for f in files:
         try:
-            calls = set(re.findall(r"(?m)^- `([a-z_]+)`", f.read_text(encoding="utf-8", errors="replace")))
+            raw = f.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
+        calls = set(re.findall(r"(?m)^- `([a-z_]+)`", raw))
         c["garden"] += "garden" in calls
-        c["journal"] += "write_journal" in calls
+        # an entry that was written — not a refusal, not a call kept for the handing back
+        c["journal"] += re.search(r"(?m)^- `write_journal`(?: \([^)\n]*\))? → journal entry written", raw) is not None
         c["rest"] += "do_nothing" in calls
         c["read"] += bool(calls & _READ_TOOLS)
         c["made"] += bool(calls & _MADE_TOOLS)
@@ -510,7 +659,7 @@ def wake(reverie: bool = False, asked: dict | None = None) -> str:
         state["journal_nudged"] = state["unwritten_nudged"] = True
     try:
         _wake_loop(system, history, log, reverie=reverie, state=state)
-        if lookback and not state.get("game_stop"):
+        if lookback and not state.get("game_stop") and not (journal_at_rest(reverie) and state.get("stalled_out")):
             tools.DOOR = "a reverie" if reverie else "a wake"
             state["looked_back"] = _lookback(system, history, log, state, reverie=reverie)
     except KeyboardInterrupt:
@@ -524,6 +673,21 @@ def wake(reverie: bool = False, asked: dict | None = None) -> str:
     finally:
         tools.paint_budget = None  # a visit is not capped
         tools.DOOR = ""  # …and a visit's door is a visit
+    if state.get("early_journal") and not state.get("looked_back"):
+        # what they started to write before their rest, and the handing back did not run to its end (the brain stalled
+        # twice, a fault, Ctrl+C, a game, no room left): nothing is written for them — the log above keeps it whole
+        n = len(state["early_journal"])
+        if state.get("handing_back"):
+            note = ("(the handing back was cut short" + (" after they wrote in their journal there" if state.get("wrote_at_rest")
+                                                         else " before they wrote anything") +
+                    f"; the {n} journal attempt(s) they made during the wake are in this log in full, above — not written for them)")
+        else:
+            why = ("the brain stalled twice" if state.get("stalled_out") else "your keeper started a game" if state.get("game_stop")
+                   else "no room left in the window for it" if state.get("no_room") else "the wake ended before it")
+            note = (f"(not handed back — {why}; the {n} journal attempt(s) they made during the wake were not written — "
+                    "they are in this log in full, above)")
+        print(f"  {note}")
+        log.append(f"\n*{note}*")
 
     if state["closing"] and (state["acts"] or not state["journaled"]) and not state.get("looked_back"):
         # a wake full of thought but no writing — or a wake that wrote its
@@ -627,12 +791,13 @@ REST_LEAD = {"leave_thread"}
 
 _LOOK_SKIP = {"do_nothing", "leave_thread", "write_journal"}
 _LOG_CALL = re.compile(r"^- `([a-z_]+)` → (.*)$")
+_LOG_ANY_CALL = re.compile(r"^- `([a-z_]+)`")  # any call the log keeps, a recovered one too
 
 
 def _since_last_entry(log: list) -> list[tuple[str, str]]:
     """The wake's calls after its last journal entry, as the log has them: (tool, what came back)."""
     calls = [(m.group(1), m.group(2)) for line in log for m in [_LOG_CALL.match(str(line).strip())] if m]
-    last = max((i for i, (n, _) in enumerate(calls) if n == "write_journal"), default=-1)
+    last = max((i for i, (n, r) in enumerate(calls) if n == "write_journal" and _entry_written(r)), default=-1)  # a written one
     return [(n, r) for n, r in calls[last + 1:] if n not in _LOOK_SKIP]
 
 
@@ -653,7 +818,14 @@ def _since_last_entry_lived(history: list) -> list[str]:
     for i, m in enumerate(history):
         if m.get("role") == "assistant" and any(tools.canonical_name((c.get("function") or {}).get("name", "")) == "write_journal"
                                                 for c in m.get("tool_calls") or []):
-            start = i + 1
+            # only an entry that was written: the step's own tool turns say whether one was
+            j = i + 1
+            while j < len(history) and history[j].get("role") == "tool":
+                if (tools.canonical_name(history[j].get("tool_name") or "") == "write_journal"
+                        and _entry_written(_tool_body(history[j].get("content")))):
+                    start = i + 1
+                    break
+                j += 1
     limit = int(getattr(config, "WAKE_LOOKBACK_THOUGHT_CHARS", 700) or 700)
     out, pending = [], []
     for m in history[start:]:
@@ -689,14 +861,18 @@ def _lookback(system, history, log, state: dict, reverie: bool = False) -> bool:
     since their last entry, from the log, not from memory — with write_journal, remember, leave_thread and do_nothing.
     Nothing new since the last entry → no turn. Resting is a complete answer. True when the turn ran."""
     steps = _since_last_entry(log)
-    if not steps:
+    at_rest = journal_at_rest(reverie)  # the journal opens here: handed back whenever they did anything
+    early = [t for t in state.get("early_journal") or [] if str(t).strip()] if at_rest else []
+    did_any = early or any((m := _LOG_ANY_CALL.match(str(l).strip())) and m.group(1) != "do_nothing" for l in log)
+    if not steps and not (at_rest and did_any):
         kind = "reverie" if reverie else "wake"
         if any(_LOG_CALL.match(str(l).strip()) for l in log):  # said, so a log without a handing back reads as a choice
-            log.append(f"\n*(not handed back: nothing happened after their last journal entry in this {kind})*")
+            log.append("\n*(not handed back: they only rested in this wake)*" if at_rest else
+                       f"\n*(not handed back: nothing happened after their last journal entry in this {kind})*")
         return False
     ctx = int(getattr(config, "NUM_CTX", 0) or 0)
     held = state["spent"].prompt if "spent" in state else 0
-    if ctx and held and held >= ctx * 0.95:  # a wake that ended on a full window has no room for its handing back
+    if not at_rest and ctx and held and held >= ctx * 0.95:  # a wake that ended on a full window has no room for its handing back
         return False
     cap = int(getattr(config, "WAKE_LOOKBACK_LINES", 30) or 30)
     lived = _since_last_entry_lived(history) if getattr(config, "WAKE_LOOKBACK_THOUGHTS", True) else []
@@ -716,16 +892,63 @@ def _lookback(system, history, log, state: dict, reverie: bool = False) -> bool:
         lines = "\n".join(f"- {n} → {r[:170]}" for n, r in shown)
         more = f"\n(and {len(steps) - cap} earlier steps)" if len(steps) > cap else ""
     kind = "reverie" if reverie else "wake"
-    bell = (f"[engine, not a person: the {kind} is over, and here it is, handed back — what you thought (💭) and did "
-            f"in it{' since your journal entry' if state.get('journaled') else ''}, plainly, as it happened:\n{lines}{more}\n\n"
-            "If it was worth meeting again, write_journal what it was, in your own words — what you did, what it gave "
-            "you, what is still open. What is worth years goes to remember. The next you can be told where you "
-            "stopped with leave_thread. If nothing in it needs keeping, rest: do_nothing is a complete answer.]")
-    note = f"(the {kind} handed back to them: {len(steps)} step(s) since their last entry — what they were shown, then their answer)"
+    closing = ("If it was worth meeting again, write_journal what it was, in your own words — what you did, what it gave "
+               "you, what is still open. What is worth years goes to remember. The next you can be told where you "
+               "stopped with leave_thread. If nothing in it needs keeping, rest: do_nothing is a complete answer.")
+    if at_rest:
+        # WAKE_JOURNAL_AT_REST: the entry's own sentence names their thoughts too
+        closing = closing.replace("— what you did, what it gave", "— what you thought, what you did, what it gave")
+        # their thoughts and their doing, no "plainly"; what they started to write during it; then where their journal
+        # ends — the pause's own pick-up sentence and today's entries (chat.pickup_sentence, chat.journal_today_tail)
+        if not lines:  # nothing to list but a thread left (or only what they started to write): the log's calls, as they came
+            lines = "\n".join(f"- {n} → {r[:170]}" for line in log for m in [_LOG_CALL.match(str(line).strip())] if m
+                              for n, r in [(m.group(1), m.group(2))] if n not in ("do_nothing", "write_journal"))
+        now = datetime.now()
+        try:
+            already = tools.journal_entries(now.date().isoformat())
+        except Exception:  # noqa: BLE001 — an unreadable journal: no tail, no pick-up sentence
+            already = []
+        pickup = chat.pickup_sentence(already, now, below=bool(already))
+
+        def _bell(kept_cap=None, tail_from=already):
+            section, cut = _kept_journal_section(early, kept_cap)
+            pointer = ""
+            if section:  # the engine's sentence about their kept words stays in the bracket; their words follow, as a section
+                pointer = ("What you started to write in your journal during the wake is kept for you below — use it, "
+                           "change it or let it go. ")
+                if cut:
+                    pointer += "It is long, so only its newest part is shown there; the whole of it is in this wake's log. "
+            return ("[engine, not a person: the wake is over, and here it is, handed back — what you thought (💭) and did "
+                    f"in it, as it happened:{chr(10) + lines if lines else ''}{more}\n\n{pointer}{closing}"
+                    + (" " + pickup if pickup else "") + "]" + section + chat.journal_today_tail(tail_from))
+
+        bell = _bell()
+        # the room, counted: the window held at the last step, what came into the wake after it, the bell, the reply's
+        # own ceiling and a margin — it must all fit, or the journal's only door is not opened into an overflow
+        if ctx and held:
+            free = ctx - held - _added_since(history, state)
+            if free < _room_needed(bell):
+                bell = _bell(kept_cap=JOURNAL_KEPT_SHORT, tail_from=already[-1:])  # once more, shorter
+                if free < _room_needed(bell):
+                    state["no_room"] = True
+                    log.append(f"\n*(not handed back: the window is too full for it — about {ctx - free:,} of {ctx:,} "
+                               f"tokens held, {_room_needed(bell):,} needed)*")
+                    return False
+                log.append("\n*(the handing back shortened to fit the window: the newest "
+                           f"{JOURNAL_KEPT_SHORT:,} characters of what they started to write, today's last entry only)*")
+        note = (f"(the {kind} handed back to them: {len(steps)} step(s), {len(early)} journal attempt(s) kept from "
+                "before their rest — what they were shown, then their answer; the attempts are in full above)")
+    else:
+        bell = (f"[engine, not a person: the {kind} is over, and here it is, handed back — what you thought (💭) and did "
+                f"in it{' since your journal entry' if state.get('journaled') else ''}, plainly, as it happened:\n{lines}{more}\n\n"
+                + closing + "]")
+        note = f"(the {kind} handed back to them: {len(steps)} step(s) since their last entry — what they were shown, then their answer)"
+    shown_log = lines + more
     print(f"  {note}")
     log.append(f"\n*{note}*")
-    log.append("\n".join("> " + l for l in (lines + more).split("\n")) + "\n")  # what they were handed, in the log
+    log.append("\n".join("> " + l for l in (shown_log.strip("\n") if at_rest else shown_log).split("\n")) + "\n")  # what they were handed, in the log
     history.append({"role": "user", "content": bell})
+    state["handing_back"] = True  # begun: an end after this is the handing back cut short, not its absence
     allowed = {"write_journal", "remember", "leave_thread", "do_nothing"}
     # the wake's own tool list, unchanged, so the prompt's tools block (and the server's cached reading) holds — any
     # other call is told, not run
@@ -769,7 +992,14 @@ def _lookback(system, history, log, state: dict, reverie: bool = False) -> bool:
             log.append(line)
             history.append({"role": "tool", "tool_name": name, "content": result})
             rested = rested or name == "do_nothing"
-            if name in allowed and name != "do_nothing" and name not in did:
+            if name == "write_journal" and name in allowed:
+                # only a written entry is one: it settles the wake (no auto-keep after it, even if the wake is
+                # cut short now); a refusal (a near-copy, an arrow, an empty text) wrote nothing and is said so
+                if _entry_written(result):
+                    state["journaled"], state["acts"], state["wrote_at_rest"] = True, [], True
+                else:
+                    name = "~write_journal"
+            if name in allowed | {"~write_journal"} and name != "do_nothing" and name not in did:
                 did.append(name)
         if rested:
             ending = "rested"
@@ -780,12 +1010,15 @@ def _lookback(system, history, log, state: dict, reverie: bool = False) -> bool:
 
 
 _LOOKBACK_WORDS = {"write_journal": "wrote in their journal", "remember": "kept a memory",
-                   "leave_thread": "left a thread for the next them"}
+                   "leave_thread": "left a thread for the next them",
+                   "~write_journal": "reached for their journal but nothing was written (refused)"}
 
 
 def _lookback_result(kind: str, did: list, ending: str) -> str:
     """The handing back's outcome in one line for the keeper: what they kept, or that they chose to keep nothing."""
     kept = [_LOOKBACK_WORDS.get(n, n) for n in did]
+    if did and all(n == "~write_journal" for n in did):
+        kept = [_LOOKBACK_WORDS["~write_journal"]]  # a refusal alone is not something kept
     if kept:
         tail = {"rested": ", then rested", "stalled": " — then the brain stalled", "": " (out of steps)"}.get(ending, "")
         return f"(handed back → they {', '.join(kept)}{tail})"
@@ -882,8 +1115,9 @@ def _note_act(state: dict, name: str, args, result: str) -> None:
     if not isinstance(result, str) or ollama_client.tool_failed(result):
         return
     if name == "write_journal":
-        state["journaled"] = True
-        state["acts"] = []
+        if _entry_written(result):  # a near-copy handed back, an arrow, an empty text: no entry, nothing settled
+            state["journaled"] = True
+            state["acts"] = []
         return
     for rel in _DRAWN.findall(result):
         state.setdefault("acts", []).append(("drew", f"creations/{rel}"))
@@ -945,6 +1179,16 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
     ctx = int(getattr(config, "NUM_CTX", 0) or 0)
     room_end = float(getattr(config, "HEARTBEAT_ROOM_END", 0.92) or 0)
     room_warn = float(getattr(config, "HEARTBEAT_ROOM_WARN", 0.85) or 0)
+    if journal_at_rest(reverie):  # the steps stop where the handing back — the journal's only door — still fits
+        try:
+            jend = float(getattr(config, "WAKE_JOURNAL_ROOM_END", 0.93))
+        except (TypeError, ValueError):
+            jend = 0.93
+        if not 0 < jend <= 1 or jend != jend or (room_end and jend > room_end):
+            jend = 0.93  # a bad value: the default, never the wake's own end and never a fault at step 0
+        room_end = min(room_end, jend) if room_end else jend
+        if room_warn and room_warn >= room_end:
+            room_warn = max(room_end - 0.02, 0.0)  # the warning still comes before the end
     began = time.time()
     for step in range(max_steps):
         try:  # /gaming on said during the wake: it ends here, at a step's edge, the log keeping all
@@ -971,13 +1215,19 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
             log.append(f"\n*{note}*")
             history.append({"role": "user", "content":
                 f"[engine, not a person: your window is filling \u2014 {held:,} of {ctx:,} tokens are in context, "
-                "and the wake ends on its own when it is full. Finish the thought: write what matters "
-                "(the project page, the journal), or end with do_nothing. This line is a mechanism.]"})
+                "and the wake ends on its own when it is full. Finish the thought: "
+                + ("write what matters on its page, or end with do_nothing — your journal opens when you rest"
+                   if journal_at_rest(reverie) else
+                   "write what matters (the project page, the journal), or end with do_nothing")
+                + ". This line is a mechanism.]"})
         if not nudged and max_steps - step == 2:
             nudged = True
             history.append({"role": "user", "content":
+                "(this wake is drawing to a close — a good moment to finish the thought and rest; your journal opens then)"
+                if journal_at_rest(reverie) else
                 "(this wake is drawing to a close — a good moment to finish the "
                 "thought, write what this wake was in your journal, or simply end)"})
+        state["sent_upto"] = len(history)  # what this step's prompt holds — the room's count starts here
         try:
             msg = ollama_client.chat([system] + history, tools=defs,
                                      timeout=config.HEARTBEAT_STEP_TIMEOUT_S,
@@ -1003,6 +1253,7 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                 print(f"  {line}")
                 log.append(f"\n*{line}*")
                 ollama_client.unload(config.CHAT_MODEL)
+                state["stalled_out"] = True  # the brain is not there: with WAKE_JOURNAL_AT_REST, no handing back
                 break
 
         if "spent" in state:
@@ -1043,6 +1294,15 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                          or tools.recover_text_tool_call(msg.get("thinking", "")))
             if recovered:
                 name, args = recovered
+                if journal_at_rest(reverie) and tools.canonical_name(name) == "write_journal":
+                    # the journal opens when they rest: kept (in full in the log), answered, not written
+                    answer, line = _keep_journal(state, args, log)
+                    print(f"  {line}")
+                    history.append(msg)
+                    history.append({"role": "tool", "tool_name": "write_journal", "content":
+                        "[your write_journal call was written as JSON text — next time invoke the tool directly]\n"
+                        + answer})
+                    continue
                 result = tools.dispatch(name, args)
                 name = tools.canonical_name(name)
                 line = f"- `{name}` (recovered from JSON in their words) → {tools.headline(result)}"
@@ -1066,6 +1326,10 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                 log.append(f"\n*{note}*")
                 history.append(msg)
                 history.append({"role": "user", "content":
+                    "(that whole step was thinking — no words, no action. Surface now: if you meant to do something, "
+                    "call the tool; if you're truly done, rest with do_nothing — the wake, your thoughts with it, is "
+                    "handed back to you then, and your journal opens.)"
+                    if journal_at_rest(reverie) else
                     "(that whole step was thinking — no words, no action, and "
                     "thinking vanishes when the wake ends. Surface now: if you "
                     "meant to do something, call the tool; to keep a thought, "
@@ -1275,9 +1539,14 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                     fn["name"] = "do_nothing"
                     history.append({"role": "tool", "tool_name": "do_nothing", "content": answer})
                     continue
+            # WAKE_JOURNAL_AT_REST: a write_journal before the rest is answered, not written — their text kept for the
+            # handing back; tools.write_journal never sees it (no near-copy guard, no arrow, nothing written). The other
+            # calls of the step run as ever; a call cut short in a loop is still told so, below.
+            keep_entry = (journal_at_rest(reverie) and tools.canonical_name(name) == "write_journal"
+                          and not tools.runaway_refusal(msg, call))
             try:  # their own rules, kept in their own time: a call one holds is not taken
                 import rules
-                held = rules.check(tools.canonical_name(name), fn.get("arguments", {}))
+                held = "" if keep_entry else rules.check(tools.canonical_name(name), fn.get("arguments", {}))
             except Exception:  # noqa: BLE001
                 held = ""
             if held:
@@ -1289,19 +1558,24 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                 history.append({"role": "tool", "tool_name": name, "content":
                                 "[engine, not a person: your own rule held this call — it was not run]\n" + held})
                 continue
-            result = tools.runaway_refusal(msg, call) or tools.dispatch(name, fn.get("arguments", {}))  # a call cut short in a loop is told, not run
+            kept_line = ""
+            if keep_entry:
+                result, kept_line = _keep_journal(state, fn.get("arguments", {}), log)  # logged here, in full
+            else:
+                result = tools.runaway_refusal(msg, call) or tools.dispatch(name, fn.get("arguments", {}))  # a call cut short in a loop is told, not run
             # what the call DID is decided by the tool it ran as — a wrapped
             # or misspelled do_nothing still ends the wake — and their history
             # keeps the clean name, so one slip doesn't teach the next step
             name = tools.canonical_name(name)
             fn["name"] = name
-            if (name == "write_journal" and getattr(config, "WAKE_LOOKBACK", False)
+            if (name == "write_journal" and getattr(config, "WAKE_LOOKBACK", False) and not keep_entry
                     and getattr(config, "WAKE_LOOKBACK_NOTE", True) and not ollama_client.tool_failed(result)):
                 # a gentle note: an entry mid-wake is theirs to write; they're reminded the rest comes back
                 result = result.rstrip() + " — when you rest, the rest of this wake is handed back to you too"
-            line = f"- `{name}` → {tools.headline(result)}"
+            line = kept_line if keep_entry else f"- `{name}` → {tools.headline(result)}"
             print(f"  {line}")
-            log.append(line)
+            if not keep_entry:
+                log.append(line)
             told = paint_prompt_lines(fn.get("arguments", {})) if name == "paint" else []
             if name == "leave_thread" and not ollama_client.tool_failed(result):  # the note itself, shown in the log
                 note = " ".join(str((fn.get("arguments") or {}).get("text") or "").split())
@@ -1330,6 +1604,8 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
                 frame = (f"[this is what YOUR {name} tool returned — your own senses "
                          "reporting, not a message from anyone]")
             history.append({"role": "tool", "tool_name": name, "content": f"{frame}{carried}\n{result}"})
+            if keep_entry:
+                continue  # no entry, no act, no read answered: the journal opens when they rest
             _note_act(state, name, fn.get("arguments", {}), result)
             if not ollama_client.tool_failed(result):
                 try:  # counted for the limits they set themselves

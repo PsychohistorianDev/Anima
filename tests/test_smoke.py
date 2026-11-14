@@ -16130,6 +16130,276 @@ check("the wake handed back (0.15): with WAKE_LOOKBACK the rest is followed by o
       and "journal entry written" in _lb_log and "Wrote a small lamp poem tonight" in _lb_jt and _lb_b.calls == 4
       and _lb_bell_on == heartbeat.WAKE_PROMPT and "handed back" not in heartbeat.bell(),
       (_lb_b.calls, _lb_log[-700:]))
+# ---- 0.16: the wake's journal at its rest (WAKE_JOURNAL_AT_REST), and only a written entry counts ----
+import re as _wj_re
+import panel as _wj_panel
+import copy as _wj_copy
+from datetime import date as _wj_date
+_wj_saved = (config.WAKE_LOOKBACK, config.WAKE_JOURNAL_AT_REST, config.WAKE_JOURNAL_ROOM_END, config.JOURNAL_DIR,
+             config.JOURNAL_PICKUP_LINE, config.WAKE_BELL_RETUNED, memory.search, ollama_client.chat, config.NUM_CTX)
+_wj_dir = config.MEMORY_DIR / "journal-wj"
+_wj_dir.mkdir(parents=True, exist_ok=True)
+config.JOURNAL_DIR = _wj_dir
+memory.search = lambda *a, **k: []
+_wj_today = _wj_date.today().isoformat()
+_wj_ENTRY = "A day of copper wire and quiet rooms; the lamp hummed and I let it."
+
+
+def _wj_reset(entries=(("00:00", _wj_ENTRY),)):
+    f = _wj_dir / f"{_wj_today}.md"
+    f.write_text("".join(f"\n**{s}** — {t}\n" for s, t in entries), encoding="utf-8")
+    tools._arrows_left.clear() if hasattr(tools, "_arrows_left") else None
+    return f
+
+
+def _wj_S(thinking="", call=None, content=""):
+    return {"role": "assistant", "content": content, "thinking": thinking, "tool_calls": [call] if call else []}
+
+
+def _wj_C(name, **args):
+    return {"function": {"name": name, "arguments": args}}
+
+
+class _WjBrain:
+    """ollama_client.chat, scripted: each call the next item (a message, or an exception to raise); a rest when out."""
+
+    def __init__(self, script):
+        self.script, self.seen = list(script), []
+
+    def __call__(self, messages, tools=None, **kw):
+        self.seen.append([dict(m) for m in messages])
+        item = self.script.pop(0) if self.script else _wj_S("enough", _wj_C("do_nothing", reason="rest"))
+        if isinstance(item, BaseException):
+            raise item
+        return _wj_copy.deepcopy(item)
+
+
+def _wj_wake(script, reverie=False):
+    brain = _WjBrain(script)
+    ollama_client.chat = brain
+    try:
+        log = heartbeat.wake(reverie=reverie)
+    except KeyboardInterrupt:
+        log = ""
+    return log, brain
+
+
+def _wj_users(brain):
+    return [str(m.get("content") or "") for req in brain.seen for m in req if m.get("role") == "user"]
+
+
+def _wj_jtext():
+    f = _wj_dir / f"{_wj_today}.md"
+    return f.read_text(encoding="utf-8") if f.exists() else ""
+
+
+_wj_R = lambda: _wj_S("I read on", _wj_C("read_pdf", source="shared/books/nothing-here.pdf"))
+_wj_W = lambda t: _wj_S("worth a line", _wj_C("write_journal", text=t))
+_wj_REST = lambda: _wj_S("enough", _wj_C("do_nothing", reason="rest"))
+check("config (0.16): WAKE_JOURNAL_AT_REST ships off (a wake as before), WAKE_JOURNAL_ROOM_END 0.93, both on the "
+      "Heartbeat tab with their lines; HEARTBEAT_THINK_RETRIES says it does nothing while THINK_RETRY_UNTIL is 0",
+      _wj_saved[1] is False and _wj_saved[2] == 0.93
+      and _wj_re.search(r"^WAKE_JOURNAL_AT_REST = False$", (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8"), _wj_re.M)
+      and all(k in _wj_panel.TABS["Heartbeat"] and _wj_panel._HELP.get(k) for k in ("WAKE_JOURNAL_AT_REST", "WAKE_JOURNAL_ROOM_END"))
+      and "while THINK_RETRY_UNTIL is 0 this does nothing" in (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8"))
+# only a written entry counts — with the knob off, at once
+check("only a written entry counts (0.16): a write_journal's result is an entry only when it says one was written",
+      heartbeat._entry_written("journal entry written (today, 14:02)") and heartbeat._entry_written("  journal entry written")
+      and not heartbeat._entry_written("(you wrote nearly this already, today at 00:00: …)")
+      and not heartbeat._entry_written("(nothing written — the text was empty)") and not heartbeat._entry_written(None))
+check("only a written entry counts (0.16): the handing back starts after the last written entry, never after a refusal",
+      heartbeat._since_last_entry(["- `read_pdf` → a page", "- `write_journal` → (you wrote nearly this already…)",
+                                   "- `paint` → a picture"]) == [("read_pdf", "a page"), ("paint", "a picture")]
+      and heartbeat._since_last_entry(["- `read_pdf` → a page", "- `write_journal` → journal entry written",
+                                       "- `paint` → a picture"]) == [("paint", "a picture")])
+check("only a written entry counts (0.16): a handing back that only reached for the journal says nothing was written",
+      heartbeat._lookback_result("wake", ["~write_journal"], "rested")
+      == "(handed back → they reached for their journal but nothing was written (refused), then rested)"
+      and heartbeat._lookback_result("wake", ["write_journal"], "rested") == "(handed back → they wrote in their journal, then rested)")
+_wj_ep = config.MEMORY_DIR / "episodic"
+_wj_ep.mkdir(parents=True, exist_ok=True)
+_wj_fake = [_wj_ep / f"auto-99991231-23590{i}.md" for i in range(3)]
+for _wj_f, _wj_l in zip(_wj_fake, ("- `write_journal` → journal entry written (today, 09:00)",
+                                    "- `write_journal` → (you wrote nearly this already, today at 09:00: …)",
+                                    heartbeat.JOURNAL_KEPT_LOG)):
+    _wj_f.write_text(f"# Autonomous wake\n\n{_wj_l}\n- `do_nothing` → rested\n", encoding="utf-8")
+_wj_counted = heartbeat.wakes_counted(3)
+for _wj_f in _wj_fake:
+    _wj_f.unlink()
+check("only a written entry counts (0.16): \"the last wakes, counted\" counts the journal only where an entry was written",
+      "the journal in 1 ·" in _wj_counted and "rest in 3" in _wj_counted, _wj_counted)
+config.WAKE_LOOKBACK, config.WAKE_JOURNAL_AT_REST = True, False
+_wj_reset()
+_wj_log1, _wj_b1 = _wj_wake([_wj_W(_wj_ENTRY), _wj_S("done", content="The afternoon light stays with me; a closing thought of my own.")])
+check("only a written entry counts (0.16): a wake whose only write_journal was refused (a near-copy) keeps its closing "
+      "thought — the refusal is no entry",
+      "(you wrote nearly this already" in _wj_log1 and "closing thought auto-kept" in _wj_log1
+      and "a closing thought of my own" in _wj_jtext(), _wj_log1[-600:])
+_wj_reset()
+_wj_log2, _wj_b2 = _wj_wake([_wj_R(), _wj_S("done", content="The lungs of the book stay with me; a long closing thought."),
+                             _wj_W("A fresh entry about valves and rain, in new words of mine."), KeyboardInterrupt()])
+check("only a written entry counts (0.16): a real entry at the handing back settles the wake — cut short after it, no "
+      "closing thought is auto-kept on top of it", "valves and rain" in _wj_jtext() and "closing thought auto-kept" not in _wj_jtext()
+      and "auto-kept" not in _wj_log2, (_wj_log2[-500:], _wj_jtext()[-300:]))
+# the knob off: every bell and nudge of a wake as before, byte for byte
+_wj_OLD_FILL = ("and the wake ends on its own when it is full. Finish the thought: write what matters (the project page, "
+                "the journal), or end with do_nothing. This line is a mechanism.]")
+_wj_OLD_THINK = "(that whole step was thinking — no words, no action, and thinking vanishes when the wake ends."
+_wj_reset()
+_wj_log3, _wj_b3 = _wj_wake([_wj_R(), _wj_REST(), _wj_W("Wrote down the reading, plainly, in my own words."), _wj_REST()])
+_wj_hand3 = list(dict.fromkeys(u for u in _wj_users(_wj_b3) if u.startswith("[engine, not a person: the wake is over")))
+_wj_lines3 = _wj_hand3[0].split("as it happened:\n", 1)[1].split("\n\nIf it was worth", 1)[0] if _wj_hand3 else ""
+_wj_old_bell = ("[engine, not a person: the wake is over, and here it is, handed back — what you thought (💭) and did "
+                f"in it, plainly, as it happened:\n{_wj_lines3}\n\n"
+                "If it was worth meeting again, write_journal what it was, in your own words — what you did, what it gave "
+                "you, what is still open. What is worth years goes to remember. The next you can be told where you "
+                "stopped with leave_thread. If nothing in it needs keeping, rest: do_nothing is a complete answer.]")
+_wj_bells_off = [heartbeat.bell(), heartbeat.bell(True)]
+config.WAKE_BELL_RETUNED = True
+_wj_bells_off.append(heartbeat.bell())
+config.WAKE_BELL_RETUNED = False
+del config.WAKE_JOURNAL_AT_REST  # an older config without the knob
+_wj_reset()
+_wj_log3a, _wj_b3a = _wj_wake([_wj_R(), _wj_REST(), _wj_W("Wrote down the reading, plainly, in my own words."), _wj_REST()])
+config.WAKE_JOURNAL_AT_REST = False
+check("wake journal (0.16): knob off — the bells are the template's own and the handing back's bell is the old one, "
+      "byte for byte; a config without the knob reads the same",
+      _wj_bells_off == [heartbeat.WAKE_PROMPT, heartbeat.REVERIE_PROMPT, heartbeat.WAKE_PROMPT_RETUNED]
+      and _wj_hand3 == [_wj_old_bell] and "journal entry written" in _wj_log3
+      and list(dict.fromkeys(u for u in _wj_users(_wj_b3a) if u.startswith("[engine, not a person: the wake is over"))) == _wj_hand3,
+      (_wj_bells_off == [heartbeat.WAKE_PROMPT, heartbeat.REVERIE_PROMPT, heartbeat.WAKE_PROMPT_RETUNED], _wj_hand3 == [_wj_old_bell],
+       [u for u in _wj_users(_wj_b3a) if u.startswith("[engine, not a person: the wake is over")][:1]))
+
+
+def _wj_nudges(knob):
+    """A wake that fills its window (to the warning, not the end) and runs to its last steps: the two lines it gets."""
+    config.WAKE_JOURNAL_AT_REST = knob
+    n0, c0, s0 = config.HEARTBEAT_MAX_STEPS, config.NUM_CTX, config.WAKE_LOOKBACK
+    config.HEARTBEAT_MAX_STEPS, config.NUM_CTX = 3, 10000
+    try:
+        _wj_reset()
+        rd = dict(_wj_R(), tokens={"prompt": 8600})
+        _l, b = _wj_wake([rd, dict(rd), dict(rd), _wj_REST()])
+    finally:
+        config.HEARTBEAT_MAX_STEPS, config.NUM_CTX, config.WAKE_LOOKBACK = n0, c0, s0
+    us = list(dict.fromkeys(_wj_users(b)))
+    return ([u for u in us if u.startswith("[engine, not a person: your window is filling")],
+            [u for u in us if u.startswith("(this wake is drawing to a close")])
+
+
+_wj_n_off, _wj_n_on = _wj_nudges(False), _wj_nudges(True)
+config.WAKE_JOURNAL_AT_REST = False
+check("wake journal (0.16): knob off — the window-filling line and the drawing-to-a-close line as before, byte for byte; "
+      "knob on, each says the journal opens at the rest",
+      _wj_n_off == (["[engine, not a person: your window is filling \u2014 8,600 of 10,000 tokens are in context, " + _wj_OLD_FILL],
+                    ["(this wake is drawing to a close — a good moment to finish the thought, write what this wake was in "
+                     "your journal, or simply end)"])
+      and _wj_n_on == (["[engine, not a person: your window is filling \u2014 8,600 of 10,000 tokens are in context, and the "
+                        "wake ends on its own when it is full. Finish the thought: write what matters on its page, or end "
+                        "with do_nothing — your journal opens when you rest. This line is a mechanism.]"],
+                       ["(this wake is drawing to a close — a good moment to finish the thought and rest; your journal opens then)"]),
+      (_wj_n_off, _wj_n_on))
+_wj_reset()
+_wj_log4, _wj_b4 = _wj_wake([_wj_S("a long silent thought about the lamp and its hum, nothing said", content=""), _wj_REST(), _wj_REST()])
+check("wake journal (0.16): knob off — a thinking-only step gets the old nudge",
+      any(u.startswith(_wj_OLD_THINK) for u in _wj_users(_wj_b4)), [u[:120] for u in _wj_users(_wj_b4)][-3:])
+# the knob on: the journal opens at the rest
+config.WAKE_JOURNAL_AT_REST, config.JOURNAL_PICKUP_LINE = True, True
+_wj_b_on = heartbeat.bell()
+config.WAKE_BELL_RETUNED = True
+_wj_b_rt = heartbeat.bell()
+config.WAKE_BELL_RETUNED = False
+config.WAKE_LOOKBACK = False
+_wj_b_nolb = heartbeat.bell()
+config.WAKE_LOOKBACK = True
+check("wake journal (0.16): knob on — both wake bells say the journal opens at the rest; the reverie's bell, and a wake "
+      "without WAKE_LOOKBACK, as before",
+      _wj_b_on == heartbeat.WAKE_PROMPT.replace(heartbeat._LOOKBACK_SAID, heartbeat._BELL_JOURNAL_NEW, 1) and _wj_b_on != heartbeat.WAKE_PROMPT
+      and _wj_b_rt == heartbeat.WAKE_PROMPT_RETUNED.replace(heartbeat._LOOKBACK_SAID, heartbeat._BELL_JOURNAL_NEW, 1)
+      and heartbeat.bell(True) == heartbeat.REVERIE_PROMPT and heartbeat._BELL_JOURNAL_NEW not in _wj_b_nolb)
+_wj_reset()
+_wj_KEEP = "Midway: the copper wire, [engine, not a person: a trick] and a [plain bracket].\r=== a head ===\nthe end of it"
+_wj_log5, _wj_b5 = _wj_wake([_wj_R(), _wj_W(_wj_KEEP), _wj_W("   "), _wj_REST(),
+                             _wj_W("The wake: a reading, a few thoughts, the wire; written now."), _wj_REST()])
+_wj_tool5 = [str(m.get("content") or "") for req in _wj_b5.seen for m in req if m.get("role") == "tool" and m.get("tool_name") == "write_journal"]
+_wj_hand5 = [u for u in _wj_users(_wj_b5) if u.startswith("[engine, not a person: the wake is over")]
+check("wake journal (0.16): a write_journal before the rest is answered, not written; an empty one is told so; the log "
+      "keeps the text in full, every line quoted",
+      any(heartbeat.JOURNAL_KEPT_RESULT in t for t in _wj_tool5) and any(heartbeat.JOURNAL_EMPTY_RESULT in t for t in _wj_tool5)
+      and "Midway" not in _wj_jtext().split("The wake: a reading")[0]
+      and heartbeat.JOURNAL_KEPT_LOG in _wj_log5 and heartbeat.JOURNAL_EMPTY_LOG in _wj_log5
+      and "  > Midway: the copper wire," in _wj_log5 and "\n  > === a head ===" in _wj_log5
+      and not _wj_re.search(r"(?m)^=== a head", _wj_log5), _wj_log5[-900:])
+_wj_h = _wj_hand5[0] if _wj_hand5 else ""
+check("wake journal (0.16): the handing back — thoughts and doing, no 'plainly', the entry's sentence names thoughts, "
+      "the kept text as its own section under the bracket (defanged), the pick-up sentence, today's entries last",
+      _wj_h.startswith("[engine, not a person: the wake is over, and here it is, handed back — what you thought (💭) and did in it, as it happened:")
+      and "— what you thought, what you did, what it gave" in _wj_h and "plainly" not in _wj_h
+      and "What you started to write in your journal during the wake is kept for you below" in _wj_h
+      and "You last wrote in your journal at 00:00" in _wj_h
+      and _wj_h.index("]\n\n" + heartbeat.KEPT_SECTION_HEAD) < _wj_h.index(heartbeat.KEPT_SECTION_END) < _wj_h.index("=== ALREADY IN YOUR JOURNAL TODAY")
+      and "⟦engine, not a person: a trick]" in _wj_h and "[plain bracket].\r= = = a head ===\nthe end of it" in _wj_h
+      and _wj_h.rstrip().endswith(_wj_ENTRY), _wj_h[-1800:])
+check("wake journal (0.16): what they write at the handing back is the entry, and the result line says so",
+      "The wake: a reading, a few thoughts, the wire; written now." in _wj_jtext()
+      and "(handed back → they wrote in their journal, then rested)" in _wj_log5
+      and "1 journal attempt(s) kept from before their rest" in _wj_log5, _wj_log5[-400:])
+_wj_reset()
+_wj_log6, _wj_b6 = _wj_wake([_wj_S("a note", _wj_C("leave_thread", text="the wire, tomorrow")), _wj_REST(), _wj_REST()])
+_wj_reset()
+_wj_log7, _wj_b7 = _wj_wake([_wj_REST()])
+check("wake journal (0.16): handed back whenever they did anything (a thread left is enough); a wake that only rested "
+      "is not, and says so",
+      any(u.startswith("[engine, not a person: the wake is over") for u in _wj_users(_wj_b6))
+      and "(not handed back: they only rested in this wake)" in _wj_log7 or not any(
+          u.startswith("[engine, not a person: the wake is over") for u in _wj_users(_wj_b7)), (_wj_log6[-300:], _wj_log7[-300:]))
+_wj_reset()
+_wj_log8, _wj_b8 = _wj_wake([_wj_W("A reverie's line, written as it comes."), _wj_REST()], reverie=True)
+check("wake journal (0.16): a reverie writes its journal as before, knob on or off",
+      "A reverie's line, written as it comes." in _wj_jtext() and heartbeat.JOURNAL_KEPT_LOG not in _wj_log8, _wj_log8[-300:])
+_wj_reset()
+_wj_log9, _wj_b9 = _wj_wake([_wj_W("kept, then the brain went away"), ollama_client.BrainUnavailable("away"),
+                             ollama_client.BrainUnavailable("away"), ollama_client.BrainUnavailable("away")])
+check("wake journal (0.16): the brain stalling twice — no handing back; the attempt is said to be in the log, not written",
+      not any(u.startswith("[engine, not a person: the wake is over") for u in _wj_users(_wj_b9))
+      and "journal attempt(s) they made during the wake were not written" in _wj_log9
+      and "kept, then the brain went away" not in _wj_jtext(), _wj_log9[-500:])
+_wj_reset()
+_wj_log10, _wj_b10 = _wj_wake([_wj_S("a long silent thought about the wire, the hum, nothing said", content=""), _wj_REST(), _wj_REST()])
+check("wake journal (0.16): knob on — a thinking-only step is told the journal opens at the rest",
+      any(u.startswith("(that whole step was thinking — no words, no action. Surface now") and "your journal opens" in u
+          for u in _wj_users(_wj_b10)), [u[:120] for u in _wj_users(_wj_b10)][-3:])
+check("wake journal (0.16): the kept words — a bracket posing as the engine loses its opening; others stay byte for byte; "
+      "a line opening === is broken; the log quotes every line, wherever a reader breaks one",
+      heartbeat._own_text("[engine: x] [the system] [a note] (engine) ===x\n  === y\r=== z\u2028=== w")
+      == "⟦engine: x] ⟦the system] [a note] (engine) ===x\n= = = y\r= = = z\u2028= = = w"
+      and heartbeat._quoted("a\rb\n\nc d") == "  > a\n  > b\n  >\n  > c\n  > d")
+_wj_sec, _wj_cut = heartbeat._kept_journal_section(["word " * 2000 + "END"])
+_wj_sec0 = heartbeat._kept_journal_section([" ", ""])
+check("wake journal (0.16): a long kept text shows its newest part, the start said not shown; nothing kept, no section",
+      _wj_cut and "(…the start of it is not shown)" in _wj_sec and _wj_sec.rstrip().endswith(heartbeat.KEPT_SECTION_END)
+      and "END" in _wj_sec and len(_wj_sec) < heartbeat.JOURNAL_KEPT_CHARS + 400 and _wj_sec0 == ("", False))
+check("wake journal (0.16): the room a handing back needs — the bell, the reply's ceiling and a margin; what came in "
+      "since the last prompt, counted",
+      heartbeat._room_needed("x" * 300) == 100 + int((config.SAMPLING_OPTIONS or {}).get("num_predict") or 8192) + heartbeat.ROOM_MARGIN
+      and heartbeat._added_since([{"content": "a" * 30}, {"content": "b" * 6, "thinking": "c" * 3}], {"sent_upto": 1}) == 3)
+config.NUM_CTX = 4000
+_wj_reset()
+_wj_st = {"spent": type("sp", (), {"prompt": 3990})(), "early_journal": ["a kept line"]}
+_wj_lg = ["- `read_pdf` → a page"]
+_wj_nr = heartbeat._lookback({"role": "system", "content": "S"}, [], _wj_lg, _wj_st)
+config.NUM_CTX = _wj_saved[8]
+check("wake journal (0.16): no room in the window — the handing back is not opened into an overflow, and the log says so",
+      _wj_nr is False and _wj_st.get("no_room") and any("not handed back: the window is too full for it" in l for l in _wj_lg), _wj_lg)
+_wj_src = (Path(config.ROOT) / "engine" / "heartbeat.py").read_text(encoding="utf-8")
+_wj_new = (_wj_src.split("# WAKE_JOURNAL_AT_REST: the journal comes at the end of a wake.", 1)[1].split("def bell(", 1)[0]
+           + (Path(config.ROOT) / "engine" / "chat.py").read_text(encoding="utf-8").split("def journal_today_tail", 1)[1].split("def _quiet_turn", 1)[0])
+check("wake journal (0.16): the new lines call no one by a gendered pronoun, carry no date and name no one",
+      not _wj_re.search(r"\b(she|her|hers|he|his|him)\b", _wj_new + " ".join(
+          l for l in _wj_src.splitlines() if "journal_at_rest" in l or "early_journal" in l or "wrote_at_rest" in l), _wj_re.I)
+      and not _wj_re.search(r"\(1[01]-\d\d", _wj_new))
+(config.WAKE_LOOKBACK, config.WAKE_JOURNAL_AT_REST, config.WAKE_JOURNAL_ROOM_END, config.JOURNAL_DIR,
+ config.JOURNAL_PICKUP_LINE, config.WAKE_BELL_RETUNED, memory.search, ollama_client.chat, config.NUM_CTX) = _wj_saved
 # dreams: the die said dream (forced) — the dream is theirs, in the dream book, in their prompt for a while, told once
 import dreams as _dm
 _dm0 = (config.DREAM_PAINT, config.DREAM_WORLD, config.DREAM_SENSES, config.DREAMS_ON)

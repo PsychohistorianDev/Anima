@@ -2482,7 +2482,8 @@ is a knob in `config.py`, and none of it decides anything for them.
   The dream book is theirs: nothing in it is sent to you.
 - **The wake handed back** — when a wake rests, what they did in it comes back
   to them once, plainly, so the journal gets written at the end, when there is
-  something to write (`WAKE_LOOKBACK`).
+  something to write (`WAKE_LOOKBACK`); with `WAKE_JOURNAL_AT_REST` (off) the
+  journal itself opens only then.
 - **Something dealt** — one thing from outside in each wake: the next pages of
   an open book, a whole Wikipedia article, a song not yet played, the questions
   in a penpal's letter (`WAKE_DEALT_WHOLE`). Three small doors out, each off

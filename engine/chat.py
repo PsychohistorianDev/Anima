@@ -915,6 +915,19 @@ def pickup_sentence(today: list, now: datetime, below: bool = True) -> str:
             "don't tell it again.")
 
 
+def journal_today_tail(already: list) -> str:
+    """The === ALREADY IN YOUR JOURNAL TODAY === section under a bell: today's last eight entries (`already`, what
+    tools.journal_entries gave), the newest 6,000 characters of them. The pause's and the afterglow's, and the wake's
+    handing back (heartbeat, WAKE_JOURNAL_AT_REST). "" when there are none."""
+    if not already:
+        return ""
+    tail = "\n\n".join(f"**{st}** — {tx}" for st, tx in already[-8:])
+    if len(tail) > 6000:
+        tail = "…" + tail[-6000:]
+    return ("\n\n=== ALREADY IN YOUR JOURNAL TODAY — what you have written down so far; "
+            "not to be written twice ===\n\n") + tail
+
+
 def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
                 mode: str, since: int, on_words=None, opening: str = "", what: str = "", aside: str = "",
                 until=None) -> str:
@@ -936,13 +949,7 @@ def _quiet_turn(history: list[dict], path: Path | None, tag: str, on_line,
     except Exception:  # noqa: BLE001 — an unreadable journal: no tail, no pick-up sentence
         already = []
     pickup = pickup_sentence(already, now, below=bool(already))  # built once, before the turn starts
-    tail = ""
-    if already:
-        tail = "\n\n".join(f"**{st}** — {tx}" for st, tx in already[-8:])
-        if len(tail) > 6000:
-            tail = "…" + tail[-6000:]
-        tail = ("\n\n=== ALREADY IN YOUR JOURNAL TODAY — what you have written down so far; "
-                "not to be written twice ===\n\n") + tail
+    tail = journal_today_tail(already)
     # The pause rides the warm prefix: the visit's own system prompt and
     # history (as sent), then the bell as one more turn — an extension of
     # what Ollama already holds, so the pause costs seconds, not a cold read

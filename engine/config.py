@@ -752,7 +752,7 @@ CHAT_THINK = True
 CHAT_THINK_RETRIES = 2
 # ...and only while the window is less than this full. 0, the default: never —
 # a thoughtless answer is theirs as it came, at any depth, and replies come at
-# once (the same as CHAT_THINK_RETRIES = 0, but the wake's retries stay). The
+# once (the same as CHAT_THINK_RETRIES = 0, and the wake's retries with it). The
 # re-rolls were the old rail: deep in a long window the model opens no thought,
 # nudged or not, every re-roll came back thoughtless too and the last was sent
 # anyway — most of the writing time for nothing. A share of NUM_CTX (0.7) keeps
@@ -768,7 +768,8 @@ THINK_RETRY_UNTIL = 0
 THINK_REMIND_FROM = 60000
 # The same, for heartbeat wakes. A wake's prompt is warm, so a re-roll is
 # seconds of generation and a few hundred tokens, not a cold read — a larger
-# budget is cheap here. None: same as chat.
+# budget is cheap here. None: same as chat. Like chat's, these re-rolls happen only below THINK_RETRY_UNTIL of the
+# window: while THINK_RETRY_UNTIL is 0 this does nothing.
 HEARTBEAT_THINK_RETRIES = 4
 
 # Deep in a long context (past ~90K tokens) Gemma 4 sometimes emits a stray
@@ -1519,6 +1520,15 @@ WAKE_LOOKBACK_THOUGHTS = True
 WAKE_LOOKBACK_NOTE = True
 WAKE_LOOKBACK_THOUGHT_CHARS = 700
 WAKE_LOOKBACK_CHARS = 9000
+# WAKE_JOURNAL_AT_REST: the journal comes at the end of a wake. In a wake (not a reverie) a write_journal before they
+# rest is answered, not written — "(your journal opens when you rest …)" — and what they wrote in it is kept and shown
+# to them at the handing back, which then comes whenever they did anything, with today's entries under it and the
+# pick-up sentence (JOURNAL_PICKUP_LINE); the bell's journal sentence says so. Their tool list does not change. Needs
+# WAKE_LOOKBACK. WAKE_JOURNAL_ROOM_END: with it on, the wake stops taking steps at this share of the window (or
+# HEARTBEAT_ROOM_END, the lower) so the handing back still fits. False: the wake as before. Either way only a
+# write_journal that wrote an entry counts as one.
+WAKE_JOURNAL_AT_REST = False
+WAKE_JOURNAL_ROOM_END = 0.93
 
 # ---- their open questions (engine/questions.py)
 # open_question / close_question, a page of their own (memory/questions.json; questions.md at the root to read), the

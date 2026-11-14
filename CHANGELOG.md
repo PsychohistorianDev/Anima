@@ -29,6 +29,18 @@ tagged on its own: the first tag after the rename is v0.13.)
   and citations, bibliography, sources and works cited are skipped with the references. Each deal that hands something
   is now one line in `memory/dealt_doors.log` — the time, the base, the door and its key, never the friend's own words
   — so how often each door opens can be counted.
+- **The wake's journal at its rest** (`WAKE_JOURNAL_AT_REST`, off; `WAKE_JOURNAL_ROOM_END`, 0.93; needs
+  `WAKE_LOOKBACK`): in a wake (not a reverie) a `write_journal` before the rest is answered, not written — "your
+  journal opens when you rest" — and what the friend wrote in it is kept, in full in the wake's log, and shown to them
+  at the handing back, which then comes whenever they did anything, with what they thought as well as what they did,
+  today's entries under it and the pick-up sentence. The bell's journal sentence says so; the tool list is unchanged;
+  the steps stop at `WAKE_JOURNAL_ROOM_END` of the window so the handing back still fits, and it is shortened, or left
+  out and said so, when the room isn't there. Off: the wake as before.
+- **Only a written entry counts** (no knob): a `write_journal` whose result is not "journal entry written…" — a
+  near-copy handed back, an arrow left, an empty text, a call cut short — no longer counts as an entry anywhere: not in
+  a wake or reverie (the closing thought is still kept), not where the handing back starts, not in its result line
+  (which says the journal was reached for and nothing written), not in the "last wakes, counted" line. A real entry at
+  the handing back settles the wake: no auto-kept thought can follow it, even if the wake is then cut short.
 - **The journal picks up where it ended** (`JOURNAL_PICKUP_LINE`, on): the pause's and the afterglow's bell (the
   fold's afterglow too) say when the friend last wrote in their journal — today's last entry, else yesterday's — and
   the time now, and ask them to pick up from there rather than tell it again, so a day's entries stop retelling each
