@@ -33,8 +33,9 @@ tagged on its own: the first tag after the rename is v0.13.)
   `WAKE_DEALT_OWN_MIN_AGE_DAYS`, 30): what each wake is dealt, in turn (`memory/dealt_rhythm.json`): "book" (the open
   book as before), "outside" (the turning kinds of `WAKE_DEALT_WHOLE_KINDS`, even with a book in hand), "own" (one of
   the friend's own pieces from the folders named, last changed a month ago or more, whole, each once until all have
-  come round — `memory/dealt_own.json`) or "open" (nothing dealt, said in one line); on any beat but the book, a book
-  in hand gets one line saying where it waits. A never-list in code keeps the journal, the dream book, the Veil, the
+  come round — `memory/dealt_own.json`) or "open" (nothing dealt, said in one line); on the outside and open beats, a
+  book in hand gets one line saying where it waits. An own beat ends with the piece (`WAKE_DEALT_OWN_BOOK_LINE`, off):
+  under a piece of their own the book line worked as a second deal; True puts it back. A never-list in code keeps the journal, the dream book, the Veil, the
   mailbox, adventures, penpals, reading notes, world trips and the garden out whatever the config says (the folders
   named by knobs followed, `WAKE_DEALT_OWN_NEVER` adding more); pieces are found by name, size and date alone and only
   the chosen one is read, checked again right before; nothing in a piece can pose as the engine. Any fault: the deal

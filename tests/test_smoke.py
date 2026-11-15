@@ -20724,7 +20724,7 @@ import re as _rh_re
 import time as _rh_time
 _rh_knobs = ("WAKE_DEALT_RHYTHM", "WAKE_DEALT_OWN_DIRS", "WAKE_DEALT_OWN_NEVER", "WAKE_DEALT_OWN_MIN_AGE_DAYS",
              "WAKE_DEALT_WHOLE_KINDS", "WAKE_DEALT_BOOK_FIRST", "WAKE_DEALT_THREAD", "WAKE_DEALT_WONDERINGS",
-             "WAKE_DEALT_QUESTION_BESIDE", "ADVENTURE_DIR", "CREATIONS_DIR", "OFFLINE")
+             "WAKE_DEALT_QUESTION_BESIDE", "ADVENTURE_DIR", "CREATIONS_DIR", "OFFLINE", "WAKE_DEALT_OWN_BOOK_LINE")
 _rh_saved = {k: getattr(config, k) for k in _rh_knobs}
 _rh_stubs = (_rh_dealt.book_next, _rh_dealt.song)
 _rh_mem = [config.MEMORY_DIR / n for n in ("dealt_rhythm.json", "dealt_own.json", "dealt_doors.log", "dealt_turn.json")] \
@@ -20800,6 +20800,7 @@ config.WAKE_DEALT_RHYTHM = ("book", "own", "book", "outside", "book", "open")
 config.WAKE_DEALT_OWN_DIRS = ("poems",)
 for _rh_i in range(3):
     _rh_piece(f"poems/p{_rh_i}.md", f"Poem {_rh_i}: the lamp, the wire, the long hall.\n")
+config.WAKE_DEALT_OWN_BOOK_LINE = True  # the line under their own piece, as before: the turn's older check below
 _rh_texts = [_rh_dealt.deal_whole(_rh_random.Random(_rh_i)) for _rh_i in range(12)]
 _rh_BL = "(Your book is where you left it — “The Halls”, page 12 of 300; read_pdf opens it.)"
 _rh_OPEN = "[engine, not a person: nothing is dealt this wake — the hour is open. Your book is where you left it — “The Halls”, page 12 of 300.]"
@@ -20813,6 +20814,56 @@ check("rhythm (0.16): a book beat is the book as before; an own beat one piece w
                                + _rh_re.escape(_rh_BL), t) for t in _rh_texts[1::6])
       and all(t.startswith(_rh_dd.HEAD + "a song you haven't played yet") and t.endswith("\n\n" + _rh_BL) for t in _rh_texts[3::6])
       and all(t == _rh_OPEN for t in _rh_texts[5::6]), _rh_texts[:2])
+# WAKE_DEALT_OWN_BOOK_LINE (0.16, off): an own beat ends with the piece; the outside and open beats keep their line
+_rh_song_any = lambda t: _rh_re.sub(r"shared/music/s\d+\.mp3", "shared/music/SONG.mp3", t)  # songs played stay played
+_rh_logs = {}
+for _rh_v in (False, True, None):
+    _rh_fresh()
+    for _rh_i in range(3):
+        _rh_piece(f"poems/p{_rh_i}.md", f"Poem {_rh_i}: the lamp, the wire, the long hall.\n")
+    if _rh_v is None:
+        del config.WAKE_DEALT_OWN_BOOK_LINE  # an older config without the knob
+    else:
+        config.WAKE_DEALT_OWN_BOOK_LINE = _rh_v
+    _rh_logs[_rh_v] = ([_rh_song_any(_rh_dealt.deal_whole(_rh_random.Random(_rh_i))) for _rh_i in range(12)],
+                       {_rh_p.name: (_rh_p.read_bytes() if _rh_p.exists() else None) for _rh_p in _rh_mem[:2]})
+_rh_off = _rh_logs[False][0]
+check("own book line (0.16): off — an own beat ends with the piece, no line where the book waits; the book, outside and "
+      "open beats, the order and the pieces' turn exactly as with the line on",
+      all(_rh_re.fullmatch(_rh_re.escape(_rh_dd.HEAD) + r"one of your own — creations/poems/p\d\.md, as you left it on "
+                           r"\d{1,2} [A-Z][a-z]+( \d{4})?:\n\nPoem \d: the lamp, the wire, the long hall\.", t) for t in _rh_off[1::6])
+      and all(_rh_BL not in t for t in _rh_off[1::6])
+      and [t for i, t in enumerate(_rh_off) if i % 6 != 1] == [t for i, t in enumerate(_rh_logs[True][0]) if i % 6 != 1]
+      and [t.replace("\n\n" + _rh_BL, "") for t in _rh_logs[True][0]] == [t.replace("\n\n" + _rh_BL, "") for t in _rh_off]
+      and _rh_logs[False][1] == _rh_logs[True][1], _rh_off[:2])
+check("own book line (0.16): True, or a config without the knob — every deal of the turn and the rhythm's files as before",
+      _rh_logs[True] == _rh_logs[None] and _rh_logs[True][0] == [_rh_song_any(t) for t in _rh_texts], [t[-80:] for t in _rh_logs[True][0][:2]])
+config.WAKE_DEALT_OWN_BOOK_LINE = False
+_rh_fresh()
+_rh_piece("poems/a.md", "a poem")
+_rh_dd_kinds = config.WAKE_DEALT_WHOLE_KINDS
+_rh_fall = {}
+for _rh_b, _rh_on in (("book", False), ("outside", True)):
+    _rh_book["on"] = _rh_on
+    config.WAKE_DEALT_WHOLE_KINDS = ("wiki",)  # offline: nothing from outside
+    config.WAKE_DEALT_RHYTHM = (_rh_b,)
+    _rh_fall[_rh_b] = _rh_dealt.deal_whole(_rh_random.Random(1))
+config.WAKE_DEALT_WHOLE_KINDS = _rh_dd_kinds
+_rh_book["on"] = True
+(_rh_C / "poems" / "a.md").unlink(missing_ok=True)
+check("own book line (0.16): a book or outside beat falling to one of their own pieces — the piece without the line",
+      all("one of your own" in t and _rh_BL not in t for t in _rh_fall.values()), {k: v[-120:] for k, v in _rh_fall.items()})
+config.WAKE_DEALT_RHYTHM = ("book", "own", "book", "outside", "book", "open")
+_rh_fresh()
+for _rh_i in range(3):
+    _rh_piece(f"poems/p{_rh_i}.md", f"Poem {_rh_i}: the lamp, the wire, the long hall.\n")
+_rh_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+check("own book line (0.16): ships off, on the panel after WAKE_DEALT_OWN_MIN_AGE_DAYS with help; the comment names no one",
+      _rh_saved["WAKE_DEALT_OWN_BOOK_LINE"] is False and _rh_re.search(r"^WAKE_DEALT_OWN_BOOK_LINE = False$", _rh_cfg, _rh_re.M)
+      and _gm_panel.TABS["Heartbeat"].index("WAKE_DEALT_OWN_BOOK_LINE") == _gm_panel.TABS["Heartbeat"].index("WAKE_DEALT_OWN_MIN_AGE_DAYS") + 1
+      and _gm_panel._HELP.get("WAKE_DEALT_OWN_BOOK_LINE")
+      and not _rh_re.search(r"\b(she|her|hers|he|his|him)\b", (Path(config.ROOT) / "engine" / "dealt_doors.py").read_text(
+          encoding="utf-8").split("WAKE_DEALT_OWN_BOOK_LINE", 1)[1][:200], _rh_re.I))
 check("rhythm (0.16): the month is named from an English table, whatever the locale",
       all(any(m in t for m in _rh_dd.MONTHS) for t in _rh_texts[1::6]))
 _rh_fresh()

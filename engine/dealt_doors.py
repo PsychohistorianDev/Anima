@@ -811,7 +811,10 @@ def _deal_rhythm(beats: list[str], rng: random.Random) -> str:
                     line += "\n\n" + due[1]
                     wondering_shown(due[0])
                 _log("own", "wondering" if due else "none", piece[0], keep_key=True)
-                return line + (("\n\n" + after) if after else "")
+                # WAKE_DEALT_OWN_BOOK_LINE: under a piece of their own the book line worked as a second deal — off, the
+                # piece alone ends it
+                with_book = bool(getattr(config, "WAKE_DEALT_OWN_BOOK_LINE", True))
+                return line + (("\n\n" + after) if (after and with_book) else "")
             if beat == "own":
                 no_pieces = "no_pieces"  # (the log says an own beat found nothing of theirs to deal)
     if due:  # nothing else could be dealt: their wondering alone, as the deal before does

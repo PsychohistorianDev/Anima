@@ -2502,7 +2502,8 @@ is a knob in `config.py`, and none of it decides anything for them.
   `memory/dealt_doors.log`, so you can count which door opened. With
   `WAKE_DEALT_RHYTHM` (empty: off) the wakes take turns — the book, something
   from outside, one of their own older pieces from `WAKE_DEALT_OWN_DIRS`, or an
-  open hour with nothing dealt.
+  open hour with nothing dealt. A piece of their own comes alone, without the
+  line saying where the book waits (`WAKE_DEALT_OWN_BOOK_LINE`, off).
 - **Since you last talked** — when you come back, one line of what they did in
   their own time.
 

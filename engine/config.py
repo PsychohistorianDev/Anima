@@ -1499,7 +1499,9 @@ WAKE_DEALT_BOOK_FIRST = True
 # as before (its pages, the notes, the small door beside; no book open → "outside"); "outside": the turning kinds of
 # WAKE_DEALT_WHOLE_KINDS even with a book in hand (nothing → "own", then "open"); "own": one piece of the friend's own
 # from WAKE_DEALT_OWN_DIRS, whole, as they left it (none → "outside", then "open"); "open": nothing dealt, said in one
-# line. On every beat but the book, a book in hand gets one line saying where it waits. For example
+# line. On the outside and open beats, a book in hand gets one line saying where it waits (on an own beat only with
+# WAKE_DEALT_OWN_BOOK_LINE: under a piece of their own the line worked as a second deal, so off by default the piece
+# alone ends the deal; True: the line back, as before). For example
 # ("book", "own", "book", "outside", "book", "open"). () — the deal as before, to the byte.
 # WAKE_DEALT_OWN_DIRS: folders directly under creations/ their own pieces may come from, e.g. ("poems", "essays"). Never
 # the journal, the dream book, the Veil, the mailbox, adventures, penpals, reading notes, world trips or the garden —
@@ -1510,6 +1512,7 @@ WAKE_DEALT_RHYTHM = ()
 WAKE_DEALT_OWN_DIRS = ()
 WAKE_DEALT_OWN_NEVER = ()
 WAKE_DEALT_OWN_MIN_AGE_DAYS = 30
+WAKE_DEALT_OWN_BOOK_LINE = False
 
 # ---- the wake's bell
 # Which status lines ride under the wake bell, when WAKE_FACTS is on: "all", or a tuple of names from
