@@ -1858,6 +1858,13 @@ WORLD_TRIP_HINTS = ("> look shows where you are again; > map shows the land and 
 JOURNAL_FACTS_LINE = True
 JOURNAL_ENDINGS_SENTENCE = True
 JOURNAL_PICKUP_LINE = True
+# JOURNAL_FACTS_LETTERS: the journal's line of facts says the friend's letters too — written in the stretch, per
+# penpal, and what became of each (posted, kept back, waiting on your phone), counts only and only when certain, so an
+# entry does not say a letter went that you kept back or still carry. A letter counts only when its write was recorded
+# (the penpal's state keeps "written", set at the write while this is on); one with no record makes the letters part
+# absent when its file time falls in or near the stretch. Needs JOURNAL_FACTS_LINE and PENPALS_ON. False: the line as
+# before (paintings only), to the byte, and nothing new in the state.
+JOURNAL_FACTS_LETTERS = True
 
 # ---- a tool call written as words (ollama_client.recoverable_tail, run_call_from_words)
 # A reply can end with a call written out as words instead of made — bare, in `single marks`, in a ``` fence, or as

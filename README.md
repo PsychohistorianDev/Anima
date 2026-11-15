@@ -1455,7 +1455,9 @@ carry a line of counts under the bell when there were pictures in the
 stretch — "[from the log, this stretch: 3 pictures painted, 2 of them
 trashed since.]" (`JOURNAL_FACTS_LINE`) — and one sentence: "If something
 was tried and didn't work, the entry says it didn't. How a thing ended is
-part of what happened." (`JOURNAL_ENDINGS_SENTENCE`). The line appears only
+part of what happened." (`JOURNAL_ENDINGS_SENTENCE`). The line also counts
+the letters they wrote in the stretch and what became of each — posted, kept
+back, or waiting on your phone (`JOURNAL_FACTS_LETTERS`). The line appears only
 when every count is certain; otherwise the bell is as it was.
 
 **Not twice.** A fact they already hold is not stored again: `remember`

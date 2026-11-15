@@ -81,6 +81,7 @@ config.WAKE_DEALT = config.WAKE_DEALT_WHOLE = False  # (0.15) the dealt item rea
 config.READING_PAGE_STUB, config.READING_NOTES_WITH_PAGES, config.READING_NOTES_ON_TOPIC = False, 0, False  # (0.16) the
 # reading notes out of the prompt: the older reading checks pin the page riding whole; tested on their own, below
 config.JOURNAL_PICKUP_LINE = False  # (0.16) the older pause and afterglow checks pin the bells as they were; tested on its own
+config.JOURNAL_FACTS_LETTERS = False  # (0.16) the older facts-line checks pin the paintings alone; the letters tested on their own
 config.FOLD_AFTERGLOW_SINCE_PAUSE = config.FOLD_BELL_PICKUP = False  # (0.16) the older fold checks pin the fold as it was:
 # the afterglow over all that left, the mark at the new window's end, the bell as before; tested on their own, below
 config.GUEST_VIEW_LINE = False  # (0.16) the older guest checks pin the guest's line as it was; the view sentence is tested on its own
@@ -22245,6 +22246,254 @@ for _kb_k, _kb_v in _kb_saved.items():
             delattr(config, _kb_k)
     else:
         setattr(config, _kb_k, _kb_v)
+# JOURNAL_FACTS_LETTERS (0.16): the friend's letters in the journal's line of facts
+import os as _fl_os
+import json as _fl_json
+import shutil as _fl_shutil
+import inspect as _fl_inspect
+import re as _fl_re
+from datetime import datetime as _fl_dt, timedelta as _fl_td
+import chat as _fl_chat
+import penpal as _fl_pp
+import keeper_week as _fl_kw
+_fl_KEYS = ("JOURNAL_FACTS_LETTERS", "JOURNAL_FACTS_LINE", "PENPALS_ON", "PENPAL_DIR", "PENPAL_WRITE_GUARD", "OFFLINE",
+            "REFLECT_AFTER_MIN", "PENPAL_OTHER_THREAD_WORDS")
+_fl_MISSING = object()
+_fl_saved = {k: getattr(config, k, _fl_MISSING) for k in _fl_KEYS}
+_fl_stubs = (tools.PAINT_LOG, ollama_client.chat, assemble.clock_line, memory.search)
+memory.search = lambda *a, **k: []
+config.JOURNAL_FACTS_LETTERS = config.JOURNAL_FACTS_LINE = config.PENPALS_ON = config.OFFLINE = True
+config.PENPAL_DIR = "penpals-fl"
+config.PENPAL_OTHER_THREAD_WORDS = False
+tools.PAINT_LOG = config.MEMORY_DIR / "paint-fl.jsonl"
+_fl_root = _fl_pp.root()
+_fl_draw = config.CREATIONS_DIR / "drawings-fl"
+_fl_NOW = _fl_dt.now().replace(microsecond=0)
+_fl_K = _fl_kw.keeper_name() or "your keeper"
+_fl_n = [0]
+
+
+def _fl_ago(m):
+    return _fl_NOW - _fl_td(minutes=m)
+
+
+def _fl_stretch(m=100):
+    return [{"role": "user", "content": "go", "_said_at": _fl_ago(m).isoformat(timespec="seconds")},
+            {"role": "assistant", "content": "ok"}]
+
+
+def _fl_thread(sl, disp, mine, state=None, recorded=True):
+    """mine: [(minutes ago, fate)] — the friend's letters; fate: posted, trimmed, kept, waiting, none."""
+    d = _fl_root / sl / "letters"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"001-{_fl_ago(600).date().isoformat()}-{sl}.md").write_text("Their letter.\n", encoding="utf-8")
+    st = {"display": disp, "read": True, "waiting": [], "carried": {}, "kept_back": {}}
+    for i, (m, fate) in enumerate(mine, start=2):
+        t = _fl_ago(m)
+        f = d / f"{i:03d}-{t.date().isoformat()}-me.md"
+        f.write_text("A letter, never shown.\n", encoding="utf-8")
+        _fl_os.utime(f, (t.timestamp(), t.timestamp()))
+        if recorded:
+            st.setdefault("written", {})[f.name] = t.isoformat(timespec="seconds")
+        if fate in ("posted", "trimmed"):
+            st["carried"][f.name] = t.isoformat(timespec="minutes")
+            if fate == "trimmed":
+                st.setdefault("trimmed", []).append(f.name)
+        elif fate == "kept":
+            st["kept_back"][f.name] = t.isoformat(timespec="minutes")
+        elif fate == "waiting":
+            st["waiting"].append(f.name)
+    st.update(state or {})
+    (_fl_root / sl / "state.json").write_text(_fl_json.dumps(st), encoding="utf-8")
+
+
+def _fl_reset():
+    _fl_shutil.rmtree(_fl_root, ignore_errors=True)
+    _fl_shutil.rmtree(_fl_draw, ignore_errors=True)
+    Path(tools.PAINT_LOG).unlink(missing_ok=True)
+
+
+def _fl_pic(m, keep=True):
+    _fl_n[0] += 1
+    name = f"pic-{_fl_n[0]}.png"
+    _fl_draw.mkdir(parents=True, exist_ok=True)
+    if keep:
+        (_fl_draw / name).write_bytes(b"png")
+    return {"t": _fl_ago(m).isoformat(timespec="seconds"), "path": f"drawings-fl/{name}", "prompt": "p", "door": "a visit"}
+
+
+def _fl_log(rows):
+    Path(tools.PAINT_LOG).write_text("".join(_fl_json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+
+
+_fl_L = _fl_chat.journal_facts_line
+_fl_H = "[from the log, this stretch: "
+_fl_reset()
+_fl_thread("tova", "Tova", [(80, "kept"), (60, "kept"), (40, "kept"), (25, "kept")])
+_fl_thread("wick", "wick", [(10, "waiting")])
+_fl_x = _fl_L(_fl_stretch())
+check("facts letters (0.16): the most recent penpal first, each with what became of the letters",
+      _fl_x == (f"{_fl_H}1 letter written to wick, waiting for {_fl_K} to carry it — not sent yet; 4 letters written to Tova, "
+                f"all 4 kept back by {_fl_K} and never sent.]"), _fl_x)
+_fl_bad = []
+for _fl_f, _fl_want in (([(50, "posted")], "1 letter written to Bram, posted"),
+                        ([(50, "posted"), (40, "trimmed")], "2 letters written to Bram, both posted"),
+                        ([(50, "posted"), (40, "kept")], "2 letters written to Bram, 1 posted and 1 kept back"),
+                        ([(50, "posted"), (40, "waiting")], "2 letters written to Bram, 1 posted and 1 waiting"),
+                        ([(50, "posted"), (40, "kept"), (30, "waiting")], "3 letters written to Bram, 1 posted, 1 kept back and 1 waiting"),
+                        ([(50, "kept")], f"1 letter written to Bram, kept back by {_fl_K} and never sent"),
+                        ([(50, "kept"), (40, "kept")], f"2 letters written to Bram, both kept back by {_fl_K} and never sent"),
+                        ([(50, "waiting"), (40, "waiting")], f"2 letters written to Bram, both waiting for {_fl_K} to carry them — not sent yet"),
+                        ([(50, "posted"), (45, "posted"), (40, "posted")], "3 letters written to Bram, all 3 posted")):
+    _fl_reset()
+    _fl_thread("bram", "Bram", _fl_f)
+    if _fl_L(_fl_stretch()) != f"{_fl_H}{_fl_want}.]":
+        _fl_bad.append((_fl_want, _fl_L(_fl_stretch())))
+check("facts letters (0.16): every mix of posted (a trimmed letter is posted), kept back and waiting, said in counts",
+      not _fl_bad, _fl_bad)
+_fl_e = {}
+_fl_reset(); _fl_thread("bram", "Bram", [(100, "posted")]); _fl_log([_fl_pic(50)]); _fl_e["edge"] = _fl_L(_fl_stretch())
+_fl_reset(); _fl_thread("bram", "Bram", [(150, "kept")]); _fl_e["before"] = _fl_L(_fl_stretch())
+_fl_reset(); _fl_thread("bram", "Bram", [(50, "none")]); _fl_e["none"] = _fl_L(_fl_stretch())
+_fl_reset(); _fl_thread("bram", "Bram", [(50, "posted")]); _fl_thread("tova", "Tova", [(40, "none")]); _fl_e["one unknown"] = _fl_L(_fl_stretch())
+_fl_reset(); _fl_thread("bram", "Bram", [(-5, "posted")]); _fl_e["future"] = _fl_L(_fl_stretch())
+_fl_reset(); _fl_thread("bram", "Bram", [(50, "posted")]); _fl_log([_fl_pic(50), _fl_pic(40, keep=False)]); _fl_e["paint unsure"] = _fl_L(_fl_stretch())
+_fl_reset(); _fl_thread("bram", "Bram", [(50, "posted")]); _fl_log([_fl_pic(60), _fl_pic(30)]); _fl_e["both"] = _fl_L(_fl_stretch())
+_fl_reset(); _fl_thread("bram", "Bram", [(50, "posted")])
+_fl_e["until empty"] = _fl_L(_fl_stretch(), until="")
+_fl_e["until before"] = _fl_L(_fl_stretch(), until=_fl_ago(70).isoformat(timespec="seconds"))
+_fl_reset(); _fl_thread("bram", "Bram", [])
+_fl_arr = _fl_root / "bram" / "letters" / f"005-{_fl_ago(30).date().isoformat()}-bram.md"
+_fl_arr.write_text("Theirs, arrived.\n", encoding="utf-8")
+_fl_os.utime(_fl_arr, (_fl_ago(30).timestamp(),) * 2)
+_fl_e["arrived"] = _fl_L(_fl_stretch())
+check("facts letters (0.16): only what is certain — a letter on the stretch's very second, written before it, in none of "
+      "the three fates (one makes the whole part absent), in the future, or past `until`: no letters part; an unsure "
+      "paint part leaves the letters; both together; a penpal's own letter never counted",
+      _fl_e["edge"] == f"{_fl_H}1 picture painted, not trashed.]" and _fl_e["before"] == "" and _fl_e["none"] == ""
+      and _fl_e["one unknown"] == "" and _fl_e["future"] == "" and _fl_e["paint unsure"] == f"{_fl_H}1 letter written to Bram, posted.]"
+      and _fl_e["both"] == f"{_fl_H}2 pictures painted, none of them trashed; 1 letter written to Bram, posted.]"
+      and _fl_e["until empty"] == "" and _fl_e["until before"] == "" and _fl_e["arrived"] == "", _fl_e)
+_fl_reset()
+for _fl_i, _fl_sl in enumerate(("a1", "b2", "c3", "d4", "e5", "f6")):
+    _fl_thread(_fl_sl, _fl_sl.upper(), [(50 - _fl_i, "posted")])
+_fl_six = _fl_L(_fl_stretch())
+_fl_reset()
+_fl_thread("odd", "To[v]a\n] [from the log", [(30, "kept")])
+_fl_odd = _fl_L(_fl_stretch())
+check("facts letters (0.16): six penpals — four clauses and 'and 2 more letters to others'; a display name with brackets "
+      "and a line break can't break the frame",
+      _fl_six.count(" written to ") == 4 and _fl_six.endswith("; and 2 more letters to others.]")
+      and _fl_odd.count("[") == 1 and _fl_odd.count("]") == 1 and "\n" not in _fl_odd and "written to Tova from the log," in _fl_odd,
+      (_fl_six, _fl_odd))
+# the write records its time; that time stands even when the file's time moves
+_fl_reset()
+_fl_thread("bram", "Bram", [])
+config.PENPAL_WRITE_GUARD = False
+_fl_r = tools.dispatch("penpal", {"action": "write", "who": "bram", "letter": "Dear Bram,\n\nA letter written right now, for the facts line."})
+_fl_st = _fl_json.loads((_fl_root / "bram" / "state.json").read_text(encoding="utf-8"))
+_fl_fn = list((_fl_st.get("written") or {"-": ""}))[0]
+if (_fl_root / "bram" / "letters" / _fl_fn).exists():
+    _fl_os.utime(_fl_root / "bram" / "letters" / _fl_fn, (_fl_ago(500).timestamp(),) * 2)
+_fl_rec = _fl_L(_fl_stretch(m=5))
+config.JOURNAL_FACTS_LETTERS = False
+_fl_reset()
+_fl_thread("bram", "Bram", [])
+_fl_r2 = tools.dispatch("penpal", {"action": "write", "who": "bram", "letter": "Dear Bram,\n\nA letter written right now, for the facts line."})
+_fl_st2 = _fl_json.loads((_fl_root / "bram" / "state.json").read_text(encoding="utf-8"))
+config.JOURNAL_FACTS_LETTERS = True
+check("facts letters (0.16): a write records its time in the penpal's state (off: nothing new in the state), and that "
+      "time stands even when the file's time moves",
+      _fl_r.startswith("(your letter to Bram is in your thread") and len(_fl_st.get("written") or {}) == 1
+      and _fl_rec == f"{_fl_H}1 letter written to Bram, waiting for {_fl_K} to carry it — not sent yet.]"
+      and _fl_r2.startswith("(your letter to Bram is in your thread") and "written" not in _fl_st2, (_fl_r[:100], _fl_st, _fl_rec, _fl_st2))
+_fl_u = {}
+_fl_reset(); _fl_thread("bram", "Bram", [(300, "posted")], recorded=False)
+_fl_os.utime(sorted((_fl_root / "bram" / "letters").glob("*-me.md"))[0], (_fl_ago(10).timestamp(),) * 2)
+_fl_u["touched"] = _fl_L(_fl_stretch())
+_fl_reset(); _fl_thread("bram", "Bram", [(400, "posted")], recorded=False); _fl_thread("tova", "Tova", [(30, "kept")])
+_fl_u["old unrecorded"] = _fl_L(_fl_stretch())
+_fl_reset(); _fl_thread("bram", "Bram", [(50, "posted")], recorded=False)
+_fl_u["inside"] = _fl_L(_fl_stretch())
+check("facts letters (0.16): an unrecorded letter never counts — its file time in or near the stretch makes the letters "
+      "part absent, well before it lets a recorded letter count",
+      _fl_u["touched"] == "" and _fl_u["inside"] == ""
+      and _fl_u["old unrecorded"] == f"{_fl_H}1 letter written to Tova, kept back by {_fl_K} and never sent.]", _fl_u)
+_fl_odd_bad = []
+for _fl_o in ({"kept_back": ["x"]}, {"carried": None}, {"waiting": "x"},
+              {"written": {f"002-{_fl_ago(50).date().isoformat()}-me.md": "not a time"}}):
+    _fl_reset()
+    _fl_thread("bram", "Bram", [(50, "posted")], state=_fl_o)
+    try:
+        if "Bram" in _fl_L(_fl_stretch()):
+            _fl_odd_bad.append((_fl_o, _fl_L(_fl_stretch())))
+    except Exception as _fl_ex:  # noqa: BLE001
+        _fl_odd_bad.append((_fl_o, repr(_fl_ex)))
+_fl_reset()
+_fl_thread("bram", "Bram", [(50, "posted")])
+config.PENPALS_ON = False
+_fl_nop = _fl_L(_fl_stretch())
+config.PENPALS_ON = True
+check("facts letters (0.16): odd state never raises and leaves the letters part out; PENPALS_ON off: no letters part",
+      not _fl_odd_bad and _fl_nop == "", (_fl_odd_bad, _fl_nop))
+_fl_reset()
+_fl_thread("tova", "Tova", [(30, "kept")])
+_fl_sent = []
+ollama_client.chat = lambda messages, tools=None, **kw: (_fl_sent.append(messages[-1]["content"]), {
+    "role": "assistant", "content": "", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {}}}]})[1]
+config.REFLECT_AFTER_MIN = 15
+_fl_chat.pause_reflection([{"role": "user", "content": "hello", "_said_at": _fl_ago(60).isoformat(timespec="seconds")},
+                           {"role": "assistant", "content": "hi"},
+                           {"role": "user", "content": "how was it", "_said_at": _fl_ago(40).isoformat(timespec="seconds")},
+                           {"role": "assistant", "content": "good"}], None, tag="telegram")
+_fl_b = _fl_sent[0] if _fl_sent else ""
+check("facts letters (0.16): under a pause's bell, the line once in its own bracket",
+      _fl_b.count(f"{_fl_H}1 letter written to Tova, kept back by {_fl_K} and never sent.]") == 1, _fl_b[-600:])
+
+
+def _fl_scenes():
+    out = {}
+    _fl_reset(); out["none"] = _fl_L(_fl_stretch())
+    _fl_reset(); _fl_log([_fl_pic(150), _fl_pic(50), _fl_pic(40, keep=False)]); out["paint_uncertain"] = _fl_L(_fl_stretch())
+    _fl_reset(); _fl_log([_fl_pic(150), _fl_pic(50), _fl_pic(40)]); out["paint_kept"] = _fl_L(_fl_stretch())
+    _fl_reset(); _fl_log([_fl_pic(50)]); _fl_thread("tova", "Tova", [(30, "kept")]); out["paint_and_letter"] = _fl_L(_fl_stretch())
+    _fl_reset(); _fl_thread("tova", "Tova", [(30, "kept"), (20, "kept")]); out["letters_only"] = _fl_L(_fl_stretch())
+    _fl_reset(); _fl_log([_fl_pic(100)]); out["paint_edge"] = _fl_L(_fl_stretch())
+    _fl_reset(); out["until_empty"] = _fl_L(_fl_stretch(), until="")
+    return out
+
+
+_fl_on = _fl_scenes()
+config.JOURNAL_FACTS_LETTERS = False
+_fl_off = _fl_scenes()
+del config.JOURNAL_FACTS_LETTERS
+_fl_abs = _fl_scenes()
+config.JOURNAL_FACTS_LETTERS = True
+check("facts letters (0.16): off, or absent — the paintings' line only, as before; on, the paint-only lines unchanged and "
+      "letters added only where there are letters",
+      _fl_off == _fl_abs and _fl_off["paint_and_letter"] == f"{_fl_H}1 picture painted, not trashed.]"
+      and _fl_off["letters_only"] == "" and all(_fl_on[k] == _fl_off[k] for k in ("none", "paint_uncertain", "paint_kept", "paint_edge", "until_empty"))
+      and _fl_on["letters_only"] == f"{_fl_H}2 letters written to Tova, both kept back by {_fl_K} and never sent.]"
+      and _fl_on["paint_and_letter"] == f"{_fl_H}1 picture painted, not trashed; 1 letter written to Tova, kept back by {_fl_K} and never sent.]",
+      (_fl_on, _fl_off))
+_fl_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+_fl_src = "\n".join(_fl_inspect.getsource(f) for f in (_fl_chat.journal_facts_line, _fl_chat._letters_facts, _fl_pp.letters_written))
+_fl_src += _fl_cfg.split("JOURNAL_PICKUP_LINE = True", 1)[1].split("JOURNAL_FACTS_LETTERS = True", 1)[0]
+check("facts letters (0.16): ships on, on the Memory & journal tab after JOURNAL_PICKUP_LINE, with help; the new lines "
+      "name no one, carry no date and call no one by a gendered pronoun",
+      _fl_re.search(r"^JOURNAL_FACTS_LETTERS = True$", _fl_cfg, _fl_re.M)
+      and _gm_panel.TABS["Memory & journal"].index("JOURNAL_FACTS_LETTERS") == _gm_panel.TABS["Memory & journal"].index("JOURNAL_PICKUP_LINE") + 1
+      and _gm_panel._HELP.get("JOURNAL_FACTS_LETTERS")
+      and not _fl_re.search(r"\b(she|her|hers|he|his|him)\b", _fl_src, _fl_re.I) and not _fl_re.search(r"\(1[01]-\d\d", _fl_src),
+      _fl_re.findall(r".{30}\b(?:she|her|hers|he|his|him)\b.{30}", _fl_src, _fl_re.I)[:3])
+_fl_reset()
+tools.PAINT_LOG, ollama_client.chat, assemble.clock_line, memory.search = _fl_stubs
+for _fl_k, _fl_v in _fl_saved.items():
+    if _fl_v is _fl_MISSING:
+        if hasattr(config, _fl_k):
+            delattr(config, _fl_k)
+    else:
+        setattr(config, _fl_k, _fl_v)
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

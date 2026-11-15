@@ -438,7 +438,79 @@ def _dream_folder() -> str:
 
 
 def journal_facts_line(turns: list[dict], until=None) -> str:
-    """The journal's line of facts for this stretch (JOURNAL_FACTS_LINE): "[from the log, this stretch: 3 pictures
+    """The journal's line of facts for this stretch (JOURNAL_FACTS_LINE): the paintings (_paint_facts) and
+    (JOURNAL_FACTS_LETTERS) the friend's letters (_letters_facts) — each part only when certain, either may be absent;
+    "" when neither. A failure in one never changes the other. Never raises."""
+    if not getattr(config, "JOURNAL_FACTS_LINE", True):
+        return ""
+    try:
+        paint = _paint_facts(turns, until)
+    except Exception:  # noqa: BLE001
+        paint = ""
+    letters = ""
+    if getattr(config, "JOURNAL_FACTS_LETTERS", False) and getattr(config, "PENPALS_ON", False):
+        try:
+            letters = _letters_facts(turns, until)
+        except Exception:  # noqa: BLE001 — the letters' part, never the paintings' down
+            letters = ""
+    if not letters:
+        return f"[from the log, this stretch: {paint}]" if paint else ""
+    if not paint:
+        return f"[from the log, this stretch: {letters}.]"
+    return f"[from the log, this stretch: {paint.rstrip('.')}; {letters}.]"
+
+
+def _letters_facts(turns: list[dict], until=None) -> str:
+    """JOURNAL_FACTS_LETTERS: the letters the friend wrote in this stretch, per penpal, and what became of each — so an
+    entry never says a letter was sent that was kept back or still waits — counts only, from the thread files and state
+    (penpal.letters_written); "" whenever anything is not certain."""
+    began = stretch_began(turns)
+    if began is None or until == "":
+        return ""
+    end = datetime.fromisoformat(until) if isinstance(until, str) else until
+    if end is not None and not isinstance(end, datetime):
+        return ""
+    import penpal
+    got = penpal.letters_written(began.replace(microsecond=0), end.replace(microsecond=0) if end is not None else None)
+    if not got:
+        return ""
+    try:
+        import keeper_week
+        keeper = keeper_week.keeper_name() or "your keeper"
+    except Exception:  # noqa: BLE001
+        keeper = "your keeper"
+    by: dict[str, list] = {}
+    for sl, t, fate in got:
+        by.setdefault(sl, []).append((t, fate))
+    order = sorted(by, key=lambda x: max(t for t, _ in by[x]), reverse=True)
+    clauses = []
+    for sl in order[:4]:
+        rows = by[sl]
+        n = len(rows)
+        k = {f: sum(1 for _, x in rows if x == f) for f in ("posted", "kept", "waiting")}
+        who = " ".join(re.sub(r"[\[\]]", "", str(penpal.display(sl))).split()) or sl  # never a bracket, never a line break
+        head = f"{n} letter{'s' if n != 1 else ''} written to {who}, "
+        if k["posted"] == n:
+            tail = "posted" if n == 1 else ("both posted" if n == 2 else f"all {n} posted")
+        elif k["kept"] == n:
+            tail = (("" if n == 1 else "both " if n == 2 else f"all {n} ") + f"kept back by {keeper} and never sent")
+        elif k["waiting"] == n:
+            tail = (f"waiting for {keeper} to carry it — not sent yet" if n == 1 else
+                    ("both" if n == 2 else f"all {n}") + f" waiting for {keeper} to carry them — not sent yet")
+        else:
+            bits = [f"{k['posted']} posted" if k["posted"] else "", f"{k['kept']} kept back" if k["kept"] else "",
+                    f"{k['waiting']} waiting" if k["waiting"] else ""]
+            bits = [b for b in bits if b]
+            tail = bits[0] if len(bits) == 1 else ", ".join(bits[:-1]) + " and " + bits[-1]
+        clauses.append(head + tail)
+    rest = sum(len(by[sl]) for sl in order[4:])
+    if rest:
+        clauses.append(f"and {rest} more letter{'s' if rest != 1 else ''} to others")
+    return "; ".join(clauses)
+
+
+def _paint_facts(turns: list[dict], until=None) -> str:
+    """The paintings' part of the journal's line of facts for this stretch (JOURNAL_FACTS_LINE): "[from the log, this stretch: 3 pictures
     painted, 2 of them trashed since.]" — counts only, and only what is certain; a wrong count is worse than no line,
     so "" (the bell as before) whenever anything is not.
     Counted: the rows of tools.PAINT_LOG from a visit's door ("a visit"; never the dream book's folder) painted after
@@ -450,8 +522,6 @@ def journal_facts_line(turns: list[dict], until=None) -> str:
     creations/.trash/<stamp>-<its file name> claims it (each trash entry claims one picture: the latest of that name
     not at its path, painted at or before the entry's stamp) → trashed; anything else (moved, renamed, published,
     the trash emptied, its path painted again) → not known → no line. Reads; never writes. Never raises."""
-    if not getattr(config, "JOURNAL_FACTS_LINE", True):
-        return ""
     try:
         began = stretch_began(turns)
         if began is None or until == "":
@@ -544,7 +614,7 @@ def journal_facts_line(turns: list[dict], until=None) -> str:
             said = f"{n} pictures painted, all of them trashed since."
         else:
             said = f"{n} pictures painted, {gone} of them trashed since."
-        return f"[from the log, this stretch: {said}]"
+        return said
     except Exception:  # noqa: BLE001 — the bell goes on as it was
         return ""
 

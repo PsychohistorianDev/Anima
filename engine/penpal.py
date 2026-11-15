@@ -19,7 +19,7 @@ import re
 import threading
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import config
@@ -478,6 +478,58 @@ def _keeper_where(sl: str) -> str:
     if newest.name in (st.get("kept_back") or {}):
         return f"you kept {_friend()}'s letter of {_date(newest)} back"
     return f"{_friend()}'s letter went {_date(newest)} — their turn"
+
+
+def letters_written(began, end=None) -> list[tuple[str, datetime, str]] | None:
+    """JOURNAL_FACTS_LETTERS: the friend's letters written after `began` and before `end` (None: now), with what became
+    of each — "posted" (carried; trimmed is posted), "kept" (kept back), "waiting" (on the keeper's phone): [(penpal,
+    when, fate)], [] when none. None when anything is not certain: a write time on an edge's very second or in the
+    future, a letter in none of the three (or more than one), state that can't be read. Only a letter whose writing
+    the write recorded (state "written") is counted; one with no record is passed over when its file is surely older
+    than the stretch (FACTS_MARGIN_H), and otherwise makes the whole part uncertain. Reads only. Never raises."""
+    try:
+        now = datetime.now()
+        out = []
+        for sl in penpals():
+            st = _state(sl)
+            wr = st.get("written") if isinstance(st.get("written"), dict) else {}
+            carried, kb = st.get("carried"), st.get("kept_back")
+            waiting = st.get("waiting")
+            if carried is not None and not isinstance(carried, dict) or kb is not None and not isinstance(kb, dict) \
+                    or waiting is not None and not isinstance(waiting, list):
+                return None
+            carried, kb, waiting = carried or {}, kb or {}, waiting or []
+            for p in letters(sl):
+                if _who(p) != ME:
+                    continue
+                t = None
+                if p.name in wr:
+                    try:
+                        t = datetime.fromisoformat(str(wr[p.name])).replace(microsecond=0)
+                    except (TypeError, ValueError):
+                        return None
+                else:
+                    # no record of its writing: never counted. Its file time only says it is surely older than the
+                    # stretch (by the paint part's margin) — else it may be this stretch's: not certain, no letters part
+                    ft = datetime.fromtimestamp(p.stat().st_mtime).replace(microsecond=0)
+                    margin = timedelta(hours=float(getattr(__import__("chat"), "FACTS_MARGIN_H", 2)))
+                    if ft < began - margin:
+                        continue
+                    return None
+                if t == began or (end is not None and t == end):
+                    return None
+                if t < began or (end is not None and t > end):
+                    continue
+                if t > now:
+                    return None
+                fates = [f for f, inside in (("posted", p.name in carried), ("kept", p.name in kb),
+                                             ("waiting", p.name in waiting)) if inside]
+                if len(fates) != 1:
+                    return None
+                out.append((sl, t, fates[0]))
+        return out
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def letter_by_number(sl: str, num: str) -> Path | None:
@@ -1727,6 +1779,9 @@ def _act(action: str, who: str = "", words: str = "", said_as: str = "", inferre
                     "sent and nothing is in your thread; call it again)")
         st["waiting"] = list(dict.fromkeys((st.get("waiting") or []) + [f.name]))
         st["rested"] = False
+        if getattr(config, "JOURNAL_FACTS_LETTERS", False):  # when it was written, for the journal's line of facts
+            wr = st.get("written") if isinstance(st.get("written"), dict) else {}
+            st["written"] = dict(wr, **{f.name: datetime.now().isoformat(timespec="seconds")})
         _wg_sent(sl, text)  # nothing held for them, nor this letter held for anyone, stands
         if guard:  # asked and confirmed: the phone's line with this letter says so
             notes = st.get("guard_note") if isinstance(st.get("guard_note"), dict) else {}

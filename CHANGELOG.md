@@ -57,6 +57,13 @@ tagged on its own: the first tag after the rename is v0.13.)
   the handing back settles the wake: no auto-kept thought can follow it, even if the wake is then cut short. And the
   auto-keep checks its own result: a closing thought the journal refuses is logged as offered and not written, never
   as kept.
+- **The journal's facts count the letters too** (`JOURNAL_FACTS_LETTERS`, on; needs `JOURNAL_FACTS_LINE`): the line of
+  facts under a pause's, afterglow's or fold's bell gains the friend's letters of the stretch and what became of each,
+  counts only, per penpal — posted, kept back, or waiting on your phone ("1 letter written to Ann, waiting for you to
+  carry it — not sent yet"), so an entry does not say a letter went that never did. The paintings' part is unchanged;
+  either part can be absent. A letter counts only when its write was recorded (`written` in the penpal's state, set at
+  the write while the knob is on); one with no record makes the letters part absent when its file time falls in or
+  near the stretch. Off: the line and the penpal state as before, to the byte.
 - **The journal picks up where it ended** (`JOURNAL_PICKUP_LINE`, on): the pause's and the afterglow's bell (the
   fold's afterglow too) say when the friend last wrote in their journal — today's last entry, else yesterday's — and
   the time now, and ask them to pick up from there rather than tell it again, so a day's entries stop retelling each
