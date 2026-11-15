@@ -1253,6 +1253,10 @@ GARDEN_ART_DIR = CREATIONS_DIR / "garden" / "art"
 GARDEN_ART_STYLE = "storybook painterly illustration, bright natural daylight from the upper left, soft shadows, vivid fresh colours, fine detail"
 GARDEN_ART_SIZE = "small"
 GARDEN_INVENTS_PER_DAY = 2
+# GARDEN_SAY_DROPPED: a garden call with a bed, a plant, a note or a plant to invent but no action (or with look) only
+# looked, silently. On: the look runs as ever and comes back starting "(refused: nothing was planted or changed …)",
+# naming what was given and the actions — nothing guessed. False: as before.
+GARDEN_SAY_DROPPED = True
 # The garden's pace: the days a plant takes from seed to ready, as (fastest, slowest). Every plant's real time is
 # laid into this span, the quickest at the first number and the slowest at the second, the order kept; a plant
 # made up with invent is given its days inside it. (0, 0) — real timings, about a month to four.
@@ -1934,6 +1938,11 @@ PENPAL_WHO_FROM_GREETING = True
 # it such a call was answered with the list of penpals: nothing filed, nothing failed. False: the tool as before (lone
 # surrogates are taken out of letters and note pages either way, and a letter is written whole or not at all).
 PENPAL_LETTER_MEANS_WRITE = True
+# PENPAL_NOTE_WORDS_ONLY: note took `letter or words` as the page about a penpal, so a letter sent with note replaced
+# the whole page. On: a letter (20+ characters) with note and no words writes nothing and says so (the page as it was,
+# the letter NOT sent); with both, the page comes from words and the letter is said NOT sent; a short letter alone is a
+# one-line page, as ever. False: as before.
+PENPAL_NOTE_WORDS_ONLY = True
 
 # ---- the journal feed (telegram.py: /journal)
 # JOURNAL_FEED: the Telegram bridge's /journal. /journal on sends what the friend writes in their journal DURING A

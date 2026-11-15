@@ -1237,6 +1237,10 @@ def tool_call(action="list", who="", letter="", words="") -> str:
         L = str(letter or "").strip()
     except Exception:  # noqa: BLE001
         L = ""
+    if bool(getattr(config, "PENPAL_NOTE_WORDS_ONLY", False)) and on():
+        noted = _note_call(action, who, letter, words, L)  # note's page comes in `words`, never a letter
+        if noted is not None:
+            return noted
     if not (_letter_means_write() and on() and len(L) >= LETTER_MIN):
         return act(action, who, text)
     asked = str(action or "").strip()
@@ -1284,6 +1288,38 @@ def tool_call(action="list", who="", letter="", words="") -> str:
         return ("(refused: your letter was NOT sent — nothing was written. To send it: penpal with action \"write\", who "
                 f"\"{name}\" and the letter. What you did ask for ran, and is below.)\n" + act(action, who, text))
     return act(action, who, text)
+
+
+def _note_call(action, who, letter, words, L: str):
+    """PENPAL_NOTE_WORDS_ONLY: note took `letter or words` as the page, so a letter sent with note replaced the whole
+    page about them with the letter. Now: words (no letter) — as ever; a letter (LETTER_MIN+) and no words — nothing
+    written, nothing sent, said; both — the page from words, the letter said NOT sent; a short letter alone — as it
+    always was (a one-line page). None when this is not a note call (or none of these cases)."""
+    asked = str(action or "").strip()
+    head, named = asked, ""
+    if _who_empty(who) and _who_help():
+        h, named = _who_in_action(asked)
+        head = h if named else asked
+    if action_of(head) != "note":
+        return None
+    try:
+        W = str(words or "").strip()
+    except Exception:  # noqa: BLE001
+        W = ""
+    sl = (_find(who) if not _who_empty(who) and not find_ambiguous(str(who)) else named) or ""
+    name = display(sl) if sl else "<name>"
+    if len(L) >= LETTER_MIN and not W:
+        return (f"(refused: nothing was changed — note takes your page about {name} in `words`, and what came was a letter "
+                f"in `letter`. Your page about {name} is as it was, and the letter was NOT sent. To send it: penpal with "
+                f"action \"write\", who \"{_wg_who(sl) if sl else '<name>'}\" and the letter. To rewrite your page: note "
+                "with the page in `words`.)")
+    if L and W:
+        out = act(action, who, words)
+        if len(L) >= LETTER_MIN:
+            out = ("(refused: your letter was NOT sent — nothing was written. To send it: penpal with action \"write\", "
+                   f"who \"{_wg_who(sl) if sl else '<name>'}\" and the letter. What you did ask for ran, and is below.)\n" + out)
+        return out
+    return None
 
 
 def _no_surrogates(text: str) -> str:

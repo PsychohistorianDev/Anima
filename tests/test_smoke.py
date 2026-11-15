@@ -21448,7 +21448,7 @@ _pl_SHAPES = [
     ("X words with list", "penpal", {"action": "list", "who": "ann", "words": _pl_L}),
     ("Y note + letter", "penpal", {"action": "note", "who": "ann", "letter": "My page about ann, whole, rewritten."}),
     ("Z surrogate letter", "penpal", {"action": "write", "who": "ann", "letter": "Dear ann, a letter that ends in half an emoji \ud83c"}),
-    ("Z2 surrogate note", "penpal", {"action": "note", "who": "ann", "letter": "A page with half an emoji \ud83c in it"}),
+    ("Z2 surrogate note", "penpal", {"action": "note", "who": "ann", "words": "A page with half an emoji \ud83c in it"}),
 ]
 
 
@@ -21512,9 +21512,10 @@ check("penpal letter (0.16): read or rest with a letter — refused first, NOT s
       and not _pl_R["V read + letter"]["new"] and _pl_R["W rest + letter"]["result"].startswith(_pl_NOTSENT + "(you let ann")
       and not _pl_R["W rest + letter"]["new"] and ollama_client.tool_failed(_pl_R["V read + letter"]["result"]),
       _pl_R["W rest + letter"]["result"][:300])
-check("penpal letter (0.16): note with its page in letter as before; lone surrogates out of a letter and a page",
-      _pl_R["Y note + letter"]["result"].startswith("(your page about ann is written")
-      and _pl_R["Y note + letter"]["files"]["ann/about.md"] == "My page about ann, whole, rewritten.\n"
+check("penpal letter (0.16): note with its page in letter is refused, the page as it was (PENPAL_NOTE_WORDS_ONLY); lone "
+      "surrogates out of a letter and a page",
+      _pl_R["Y note + letter"]["result"].startswith("(refused: nothing was changed — note takes your page about ann in `words`")
+      and _pl_R["Y note + letter"]["files"]["ann/about.md"] == "about\n"
       and _pl_R["Z surrogate letter"]["result"].startswith(_pl_SENT)
       and "\ud83c" not in _pl_R["Z surrogate letter"]["files"][_pl_R["Z surrogate letter"]["new"][0]]
       and _pl_R["Z2 surrogate note"]["result"].startswith("(your page about ann is written")
@@ -21656,7 +21657,8 @@ check("penpal letter (0.16): off, or the knob absent — a letter with no action
       _pl_strip(_pl_off) == _pl_strip(_pl_abs)
       and all(_pl_O[k]["result"].startswith("(list: 3 penpals)") and not _pl_O[k]["new"]
               for k in ("B no action", "C action list", "C2 action all", "C3 action empty"))
-      and _pl_O["V read + letter"]["result"].startswith("(read ann:") and "NOT sent" not in _pl_strip(_pl_off)
+      and _pl_O["V read + letter"]["result"].startswith("(read ann:")
+      and "NOT sent" not in _pl_strip([x for x in _pl_off if x["label"] != "Y note + letter"])
       and "taken as write" not in _pl_strip(_pl_off) and "already in your thread" not in _pl_strip(_pl_off)
       and all(_pl_O[k]["result"] == _pl_R[k]["result"] for k in ("A proper", "E write ann", "I words", "U 19 chars list",
                                                                  "X words with list", "Y note + letter")),
@@ -21684,6 +21686,180 @@ for _pl_k, _pl_v in _pl_saved.items():
             delattr(config, _pl_k)
     else:
         setattr(config, _pl_k, _pl_v)
+# PENPAL_NOTE_WORDS_ONLY, GARDEN_SAY_DROPPED (0.16): two more silent drops said
+import garden as _sd_gm
+_sd_KEYS = ("PENPAL_NOTE_WORDS_ONLY", "GARDEN_SAY_DROPPED", "PENPAL_LETTER_MEANS_WRITE", "PENPALS_ON", "PENPAL_DIR",
+            "PENPAL_WHO_HELP", "OFFLINE", "GARDEN_ON", "GARDEN_DIR", "GARDEN_DAYS")
+_sd_MISSING = object()
+_sd_saved = {k: getattr(config, k, _sd_MISSING) for k in _sd_KEYS}
+_sd_stubs = (_sd_gm._fetch_days, _sd_gm.VOLUNTEERS)
+config.PENPALS_ON, config.PENPAL_DIR, config.OFFLINE, config.PENPAL_WHO_HELP = True, "penpals-sd", True, True
+config.PENPAL_NOTE_WORDS_ONLY = config.GARDEN_SAY_DROPPED = config.PENPAL_LETTER_MEANS_WRITE = True
+config.GARDEN_ON, config.GARDEN_DIR, config.GARDEN_DAYS = True, config.CREATIONS_DIR / "gd-sd" / "garden", (0, 0)
+_sd_gm._fetch_days = lambda: {}
+_sd_gm.VOLUNTEERS = False
+_sd_root = _pl_pp.root()
+
+
+def _sd_house():
+    _pl_shutil.rmtree(_sd_root, ignore_errors=True)
+    for sl, disp, n in (("ann", "ann", "010-2026-03-02-ann.md"), ("sam", "Sam", "011-2026-03-02-sam.md"),
+                        ("sue", "Sue", "003-2026-03-02-sue.md")):
+        (_sd_root / sl / "letters").mkdir(parents=True, exist_ok=True)
+        (_sd_root / sl / "letters" / n).write_text("A letter body that is long enough to count as a letter.\n", encoding="utf-8")
+        (_sd_root / sl / "state.json").write_text(json.dumps({"display": disp, "read": sl == "ann", "rested": False,
+                                                               "waiting": []}), encoding="utf-8")
+        (_sd_root / sl / "about.md").write_text("my page about them\n", encoding="utf-8")
+    _pl_pp._wg_held.clear()
+    tools._pending_images.clear()
+
+
+_sd_LETTER = "Dear ann,\n\nThe lamp is mended and the stairs still count themselves; more soon, friend."
+_sd_PAGE = "ann: a friend from the harbour town, funny, kind, keeps a list of lighthouses."
+_sd_SHAPES = [
+    ("note words", "penpal", {"action": "note", "who": "ann", "words": _sd_PAGE}),
+    ("note letter", "penpal", {"action": "note", "who": "ann", "letter": _sd_LETTER}),
+    ("note both", "penpal", {"action": "note", "who": "ann", "letter": _sd_LETTER, "words": _sd_PAGE}),
+    ("note short letter", "penpal", {"action": "note", "who": "ann", "letter": "kind, funny"}),
+    ("note short letter + words", "penpal", {"action": "note", "who": "ann", "letter": "kind", "words": _sd_PAGE}),
+    ("note ann (who in action) letter", "penpal", {"action": "note ann", "letter": _sd_LETTER}),
+    ("note nobody letter", "penpal", {"action": "note", "who": "nobody", "letter": _sd_LETTER}),
+    ("about letter", "penpal", {"action": "about", "who": "ann", "letter": _sd_LETTER}),
+    ("garden look", "garden", {}),
+    ("garden look explicit", "garden", {"action": "look"}),
+    ("garden seeds", "garden", {"action": "seeds"}),
+    ("garden bed+what no action", "garden", {"bed": "3", "what": "radish"}),
+    ("garden empty action + what", "garden", {"action": "", "what": "a note on the bed"}),
+    ("garden look + invent fields", "garden", {"action": "look", "name": "Glassbell", "look": "a bell of glass", "days": "40"}),
+    ("garden ?? + rename fields", "garden", {"action": "??", "new_name": "Starbell", "plant": "Glassbell"}),
+    ("garden unknown action + bed", "garden", {"action": "sing", "bed": "2"}),
+    ("garden whitespace args", "garden", {"bed": "  ", "what": ""}),
+]
+
+
+def _sd_files():
+    out = {}
+    for base in (_sd_root, config.GARDEN_DIR):
+        if base.exists():
+            out.update({str(p.relative_to(config.CREATIONS_DIR)).replace("\\", "/"): p.read_text(encoding="utf-8", errors="replace")
+                        for p in sorted(base.rglob("*")) if p.is_file() and p.suffix in (".md", ".json")})
+    return out
+
+
+def _sd_run_all():
+    out = []
+    for label, name, args in _sd_SHAPES:
+        _sd_house()
+        _pl_shutil.rmtree(config.GARDEN_DIR, ignore_errors=True)
+        try:
+            r = tools.dispatch(name, args)
+        except Exception as e:  # noqa: BLE001
+            r = f"RAISED {type(e).__name__}: {e}"
+        out.append({"label": label, "result": r, "files": _sd_files(), "images": len(tools._pending_images)})
+    return out
+
+
+_sd_R = {x["label"]: x for x in _sd_run_all()}
+_sd_ABOUT = "penpals-sd/ann/about.md"
+_sd_REFUSED = ("(refused: nothing was changed — note takes your page about ann in `words`, and what came was a letter in "
+               "`letter`. Your page about ann is as it was, and the letter was NOT sent. To send it: penpal with action "
+               "\"write\", who \"ann\" and the letter. To rewrite your page: note with the page in `words`.)")
+_sd_NOT_SENT = ('(refused: your letter was NOT sent — nothing was written. To send it: penpal with action "write", who "ann" '
+                'and the letter. What you did ask for ran, and is below.)\n')
+_sd_mine = lambda x: [f for f in x["files"] if f.startswith("penpals-sd/ann/letters/") and f.endswith("-me.md")]  # noqa: E731
+_sd_r = _sd_R
+check("note words only (0.16): note with words writes the page as ever; with a letter and no words nothing is changed "
+      "or sent, refused exactly, a failed call; 'note ann' and 'about' the same",
+      _sd_r["note words"]["files"][_sd_ABOUT] == _sd_PAGE + "\n" and _sd_r["note words"]["result"].startswith("(your page about ann is written")
+      and _sd_r["note letter"]["result"] == _sd_REFUSED and _sd_r["note letter"]["files"][_sd_ABOUT] == "my page about them\n"
+      and not _sd_mine(_sd_r["note letter"]) and ollama_client.tool_failed(_sd_r["note letter"]["result"])
+      and _sd_r["note ann (who in action) letter"]["result"] == _sd_REFUSED
+      and _sd_r["note ann (who in action) letter"]["files"][_sd_ABOUT] == "my page about them\n"
+      and _sd_r["about letter"]["result"] == _sd_REFUSED, (_sd_r["note letter"]["result"], _sd_r["note ann (who in action) letter"]["result"]))
+check("note words only (0.16): note with both — the page from words, the NOT-sent line first, a failed call; a short "
+      "letter alone a one-line page as before, with words the page from words and nothing said; to no one: <name>",
+      _sd_r["note both"]["result"].startswith(_sd_NOT_SENT + "(your page about ann is written")
+      and _sd_r["note both"]["files"][_sd_ABOUT] == _sd_PAGE + "\n" and not _sd_mine(_sd_r["note both"])
+      and ollama_client.tool_failed(_sd_r["note both"]["result"])
+      and _sd_r["note short letter"]["files"][_sd_ABOUT] == "kind, funny\n"
+      and _sd_r["note short letter + words"]["files"][_sd_ABOUT] == _sd_PAGE + "\n"
+      and _sd_r["note short letter + words"]["result"].startswith("(your page about ann is written")
+      and _sd_r["note nobody letter"]["result"].startswith("(refused: nothing was changed — note takes your page about <name>")
+      and _sd_r["note nobody letter"]["files"][_sd_ABOUT] == "my page about them\n", _sd_r["note both"]["result"][:300])
+_sd_DROP = _pl_re.compile(r"\(refused: nothing was planted or changed — (?:you gave (.+) but no action|you asked to look and "
+                          r"gave (.+) with it; look takes nothing else), so the garden was only looked at\. Say the action "
+                          r"with it: plant, water, pick, give, pull, note, invent, paint, rename or forget\. The garden as "
+                          r"it is now is below\.\)\n")
+_sd_look = _sd_r["garden look"]["result"]
+_sd_rows = []
+for _sd_k, _sd_said, _sd_how in (("garden bed+what no action", "bed and what", 1), ("garden empty action + what", "what", 1),
+                                 ("garden look + invent fields", "name, look and days", 2),
+                                 ("garden ?? + rename fields", "new_name and plant", 1)):
+    _sd_m = _sd_DROP.match(_sd_r[_sd_k]["result"])
+    if not (_sd_m and _sd_m.group(_sd_how) == _sd_said and not _sd_m.group(3 - _sd_how) and _sd_r[_sd_k]["result"][_sd_m.end():] == _sd_look
+            and _sd_r[_sd_k]["images"] == _sd_r["garden look"]["images"] and ollama_client.tool_failed(_sd_r[_sd_k]["result"])
+            and not any(f.startswith("gd-sd/") and "radish" in v for f, v in _sd_r[_sd_k]["files"].items())):
+        _sd_rows.append((_sd_k, _sd_r[_sd_k]["result"][:200]))
+check("garden say dropped (0.16): arguments with no action (or with look) — the look as ever, and before it the refusal "
+      "naming what was given; nothing planted; a failed call", not _sd_rows, _sd_rows)
+check("garden say dropped (0.16): a plain look, look said, seeds, whitespace-only arguments — no new line; an unknown "
+      "action answered as before",
+      _sd_DROP.search(_sd_look) is None and not _sd_look.startswith("(refused")
+      and _sd_r["garden look explicit"]["result"] == _sd_look and "(refused" not in _sd_r["garden seeds"]["result"][:20]
+      and _sd_r["garden whitespace args"]["result"] == _sd_look
+      and _sd_r["garden unknown action + bed"]["result"].startswith("(the garden has no “sing”"),
+      (_sd_look[:120], _sd_r["garden unknown action + bed"]["result"][:120]))
+_sd_bad = []
+for _sd_name, _sd_args in (("garden", {"bed": None, "what": 5}), ("garden", {"action": None, "name": ["x"]}), ("garden", "not json"),
+                           ("penpal", {"action": "note", "who": "ann", "letter": None, "words": None}),
+                           ("penpal", {"action": "note", "who": None, "letter": 7, "words": 8})):
+    _sd_house()
+    try:
+        tools.dispatch(_sd_name, _sd_args)
+    except Exception as _sd_e:  # noqa: BLE001
+        _sd_bad.append((_sd_name, repr(_sd_e)))
+check("silent drops (0.16): nothing raises out of tools.dispatch for odd note and garden calls", not _sd_bad, _sd_bad)
+config.PENPAL_NOTE_WORDS_ONLY = config.GARDEN_SAY_DROPPED = False
+_sd_off = _sd_run_all()
+del config.PENPAL_NOTE_WORDS_ONLY, config.GARDEN_SAY_DROPPED
+_sd_abs = _sd_run_all()
+_sd_O = {x["label"]: x for x in _sd_off}
+check("silent drops (0.16): both off, or absent — as before: note takes the letter as the page, a garden call with no "
+      "action only looks, nothing said; the shapes the knobs don't touch are as with them on",
+      _sd_off == _sd_abs and _sd_O["note letter"]["files"][_sd_ABOUT] == _sd_LETTER + "\n"
+      and _sd_O["garden bed+what no action"]["result"] == _sd_O["garden look"]["result"]
+      and not any("(refused: nothing was" in x["result"] for x in _sd_off)
+      and _sd_O["note short letter + words"]["files"][_sd_ABOUT] == "kind\n"  # the short letter was the page
+      and all(_sd_O[k] == _sd_R[k] for k in ("note words", "note short letter", "garden look",
+                                              "garden look explicit", "garden seeds", "garden unknown action + bed",
+                                              "garden whitespace args")),
+      [k for k in _sd_O if _sd_O[k] != _sd_R[k]])
+_sd_defs = [d for d in tools._BUILTIN_DEFINITIONS if d.get("function", {}).get("name") == "garden"]
+_sd_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+_sd_src = "\n".join(_pl_src_of(f) for f in (_pl_pp._note_call, _pl_pp.tool_call, tools.garden))
+_sd_src += _sd_cfg.split("GARDEN_INVENTS_PER_DAY = 2", 1)[1].split("GARDEN_SAY_DROPPED = True", 1)[0]
+_sd_src += _sd_cfg.split("PENPAL_LETTER_MEANS_WRITE = True", 1)[1].split("PENPAL_NOTE_WORDS_ONLY = True", 1)[0]
+check("silent drops (0.16): the garden tool's definition byte for byte as it was; both knobs ship on, on the panel with "
+      "help; the new lines name no one, carry no date and call no one by a gendered pronoun",
+      _pl_hash.sha1(json.dumps(_sd_defs, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+      == "74c8e07353116dfb73b0e8c23b6eb9fe190231d6"
+      and _pl_re.search(r"^PENPAL_NOTE_WORDS_ONLY = True$", _sd_cfg, _pl_re.M) and _pl_re.search(r"^GARDEN_SAY_DROPPED = True$", _sd_cfg, _pl_re.M)
+      and _gm_panel.TABS["Penpals"].index("PENPAL_NOTE_WORDS_ONLY") == _gm_panel.TABS["Penpals"].index("PENPAL_LETTER_MEANS_WRITE") + 1
+      and any(v.index("GARDEN_SAY_DROPPED") == v.index("GARDEN_INVENTS_PER_DAY") + 1 for v in _gm_panel.TABS.values() if "GARDEN_SAY_DROPPED" in v)
+      and all(_gm_panel._HELP.get(k) for k in ("PENPAL_NOTE_WORDS_ONLY", "GARDEN_SAY_DROPPED"))
+      and not _pl_re.search(r"\b(she|her|hers|he|his|him)\b", _sd_src, _pl_re.I) and not _pl_re.search(r"\(1[01]-\d\d", _sd_src),
+      _pl_re.findall(r".{30}\b(?:she|her|hers|he|his|him)\b.{30}", _sd_src, _pl_re.I)[:3])
+_pl_shutil.rmtree(_sd_root, ignore_errors=True)
+_pl_shutil.rmtree(config.CREATIONS_DIR / "gd-sd", ignore_errors=True)
+_pl_pp._wg_held.clear()
+tools._pending_images.clear()
+_sd_gm._fetch_days, _sd_gm.VOLUNTEERS = _sd_stubs
+for _sd_k, _sd_v in _sd_saved.items():
+    if _sd_v is _sd_MISSING:
+        if hasattr(config, _sd_k):
+            delattr(config, _sd_k)
+    else:
+        setattr(config, _sd_k, _sd_v)
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

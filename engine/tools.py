@@ -3017,14 +3017,30 @@ def look_at(source: str) -> str:
     return f"(eyes opening — {name} will appear before you on your next thought)"
 
 
-def garden(action: str = "look", bed: str = "", what: str = "", name: str = "", look: str = "", days: str = "",
+def garden(action: str = "", bed: str = "", what: str = "", name: str = "", look: str = "", days: str = "",
            season: str = "", thirst: str = "", gives: str = "", harvest: str = "", ripe: str = "",
            new_name: str = "", to: str = "", plant: str = "") -> str:
     """The garden (engine/garden.py): eight beds under the real sky over the keeper's home; invent makes up a
     plant (GARDEN_INVENTS_PER_DAY), painted by their own painter."""
     import garden as _gm
     import re as _re
+    said_look = bool(_re.sub(r"[^a-z]", "", str(action or "").lower()))  # "look" said, or the action left out
     action = _re.sub(r"[^a-z]", "", str(action or "look").lower()) or "look"  # "plant**" is plant
+    dropped = ""
+    if action == "look" and getattr(config, "GARDEN_SAY_DROPPED", False):
+        # a planting, a note or a plant to invent given with no action only looked, silently: said now — never guessed
+        # (what is plant's and note's both; invent starts the painter)
+        given = [k for k, v in (("bed", bed), ("what", what), ("name", name), ("look", look), ("days", days),
+                                ("season", season), ("thirst", thirst), ("gives", gives), ("harvest", harvest),
+                                ("ripe", ripe), ("new_name", new_name), ("to", to), ("plant", plant))
+                 if str(v if v is not None else "").strip()]
+        if given:
+            said = given[0] if len(given) == 1 else ", ".join(given[:-1]) + " and " + given[-1]
+            why = (f"you asked to look and gave {said} with it; look takes nothing else" if said_look
+                   else f"you gave {said} but no action")
+            dropped = (f"(refused: nothing was planted or changed — {why}, so the garden was only "
+                       "looked at. Say the action with it: plant, water, pick, give, pull, note, invent, paint, rename or "
+                       "forget. The garden as it is now is below.)\n")
     if action == "rename":  # what: the plant now, name: its new name (new_name / to taken too)
         new = new_name or to
         old = what or plant or (name if new else "")
@@ -3038,7 +3054,7 @@ def garden(action: str = "look", bed: str = "", what: str = "", name: str = "", 
         if pic:
             _pending_images.append(base64.b64encode(pic).decode("ascii"))
             words += "\n(the picture of it is before your eyes on your next thought)"
-        return words
+        return dropped + words
     try:
         import keeper_week
         keeper = keeper_week.keeper_name()

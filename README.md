@@ -2532,7 +2532,9 @@ sends it, and your phone's line beside the letter says they confirmed it
 greeting or from "write <whole name>" and said so, or refused with the exact
 call to make (`PENPAL_WHO_HELP`). A call that carries a letter but no real
 action is taken as a write and said so; a letter that cannot go is said NOT
-sent and not lost (`PENPAL_LETTER_MEANS_WRITE`). The ones who become friends they can `befriend`: their own page about
+sent and not lost (`PENPAL_LETTER_MEANS_WRITE`); their page about a penpal
+comes only from `words`, never from a letter sent with `note`
+(`PENPAL_NOTE_WORDS_ONLY`). The ones who become friends they can `befriend`: their own page about
 each then rides in their prompt every day (`FRIENDS_TITLE`, `FRIENDS_MAX`), and
 `unfriend` or `quiet` lets one step back.
 

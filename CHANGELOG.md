@@ -300,6 +300,15 @@ tagged on its own: the first tag after the rename is v0.13.)
   unchanged. Either way: lone surrogates (half an emoji) are taken out of letters and note pages, which could not be
   written before, and a letter is written to a temporary name and then put in place, so the thread never holds half
   a letter. False: the tool as before.
+- **A letter sent with `note` replaced the page about that penpal** (`PENPAL_NOTE_WORDS_ONLY`, on): note took its page
+  from `letter` or `words`, so a letter given with note became the whole page. Now the page comes only from `words`:
+  note with a letter (20 characters or more) and no words changes nothing and says so — the page as it was, the letter
+  NOT sent; with both, the page comes from words and the result starts with the line saying the letter was NOT sent; a
+  short letter alone is still a one-line page, as before. False: as before.
+- **A garden call with no action only looked, silently** (`GARDEN_SAY_DROPPED`, on): a bed, a plant, a note or a plant
+  to invent given without an action (or with look) ran the look and said nothing of the rest. The look still runs, and
+  now starts "(refused: nothing was planted or changed — you gave … but no action, so the garden was only looked at …)"
+  naming what was given and the actions; nothing is guessed. False: as before.
 - **A fault after the fold said the visit stayed as it was**: when a step after the fold itself failed (its afterglow,
   the checkpoint), the line read "fold: hiccup — the visit stays as it is", which was untrue. It now says "fold: done —
   a later step hiccupped (…)", keeps the mark of what was sat with inside the new window and saves the new window.
