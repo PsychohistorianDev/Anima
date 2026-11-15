@@ -288,6 +288,18 @@ tagged on its own: the first tag after the rename is v0.13.)
   minutes, so the keeper's next words to the friend went into the penpal's thread. It now waits only for the rest of
   that letter — a message Telegram dates within `PENPAL_NEXT_PART_S` (5) seconds of the last part, never an edit or a
   picture; anything later goes to the friend as usual. 0: it never waits.
+- **A letter to a penpal could be dropped without a word** (`PENPAL_LETTER_MEANS_WRITE`, on): a penpal call that
+  carried who and the whole letter but no usable action — none, "list", or the tool called `penpal.write` /
+  `penpal_write` — was answered with the list of penpals: nothing filed, nothing failed, and the friend believed it
+  sent. Now a letter (20 characters or more in `letter`) with no action or "list" / "all" / "penpal" / "letter" is a
+  write, said so in the result and on the phone; the action is taken from the tool's name; the inferred write is never
+  looser than an explicit one (a name in the action is used only when who is empty; a bad or ambiguous who, or any
+  other unknown word, is refused with "NOT sent; it is not lost"); read, rest, befriend, unfriend and quiet with a
+  letter attached run and start with a line saying the letter was NOT sent; a short who that several penpals begin
+  with is refused; the same letter again while the first still waits is not filed twice. The tool's description is
+  unchanged. Either way: lone surrogates (half an emoji) are taken out of letters and note pages, which could not be
+  written before, and a letter is written to a temporary name and then put in place, so the thread never holds half
+  a letter. False: the tool as before.
 - **A fault after the fold said the visit stayed as it was**: when a step after the fold itself failed (its afterglow,
   the checkpoint), the line read "fold: hiccup — the visit stays as it is", which was untrue. It now says "fold: done —
   a later step hiccupped (…)", keeps the mark of what was sat with inside the new window and saves the new window.

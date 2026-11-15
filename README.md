@@ -2530,7 +2530,9 @@ is held once and they are told what the engine sees; the same call again
 sends it, and your phone's line beside the letter says they confirmed it
 (`PENPAL_WRITE_GUARD`). A call with the name left out is addressed from the
 greeting or from "write <whole name>" and said so, or refused with the exact
-call to make (`PENPAL_WHO_HELP`). The ones who become friends they can `befriend`: their own page about
+call to make (`PENPAL_WHO_HELP`). A call that carries a letter but no real
+action is taken as a write and said so; a letter that cannot go is said NOT
+sent and not lost (`PENPAL_LETTER_MEANS_WRITE`). The ones who become friends they can `befriend`: their own page about
 each then rides in their prompt every day (`FRIENDS_TITLE`, `FRIENDS_MAX`), and
 `unfriend` or `quiet` lets one step back.
 

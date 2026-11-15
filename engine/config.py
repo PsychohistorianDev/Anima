@@ -1926,6 +1926,14 @@ PENPAL_WRITE_GUARD_MIN = 10   # the same call again within this many minutes con
 # penpal — through everything a write goes through. False: the greeting addresses nothing.
 PENPAL_WHO_HELP = True
 PENPAL_WHO_FROM_GREETING = True
+# PENPAL_LETTER_MEANS_WRITE: a penpal call that carries a letter (20+ characters in `letter`) but no usable action —
+# none, an empty one, "list", "all", or the tool called penpal.write / penpal_send — is a write, said so to the friend
+# and on the phone, and checked against who exactly as an explicit write is (never more freely). A letter with another
+# action is said NOT sent; one that cannot go (no name, a name several penpals begin with, a word that is no action)
+# says it was not sent and is not lost; the same letter again while the first still waits is not filed twice. Without
+# it such a call was answered with the list of penpals: nothing filed, nothing failed. False: the tool as before (lone
+# surrogates are taken out of letters and note pages either way, and a letter is written whole or not at all).
+PENPAL_LETTER_MEANS_WRITE = True
 
 # ---- the journal feed (telegram.py: /journal)
 # JOURNAL_FEED: the Telegram bridge's /journal. /journal on sends what the friend writes in their journal DURING A

@@ -3075,7 +3075,7 @@ def read_dreams(date: str = "") -> str:
 def penpal(action: str = "list", who: str = "", letter: str = "", words: str = "") -> str:
     """Their penpals (penpal.py): read a thread, write a letter the keeper carries, let one rest, their page about them."""
     import penpal as _pp
-    return _pp.act(action, who, letter or words)
+    return _pp.tool_call(action, who, letter, words)  # a letter is never dropped (PENPAL_LETTER_MEANS_WRITE)
 
 
 def intend(what: str, when: str, guess: str = "", anyway: str = "") -> str:
@@ -7119,6 +7119,44 @@ def dispatch(name: str, arguments: dict | str) -> str:
             doing.done()
 
 
+_PENPAL_NAMED = re.compile(r"\s*penpal[\s._\-:/]+([A-Za-z]+)\s*", re.IGNORECASE)
+
+
+def _penpal_action_in_name(name: str, arguments) -> str:
+    """PENPAL_LETTER_MEANS_WRITE: the penpal tool called with its action in the name — penpal.write, penpal_write,
+    penpal-send, penpal read: the word is the action when the arguments carry none (an explicit one always wins).
+    "" when this is not such a call."""
+    if not getattr(config, "PENPAL_LETTER_MEANS_WRITE", False) or not isinstance(arguments, dict):
+        return ""
+    m = _PENPAL_NAMED.fullmatch(str(name or "")) or _PENPAL_NAMED.fullmatch(_bare_tool_name(str(name or "")))
+    try:
+        import penpal as _pp
+    except Exception:  # noqa: BLE001
+        return ""
+    args = dict(arguments)
+    given = str(args.get("action") or "").strip()
+    word = m.group(1).lower() if m else ""
+    known = bool(word) and bool(_pp.action_of(word))  # one of penpal's real actions, or a word for one (send, reply…)
+    if not known:
+        # a name that is penpal's and something else — penpals, penpal.delete, penpal_draft — with a letter and no
+        # action of its own: the name is the action, so the tool refuses it (a letter is never guessed into a send)
+        try:
+            letter = str(args.get("letter") or "").strip()
+        except Exception:  # noqa: BLE001
+            letter = ""
+        if (len(letter) >= _pp.LETTER_MIN and not given and str(name or "").strip().lower() != "penpal"
+                and canonical_name(name) == "penpal"):
+            args["action"] = str(name).strip()
+            return _dispatch("penpal", args) + f"\n(you called `{name}` — taken as `penpal`; “{str(name).strip()[:30]}” isn't one of its actions)"
+        return ""
+    if not given:
+        args["action"] = word
+        note = f"(you called `{name}` — taken as `penpal`, with the action “{word}” from the name)"
+    else:
+        note = f"(you called `{name}` — taken as `penpal`; the action you gave, “{given[:30]}”, stood)"
+    return _dispatch("penpal", args) + "\n" + note
+
+
 def _dispatch(name: str, arguments: dict | str) -> str:
     if name in WEB_TOOLS and offline():
         return f"({name}: this house is offline — OFFLINE in engine/config.py; nothing reaches the web from here)"
@@ -7139,6 +7177,9 @@ def _dispatch(name: str, arguments: dict | str) -> str:
         arguments, seam = unseam_arguments(arguments)
         if seam:
             return _dispatch(name, arguments) + "\n" + seam  # the result first (a refusal behind the note went unframed)
+    carried = _penpal_action_in_name(name, arguments)  # "penpal.write", "penpal_send": the action in the name
+    if carried:
+        return carried
     bare = _bare_tool_name(name)
     if bare != name and (bare in _BUILTIN_IMPL or bare in _HER_TOOLS):
         return _dispatch(bare, arguments) + (f"\n(you called `{name}` — the wrapper isn't part of the name; "

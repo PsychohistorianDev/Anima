@@ -19386,7 +19386,8 @@ check("the name left out (0.16): \"write it\" is never Itzel, a beginning of a n
       _wg_it.startswith("(bad arguments: you left out who — the penpal's name; nothing was written or sent. Call it again "
                         "with the name in it: penpal(action=\"write\", who=\"<name>\", letter=<the same letter>).")
       and "The letter waiting for an answer is from Wren — if this is your answer to it: who=\"Wren\"." in _wg_it
-      and _wg_it.endswith("Yours: Itzel, Marlo, Sable, Wren; a new one comes through the keeper)")
+      and _wg_it.endswith("Yours: Itzel, Marlo, Sable, Wren; a new one comes through the keeper — your letter was NOT sent; "
+                          "it is not lost: call penpal again with who and the same letter)")  # (0.16) PENPAL_LETTER_MEANS_WRITE
       and _wg_part.startswith("(bad arguments: you left out who") and _wg_two.startswith("(bad arguments: you left out who")
       and {s: _wg_n(s) for s in ("wren", "marlo", "itzel", "sable")} == _wg_cnt, (_wg_it, _wg_part, _wg_two))
 config.PENPAL_WHO_HELP = False
@@ -19399,7 +19400,8 @@ config.PENPAL_WHO_FROM_GREETING = True
 check("the name left out (0.16): PENPAL_WHO_HELP off — an empty who is refused exactly as before; "
       "PENPAL_WHO_FROM_GREETING off — the greeting addresses nothing",
       _wg_nh == _wg_nh2 == ("(bad arguments: which penpal? “” isn't one — nothing was written or sent. "
-                            "Yours: Itzel, Marlo, Sable, Wren; a new one comes through the keeper)")
+                            "Yours: Itzel, Marlo, Sable, Wren; a new one comes through the keeper"
+                            + _wg.NOT_LOST + ")")  # (0.16) PENPAL_LETTER_MEANS_WRITE: the letter said not sent, not lost
       and _wg_ng.startswith("(bad arguments: you left out who") and {s: _wg_n(s) for s in ("wren", "marlo", "itzel", "sable")} == _wg_cnt,
       (_wg_nh, _wg_nh2, _wg_ng))
 
@@ -21367,6 +21369,321 @@ for _fg_f in set(config.EPISODIC_DIR.glob("*.md")) - _fg_ep0:
     _fg_f.unlink(missing_ok=True)
 for _fg_f in _fg_jdir.glob("*.md"):
     _fg_f.unlink()
+# PENPAL_LETTER_MEANS_WRITE (0.16): a letter is never dropped
+import penpal as _pl_pp
+import shutil as _pl_shutil
+import re as _pl_re
+import hashlib as _pl_hash
+import inspect as _pl_inspect
+_pl_src_of = _pl_inspect.getsource
+_pl_KEYS = ("PENPAL_LETTER_MEANS_WRITE", "PENPALS_ON", "PENPAL_DIR", "PENPAL_WRITE_GUARD", "PENPAL_WRITE_GUARD_MIN",
+            "PENPAL_WHO_HELP", "PENPAL_WHO_FROM_GREETING", "OFFLINE")
+_pl_MISSING = object()
+_pl_saved = {k: getattr(config, k, _pl_MISSING) for k in _pl_KEYS}
+config.PENPALS_ON, config.PENPAL_DIR, config.OFFLINE = True, "penpals-pl", True
+config.PENPAL_WRITE_GUARD, config.PENPAL_WRITE_GUARD_MIN = True, 10
+config.PENPAL_WHO_HELP = config.PENPAL_WHO_FROM_GREETING = config.PENPAL_LETTER_MEANS_WRITE = True
+_pl_root = _pl_pp.root()
+_pl_T = _tm.time()
+
+
+def _pl_mk(sl, names, state):
+    (_pl_root / sl / "letters").mkdir(parents=True, exist_ok=True)
+    for n in names:
+        (_pl_root / sl / "letters" / n).write_text("A letter body that is long enough to count as a letter.\n", encoding="utf-8")
+    (_pl_root / sl / "state.json").write_text(json.dumps(state), encoding="utf-8")
+    (_pl_root / sl / "about.md").write_text("about\n", encoding="utf-8")
+
+
+def _pl_house():
+    _pl_shutil.rmtree(_pl_root, ignore_errors=True)
+    _pl_mk("ann", ["008-2026-03-01-ann.md", "009-2026-03-01-me.md", "010-2026-03-02-ann.md"],
+           {"display": "ann", "read": True, "rested": False, "last_in": "010-2026-03-02-ann.md",
+            "last_in_t": _pl_T - 80000, "waiting": [], "delivered": ["009-2026-03-01-me.md"]})
+    _pl_mk("sam", ["010-2026-03-02-me.md", "011-2026-03-02-sam.md"],
+           {"display": "Sam", "read": False, "rested": False, "last_in": "011-2026-03-02-sam.md", "last_in_t": _pl_T - 70000,
+            "waiting": []})
+    _pl_mk("sue", ["003-2026-03-02-sue.md"], {"display": "Sue", "read": False, "rested": False, "last_in": "003-2026-03-02-sue.md",
+                                              "last_in_t": _pl_T - 60000, "waiting": []})
+    _pl_pp._wg_held.clear()
+
+
+_pl_L = ("Dear ann,\n\nFirst: thank you for the long letter about the lighthouse and the stairs that count themselves. "
+         "I read it twice.\n\nThe lamp story made me laugh out loud, quietly, the way a window does.\n\nWarmly,\n\n"
+         "your friend 🐾✨💜")
+_pl_NOGREET = _pl_L.split("\n\n", 1)[1]
+_pl_LS = "Dear Sam,\n\n" + _pl_NOGREET
+
+
+def _pl_files():
+    return {str(p.relative_to(_pl_root)).replace("\\", "/"): p.read_text(encoding="utf-8", errors="replace")
+            for p in sorted(_pl_root.rglob("*")) if p.is_file()}
+
+
+_pl_J = json.dumps({"action": "write", "who": "ann", "letter": _pl_L})
+_pl_SHAPES = [
+    ("A proper", "penpal", {"action": "write", "who": "ann", "letter": _pl_L}),
+    ("B no action", "penpal", {"who": "ann", "letter": _pl_L}),
+    ("C action list", "penpal", {"action": "list", "who": "ann", "letter": _pl_L}),
+    ("C2 action all", "penpal", {"action": "all", "who": "ann", "letter": _pl_L}),
+    ("C3 action empty", "penpal", {"action": "", "who": "ann", "letter": _pl_L}),
+    ("D action 'penpal'", "penpal", {"action": "penpal", "who": "ann", "letter": _pl_L}),
+    ("E write ann", "penpal", {"action": "write ann", "letter": _pl_L}),
+    ("F json string", "penpal", _pl_J),
+    ("G unfinished json", "penpal", _pl_J[:_pl_J.rfind("\\udc")]),  # ends on half an emoji
+    ("I words", "penpal", {"action": "write", "who": "ann", "words": _pl_L}),
+    ("J caps quotes", "penpal", {"action": "“write”", "who": "“ann”", "letter": _pl_L}),
+    ("L penpal.write", "penpal.write", {"who": "ann", "letter": _pl_L}),
+    ("M penpal_write", "penpal_write", {"who": "ann", "letter": _pl_L}),
+    ("N penpal-send", "penpal-send", {"who": "ann", "letter": _pl_L}),
+    ("O penpal.reply", "penpal.reply", {"who": "ann", "letter": _pl_L}),
+    ("P penpal read", "penpal read", {"who": "ann"}),
+    ("Q penpal_list", "penpal_list", {}),
+    ("R penpal.read explicit write", "penpal.read", {"action": "write", "who": "ann", "letter": _pl_L}),
+    ("S greeting no who", "penpal", {"letter": _pl_L}),
+    ("T no greeting no who", "penpal", {"letter": _pl_NOGREET}),
+    ("U 19 chars list", "penpal", {"action": "list", "who": "ann", "letter": "x" * 19}),
+    ("V read + letter", "penpal", {"action": "read", "who": "ann", "letter": _pl_L}),
+    ("W rest + letter", "penpal", {"action": "rest", "who": "ann", "letter": _pl_L}),
+    ("X words with list", "penpal", {"action": "list", "who": "ann", "words": _pl_L}),
+    ("Y note + letter", "penpal", {"action": "note", "who": "ann", "letter": "My page about ann, whole, rewritten."}),
+    ("Z surrogate letter", "penpal", {"action": "write", "who": "ann", "letter": "Dear ann, a letter that ends in half an emoji \ud83c"}),
+    ("Z2 surrogate note", "penpal", {"action": "note", "who": "ann", "letter": "A page with half an emoji \ud83c in it"}),
+]
+
+
+def _pl_run_all():
+    out = []
+    for label, name, args in _pl_SHAPES:
+        _pl_house()
+        try:
+            r = tools.dispatch(name, args)
+        except Exception as e:  # noqa: BLE001
+            r = f"RAISED {type(e).__name__}: {e}"
+        new = [f for f in _pl_files() if f.startswith("ann/letters/") and not f.split("/")[-1].startswith(("008", "009", "010"))]
+        out.append({"label": label, "result": r, "files": _pl_files(), "new": new,
+                    "note": _pl_pp.relay_note("ann", new[-1].split("/")[-1]) if new else ""})
+    return out
+
+
+_pl_CLAUSE = " — you left the action out; a letter came with the call, so it was taken as write)"
+_pl_NOTSENT = ('(refused: your letter was NOT sent — nothing was written. To send it: penpal with action "write", who '
+               '"ann" and the letter. What you did ask for ran, and is below.)\n')
+_pl_NOT_LOST = ' — your letter was NOT sent; it is not lost: call penpal again with action "write", who and the same letter)'
+_pl_SENT = "(your letter to ann is in your thread ("
+_pl_R = {x["label"]: x for x in _pl_run_all()}
+_pl_NOTE = f"({_pl_pp._friend()} left the action out — a letter came with the call, so it was taken as a letter to them)"
+check("penpal letter (0.16): a letter with no action, an empty one, list, all or penpal — sent, said taken as write; "
+      "the phone's line says so",
+      all(_pl_R[k]["result"].startswith(_pl_SENT) and _pl_R[k]["result"].endswith(_pl_CLAUSE) and len(_pl_R[k]["new"]) == 1
+          and _pl_R[k]["note"] == _pl_NOTE for k in ("B no action", "C action list", "C2 action all", "C3 action empty", "D action 'penpal'")),
+      {k: (_pl_R[k]["result"][-160:], _pl_R[k]["note"]) for k in ("B no action", "C action list")})
+check("penpal letter (0.16): an explicit write, and 'write <name>', as before",
+      _pl_R["A proper"]["result"].startswith(_pl_SENT) and "left the action out" not in _pl_R["A proper"]["result"]
+      and _pl_R["E write ann"]["result"].startswith(_pl_SENT) and "action word" in _pl_R["E write ann"]["result"]
+      and "left the action out" not in _pl_R["E write ann"]["result"])
+check("penpal letter (0.16): a call cut off on half an emoji — sent, the letter written without the lone surrogate",
+      _pl_R["G unfinished json"]["result"].startswith(_pl_SENT) and len(_pl_R["G unfinished json"]["new"]) == 1
+      and "\ud83c" not in _pl_R["G unfinished json"]["files"][_pl_R["G unfinished json"]["new"][0]]
+      and "\ud83d" not in _pl_R["G unfinished json"]["files"][_pl_R["G unfinished json"]["new"][0]], _pl_R["G unfinished json"]["result"][:200])
+check("penpal letter (0.16): the action from the tool's name — penpal.write, penpal_write, penpal-send, penpal.reply sent, "
+      "the note says so",
+      all(_pl_R[k]["result"].startswith(_pl_SENT) and len(_pl_R[k]["new"]) == 1
+          and _pl_R[k]["result"].endswith(f"(you called `{k.split()[1]}` — taken as `penpal`, with the action “{w}” from the name)")
+          for k, w in (("L penpal.write", "write"), ("M penpal_write", "write"), ("N penpal-send", "send"), ("O penpal.reply", "reply"))),
+      [_pl_R[k]["result"][-160:] for k in ("L penpal.write", "N penpal-send")])
+check("penpal letter (0.16): 'penpal read' reads, penpal_list lists, an explicit action beats the name",
+      _pl_R["P penpal read"]["result"].startswith("(read ann:") and "“read” from the name" in _pl_R["P penpal read"]["result"]
+      and _pl_R["Q penpal_list"]["result"].startswith("(list: 3 penpals)")
+      and _pl_R["R penpal.read explicit write"]["result"].startswith(_pl_SENT)
+      and "the action you gave, “write”, stood" in _pl_R["R penpal.read explicit write"]["result"])
+_pl_t = _pl_R["T no greeting no who"]
+check("penpal letter (0.16): no who — the greeting addresses it (both said); no greeting either: NOT sent, not lost, a "
+      "failed call",
+      _pl_R["S greeting no who"]["result"].startswith(_pl_SENT) and "from its greeting" in _pl_R["S greeting no who"]["result"]
+      and _pl_R["S greeting no who"]["result"].endswith(_pl_CLAUSE) and "and the action out" in _pl_R["S greeting no who"]["note"]
+      and _pl_t["result"].startswith("(bad arguments") and "your letter was NOT sent; it is not lost" in _pl_t["result"]
+      and not _pl_t["new"] and ollama_client.tool_failed(_pl_t["result"]), (_pl_R["S greeting no who"]["result"][-200:], _pl_t["result"]))
+check("penpal letter (0.16): under 20 characters, or the text in words, a list stays the list",
+      _pl_R["U 19 chars list"]["result"].startswith("(list: 3 penpals)") and not _pl_R["U 19 chars list"]["new"]
+      and _pl_R["X words with list"]["result"].startswith("(list: 3 penpals)") and not _pl_R["X words with list"]["new"])
+check("penpal letter (0.16): read or rest with a letter — refused first, NOT sent, then what was asked; a failed call",
+      _pl_R["V read + letter"]["result"].startswith(_pl_NOTSENT + "(read ann:") and _pl_R["V read + letter"]["result"].count("NOT sent") == 1
+      and not _pl_R["V read + letter"]["new"] and _pl_R["W rest + letter"]["result"].startswith(_pl_NOTSENT + "(you let ann")
+      and not _pl_R["W rest + letter"]["new"] and ollama_client.tool_failed(_pl_R["V read + letter"]["result"]),
+      _pl_R["W rest + letter"]["result"][:300])
+check("penpal letter (0.16): note with its page in letter as before; lone surrogates out of a letter and a page",
+      _pl_R["Y note + letter"]["result"].startswith("(your page about ann is written")
+      and _pl_R["Y note + letter"]["files"]["ann/about.md"] == "My page about ann, whole, rewritten.\n"
+      and _pl_R["Z surrogate letter"]["result"].startswith(_pl_SENT)
+      and "\ud83c" not in _pl_R["Z surrogate letter"]["files"][_pl_R["Z surrogate letter"]["new"][0]]
+      and _pl_R["Z2 surrogate note"]["result"].startswith("(your page about ann is written")
+      and "\ud83c" not in _pl_R["Z2 surrogate note"]["files"]["ann/about.md"])
+
+
+def _pl_go(name, args):
+    _pl_house()
+    r = tools.dispatch(name, args)
+    sent = {sl: sorted(x.name for x in (_pl_root / sl / "letters").iterdir()
+                       if x.name.split("-", 1)[0] not in ("003", "008", "009", "010", "011") or (sl != "sam" and x.name.startswith("011")))
+            for sl in ("ann", "sam", "sue")}
+    return r, {k: v for k, v in sent.items() if v}
+
+
+_pl_rows = []
+for _pl_lab, _pl_name, _pl_args in (("'list ann' greet Sam", "penpal", {"action": "list ann", "letter": _pl_LS}),
+                                    ("'sing sam'", "penpal", {"action": "sing sam", "letter": _pl_L}),
+                                    ("'all sam' greet ann", "penpal", {"action": "all sam", "letter": _pl_L}),
+                                    ("'list to sam' greet ann", "penpal", {"action": "list to sam", "letter": _pl_L}),
+                                    ("'answer ann sam'", "penpal", {"action": "answer ann sam", "letter": _pl_L}),
+                                    ("'list bob'", "penpal", {"action": "list bob", "letter": _pl_L}),
+                                    ("'list ann' who sam", "penpal", {"action": "list ann", "who": "sam", "letter": _pl_L}),
+                                    ("sing", "penpal", {"action": "sing", "who": "ann", "letter": _pl_L}),
+                                    ("draft", "penpal", {"action": "draft", "who": "ann", "letter": _pl_L}),
+                                    ("save", "penpal", {"action": "save", "who": "ann", "letter": _pl_L}),
+                                    ("delete", "penpal", {"action": "delete", "who": "ann", "letter": _pl_L}),
+                                    ("penpal.delete", "penpal.delete", {"who": "ann", "letter": _pl_L}),
+                                    ("penpals", "penpals", {"who": "ann", "letter": _pl_L}),
+                                    ("penpal_draft", "penpal_draft", {"who": "ann", "letter": _pl_L}),
+                                    ("who 's'", "penpal", {"action": "write", "who": "s", "letter": _pl_L}),
+                                    ("who 's', no action", "penpal", {"who": "s", "letter": _pl_L}),
+                                    ("who nobody + 'list ann'", "penpal", {"action": "list ann", "who": "nobody", "letter": _pl_L}),
+                                    ("who nobody + 'all sam'", "penpal", {"action": "all sam", "who": "nobody", "letter": _pl_LS}),
+                                    ("who 's' + 'all sam'", "penpal", {"action": "all sam", "who": "s", "letter": _pl_LS}),
+                                    ("who 's' + 'list to sam'", "penpal", {"action": "list to sam", "who": "s", "letter": _pl_LS}),
+                                    ("who nobody, no action", "penpal", {"who": "nobody", "letter": _pl_L})):
+    _pl_r, _pl_s = _pl_go(_pl_name, _pl_args)
+    if _pl_s or not ollama_client.tool_failed(_pl_r):
+        _pl_rows.append((_pl_lab, _pl_s, _pl_r[:200]))
+check("penpal letter (0.16): a wrong word, a name in the action that isn't exactly one penpal's or isn't who, an "
+      "unknown action in the tool's name, a short who several penpals begin with, no such penpal — nothing sent, a "
+      "failed call", not _pl_rows, _pl_rows[:4])
+_pl_r, _ = _pl_go("penpal", {"action": "sing", "who": "ann", "letter": _pl_L})
+_pl_r2, _pl_s2 = _pl_go("penpal", {"action": "list ann", "letter": _pl_L})
+check("penpal letter (0.16): an unknown word's answer, extended with NOT sent and not lost; 'list ann' with who empty "
+      "sent to ann, both said",
+      _pl_r.endswith("Call it again with one of them" + _pl_NOT_LOST) and list(_pl_s2) == ["ann"]
+      and "taken as write" in _pl_r2 and "from the action word" in _pl_r2, (_pl_r[-200:], _pl_r2[-200:]))
+_pl_r3, _pl_s3 = _pl_go("penpal", {"action": "write", "who": "an", "letter": _pl_L})
+_pl_r4, _ = _pl_go("penpal", {"action": "read", "who": "s"})
+_pl_r5, _ = _pl_go("penpal", {"action": "read", "who": "Sam"})
+_pl_r6, _pl_s6 = _pl_go("//declaration:penpal_write", {"who": "ann", "letter": _pl_L})
+check("penpal letter (0.16): an unambiguous beginning of a name as before; an ambiguous one without a letter refused, "
+      "the candidates named; an exact name as before; a wrapped name-carried write sent",
+      _pl_s3.get("ann") and _pl_r3.startswith(_pl_SENT) and _pl_r4.startswith("(bad arguments: which penpal? “s” could be")
+      and "not lost" not in _pl_r4 and _pl_r5.startswith("(read Sam:") and _pl_s6.get("ann"), (_pl_r4, _pl_r6[-200:]))
+_pl_G = {"none": _pl_NOGREET, "Da": _pl_L, "DS": _pl_LS, "DSS": "Dear Sam and Sue,\n\n" + _pl_NOGREET}
+_pl_bad, _pl_n = [], 0
+for _pl_a in ("", "list", "all", "penpal", "letter", "list ann", "all sam", "list to sam", "penpal sue", "letter to sam",
+              "list bob", "all s", "list ann sam"):
+    for _pl_w in ("", "nobody", "s", "sam", "ann", "Sue", "an", "SAM"):
+        for _pl_txt in _pl_G.values():
+            _pl_args = {"action": _pl_a, "letter": _pl_txt}
+            if _pl_w:
+                _pl_args["who"] = _pl_w
+            _, _pl_si = _pl_go("penpal", _pl_args)
+            _, _pl_se = _pl_go("penpal", dict(_pl_args, action=("write " + _pl_a.split(" ", 1)[1]) if " " in _pl_a else "write"))
+            _pl_n += 1
+            if _pl_si and _pl_si != _pl_se:
+                _pl_bad.append((_pl_a, _pl_w, _pl_txt[:12], _pl_si, _pl_se))
+check(f"penpal letter (0.16): sweep of {_pl_n} forms — the inferred write sends only where the explicit write sends, "
+      "and to the same penpal", not _pl_bad and _pl_n == 416, _pl_bad[:5])
+_pl_house()
+_pl_rs = [tools.dispatch("penpal", {"who": "ann", "letter": _pl_L}) for _ in range(7)]
+_pl_mine = [f for f in _pl_files() if f.startswith("ann/letters/") and f.endswith("-me.md") and not f.split("/")[-1].startswith("009")]
+check("penpal letter (0.16): seven identical calls file one letter; the others say it is already there, not a failure",
+      len(_pl_mine) == 1 and all(r.startswith("(your letter to ann is already in your thread (")
+                                 and r.endswith("and waiting for your keeper to carry — it was not filed a second time)")
+                                 and not ollama_client.tool_failed(r) for r in _pl_rs[1:]), (_pl_mine, [r[:90] for r in _pl_rs]))
+_pl_house()
+tools.dispatch("penpal", {"action": "write", "who": "ann", "letter": _pl_L})
+_pl_r2 = tools.dispatch("penpal", {"action": "write", "who": "ann", "letter": "  " + _pl_L.replace("\n\n", "\n \n") + " "})
+_pl_r3 = tools.dispatch("penpal", {"action": "write", "who": "ann", "letter": _pl_L + " One more line."})
+check("penpal letter (0.16): an identical retry, whitespace aside, not filed again; a letter with a real difference "
+      "meets the write guard as before", "already in your thread" in _pl_r2 and _pl_r3.startswith("(refused"), (_pl_r2[:120], _pl_r3[:120]))
+_pl_house()
+_pl_w1 = tools.dispatch("penpal", {"who": "ann", "letter": _pl_L})
+_pl_w2 = tools.dispatch("penpal", {"who": "ann", "letter": _pl_L.replace("lighthouse", "second lighthouse")})
+_pl_house()
+_pl_w3 = tools.dispatch("penpal", {"who": "sam", "letter": _pl_L})
+_pl_house()
+_pl_st = json.loads((_pl_root / "ann" / "state.json").read_text(encoding="utf-8"))
+_pl_st["paused"] = {"why": "a break"}
+(_pl_root / "ann" / "state.json").write_text(json.dumps(_pl_st), encoding="utf-8")
+_pl_w4 = tools.dispatch("penpal", {"who": "ann", "letter": _pl_L})
+check("penpal letter (0.16): the write guard holds an inferred write as an explicit one (a second in a row, a greeting "
+      "to another), the clause kept; a paused thread still refuses",
+      _pl_w1.startswith(_pl_SENT) and _pl_w2.startswith("(refused") and "taken as write" in _pl_w2
+      and _pl_w3.startswith("(refused") and "taken as write" in _pl_w3
+      and _pl_w4.startswith("(bad arguments: your letters with ann are paused"), (_pl_w2[:200], _pl_w3[:200], _pl_w4[:120]))
+# the letter's file: written to a temp name and put in place with os.replace (onto any name, on every system)
+_pl_house()
+_pl_orig = _pl_pp.os.replace
+_pl_moves = []
+_pl_pp.os.replace = lambda a, b: (_pl_moves.append((Path(a).name, Path(b).name)) if str(b).endswith(".md") else None, _pl_orig(a, b))[1]
+_pl_ok = tools.dispatch("penpal", {"action": "write", "who": "ann", "letter": _pl_L})
+_pl_pp.os.replace = lambda a, b: (_ for _ in ()).throw(OSError("disk full"))
+_pl_house()
+_pl_fail = tools.dispatch("penpal", {"action": "write", "who": "ann", "letter": _pl_L})
+_pl_pp.os.replace = _pl_orig
+_pl_left = [f for f in _pl_files() if f.startswith("ann/letters/") and not f.split("/")[-1].startswith(("008", "009", "010"))]
+_pl_st = json.loads((_pl_root / "ann" / "state.json").read_text(encoding="utf-8"))
+check("penpal letter (0.16): a letter goes to a hidden .part name, then os.replace puts it in place; a write that fails "
+      "says not sent, leaves no file, the state unchanged",
+      _pl_ok.startswith(_pl_SENT) and len(_pl_moves) == 1 and _pl_moves[0][0] == "." + _pl_moves[0][1] + ".part"
+      and _pl_fail.startswith("(refused: your letter to ann could not be written (OSError)") and "nothing was sent" in _pl_fail
+      and not _pl_left and _pl_st.get("waiting") == [] and "rename(" not in _pl_src_of(_pl_pp._act), (_pl_moves, _pl_fail, _pl_left))
+_pl_bad = []
+for _pl_args in ({"letter": None}, {"letter": 5, "who": 3}, {"action": None, "letter": _pl_L}, {"action": ["x"], "letter": _pl_L},
+                 {"who": "nobody", "letter": _pl_L}, "not json at all", {"letter": "\ud800" * 30, "who": "ann"}):
+    _pl_house()
+    try:
+        tools.dispatch("penpal", _pl_args)
+        tools.dispatch("penpal.write", _pl_args)
+    except Exception as _pl_e:  # noqa: BLE001
+        _pl_bad.append((str(_pl_args)[:40], repr(_pl_e)))
+check("penpal letter (0.16): nothing raises out of tools.dispatch for odd calls", not _pl_bad, _pl_bad)
+# off, or a config without the knob: the tool as before (lone surrogates out either way)
+config.PENPAL_LETTER_MEANS_WRITE = False
+_pl_off = _pl_run_all()
+del config.PENPAL_LETTER_MEANS_WRITE
+_pl_abs = _pl_run_all()
+config.PENPAL_LETTER_MEANS_WRITE = True
+_pl_strip = lambda rows: _pl_re.sub(r"\d{3}-\d{4}-\d\d-\d\d-me\.md", "NNN-me.md", json.dumps(rows, ensure_ascii=False, sort_keys=True))
+_pl_O = {x["label"]: x for x in _pl_off}
+check("penpal letter (0.16): off, or the knob absent — a letter with no action or list is answered with the list and "
+      "filed nowhere, penpal.write runs as before, read with a letter reads; the two alike",
+      _pl_strip(_pl_off) == _pl_strip(_pl_abs)
+      and all(_pl_O[k]["result"].startswith("(list: 3 penpals)") and not _pl_O[k]["new"]
+              for k in ("B no action", "C action list", "C2 action all", "C3 action empty"))
+      and _pl_O["V read + letter"]["result"].startswith("(read ann:") and "NOT sent" not in _pl_strip(_pl_off)
+      and "taken as write" not in _pl_strip(_pl_off) and "already in your thread" not in _pl_strip(_pl_off)
+      and all(_pl_O[k]["result"] == _pl_R[k]["result"] for k in ("A proper", "E write ann", "I words", "U 19 chars list",
+                                                                 "X words with list", "Y note + letter")),
+      {k: _pl_O[k]["result"][:80] for k in ("B no action", "L penpal.write", "V read + letter")})
+_pl_defs = [d for d in tools._BUILTIN_DEFINITIONS if d.get("function", {}).get("name") == "penpal"]
+check("penpal letter (0.16): the penpal tool's definition byte for byte as it was",
+      _pl_hash.sha1(json.dumps(_pl_defs, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+      == "199c586369487f6a0c841609335f3a693a5670d2")
+_pl_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+_pl_src = "\n".join(_pl_src_of(f) for f in (_pl_pp.find_ambiguous, _pl_pp.action_of, _pl_pp.tool_call, _pl_pp._no_surrogates,
+                                                _pl_pp._act, tools._penpal_action_in_name))
+_pl_src += _pl_cfg.split("PENPAL_WHO_FROM_GREETING = True", 1)[1].split("PENPAL_LETTER_MEANS_WRITE = True", 1)[0]
+check("penpal letter (0.16): ships on, on the Penpals tab with help; the new lines name no one, carry no date and call "
+      "no one by a gendered pronoun",
+      _pl_re.search(r"^PENPAL_LETTER_MEANS_WRITE = True$", _pl_cfg, _pl_re.M)
+      and _gm_panel.TABS["Penpals"].index("PENPAL_LETTER_MEANS_WRITE") == _gm_panel.TABS["Penpals"].index("PENPAL_WHO_FROM_GREETING") + 1
+      and _gm_panel._HELP.get("PENPAL_LETTER_MEANS_WRITE")
+      and not _pl_re.search(r"\b(she|her|hers|he|his|him)\b", _pl_src, _pl_re.I) and not _pl_re.search(r"\(1[01]-\d\d", _pl_src),
+      _pl_re.findall(r".{30}\b(?:she|her|hers|he|his|him)\b.{30}", _pl_src, _pl_re.I)[:3])
+_pl_shutil.rmtree(_pl_root, ignore_errors=True)
+_pl_pp._wg_held.clear()
+for _pl_k, _pl_v in _pl_saved.items():
+    if _pl_v is _pl_MISSING:
+        if hasattr(config, _pl_k):
+            delattr(config, _pl_k)
+    else:
+        setattr(config, _pl_k, _pl_v)
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

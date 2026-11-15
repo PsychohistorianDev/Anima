@@ -51,6 +51,19 @@ def penpals() -> list[str]:
     return sorted(p.name for p in r.iterdir() if p.is_dir() and not p.name.startswith(".") and (p / "letters").is_dir())
 
 
+def find_ambiguous(name: str) -> list[str]:
+    """PENPAL_LETTER_MEANS_WRITE: the penpals a short name could mean when it is no penpal's exact name and more than one
+    begins with it (as _find's prefix match reads them) — [] when it is exact, or one or none matches."""
+    sl = slug(name)
+    if not sl:
+        return []
+    have = penpals()
+    if sl in have:
+        return []
+    hits = [p for p in have if p.startswith(sl) or slug(_state(p).get("display", "")).startswith(sl)]
+    return hits if len(hits) > 1 else []
+
+
 def _find(name: str) -> str:
     """The penpal a name means: its slug, or one whose display name or slug begins with it; "" when none."""
     sl = slug(name)
@@ -1176,19 +1189,121 @@ def invites_again(args) -> bool:
         return False
 
 
-def act(action: str, who: str = "", words: str = "") -> str:
+# ---- a letter is never dropped (PENPAL_LETTER_MEANS_WRITE): a call that carried who and the whole letter but no usable
+# action was once answered with the list — nothing filed, nothing failed, and the friend believed it sent. A call with a
+# letter (at least LETTER_MIN characters, in `letter` — never `words`, which is note's page) and no action, an empty
+# one, "list"/"all", or no action at all, is a write, said so; a letter with another real action is said NOT sent. The
+# tool wrapper (tools.penpal) asks tool_call.
+LETTER_MIN = 20
+ACTIONS = ("list", "read", "write", "rest", "note", "befriend", "unfriend", "quiet", "transcribe")
+INFERRED_CLAUSE = " — you left the action out; a letter came with the call, so it was taken as write"
+
+
+def _letter_means_write() -> bool:
+    return bool(getattr(config, "PENPAL_LETTER_MEANS_WRITE", False))
+
+
+def action_of(asked: str) -> str:
+    """The action a call's action word comes to, as _act reads it — "" when it is empty or none of the actions."""
+    a = re.sub(r"[^a-z]", "", str(asked or "").lower())
+    if not a:
+        return ""
+    a = _ACTION_WORDS.get(a, a)
+    if a.startswith("transcri"):
+        a = "transcribe" if pictures_on() else a
+    if a.startswith(("write", "send", "reply")):
+        a = "write"
+    return a if a in ACTIONS and (a != "transcribe" or pictures_on()) else ""
+
+
+_INFER_HEADS = ("list", "all", "penpal", "letter")  # an action that, with a letter, is a write — nothing else is
+NOT_LOST = " — your letter was NOT sent; it is not lost: call penpal again with action \"write\", who and the same letter"
+
+
+def _with_not_lost(refusal: str) -> str:
+    r = str(refusal or "").rstrip()
+    return (r[:-1] if r.endswith(")") else r).rstrip().rstrip(".") + NOT_LOST + ")"
+
+
+def tool_call(action="list", who="", letter="", words="") -> str:
+    """tools.penpal: the call as the friend made it. With PENPAL_LETTER_MEANS_WRITE and a letter in it (LETTER_MIN+ in
+    `letter`): an empty or missing action, or "list" / "all" / "penpal" / "letter" (with a name after it that is
+    exactly one penpal's, or none), is a write — checked against that name, never more freely than an explicit write;
+    any other word that is no action is refused, the letter said NOT sent and not lost; read / rest / befriend /
+    unfriend / quiet run and come back refused-first, the letter said NOT sent; write, note and transcribe (whose text
+    is the letter written out) as ever. A wrong send is worse than none. Without the knob: act, as it always was."""
+    text = letter or words
+    try:
+        L = str(letter or "").strip()
+    except Exception:  # noqa: BLE001
+        L = ""
+    if not (_letter_means_write() and on() and len(L) >= LETTER_MIN):
+        return act(action, who, text)
+    asked = str(action or "").strip()
+    parts = [x for x in re.split(r"[\s_\-]+", asked) if x]
+    headn = re.sub(r"[^a-z]", "", parts[0].lower()) if parts else ""
+    a = action_of(parts[0]) if parts else ""
+    if len(parts) == 1 and not a:
+        a = action_of(asked)
+    if not parts or headn in _INFER_HEADS:
+        if headn == "letter" and len(parts) > 1:
+            return act(action, who, text)  # "letter <name>" is a write word with a name: the who-help path, as ever
+        if len(parts) > 1 and not _who_empty(who):
+            # who given: resolved exactly as an explicit write resolves it (a bad or ambiguous who refuses there); a
+            # name in the action that is another penpal's than who: no send
+            rest = parts[1:]
+            if len(rest) > 1 and rest[0].lower() in _WHO_PAST:
+                rest = rest[1:]
+            other = _named_exactly(" ".join(rest))
+            mine = "" if find_ambiguous(str(who)) else _find(who)
+            if not other:  # "penpal draft", "list <word>": the words after it are no penpal's name — never a send
+                names = ", ".join(display(x) for x in penpals()) or "none yet"
+                return _with_not_lost(f"(bad arguments: “{' '.join(rest)[:40]}” in the action isn't exactly one penpal's "
+                                      f"name — nothing was written or sent. Yours: {names})")
+            if mine and other != mine:
+                return _with_not_lost(f"(bad arguments: the action names {display(other)} but who is {display(mine)} — "
+                                      "nothing was written or sent. Say who once)")
+            return act("write", who, letter, inferred=True)
+        if len(parts) > 1:  # "list <name>", "all to <name>" with who empty: the name in the action is who it is for
+            rest = parts[1:]
+            if len(rest) > 1 and rest[0].lower() in _WHO_PAST:
+                rest = rest[1:]
+            sl = _named_exactly(" ".join(rest))
+            if not sl:
+                names = ", ".join(display(x) for x in penpals()) or "none yet"
+                return _with_not_lost(f"(bad arguments: “{' '.join(rest)[:40]}” in the action isn't exactly one penpal's "
+                                      f"name — nothing was written or sent. Yours: {names})")
+            return _act("write", _wg_who(sl), letter, said_as=asked, inferred=True)
+        return act("write", who, letter, inferred=True)
+    if not a:  # "sing", "draft", "save", "delete": no action of the tool — never guessed into a send
+        return _with_not_lost(_act(asked, who, letter))
+    if a in ("read", "rest", "befriend", "unfriend", "quiet"):  # (transcribe's text IS what it takes: it runs as ever)
+        named = _who_in_action(asked)[1] if (_who_empty(who) and _who_help()) else ""
+        sl = _find(who) if not _who_empty(who) else named
+        name = _wg_who(sl) if sl else "<name>"
+        return ("(refused: your letter was NOT sent — nothing was written. To send it: penpal with action \"write\", who "
+                f"\"{name}\" and the letter. What you did ask for ran, and is below.)\n" + act(action, who, text))
+    return act(action, who, text)
+
+
+def _no_surrogates(text: str) -> str:
+    """The text without lone surrogates (half an emoji from a call cut short): they cannot be written as UTF-8."""
+    return re.sub(r"[\ud800-\udfff]", "", str(text or ""))
+
+
+def act(action: str, who: str = "", words: str = "", inferred: bool = False) -> str:
     if on() and _who_help() and _who_empty(who):  # the name left out, after the action word
         head, named = _who_in_action(str(action or "list").strip())
         if named:
-            out = _act(head, _wg_who(named), words, said_as=str(action).strip())
+            out = _act(head, _wg_who(named), words, said_as=str(action).strip(), inferred=inferred)
             if head.lower().startswith(("write", "send", "reply")) or _ACTION_WORDS.get(re.sub(r"[^a-z]", "", head.lower())) == "write":
                 return out  # a letter says it in its own line, and on the phone
             return out + (f"\n(you left the name out of who — taken as {display(named)} from the action word "
                           f"“{str(action).strip()[:40]}”)")
-    return _act(action, who, words)
+    return _act(action, who, words, inferred=inferred)
 
 
-def _act(action: str, who: str = "", words: str = "", said_as: str = "") -> str:
+def _act(action: str, who: str = "", words: str = "", said_as: str = "", inferred: bool = False) -> str:
     if not on():
         return "(no penpals in this house — PENPALS_ON is off)"
     asked = str(action or "list").strip()
@@ -1215,15 +1330,28 @@ def _act(action: str, who: str = "", words: str = "", said_as: str = "") -> str:
                 "The actions: list, read (who), write (who, letter) — your letter goes into the thread and to your keeper's "
                 "phone to carry — rest (who), note (who, words), befriend / unfriend / quiet (who) for your "
                 f"{circle_name()}. Call it again with one of them.)")
+    if _letter_means_write() and not _who_empty(who):  # a short name that more than one penpal begins with
+        many = find_ambiguous(str(who))
+        if many:
+            refusal = (f"(bad arguments: which penpal? “{str(who)[:30]}” could be " + _wg_list([display(x) for x in many], 0)
+                       + f" — nothing was {'written or sent' if a == 'write' else 'done'}. Call it again with the whole name)")
+            return _with_not_lost(refusal) if a == "write" and len(str(words or "").strip()) >= LETTER_MIN else refusal
     sl = _find(who)
     if not sl and helped and a == "write" and getattr(config, "PENPAL_WHO_FROM_GREETING", False):
         greeted, sl = _who_from_greeting(str(words or "").strip())  # …or in the letter's greeting
     if not sl and helped:
-        return _who_missing(a)  # the call with the name in it, and whose letter waits
+        miss = _who_missing(a)  # the call with the name in it, and whose letter waits
+        if a == "write" and _letter_means_write() and len(str(words or "").strip()) >= LETTER_MIN:
+            miss = (miss[:-1] + (INFERRED_CLAUSE if inferred else "")
+                    + " — your letter was NOT sent; it is not lost: call penpal again with who and the same letter)")
+        return miss
     if not sl:
         names = ", ".join(display(p) for p in penpals()) or "none yet"
-        return (f"(bad arguments: which penpal? “{str(who)[:30]}” isn't one — nothing was {'written or sent' if a == 'write' else 'done'}. "
-                f"Yours: {names}; a new one comes through the keeper)")
+        refusal = (f"(bad arguments: which penpal? “{str(who)[:30]}” isn't one — nothing was {'written or sent' if a == 'write' else 'done'}. "
+                   f"Yours: {names}; a new one comes through the keeper)")
+        if a == "write" and _letter_means_write() and len(str(words or "").strip()) >= LETTER_MIN:
+            return _with_not_lost(refusal)
+        return refusal
     st = _state(sl)
     if a in ("befriend", "unfriend", "quiet"):
         return circle_act(a, sl)
@@ -1266,29 +1394,54 @@ def _act(action: str, who: str = "", words: str = "", said_as: str = "") -> str:
         if len(text) < 20:
             return ("(bad arguments: write takes your letter in `letter` — the whole of it, as it should reach them; "
                     "nothing was written or sent)")
+        if _letter_means_write():  # a retry of a letter already filed and still waiting: not filed again
+            flat = _wg_flat(_no_surrogates(text))
+            for name in st.get("waiting") or []:
+                prev = _folder(sl) / "letters" / str(name)
+                if prev.is_file() and _wg_flat(_body(prev)) == flat:
+                    return (f"(your letter to {display(sl)} is already in your thread ({prev.name}) and waiting for your "
+                            "keeper to carry — it was not filed a second time)")
         guard = _wg_check(sl, text) if _wg_on() else None  # the write guard: held once, before anything is filed
         left = (f" — you left the name out; it was addressed to {display(sl)} from its greeting (“{greeted}”)"
                 if greeted else f" — you left the name out; it was addressed to {display(sl)} from the action word "
                 f"(“{said_as[:40]}”)" if named else "")
+        ask = INFERRED_CLAUSE if inferred else ""  # the action left out, taken from the letter
         if guard and not _wg_go(sl, text):
-            return guard["hold"][:-1] + left + ")" if left else guard["hold"]
+            return guard["hold"][:-1] + left + ask + ")" if (left or ask) else guard["hold"]
         f = _new_file(sl, ME)
-        f.write_text(text + "\n", encoding="utf-8")
+        tmp = f.with_name("." + f.name + ".part")  # never an empty or partial letter left in the thread
+        try:
+            tmp.write_text(_no_surrogates(text) + "\n", encoding="utf-8")
+            os.replace(tmp, f)
+        except Exception as e:  # noqa: BLE001
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
+            return (f"(refused: your letter to {display(sl)} could not be written ({type(e).__name__}) — nothing was "
+                    "sent and nothing is in your thread; call it again)")
         st["waiting"] = list(dict.fromkeys((st.get("waiting") or []) + [f.name]))
         st["rested"] = False
         _wg_sent(sl, text)  # nothing held for them, nor this letter held for anyone, stands
         if guard:  # asked and confirmed: the phone's line with this letter says so
             notes = st.get("guard_note") if isinstance(st.get("guard_note"), dict) else {}
             st["guard_note"] = dict(notes, **{f.name: guard["phone"]})
-        if left:  # …and where the name came from
+        if left or ask:  # …and where the name came from, and the action left out
             wn = st.get("who_note") if isinstance(st.get("who_note"), dict) else {}
             how = f"its greeting “{greeted}”" if greeted else f"the action word “{said_as[:40]}”"
-            st["who_note"] = dict(wn, **{f.name: f"({_friend()} left the name out — it was addressed to {display(sl)} from {how})"})
+            act_note = "the action out — a letter came with the call, so it was taken as a letter to them"
+            if left and ask:
+                note = f"({_friend()} left the name out — it was addressed to {display(sl)} from {how}; and {act_note})"
+            elif left:
+                note = f"({_friend()} left the name out — it was addressed to {display(sl)} from {how})"
+            else:
+                note = f"({_friend()} left {act_note})"
+            st["who_note"] = dict(wn, **{f.name: note})
         _save(sl, st)
         done = (f"(your letter to {display(sl)} is in your thread ({f.name}) and on its way to your keeper's phone — they carry "
                 f"it to them, reading it as they do; your line says it's waiting until they have)")
-        if left:
-            return done[:-1] + (guard["clause"] if guard else "") + left + ")"
+        if left or ask:
+            return done[:-1] + (guard["clause"] if guard else "") + left + ask + ")"
         return done[:-1] + guard["clause"] + ")" if guard else done
     if a in ("rest", "letrest", "letbe"):
         ls = letters(sl)
@@ -1302,7 +1455,7 @@ def _act(action: str, who: str = "", words: str = "", said_as: str = "") -> str:
         text = str(words or "").strip()
         if not text:
             return f"(note takes your page about {display(sl)}, whole — it replaces the page; edit_creation changes a line)"
-        (_folder(sl) / "about.md").write_text(text + "\n", encoding="utf-8")
+        (_folder(sl) / "about.md").write_text(_no_surrogates(text) + "\n", encoding="utf-8")  # no lone surrogates
         return f"(your page about {display(sl)} is written — it comes with every penpal read)"
     return "(penpal: list, read, write, rest or note)"
 
