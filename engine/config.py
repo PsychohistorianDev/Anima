@@ -1724,6 +1724,13 @@ PENPAL_PRIVATE_WORDS = ("pills", "meds", "medication", "blood pressure", "therap
 # someone.
 PENPAL_DESK = True
 PENPAL_DESK_HOUR = 17
+# PENPAL_WAITING_REMIND: a letter of the friend's that has waited PENPAL_WAITING_REMIND_H hours on your phone (no
+# posted / trimmed / not sending pressed) comes back as one line with the same three buttons, then once every
+# PENPAL_WAITING_REMIND_EVERY_H hours until answered — a letter whose message scrolled away is easily forgotten. Never
+# in the quiet hours; only to you, nothing reaches the friend. False: no reminders, as before.
+PENPAL_WAITING_REMIND = True
+PENPAL_WAITING_REMIND_H = 6
+PENPAL_WAITING_REMIND_EVERY_H = 24
 # PENPAL_WATCH_S: a letter they write reaches your phone within this many seconds, from a wake or a visit alike
 # (0: with the bridge's next poll).
 PENPAL_WATCH_S = 5

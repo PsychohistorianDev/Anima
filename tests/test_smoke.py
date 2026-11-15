@@ -82,6 +82,7 @@ config.READING_PAGE_STUB, config.READING_NOTES_WITH_PAGES, config.READING_NOTES_
 # reading notes out of the prompt: the older reading checks pin the page riding whole; tested on their own, below
 config.JOURNAL_PICKUP_LINE = False  # (0.16) the older pause and afterglow checks pin the bells as they were; tested on its own
 config.JOURNAL_FACTS_LETTERS = False  # (0.16) the older facts-line checks pin the paintings alone; the letters tested on their own
+config.PENPAL_WAITING_REMIND = False  # (0.16) the older bridge checks pin the polls as they were; the reminder tested on its own
 config.FOLD_AFTERGLOW_SINCE_PAUSE = config.FOLD_BELL_PICKUP = False  # (0.16) the older fold checks pin the fold as it was:
 # the afterglow over all that left, the mark at the new window's end, the bell as before; tested on their own, below
 config.GUEST_VIEW_LINE = False  # (0.16) the older guest checks pin the guest's line as it was; the view sentence is tested on its own
@@ -22494,6 +22495,290 @@ for _fl_k, _fl_v in _fl_saved.items():
             delattr(config, _fl_k)
     else:
         setattr(config, _fl_k, _fl_v)
+# PENPAL_WAITING_REMIND (0.16): a letter still waiting on the keeper's phone comes back, with its buttons
+import json as _wr_json
+import os as _wr_os
+import time as _wr_time
+import shutil as _wr_shutil
+import inspect as _wr_inspect
+import re as _wr_re
+from datetime import datetime as _wr_dt
+import penpal as _wr_pp
+import telegram as _wr_tg
+_wr_KEYS = ("PENPAL_WAITING_REMIND", "PENPAL_WAITING_REMIND_H", "PENPAL_WAITING_REMIND_EVERY_H", "PENPALS_ON", "PENPAL_DIR",
+            "PENPAL_DESK", "TELEGRAM_QUIET_HOURS")
+_wr_MISSING = object()
+_wr_saved = {k: getattr(config, k, _wr_MISSING) for k in _wr_KEYS}
+_wr_stubs = (ollama_client.chat, _wr_tg._say)
+config.PENPALS_ON, config.PENPAL_DIR, config.PENPAL_DESK, config.TELEGRAM_QUIET_HOURS = True, "penpals-wr", False, (6, 6)
+config.PENPAL_WAITING_REMIND, config.PENPAL_WAITING_REMIND_H, config.PENPAL_WAITING_REMIND_EVERY_H = True, 6, 24
+_wr_brain = []
+ollama_client.chat = lambda *a, **k: (_wr_brain.append(1), {"role": "assistant", "content": "reply."})[1]
+_wr_tg._say = lambda s: None
+_wr_root = _wr_pp.root()
+_wr_RF = config.MEMORY_DIR / "penpal_reminded.json"
+_wr_RF0 = _wr_RF.read_bytes() if _wr_RF.is_file() else None
+_wr_H = 3600.0
+_wr_FR = _wr_pp._friend()
+
+
+class _WrPhone:
+    def __init__(self):
+        self.phone, self.edits, self.texts = [], [], []
+        self.fail = self.fail_edit = False
+
+    def __call__(self, method, patience=30, **params):
+        if method == "editMessageReplyMarkup":
+            if self.fail_edit:
+                raise OSError("the edit's road dropped")
+            self.edits.append([int(params.get("message_id") or 0), _wr_json.loads(params.get("reply_markup") or "{}")])
+            return {}
+        if method == "editMessageText":
+            self.texts.append([int(params.get("message_id") or 0), str(params.get("text") or "")])
+            return {}
+        if method == "sendMessage":
+            if self.fail:
+                raise OSError("the phone's road dropped")
+            mk = params.get("reply_markup")
+            self.phone.append([str(params.get("text") or ""), _wr_json.loads(mk) if mk else None])
+            return {"message_id": 100 + len(self.phone)}
+        return {}
+
+
+def _wr_fresh():
+    _wr_shutil.rmtree(_wr_root, ignore_errors=True)
+    _wr_RF.unlink(missing_ok=True)
+    _wr_pp.new("wick")
+    _wr_pp.new("Tova")
+    b = _wr_tg.Bridge("TOKEN", 4242)
+    ph = _WrPhone()
+    b.api = ph
+    b._typing = lambda stop: None
+    return b, ph
+
+
+def _wr_rec():
+    try:
+        return _wr_json.loads(_wr_RF.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def _wr_seed(part, first_h=None, last_h=None):
+    d = _wr_rec() or {"letters": {}, "msgs": {}}
+    d.setdefault("letters", {})
+    for sl in _wr_pp.penpals():
+        for n in _wr_pp._state(sl).get("waiting") or []:
+            k = f"{sl}/{n}"
+            if part in k:
+                r = d["letters"].setdefault(k, {"first": _wr_time.time(), "last": 0})
+                if first_h is not None:
+                    r["first"] = _wr_time.time() - first_h * _wr_H
+                if last_h is not None:
+                    r["last"] = _wr_time.time() - last_h * _wr_H
+    _wr_RF.write_text(_wr_json.dumps(d), encoding="utf-8")
+
+
+def _wr_letter(sl, ago_h, on_phone_h=None):
+    f = _wr_pp._new_file(sl, _wr_pp.ME)
+    f.write_text("Dear friend, a letter.\n", encoding="utf-8")
+    st = _wr_pp._state(sl)
+    st["waiting"] = list(dict.fromkeys((st.get("waiting") or []) + [f.name]))
+    st["delivered"] = list(dict.fromkeys((st.get("delivered") or []) + [f.name]))
+    _wr_pp._save(sl, st)
+    t = _wr_time.time() - ago_h * _wr_H
+    _wr_os.utime(f, (t, t))
+    _wr_seed(f"{sl}/{f.name}", first_h=ago_h if on_phone_h is None else on_phone_h)
+    return f
+
+
+def _wr_look(b):
+    b._pp_remind_looked = 0.0  # the few minutes between looks, passed
+    return b.penpal_remind_if_due()
+
+
+def _wr_press(b, data, mid):
+    b.handle({"update_id": 9000, "callback_query": {"id": "cq", "data": data, "message": {
+        "chat": {"id": 4242}, "message_id": mid, "text": "the line"}}})
+
+
+def _wr_bstate(b):
+    return [len(b.history), b.last_word, b.reflected_upto, getattr(b, "last_activity", None)]
+
+
+def _wr_pstate(sl="wick"):
+    st = dict(_wr_pp._state(sl))
+    for k in ("carried", "kept_back"):
+        if isinstance(st.get(k), dict):
+            st[k] = {n: "T" for n in st[k]}
+    return st
+
+
+_wr_LINE = _wr_re.compile(r"✉️ " + _wr_re.escape(_wr_FR) + r"'s letter to wick \([A-Z][a-z]{2} \d{1,2}\) is still waiting — did it go\?")
+# 5 h: none; 7 h: one, the same three buttons, nothing else touched; reminded 23 h ago: none; 25 h: again
+_wr_b, _wr_ph = _wr_fresh(); _wr_letter("wick", 5)
+_wr_five = [_wr_look(_wr_b), len(_wr_ph.phone)]
+_wr_b, _wr_ph = _wr_fresh(); _wr_f = _wr_letter("wick", 7)
+_wr_st0, _wr_bs0 = _wr_json.dumps(_wr_pp._state("wick"), sort_keys=True), _wr_bstate(_wr_b)
+_wr_seven = [_wr_look(_wr_b), [x[0] for x in _wr_ph.phone]]
+_wr_num = _wr_f.name.split("-", 1)[0]
+_wr_mk = _wr_ph.phone[0][1] if _wr_ph.phone else None
+_wr_again = _wr_look(_wr_b)
+_wr_seed("wick", last_h=23)
+_wr_23 = _wr_look(_wr_b)
+_wr_seed("wick", last_h=25)
+_wr_25 = [_wr_look(_wr_b), len(_wr_ph.phone)]
+check("waiting remind (0.16): a letter waiting 5 h — nothing; 7 h — one line to the keeper with the letter's own three "
+      "buttons, nothing else of the house or the visit touched, no brain; again at once or 23 h later — nothing; 25 h — again",
+      _wr_five == [0, 0] and _wr_seven[0] == 1 and len(_wr_seven[1]) == 1 and _wr_LINE.fullmatch(_wr_seven[1][0])
+      and _wr_mk == _wr_json.loads(_wr_b._pp_letter_markup("wick", _wr_num))
+      and _wr_mk["inline_keyboard"][0][0]["callback_data"] == f"pp:p:wick:{_wr_num}"
+      and _wr_json.dumps(_wr_pp._state("wick"), sort_keys=True) == _wr_st0 and _wr_bstate(_wr_b) == _wr_bs0
+      and _wr_again == 0 and _wr_23 == 0 and _wr_25 == [1, 2] and not _wr_brain,
+      (_wr_five, _wr_seven, _wr_again, _wr_23, _wr_25, _wr_brain))
+_wr_sent = _wr_b.penpal_command("/penpal sent wick")
+_wr_seed("wick", last_h=30)
+check("waiting remind (0.16): /penpal sent answers it — the reminders' buttons go, no more reminders, the record forgets it",
+      sorted(e[0] for e in _wr_ph.edits) == [101, 102] and all(e[1] == {"inline_keyboard": []} for e in _wr_ph.edits)
+      and _wr_look(_wr_b) == 0 and len(_wr_ph.phone) == 2 and not (_wr_rec().get("letters") or {}), (_wr_sent, _wr_ph.edits, _wr_rec()))
+_wr_b, _wr_ph = _wr_fresh(); _wr_f = _wr_letter("wick", 9)
+_wr_pp.mark_kept_back("wick", _wr_f.name.split("-", 1)[0])
+_wr_kept = [_wr_look(_wr_b), len(_wr_ph.phone)]
+_wr_b, _wr_ph = _wr_fresh(); _wr_letter("wick", 8)
+_wr_h = _wr_dt.now().hour
+config.TELEGRAM_QUIET_HOURS = (_wr_h, (_wr_h + 1) % 24)
+_wr_q = [_wr_look(_wr_b), len(_wr_ph.phone)]
+config.TELEGRAM_QUIET_HOURS = ((_wr_h + 1) % 24, (_wr_h + 2) % 24)
+_wr_q2 = [_wr_look(_wr_b), len(_wr_ph.phone)]
+config.TELEGRAM_QUIET_HOURS = (6, 6)
+_wr_b, _wr_ph = _wr_fresh()
+_wr_letter("wick", 10); _wr_letter("tova", 8)
+_wr_two = [_wr_look(_wr_b), [x[0].split(" to ")[1].split(" (")[0] for x in _wr_ph.phone]]
+_wr_b, _wr_ph = _wr_fresh()
+for _wr_i in range(4):
+    _wr_letter("wick" if _wr_i % 2 else "tova", 7 + _wr_i)
+_wr_four = [_wr_look(_wr_b), _wr_look(_wr_b)]
+check("waiting remind (0.16): a kept-back letter — nothing; in the quiet hours — nothing, then one when they end; two "
+      "penpals due — both, the newest first; four due — three, the fourth at the next look",
+      _wr_kept == [0, 0] and _wr_q == [0, 0] and _wr_q2 == [1, 1] and _wr_two == [2, ["Tova", "wick"]] and _wr_four == [3, 1],
+      (_wr_kept, _wr_q, _wr_q2, _wr_two, _wr_four))
+_wr_b, _wr_ph = _wr_fresh(); _wr_letter("wick", 7)
+_wr_ph.fail = True
+_wr_fail = [_wr_look(_wr_b), len(_wr_ph.phone), [r.get("last") for r in (_wr_rec().get("letters") or {}).values()]]
+_wr_ph.fail = False
+_wr_retry = [_wr_look(_wr_b), len(_wr_ph.phone)]
+_wr_b, _wr_ph = _wr_fresh(); _wr_letter("wick", 7)
+_wr_b.lock.acquire()
+_wr_t0 = _wr_time.time()
+_wr_locked = [_wr_look(_wr_b), len(_wr_ph.phone), _wr_time.time() - _wr_t0 < 1.0]
+_wr_b.lock.release()
+_wr_unlocked = _wr_look(_wr_b)
+_wr_corrupt = []
+for _wr_junk in ("{not json", "[1, 2]"):
+    _wr_b, _wr_ph = _wr_fresh(); _wr_letter("wick", 7)
+    _wr_RF.write_text(_wr_junk, encoding="utf-8")
+    try:
+        _wr_corrupt.append([_wr_look(_wr_b), len(_wr_ph.phone)])
+    except Exception as _wr_e:  # noqa: BLE001
+        _wr_corrupt.append(repr(_wr_e))
+check("waiting remind (0.16): a failed send records nothing and goes at the next look; the lock taken — skipped, never "
+      "waited on; a corrupt or wrongly shaped record starts fresh, never raises",
+      _wr_fail == [0, 0, [0]] and _wr_retry == [1, 1] and _wr_locked == [0, 0, True] and _wr_unlocked == 1
+      and _wr_corrupt == [[0, 0], [0, 0]], (_wr_fail, _wr_retry, _wr_locked, _wr_unlocked, _wr_corrupt))
+_wr_b, _wr_ph = _wr_fresh(); _wr_letter("wick", 7)
+_wr_first = _wr_rec()
+_wr_RF.unlink(missing_ok=True)
+_wr_RF.mkdir()
+_wr_b._pp_remind_mem = _wr_first
+_wr_unw = [sum(_wr_look(_wr_b) for _ in range(3)), len(_wr_ph.phone)]
+_wr_RF.rmdir()
+_wr_bad = {}
+for _wr_v in (0, -5, "x"):
+    _wr_b, _wr_ph = _wr_fresh(); _wr_letter("wick", 7)
+    config.PENPAL_WAITING_REMIND_EVERY_H = _wr_v
+    _wr_bad[f"every {_wr_v}"] = sum(_wr_look(_wr_b) for _ in range(3))
+config.PENPAL_WAITING_REMIND_EVERY_H = 24
+for _wr_v in (0, -1, "x"):
+    _wr_b, _wr_ph = _wr_fresh(); _wr_letter("wick", 30, on_phone_h=0)
+    config.PENPAL_WAITING_REMIND_H = _wr_v
+    _wr_a = _wr_look(_wr_b)
+    _wr_seed("wick", first_h=2)
+    _wr_bad[f"after {_wr_v}"] = [_wr_a, _wr_look(_wr_b)]
+config.PENPAL_WAITING_REMIND_H = 6
+check("waiting remind (0.16): a record that can't be written — the bridge keeps it, one reminder in three looks; bad knob "
+      "values fall back (every: 24 h; after: at least an hour, a bad one 6 h)",
+      _wr_unw == [1, 1] and all(_wr_bad[f"every {v}"] == 1 for v in (0, -5, "x"))
+      and _wr_bad["after 0"] == [0, 1] and _wr_bad["after -1"] == [0, 0] and _wr_bad["after x"] == [0, 0], (_wr_unw, _wr_bad))
+# presses
+_wr_pr = {}
+for _wr_nm, _wr_first_d, _wr_then_d in (("posted_then_k", "p", "k"), ("kept_then_p", "k", "p"), ("trim_then_k", "t", "k")):
+    _wr_b, _wr_ph = _wr_fresh(); _wr_f = _wr_letter("wick", 7)
+    _wr_n = _wr_f.name.split("-", 1)[0]
+    _wr_look(_wr_b)
+    _wr_press(_wr_b, f"pp:{_wr_first_d}:wick:{_wr_n}", 7)  # the letter's own message
+    _wr_mid = _wr_pstate()
+    _wr_press(_wr_b, f"pp:{_wr_then_d}:wick:{_wr_n}", 101)  # the reminder
+    _wr_pr[_wr_nm] = {"mid": _wr_mid, "after": _wr_pstate(), "texts": [t for _, t in _wr_ph.texts], "edits": list(_wr_ph.edits)}
+    _wr_press(_wr_b, f"pp:{_wr_then_d}:wick:{_wr_n}", 7)  # the letter's own message again: a change of mind
+    _wr_pr[_wr_nm]["again"] = _wr_pstate()
+_wr_today = f"{_wr_dt.now():%b} {_wr_dt.now().day}"
+check("waiting remind (0.16): a press on a reminder whose letter is already answered changes nothing and says so (posted, "
+      "posted trimmed, not sending — with the day); the answer took the reminder's buttons away once; the letter's own "
+      "buttons still change it",
+      all(_wr_pr[k]["mid"] == _wr_pr[k]["after"] for k in _wr_pr)
+      and any(t.endswith(f"\n\nAlready marked posted on {_wr_today} — nothing changed. The letter's own message still has its "
+                         "buttons if you want to change it.") for t in _wr_pr["posted_then_k"]["texts"])
+      and any(f"\n\nAlready marked not sending on {_wr_today} — nothing changed." in t for t in _wr_pr["kept_then_p"]["texts"])
+      and any(f"\n\nAlready marked posted, trimmed, on {_wr_today} — nothing changed." in t for t in _wr_pr["trim_then_k"]["texts"])
+      and all([e[0] for e in _wr_pr[k]["edits"]] == [101] for k in _wr_pr)
+      and _wr_pr["posted_then_k"]["again"].get("kept_back") and _wr_pr["kept_then_p"]["again"].get("carried"),
+      _wr_pr)
+# off, or absent: nothing; the letter's own buttons as before
+_wr_off = {}
+for _wr_m in ("off", "absent"):
+    if _wr_m == "off":
+        config.PENPAL_WAITING_REMIND = False
+    else:
+        for _wr_k in ("PENPAL_WAITING_REMIND", "PENPAL_WAITING_REMIND_H", "PENPAL_WAITING_REMIND_EVERY_H"):
+            delattr(config, _wr_k)
+    _wr_b, _wr_ph = _wr_fresh(); _wr_f = _wr_letter("wick", 9)
+    _wr_RF.unlink(missing_ok=True)
+    _wr_n = _wr_f.name.split("-", 1)[0]
+    _wr_o = [_wr_look(_wr_b), len(_wr_ph.phone), _wr_RF.exists()]
+    _wr_press(_wr_b, f"pp:p:wick:{_wr_n}", 7)
+    _wr_o += [_wr_pstate().get("waiting"), len(_wr_ph.edits), _wr_RF.exists()]
+    _wr_off[_wr_m] = _wr_o
+    config.PENPAL_WAITING_REMIND, config.PENPAL_WAITING_REMIND_H, config.PENPAL_WAITING_REMIND_EVERY_H = True, 6, 24
+check("waiting remind (0.16): off, or a config without the knobs — no reminder, no record, a press as before",
+      _wr_off["off"] == _wr_off["absent"] == [0, 0, False, [], 0, False], _wr_off)
+_wr_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+_wr_src = "\n".join(_wr_inspect.getsource(f) for f in (
+    _wr_tg.Bridge.penpal_remind_if_due, _wr_tg.Bridge._penpal_remind, _wr_tg.Bridge._pp_remind_press, _wr_tg.Bridge._pp_remind_clear,
+    _wr_tg.Bridge._pp_remind_load, _wr_tg.Bridge._pp_remind_save, _wr_tg.Bridge._pp_letter_markup, _wr_pp.waiting_on_keeper))
+_wr_src += _wr_cfg.split("PENPAL_DESK_HOUR = 17", 1)[1].split("PENPAL_WAITING_REMIND_EVERY_H = 24", 1)[0]
+check("waiting remind (0.16): ships on (6 h, every 24 h), on the Penpals tab after PENPAL_DESK_HOUR with help; the new "
+      "lines name no one, carry no date and call no one by a gendered pronoun",
+      _wr_re.search(r"^PENPAL_WAITING_REMIND = True$", _wr_cfg, _wr_re.M) and _wr_re.search(r"^PENPAL_WAITING_REMIND_H = 6$", _wr_cfg, _wr_re.M)
+      and _wr_re.search(r"^PENPAL_WAITING_REMIND_EVERY_H = 24$", _wr_cfg, _wr_re.M)
+      and [_gm_panel.TABS["Penpals"].index(k) for k in ("PENPAL_WAITING_REMIND", "PENPAL_WAITING_REMIND_H", "PENPAL_WAITING_REMIND_EVERY_H")]
+      == [_gm_panel.TABS["Penpals"].index("PENPAL_DESK_HOUR") + i for i in (1, 2, 3)]
+      and all(_gm_panel._HELP.get(k) for k in ("PENPAL_WAITING_REMIND", "PENPAL_WAITING_REMIND_H", "PENPAL_WAITING_REMIND_EVERY_H"))
+      and not _wr_re.search(r"\b(she|her|hers|he|his|him)\b", _wr_src, _wr_re.I) and not _wr_re.search(r"\(1[01]-\d\d", _wr_src),
+      _wr_re.findall(r".{30}\b(?:she|her|hers|he|his|him)\b.{30}", _wr_src, _wr_re.I)[:3])
+_wr_shutil.rmtree(_wr_root, ignore_errors=True)
+if _wr_RF.is_dir():
+    _wr_RF.rmdir()
+if _wr_RF0 is None:
+    _wr_RF.unlink(missing_ok=True)
+else:
+    _wr_RF.write_bytes(_wr_RF0)
+ollama_client.chat, _wr_tg._say = _wr_stubs
+for _wr_k, _wr_v in _wr_saved.items():
+    if _wr_v is _wr_MISSING:
+        if hasattr(config, _wr_k):
+            delattr(config, _wr_k)
+    else:
+        setattr(config, _wr_k, _wr_v)
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

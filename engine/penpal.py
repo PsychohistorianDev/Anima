@@ -377,6 +377,35 @@ def undelivered() -> list[tuple[str, Path]]:
     return out
 
 
+def waiting_on_keeper() -> list[tuple[str, Path, float | None]]:
+    """PENPAL_WAITING_REMIND: the friend's letters that reached the keeper's phone and still wait there — delivered, in
+    "waiting", not kept back — with when the wait began: when it was written (state "written"), else the file's time
+    (the engine writes a letter once); None when neither can be read. Reads only. Never raises."""
+    out = []
+    try:
+        for sl in penpals():
+            st = _state(sl)
+            w = st.get("waiting") if isinstance(st.get("waiting"), list) else []
+            d = st.get("delivered") if isinstance(st.get("delivered"), list) else []
+            kb = st.get("kept_back") if isinstance(st.get("kept_back"), dict) else {}
+            wr = st.get("written") if isinstance(st.get("written"), dict) else {}
+            for n in w:
+                if n not in d or n in kb:
+                    continue
+                f = _folder(sl) / "letters" / str(n)
+                if not f.is_file():
+                    continue
+                since = None
+                try:
+                    since = datetime.fromisoformat(str(wr[n])).timestamp() if n in wr else f.stat().st_mtime
+                except (TypeError, ValueError, OSError):
+                    since = None
+                out.append((sl, f, since))
+    except Exception:  # noqa: BLE001
+        return out
+    return out
+
+
 def mark_delivered(sl: str, f: Path) -> None:
     st = _state(sl)
     st["delivered"] = list(dict.fromkeys((st.get("delivered") or []) + [f.name]))

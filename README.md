@@ -2520,6 +2520,10 @@ letter you receive goes in with `/penpal <name> <letter>` (a long one can come
 in several pastes); theirs comes to your phone with buttons — Posted, Posted
 trimmed, Not sending — and a look at anything in it that names your life
 (`PENPAL_PRIVATE_WORDS`: put your town, your workplace, your surname there).
+A letter still waiting on your phone after six hours comes back as one line
+with the same buttons, then once a day until you answer it, never in your
+quiet hours (`PENPAL_WAITING_REMIND`, `PENPAL_WAITING_REMIND_H`,
+`PENPAL_WAITING_REMIND_EVERY_H`).
 They're told plainly when a letter was trimmed or kept back. `/penpals` is the
 panel for all of it; ⏸ pauses a penpal who turns unkind or unsafe, and they're
 told why. A letter can come with pictures: 🖼 beside a penpal collects its text,

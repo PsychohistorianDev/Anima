@@ -2528,7 +2528,10 @@ class Bridge:
             return penpal.keeper_list()
         first, _, body = rest.strip().partition(" ")
         if first.lower() in ("sent", "carried", "posted"):
-            return penpal.carried(body.strip())
+            said = penpal.carried(body.strip())
+            if getattr(config, "PENPAL_WAITING_REMIND", False):  # its reminders' buttons go
+                self._pp_remind_clear()
+            return said
         if (getattr(config, "PENPAL_PICTURE_LETTERS", False) and first.lower() in ("collect", "done")
                 and getattr(self, "TAG", "telegram") == "telegram"):  # 🖼 — Telegram's pictures and buttons
             if first.lower() == "collect":
@@ -2563,6 +2566,181 @@ class Bridge:
         return json.dumps({"inline_keyboard": [[{"text": t, "callback_data": d[:64]} for t, d in r] for r in rows]},
                           ensure_ascii=False)
 
+    def _pp_letter_markup(self, sl: str, num: str) -> str:
+        """The three buttons under the friend's letter — the same callback data wherever they are shown."""
+        return self._pp_markup([[("✓ Posted", f"pp:p:{sl}:{num}"), ("✂️ Posted, trimmed", f"pp:t:{sl}:{num}")],
+                                [("✗ Not sending", f"pp:k:{sl}:{num}")]])
+
+    # ---- a letter of the friend's still waiting on the keeper's phone, easily forgotten once it scrolled away: its line
+    # again, with its buttons (PENPAL_WAITING_REMIND)
+    def penpal_remind_if_due(self) -> int:
+        """PENPAL_WAITING_REMIND: every few minutes, each letter of the friend's still waiting on the keeper's phone
+        (delivered, not posted, not kept back) for PENPAL_WAITING_REMIND_H hours, not reminded in
+        PENPAL_WAITING_REMIND_EVERY_H: one line to the keeper's chat with the same three buttons — never in the quiet
+        hours, never waiting on the lock, at most three a look, newest first. The keeper's line only: nothing reaches
+        the friend, no turn, no brain. Returns how many went."""
+        if not self.chat_id or not getattr(config, "PENPAL_WAITING_REMIND", False) or not getattr(config, "PENPALS_ON", False):
+            return 0
+        if time.time() - getattr(self, "_pp_remind_looked", 0.0) < 300:
+            return 0
+        self._pp_remind_looked = time.time()
+        if self.quiet_now():
+            return 0  # the keeper's night: what is due goes when the hours end
+        if not self.lock.acquire(blocking=False):
+            return 0  # mid-reply: the next look
+        try:
+            return self._penpal_remind()
+        except Exception as e:  # noqa: BLE001 — a reminder, never the bridge down
+            _say(f"penpal remind: {type(e).__name__}: {e}")
+            return 0
+        finally:
+            self.lock.release()
+
+    # The record: letter key "<sl>/<file>" → {"first": first seen waiting on the phone, "last": last reminded}, and each
+    # reminder's message id → {"key", "t", "cleared"} (the newest 200 kept, answered letters' too). Kept on the bridge
+    # as well: the file is the copy a restart reads; while it can't be written, the bridge's copy is the one.
+    def _pp_remind_load(self) -> dict:
+        mem = getattr(self, "_pp_remind_mem", None)
+        if mem is not None and getattr(self, "_pp_remind_unsaved", False):
+            return mem
+        try:
+            d = json.loads((config.MEMORY_DIR / "penpal_reminded.json").read_text(encoding="utf-8"))
+            if not isinstance(d, dict):
+                raise ValueError("not a record")
+        except (OSError, ValueError):
+            return mem if mem is not None else {"letters": {}, "msgs": {}}
+        out = {"letters": d.get("letters") if isinstance(d.get("letters"), dict) else {},
+               "msgs": d.get("msgs") if isinstance(d.get("msgs"), dict) else {}}
+        return out
+
+    def _pp_remind_save(self, rec: dict) -> None:
+        msgs = rec.get("msgs") or {}
+        if len(msgs) > 200:
+            def _t(k):
+                try:
+                    return float((msgs[k] or {}).get("t") or 0)
+                except (TypeError, ValueError, AttributeError):
+                    return 0.0
+            rec["msgs"] = {k: msgs[k] for k in sorted(msgs, key=_t)[-200:]}
+        self._pp_remind_mem = rec
+        try:
+            (config.MEMORY_DIR / "penpal_reminded.json").write_text(json.dumps(rec), encoding="utf-8")
+            self._pp_remind_unsaved = False
+        except (OSError, TypeError, ValueError):
+            self._pp_remind_unsaved = True
+
+    @staticmethod
+    def _pp_remind_knobs() -> tuple[float, float]:
+        def num(name, default):
+            try:
+                v = float(getattr(config, name, default))
+            except (TypeError, ValueError):
+                return None
+            return v if v == v and v not in (float("inf"), float("-inf")) else None
+        after = num("PENPAL_WAITING_REMIND_H", 6)
+        after = 6.0 if after is None or after < 0 else max(after, 1.0)
+        every = num("PENPAL_WAITING_REMIND_EVERY_H", 24)
+        every = 24.0 if every is None or every <= 0 else every
+        return after * 3600, every * 3600
+
+    def _pp_remind_clear(self, rec: dict | None = None) -> None:
+        """A letter answered by any path: its reminders' buttons go (best effort, once; the letter's own message keeps
+        its buttons). Never raises."""
+        try:
+            import penpal
+            own = rec is None
+            rec = self._pp_remind_load() if own else rec
+            still = {f"{sl}/{p.name}" for sl, p, _ in penpal.waiting_on_keeper()}
+            changed = False
+            for mid, m in (rec.get("msgs") or {}).items():
+                if not isinstance(m, dict) or m.get("cleared") or m.get("key") in still:
+                    continue
+                m["cleared"] = True
+                changed = True
+                try:
+                    self.api("editMessageReplyMarkup", chat_id=self.chat_id, message_id=int(mid),
+                             reply_markup=json.dumps({"inline_keyboard": []}))
+                except Exception:  # noqa: BLE001 — the buttons stay; a press on them is answered plainly
+                    pass
+            if own and changed:
+                self._pp_remind_save(rec)
+        except Exception as e:  # noqa: BLE001
+            _say(f"penpal remind clear: {type(e).__name__}: {e}")
+
+    def _pp_remind_press(self, msg: dict, sl: str, num: str) -> str:
+        """A press on a reminder whose letter no longer waits: nothing changed, said plainly. "" — act as ever."""
+        try:
+            if not getattr(config, "PENPAL_WAITING_REMIND", False):
+                return ""
+            m = (self._pp_remind_load().get("msgs") or {}).get(str(msg.get("message_id")))
+            if not isinstance(m, dict):
+                return ""
+            import penpal
+            f = penpal.letter_by_number(sl, num)
+            if f is None:
+                return "(that letter isn't in the thread any more — nothing changed)"
+            st = penpal._state(sl)
+            if f.name in (st.get("waiting") or []):
+                return ""
+            kb = st.get("kept_back") if isinstance(st.get("kept_back"), dict) else {}
+            car = st.get("carried") if isinstance(st.get("carried"), dict) else {}
+            if f.name in kb:
+                what, when = "not sending", kb.get(f.name)
+            elif f.name in car:
+                what = "posted, trimmed," if f.name in (st.get("trimmed") or []) else "posted"
+                when = car.get(f.name)
+            else:
+                return "(that letter isn't waiting any more — nothing changed)"
+            try:
+                d = datetime.fromisoformat(str(when))
+                on = f" on {d:%b} {d.day}"
+            except (TypeError, ValueError):
+                on = ""
+            return (f"Already marked {what}{on} — nothing changed. The letter's own message still has its buttons if "
+                    "you want to change it.")
+        except Exception:  # noqa: BLE001
+            return ""
+
+    def _penpal_remind(self) -> int:
+        import penpal
+        rec = self._pp_remind_load()
+        seen = rec.get("letters") or {}
+        now = time.time()
+        after, every = self._pp_remind_knobs()
+        keep, due = {}, []
+        for sl, p, since in penpal.waiting_on_keeper():
+            key = f"{sl}/{p.name}"
+            r = seen.get(key) if isinstance(seen.get(key), dict) else {}
+            try:
+                first = float(r.get("first") or now)
+                last = float(r.get("last") or 0)
+            except (TypeError, ValueError):
+                first, last = now, 0.0
+            keep[key] = {"first": first, "last": last}
+            began = max(since, first) if since is not None else first  # from when it was on the phone
+            if now - began >= after and (not last or now - last >= every):
+                due.append((began, sl, p, key))
+        rec = {"letters": keep, "msgs": rec.get("msgs") or {}}
+        self._pp_remind_clear(rec)
+        friend = penpal._friend()
+        sent = 0
+        for began, sl, p, key in sorted(due, key=lambda x: x[0], reverse=True)[:3]:
+            num = p.name.split("-", 1)[0]
+            line = f"✉️ {friend}'s letter to {penpal.display(sl)} ({penpal._date(p)}) is still waiting — did it go?"
+            try:
+                got = self.api("sendMessage", chat_id=self.chat_id, text=line, reply_markup=self._pp_letter_markup(sl, num))
+            except Exception as e:  # noqa: BLE001 — not sent: not recorded, tried at the next look
+                _say(f"penpal remind: not sent ({type(e).__name__}: {e})")
+                break
+            keep[key]["last"] = time.time()
+            mid = got.get("message_id") if isinstance(got, dict) else None
+            if mid is not None:
+                rec["msgs"][str(mid)] = {"key": key, "t": time.time()}
+            sent += 1
+            _say(f"penpal remind: {p.name}")
+        self._pp_remind_save(rec)
+        return sent
+
     def penpal_letter_buttons(self, sl: str, f, body: str) -> None:
         """Under their letter: what in it names your life, where to post it, and three buttons."""
         import penpal
@@ -2573,8 +2751,7 @@ class Bridge:
                 else "✓ nothing personal spotted (PENPAL_PRIVATE_WORDS, health, times, contacts)")
         if link:
             text += f"\n\npost to {penpal.handle_of(sl)}: {link}"
-        markup = self._pp_markup([[("✓ Posted", f"pp:p:{sl}:{num}"), ("✂️ Posted, trimmed", f"pp:t:{sl}:{num}")],
-                                  [("✗ Not sending", f"pp:k:{sl}:{num}")]])
+        markup = self._pp_letter_markup(sl, num)
         try:
             self.api("sendMessage", chat_id=self.chat_id, text=text, reply_markup=markup)
         except Exception as e:  # noqa: BLE001 — the old way still works
@@ -2619,7 +2796,11 @@ class Bridge:
         said = ""
         if kind in ("p", "t", "k") and len(parts) >= 4:
             sl, num = parts[2], parts[3]
-            said = penpal.mark_kept_back(sl, num) if kind == "k" else penpal.mark_posted(sl, num, trimmed=(kind == "t"))
+            said = self._pp_remind_press(msg, sl, num)  # a reminder's button, its letter already answered
+            if not said:
+                said = penpal.mark_kept_back(sl, num) if kind == "k" else penpal.mark_posted(sl, num, trimmed=(kind == "t"))
+                if getattr(config, "PENPAL_WAITING_REMIND", False):
+                    self._pp_remind_clear()
         elif kind in ("f", "n", "c") and len(parts) >= 3:
             pend = self._pp_load("pending")
             got = pend.pop(parts[2], None)
@@ -5896,6 +6077,7 @@ class Bridge:
         self.deliver_penpals()
         self.penpal_turn_if_due()
         self.penpal_desk_if_due()
+        self.penpal_remind_if_due()  # a letter of the friend's still waiting on the phone: its line again, with its buttons
         self.penpal_collect_if_due()  # a letter being collected, quiet a while: said once
         self.pages_watch_if_due()
         self.books_watch_if_due()  # a book the friend finished: one line, so the keeper knows to bring a new one

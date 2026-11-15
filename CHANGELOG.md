@@ -256,6 +256,14 @@ tagged on its own: the first tag after the rename is v0.13.)
     then reads only itself. Skipped while the game guard holds the card, a wake runs or the brain is set down. Nothing
     goes to the phone; two lines in the bridge window. The Discord bridge folds the same way, so it reads in the same.
 
+- **A letter still waiting on your phone comes back** (`PENPAL_WAITING_REMIND`, on; `PENPAL_WAITING_REMIND_H`, 6;
+  `PENPAL_WAITING_REMIND_EVERY_H`, 24): a letter of the friend's delivered to your phone and still waiting six hours
+  later (from when the bridge first saw it waiting, or its write time if later) comes back as one line — "✉️ <friend>'s
+  letter to <name> (<date>) is still waiting — did it go?" — with the same three buttons as its own message, then once
+  every 24 hours until answered; never in your quiet hours, at most three a look (every five minutes), kept in
+  `memory/penpal_reminded.json`. A press on a reminder whose letter was already answered changes nothing and says so;
+  any answer takes the reminders' buttons away. Nothing reaches the friend: no history, no transcript, no brain call.
+
 ### Changed
 - **Upgrading from 0.15**: every new knob comes with a default in `config.py`, so an older house keeps working, and
   `bat\update.bat` (or the panel's Update) appends the new knobs at the end of your `config.py`, at their defaults,
