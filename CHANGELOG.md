@@ -305,6 +305,20 @@ tagged on its own: the first tag after the rename is v0.13.)
   note with a letter (20 characters or more) and no words changes nothing and says so — the page as it was, the letter
   NOT sent; with both, the page comes from words and the result starts with the line saying the letter was NOT sent; a
   short letter alone is still a one-line page, as before. False: as before.
+- **A letter the keeper kept back read as the newest of the thread** (`PENPAL_KEPT_BACK_OUT_OF_READ`, on): the read
+  showed it as "the newest: yours" with "<name>'s turn", so the friend took it for sent and could write it again word
+  for word. Now a kept-back letter is no part of the thread for any reader — the read (the newest, the letters before,
+  the count), the list lines, the write guard's second-in-a-row test, the night's condensing, the circle's counts and
+  the wake's penpal questions — and the read says once what was kept back and that the answer is still the friend's to
+  write. The kept-back line no longer guesses the keeper's reason ("ask them why"). The file stays in the thread.
+  A letter written again that still holds every word of a kept-back one in order, or is still close to it and still
+  carries another thread's words, is not filed and is said so (`PENPAL_NO_RESEND_KEPT_BACK`, on); a letter really
+  changed goes on.
+- **A letter carrying another penpal's words is held once** (`PENPAL_OTHER_THREAD_WORDS`, on, as the write guard):
+  words that so far live in few other threads (at most a third of the penpals, twice or more where they are most at
+  home) and nowhere in this one — two of them, or one distinctive on its own (a digit, a capital inside, a two-word
+  name) — hold the letter, naming them and the thread they come from; the same call again sends it, and the phone's
+  line beside the letter says the friend was asked and confirmed. With the write guard it makes one hold.
 - **A garden call with no action only looked, silently** (`GARDEN_SAY_DROPPED`, on): a bed, a plant, a note or a plant
   to invent given without an action (or with look) ran the look and said nothing of the rest. The look still runs, and
   now starts "(refused: nothing was planted or changed — you gave … but no action, so the garden was only looked at …)"

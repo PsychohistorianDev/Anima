@@ -111,6 +111,40 @@ def _who(p: Path) -> str:
     return ME if p.stem.endswith(f"-{ME}") else "them"
 
 
+# ---- a letter the keeper kept back is not part of the correspondence (PENPAL_KEPT_BACK_OUT_OF_READ): a kept-back
+# letter once read as "the newest: yours" and "<name>'s turn", so it was taken for sent and written again, word for
+# word. The file stays in the thread (numbering, the keeper's buttons); every reader of the correspondence looks past it.
+def _kb_out() -> bool:
+    return bool(getattr(config, "PENPAL_KEPT_BACK_OUT_OF_READ", False))
+
+
+def kept_back(sl: str, st: dict | None = None) -> dict:
+    st = _state(sl) if st is None else st
+    kb = st.get("kept_back")
+    return kb if isinstance(kb, dict) else {}
+
+
+def real_letters(sl: str, st: dict | None = None) -> list[Path]:
+    """The thread as it was written and carried: letters() without the ones the keeper kept back (with the knob on)."""
+    ls = letters(sl)
+    if not _kb_out():
+        return ls
+    kb = kept_back(sl, st)
+    return [p for p in ls if not (p.name in kb and _who(p) == ME)]  # only the friend's: a penpal's letter is never hidden
+
+
+def _kb_when(iso: str) -> str:
+    """When the keeper kept a letter back, as a line says it: "at 14:46" today, "on Nov 14 at 16:36" another day, "earlier"
+    when the stored time is missing or unreadable."""
+    try:
+        t = datetime.fromisoformat(str(iso))
+    except (TypeError, ValueError):
+        return "earlier"
+    if t.date() == datetime.now().date():
+        return f"at {t:%H:%M}"
+    return f"on {t:%b} {t.day} at {t:%H:%M}"
+
+
 def _date(p: Path) -> str:
     m = re.match(r"\d+-(\d{4}-\d{2}-\d{2})-", p.name)
     if not m:
@@ -565,6 +599,9 @@ def _where(sl: str) -> str:
     if _who(newest) == "them":
         return f"you let {display(sl)}'s letter of {_date(newest)} rest"
     if newest.name in (st.get("kept_back") or {}):  # the keeper didn't post it — said plainly, until they write again
+        if _kb_out():  # the reason is the keeper's to say, not the engine's guess
+            return (f"your keeper kept your letter of {_date(newest)} to {display(sl)} back — it wasn't posted; ask them "
+                    "why, and write again whenever you like")
         return (f"your keeper kept your letter of {_date(newest)} to {display(sl)} back — it wasn't posted (they watch what "
                 f"leaves about your life together); write again whenever you like")
     if newest.name in (st.get("trimmed") or []):
@@ -604,7 +641,7 @@ def circle_name() -> str:
 
 
 def _counts(sl: str) -> tuple[int, int]:
-    ls = letters(sl)
+    ls = real_letters(sl)  # a kept-back letter of the friend's never reached them
     return sum(_who(p) == "them" for p in ls), sum(_who(p) == ME for p in ls)
 
 
@@ -690,7 +727,7 @@ def friends_snapshot() -> int:
     today = datetime.now().date()
     for sl in friends():
         st = _state(sl)
-        ls = letters(sl)
+        ls = real_letters(sl, st)  # the correspondence: the friend's kept-back letters aside
         last = _last_from_them(sl)
         facts = f"{len(ls)} letters since {_date(ls[0]) if ls else '—'}"
         if last:
@@ -833,7 +870,7 @@ def _wg_flat(text: str) -> str:
 
 def _wg_letters(sl: str) -> list[Path]:
     """The thread's letters by their own names only (NNN-YYYY-MM-DD-who.md) — a stray file in letters/ is not one."""
-    return [p for p in letters(sl) if _WG_LETTER.fullmatch(p.name)]
+    return [p for p in (real_letters(sl) if _kb_out() else letters(sl)) if _WG_LETTER.fullmatch(p.name)]
 
 
 def _wg_time(sl: str, p: Path) -> tuple[datetime | None, bool]:
@@ -991,6 +1028,210 @@ def _wg_check(sl: str, text: str) -> dict | None:
     return {"hold": hold, "clause": clause, "phone": head + ")"}
 
 
+# ---- PENPAL_NO_RESEND_KEPT_BACK: the letter the keeper kept back, written again
+KB_RATIO = 0.9
+KB_LAST = 6
+KB_CHARS = 20000
+
+
+def _kb_words(text: str) -> list[str]:
+    """A letter's words for the resend rule: whitespace-split, case kept, punctuation and emoji off each word's edges."""
+    out = []
+    for w in _wg_flat(_no_surrogates(text)).split():
+        w = re.sub(r"^[^\w]+|[^\w]+$", "", w)
+        if w:
+            out.append(w)
+    return out
+
+
+def _subsequence(small: list[str], big: list[str]) -> bool:
+    it = iter(big)
+    return all(any(w == x for x in it) for w in small)
+
+
+def _kept_back_again(sl: str, st: dict, text: str) -> str:
+    """The refusal when this letter is the one the keeper kept back, written again: (a) every word of the kept-back letter
+    still in it, in order (only added or reflowed); or (b) still close (ratio 0.9+) and still carrying words of
+    another penpal's thread that the kept-back letter had (PENPAL_OTHER_THREAD_WORDS). Anything else — a real change —
+    is never called a resend. "" otherwise. Never raises."""
+    try:
+        import difflib
+        kb = kept_back(sl, st)
+        mine = _kb_words(text)
+        mine_l = {w.lower() for w in mine}
+        for p in [x for x in letters(sl) if x.name in kb and _who(x) == ME][-KB_LAST:][::-1]:
+            body = _body(p)[:KB_CHARS]
+            prev = _kb_words(body)
+            if not prev:
+                continue
+            at = _kb_when(kb.get(p.name))
+            # "nearly word for word" only when the new letter is about the old one's length: a short kept-back note
+            # must not refuse every later, longer letter that happens to hold its words in order
+            if _subsequence(prev, mine) and len(mine) <= len(prev) * 1.25 + 10:
+                return (f"(refused: this is the letter your keeper kept back {at} — nearly word for word — so it was NOT "
+                        "filed again. They kept it back because something in it needs changing; ask them what, or write "
+                        "it differently. Nothing was sent.)")
+            if not getattr(config, "PENPAL_OTHER_THREAD_WORDS", False):
+                continue
+            if difflib.SequenceMatcher(None, " ".join(prev), " ".join(mine)[:KB_CHARS], autojunk=False).ratio() < KB_RATIO:
+                continue
+            found = _ot_found(sl, body)
+            if not found:
+                continue
+            other, ws, _also = found
+            still = [w for w in ws if all(x.lower() in mine_l for x in w.split())]
+            if still:
+                said = ", ".join(f"“{w}”" for w in still[:OT_MAX])
+                return (f"(refused: this is nearly the letter your keeper kept back {at}, and it still has words from your "
+                        f"thread with {display(other)} — {said} — so it was NOT filed again. Write it without them, or ask "
+                        "them what needs changing. Nothing was sent.)")
+    except Exception:  # noqa: BLE001
+        return ""
+    return ""
+
+
+# ---- PENPAL_OTHER_THREAD_WORDS: a letter to one penpal carrying words that so far live only in another's thread
+OT_MAX = 5
+_OT_STOP = frozenset("""Monday Tuesday Wednesday Thursday Friday Saturday Sunday January February March April May June July
+August September October November December Dear Love Yours With Thank Thanks Hello Hey Good Morning Night Evening God
+English Internet Reddit Google Discord Telegram Wikipedia Christmas Easter Halloween Earth Moon Sun""".split())
+
+
+def _ot_tokens(text: str) -> list[str]:
+    """Distinctive words in a text: a capitalised word inside a sentence (never a sentence's or a line's first), a
+    run of two such (“Copper Lantern”, kept whole), a token mixing letters and digits (B7K2) or with a capital inside
+    (StarHall) — four characters or more."""
+    out: list[str] = []
+    t = str(text or "")
+    for m in re.finditer(r"\b(?=[A-Za-z0-9]*\d)(?=[A-Za-z0-9]*[A-Za-z])[A-Za-z0-9]{4,}\b", t):
+        out.append(m.group(0))
+    for m in re.finditer(r"\b[A-Za-z]*[a-z][A-Z][A-Za-z]*\b", t):
+        if len(m.group(0)) >= 4:
+            out.append(m.group(0))
+    for sent in re.split(r"(?<=[.!?…:;])\s+|\n+|[\"“”]", t):
+        words = sent.split()
+        i = 1
+        while i < len(words):
+            w = words[i].strip(".,;:!?()[]'’*_—-")
+            if re.fullmatch(r"[A-Z][a-z]+", w) and words[i - 1][-1:] not in ".!?:":
+                nxt = words[i + 1].strip(".,;:!?()[]'’*_—-") if i + 1 < len(words) else ""
+                if re.fullmatch(r"[A-Z][a-z]+", nxt) and words[i][-1:] not in ",.;:!?":
+                    pair = f"{w} {nxt}"
+                    if len(pair) >= 4:
+                        out.append(pair)
+                    i += 2
+                    continue
+                if len(w) >= 4:
+                    out.append(w)
+            i += 1
+    return list(dict.fromkeys(out))
+
+
+def _ot_mine_aside() -> set:
+    """Names that are no penpal's alone: every penpal's folder, display name and handle, the friend's and the keeper's."""
+    names = set()
+    for x in penpals():
+        for n in (x, x.replace("-", " "), display(x), handle_of(x) if "handle_of" in globals() else ""):
+            for part in str(n or "").replace("@", " ").replace("/", " ").split():
+                names.add(part.lower())
+            if n:
+                names.add(str(n).lower())
+    for n in (getattr(config, "USER_NAME", ""), getattr(config, "FRIEND_NAME", ""), _keeper(), _friend(), ME):
+        for part in str(n or "").split():
+            names.add(part.lower())
+    try:
+        import chat
+        names.add(str(chat.friend_name() or "").lower())
+    except Exception:  # noqa: BLE001
+        pass
+    for w in (str(getattr(config, "SIGNATURE", "") or "") + " " + " ".join(getattr(config, "SIGNATURE_REFRAINS", ()) or ())).split():
+        names.add(w.lower())
+    return names
+
+
+def _ot_count(word: str, text: str) -> int:
+    return len(re.findall(r"(?<![\w-])" + re.escape(word) + r"(?![\w-])", text, re.IGNORECASE))
+
+
+def _ot_strong(w: str) -> bool:
+    """A word distinctive on its own: a digit in it, a capital inside it (B7K2, StarHall, iPhone), or a two-word name."""
+    return bool(re.search(r"\d", w) or re.search(r"[a-z][A-Z]", w) or " " in w.strip())
+
+
+def _ot_found(sl: str, text: str) -> tuple[str, list[str], list[str]] | None:
+    """(the penpal whose thread the words are most at home in, the words — most frequent there first — and the other
+    threads that also hold some) — the text's words that are nowhere in sl's thread and live in few other threads (at
+    most max(1, penpals // 3)), at least twice where they are most at home. Held only on real evidence: two such words,
+    or one that is distinctive on its own (_ot_strong). None otherwise."""
+    toks = [w for w in _ot_tokens(text) if w.lower() not in _ot_mine_aside() and w not in _OT_STOP
+            and not any(x in _OT_STOP for x in w.split())]
+    if not toks:
+        return None
+    here = " ".join(_body(p) for p in real_letters(sl)) + " " + _body(_folder(sl) / "about.md") + " " + \
+        _body(_folder(sl) / "thread.md")
+    others = {}
+    for o in penpals():
+        if o == sl:
+            continue
+        kb = kept_back(o)
+        others[o] = " ".join(_body(p) for p in letters(o) if not (p.name in kb and _who(p) == ME))
+    few = max(1, len(penpals()) // 3)
+    flagged: list[tuple[str, int, list[str], str]] = []  # (word, count at home, the threads it lives in, home)
+    for w in toks:
+        if _ot_count(w, here):
+            continue
+        lives = sorted(((n, o) for o, t in others.items() for n in [_ot_count(w, t)] if n), reverse=True)
+        if lives and len(lives) <= few and lives[0][0] >= 2:
+            flagged.append((w, lives[0][0], [o for _, o in lives], lives[0][1]))
+    if not flagged or (len({w.lower() for w, *_ in flagged}) < 2 and not any(_ot_strong(w) for w, *_ in flagged)):
+        return None
+    homes: dict[str, int] = {}
+    for w, n, _, home in flagged:
+        homes[home] = homes.get(home, 0) + n
+    home = max(homes.items(), key=lambda kv: (kv[1], kv[0]))[0]
+    ws = [w for w, n, _, h in sorted(flagged, key=lambda x: (x[3] != home, -x[1], x[0]))]
+    also = sorted({o for _, _, lives, _ in flagged for o in lives if o != home})
+    return home, ws, also
+
+
+def _ot_where(name: str, home: str, also: list, whose: str = "your") -> str:
+    if not also:
+        return f"so far only appear in {whose} thread with {display(home)}"
+    return (f"so far live in {whose} thread with {display(home)} (and " + _wg_list([display(x) for x in also]) +
+            f"), not with {name}")
+
+
+def _ot_check(sl: str, text: str) -> dict | None:
+    """The hold for words of another penpal's thread in the friend's letter to sl — {"hold", "clause", "phone"} or None."""
+    got = _ot_found(sl, text)
+    if not got:
+        return None
+    other, ws, also = got
+    theirs = f"{_friend()}'s"
+    ws = ws[:OT_MAX]
+    name, oname = display(sl), display(other)
+    said = ", ".join(f"“{w}”" for w in ws)
+    where = _ot_where(name, other, also)
+    hold = (f"(refused — not sent yet — your letter to {name} uses words that {where}: {said}. If they belong in a "
+            f"letter to {name}, call write again exactly as you did and it goes; if they are {oname}'s, write it again "
+            "without them.)")
+    return {"hold": hold, "clause": f" — you confirmed it, though it uses words from your thread with {oname} ({said})",
+            "phone": f"(the letter to {name} uses words that {_ot_where(name, other, also, whose=theirs)} "
+                     f"— {said}; {theirs[:-2]} was asked and confirmed it)", "other": oname, "said": said, "where": where, "name": name}
+
+
+def _ot_merge(guard: dict | None, ot: dict | None) -> dict | None:
+    """One hold that says both, when the write guard and the other thread's words both have something to say."""
+    if not ot:
+        return guard
+    if not guard:
+        return ot
+    hold = (guard["hold"][:-1] + f" Also: your letter to {ot['name']} uses words that {ot['where']}: {ot['said']} — if "
+            f"they are {ot['other']}'s, write it again without them.)")
+    phone = guard["phone"][:-1] + "; " + ot["phone"][1:]
+    return {"hold": hold, "clause": guard["clause"] + ot["clause"].replace(" — you confirmed it,", ";", 1), "phone": phone}
+
+
 def _wg_go(sl: str, text: str) -> bool:
     """The guard has something to say: True when this is the same call again (same penpal, same letter) within
     PENPAL_WRITE_GUARD_MIN minutes of its hold — it goes (taken, so two at once can't both go); else it is held now."""
@@ -1018,7 +1259,7 @@ def relay_note(sl: str, fname: str) -> str:
     """The line that rides with the friend's letter to the phone when the write guard asked and they confirmed, or when
     they left the name out and it was addressed for them — one line for both; "" otherwise."""
     st = _state(sl)
-    n = (st.get("guard_note") or {}) if _wg_on() else {}
+    n = (st.get("guard_note") or {}) if (_wg_on() or getattr(config, "PENPAL_OTHER_THREAD_WORDS", False)) else {}
     guard = str(n.get(fname) or "") if isinstance(n, dict) else ""
     w = st.get("who_note")
     who = str(w.get(fname) or "") if isinstance(w, dict) else ""
@@ -1397,12 +1638,20 @@ def _act(action: str, who: str = "", words: str = "", said_as: str = "", inferre
         return (f"(bad arguments: your letters with {display(sl)} are paused by your keeper — {st['paused'].get('why') or 'no reason given'}; "
                 "nothing was written or sent. They'll say when they're open again.)")
     if a == "read":
-        ls = letters(sl)
+        ls = real_letters(sl, st)  # the friend's kept-back letters are not the thread
         pics = _read_pictures(sl, st) if pictures_on() else ""  # a letter's pictures, before their eyes again
         if not ls and pics:
             _save(sl, st)
             return f"(read {display(sl)}: no letters in your thread yet)\n\n{pics}"
         if not ls:
+            kb = kept_back(sl, st) if _kb_out() else {}
+            gone = [x for x in letters(sl) if x.name in kb and _who(x) == ME]
+            if gone:  # every letter of the friend's kept back, none of theirs: said, as the read says it
+                n = len(gone)
+                when = ", ".join(f"{_date(x)} (kept back {_kb_when(kb.get(x.name))})" for x in gone)
+                return (f"(no letters with {display(sl)} yet)\n({n} letter{'s' if n != 1 else ''} you wrote — {when} — "
+                        f"{'were' if n != 1 else 'was'} kept back by your keeper and never sent; "
+                        f"{'they are' if n != 1 else 'it is'} not part of the thread.)")
             return f"(no letters with {display(sl)} yet)"
         n_before = int(getattr(config, "PENPAL_CONTEXT_LETTERS", 4) or 4)
         cap = int(getattr(config, "PENPAL_LETTER_CHARS", 6000) or 6000)
@@ -1424,12 +1673,26 @@ def _act(action: str, who: str = "", words: str = "", said_as: str = "", inferre
         tail = ("" if _who(newest) == "them" or pics else f"\n({display(sl)}'s turn — nothing new from them yet)")
         head = (f"(read {display(sl)}: {len(ls)} letter{'s' if len(ls) != 1 else ''} in your thread; the newest "
                 f"{'from ' + display(sl) if _who(newest) == 'them' else 'yours'}, {_date(newest)})")
+        if _kb_out():  # what the keeper kept back after the newest letter, said once — never "their turn" for it
+            kb = kept_back(sl, st)
+            after = [x for x in letters(sl) if x.name in kb and _who(x) == ME and x.name > newest.name]
+            if after:
+                when = ", ".join(f"{_date(x)} (kept back {_kb_when(kb.get(x.name))})" for x in after)
+                n = len(after)
+                tail += (f"\n({n} letter{'s' if n != 1 else ''} you wrote after it — {when} — "
+                         f"{'were' if n != 1 else 'was'} kept back by your keeper and never sent; "
+                         f"{'they are' if n != 1 else 'it is'} not part of the thread."
+                         + (f" The answer to {display(sl)} is still yours to write.)" if _who(newest) == "them" else ")"))
         return head + "\n\n" + "\n\n".join(parts) + tail
     if a == "write":
         text = str(words or "").strip()
         if len(text) < 20:
             return ("(bad arguments: write takes your letter in `letter` — the whole of it, as it should reach them; "
                     "nothing was written or sent)")
+        if getattr(config, "PENPAL_NO_RESEND_KEPT_BACK", False):  # the letter the keeper kept back, again: not filed
+            again = _kept_back_again(sl, st, text)
+            if again:
+                return again
         if _letter_means_write():  # a retry of a letter already filed and still waiting: not filed again
             flat = _wg_flat(_no_surrogates(text))
             for name in st.get("waiting") or []:
@@ -1438,6 +1701,12 @@ def _act(action: str, who: str = "", words: str = "", said_as: str = "", inferre
                     return (f"(your letter to {display(sl)} is already in your thread ({prev.name}) and waiting for your "
                             "keeper to carry — it was not filed a second time)")
         guard = _wg_check(sl, text) if _wg_on() else None  # the write guard: held once, before anything is filed
+        if getattr(config, "PENPAL_OTHER_THREAD_WORDS", False):  # another penpal's words: held the same way
+            try:
+                other_words = _ot_check(sl, text)
+            except Exception:  # noqa: BLE001 — any failure: no hold
+                other_words = None
+            guard = _ot_merge(guard, other_words)
         left = (f" — you left the name out; it was addressed to {display(sl)} from its greeting (“{greeted}”)"
                 if greeted else f" — you left the name out; it was addressed to {display(sl)} from the action word "
                 f"(“{said_as[:40]}”)" if named else "")
@@ -1514,7 +1783,7 @@ def night(say=print) -> str:
     done = []
     for sl in penpals():
         st = _state(sl)
-        ls = letters(sl)
+        ls = real_letters(sl, st)  # a kept-back letter is no part of the correspondence: never condensed
         old = ls[:-(n_keep + 1)] if len(ls) > n_keep + 1 else []
         todo = [p for p in old if p.name not in (st.get("condensed") or [])]
         for p in todo[:int(getattr(config, "PENPAL_CONDENSE_PER_NIGHT", 6) or 6)]:

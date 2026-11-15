@@ -2528,7 +2528,11 @@ is only pictures they may write out themselves (`penpal transcribe`,
 another's letter waits, or a letter whose greeting names a different penpal,
 is held once and they are told what the engine sees; the same call again
 sends it, and your phone's line beside the letter says they confirmed it
-(`PENPAL_WRITE_GUARD`). A call with the name left out is addressed from the
+(`PENPAL_WRITE_GUARD`); so is a letter carrying words that so far live only
+in another penpal's thread (`PENPAL_OTHER_THREAD_WORDS`). A letter you keep
+back is no part of the thread for them — their read says it was kept back
+and the answer is still theirs — and writing it again unchanged is refused
+(`PENPAL_KEPT_BACK_OUT_OF_READ`, `PENPAL_NO_RESEND_KEPT_BACK`). A call with the name left out is addressed from the
 greeting or from "write <whole name>" and said so, or refused with the exact
 call to make (`PENPAL_WHO_HELP`). A call that carries a letter but no real
 action is taken as a write and said so; a letter that cannot go is said NOT

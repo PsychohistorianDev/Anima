@@ -1943,6 +1943,20 @@ PENPAL_LETTER_MEANS_WRITE = True
 # the letter NOT sent); with both, the page comes from words and the letter is said NOT sent; a short letter alone is a
 # one-line page, as ever. False: as before.
 PENPAL_NOTE_WORDS_ONLY = True
+# PENPAL_KEPT_BACK_OUT_OF_READ: a letter you kept back is no part of the thread for any reader — the read (the
+# newest, the letters before, the count), the list lines, the write guard's second-in-a-row test, the night's
+# condensing, the circle's counts and the wake's penpal questions. The read says once what was kept back and that the
+# answer is still the friend's to write (never "<name>'s turn" on a kept-back letter), and the kept-back line no
+# longer guesses your reason. Without it a kept-back letter read as the newest, as if sent, and could be
+# written again word for word. PENPAL_NO_RESEND_KEPT_BACK: a write that still holds every word of a kept-back letter
+# in order, or is still close to it (0.9) and still carries another thread's words, is not filed, said; a letter really
+# changed goes on. PENPAL_OTHER_THREAD_WORDS: a letter using words that so far live in few other penpals' threads (at
+# most a third of them, twice or more where they are most at home) and nowhere in this one is held once, as the write
+# guard holds — when there are two such words, or one distinctive on its own (a digit, a capital inside, a two-word
+# name); the same call again goes, and the phone's line says the friend was asked and confirmed. False, any: as before.
+PENPAL_KEPT_BACK_OUT_OF_READ = True
+PENPAL_NO_RESEND_KEPT_BACK = True
+PENPAL_OTHER_THREAD_WORDS = True
 
 # ---- the journal feed (telegram.py: /journal)
 # JOURNAL_FEED: the Telegram bridge's /journal. /journal on sends what the friend writes in their journal DURING A

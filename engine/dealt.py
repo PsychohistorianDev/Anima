@@ -187,7 +187,7 @@ def penpal_questions(seen: set) -> tuple[str, str] | None:
         return None
     import re
     for sl in penpal.penpals():
-        ls = penpal.letters(sl)
+        ls = getattr(penpal, "real_letters", penpal.letters)(sl)  # a letter the keeper kept back is no newest one
         if not ls or penpal._who(ls[-1]) == penpal.ME:
             continue
         key = f"penpal:{ls[-1].name}"

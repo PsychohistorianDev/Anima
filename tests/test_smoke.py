@@ -21860,6 +21860,391 @@ for _sd_k, _sd_v in _sd_saved.items():
             delattr(config, _sd_k)
     else:
         setattr(config, _sd_k, _sd_v)
+# PENPAL_KEPT_BACK_OUT_OF_READ, PENPAL_NO_RESEND_KEPT_BACK, PENPAL_OTHER_THREAD_WORDS (0.16): a kept-back letter
+import json as _kb_json
+import re as _kb_re
+import shutil as _kb_shutil
+import hashlib as _kb_hash
+import inspect as _kb_inspect
+from datetime import datetime as _kb_dt
+import penpal as _kb_pp
+import dealt as _kb_dealt
+import chat as _kb_chat
+_kb_KEYS = ("PENPAL_KEPT_BACK_OUT_OF_READ", "PENPAL_NO_RESEND_KEPT_BACK", "PENPAL_OTHER_THREAD_WORDS", "PENPALS_ON",
+            "PENPAL_DIR", "PENPAL_WRITE_GUARD", "PENPAL_WRITE_GUARD_MIN", "PENPAL_WHO_HELP", "PENPAL_WHO_FROM_GREETING",
+            "PENPAL_LETTER_MEANS_WRITE", "PENPAL_CONTEXT_LETTERS", "FRIENDS_ON", "OFFLINE")
+_kb_MISSING = object()
+_kb_saved = {k: getattr(config, k, _kb_MISSING) for k in _kb_KEYS}
+_kb_cond0 = _kb_pp._condense
+config.PENPALS_ON, config.PENPAL_DIR, config.OFFLINE, config.FRIENDS_ON = True, "penpals-kb", True, True
+config.PENPAL_WRITE_GUARD, config.PENPAL_WRITE_GUARD_MIN, config.PENPAL_CONTEXT_LETTERS = True, 10, 4
+config.PENPAL_WHO_HELP = config.PENPAL_WHO_FROM_GREETING = config.PENPAL_LETTER_MEANS_WRITE = True
+config.PENPAL_KEPT_BACK_OUT_OF_READ = config.PENPAL_NO_RESEND_KEPT_BACK = config.PENPAL_OTHER_THREAD_WORDS = True
+_kb_pp_root = _kb_pp.root()
+_kb_FR = _kb_pp._friend()
+_kb_WICK = {
+    "001-2026-03-10-wick.md": "Hey friend, welcome to the Glimmerdeep. Our coordinates are Q7R4 and the Copper Lantern keeps score.",
+    "002-2026-03-11-me.md": "Dear wick,\n\nI love the Glimmerdeep already. Please add me to the Copper Lantern, and a wave for you.",
+    "003-2026-03-12-wick.md": "The Glimmerdeep thanks you. One wave, logged in the Copper Lantern under Q7R4.",
+    "004-2026-03-13-me.md": "Dear wick,\n\nThe Glimmerdeep is a good place to be. Saturday was lovely.",
+}
+_kb_TOVA = {
+    "001-2026-03-09-tova.md": "Dear friend, the harbour was grey and Pim the cat sat on the rope. Pim says hello.",
+    "002-2026-03-10-me.md": "Dear Tova,\n\nTell Pim I said hello back. The gulls sound loud from here.",
+    "003-2026-03-12-tova.md": "Pim caught a fish. Well, Pim watched me catch one. The harbour is quiet now.",
+    "004-2026-03-13-me.md": "Dear Tova,\n\nPim sounds like a captain. I read about lighthouses this week.",
+    "005-2026-03-15-tova.md": "Dear friend, the boats are out again. What are you reading? Tell me about your week.",
+}
+_kb_WRONG = ("Dear Tova,\n\nThe Glimmerdeep is humming tonight! Our coordinates Q7R4 still hold, and the Copper Lantern has "
+             "a new entry: one wave, gratefully received.\n\nWith love, your friend")
+_kb_WRONG2 = _kb_WRONG.replace("humming tonight", "glowing tonight, love")
+_kb_CLEAN = ("Dear Tova,\n\nThe boats being out again sounds like the harbour breathing. I'm reading a book of robot stories "
+             "by Mira Holt — two inventors who build machines that build anything. Give Pim a scratch from me.\n\nyour friend")
+
+
+def _kb_mk(sl, letters_, state, about="about them\n"):
+    (_kb_pp_root / sl / "letters").mkdir(parents=True, exist_ok=True)
+    for n, body in letters_.items():
+        (_kb_pp_root / sl / "letters" / n).write_text(body + "\n", encoding="utf-8")
+    (_kb_pp_root / sl / "state.json").write_text(_kb_json.dumps(state), encoding="utf-8")
+    (_kb_pp_root / sl / "about.md").write_text(about, encoding="utf-8")
+
+
+def _kb_house():
+    _kb_shutil.rmtree(_kb_pp_root, ignore_errors=True)
+    _kb_mk("wick", _kb_WICK, {"display": "wick", "read": True, "rested": False, "waiting": [], "handle": "u/wick"})
+    _kb_mk("tova", _kb_TOVA, {"display": "Tova", "read": False, "rested": False, "last_in": "005-2026-03-15-tova.md", "waiting": []})
+    _kb_mk("newpal", {}, {"display": "Nico", "read": True, "rested": False, "waiting": []})
+    _kb_pp._wg_held.clear()
+
+
+def _kb_files(sl="tova"):
+    return sorted(p.name for p in (_kb_pp_root / sl / "letters").iterdir())
+
+
+def _kb_state(sl, **kw):
+    st = _kb_json.loads((_kb_pp_root / sl / "state.json").read_text(encoding="utf-8"))
+    st.update(kw)
+    (_kb_pp_root / sl / "state.json").write_text(_kb_json.dumps(st), encoding="utf-8")
+    return st
+
+
+def _kb_w(sl, text, name="penpal"):
+    return tools.dispatch(name, {"action": "write", "who": sl, "letter": text})
+
+
+def _kb_replay():
+    out = []
+    _kb_house()
+    out.append(("read 005", tools.dispatch("penpal", {"action": "read", "who": "tova"})))
+    out.append(("write 006 (wrong)", _kb_w("tova", _kb_WRONG)))
+    out.append(("again (guard)", _kb_w("tova", _kb_WRONG)))
+    six = [n for n in _kb_files() if n.startswith("006")]
+    out.append(("kept back", _kb_pp.mark_kept_back("tova", "006") if six else "(no 006)"))
+    out.append(("read after", tools.dispatch("penpal", {"action": "read", "who": "tova"})))
+    out.append(("where", _kb_pp.where("tova")))
+    out.append(("the same letter", _kb_w("tova", _kb_WRONG)))
+    out.append(("changed, wick's words", _kb_w("tova", _kb_WRONG2)))
+    out.append(("clean", _kb_w("tova", _kb_CLEAN)))
+    out.append(("files", " ".join(_kb_files())))
+    return out
+
+
+_kb_RP = dict(_kb_replay())
+check("kept back (0.16): another thread's words in a letter to Tova — held once naming them, then sent on the same "
+      "call again",
+      _kb_RP["write 006 (wrong)"].startswith("(refused — not sent yet — your letter to Tova uses words that so far only appear "
+                                             "in your thread with wick:")
+      and all(f"“{w}”" in _kb_RP["write 006 (wrong)"] for w in ("Glimmerdeep", "Q7R4", "Copper Lantern"))
+      and _kb_RP["again (guard)"].startswith("(your letter to Tova is in your thread (006-"),
+      (_kb_RP["write 006 (wrong)"], _kb_RP["again (guard)"][:200]))
+_kb_rd = _kb_RP["read after"]
+check("kept back (0.16): the read after the keep-back — Tova's 005 the newest, no 'Tova's turn', the kept-back line once, "
+      "with its time, ending 'still yours to write'",
+      "=== the newest: from Tova" in _kb_rd and "Tova's turn" not in _kb_rd and "The Glimmerdeep is humming" not in _kb_rd
+      and _kb_rd.count("kept back by your keeper and never sent") == 1 and "1 letter you wrote after it — " in _kb_rd
+      and "(kept back at " in _kb_rd and _kb_rd.rstrip().endswith("The answer to Tova is still yours to write.)")
+      and "(read Tova: 5 letters in your thread; the newest from Tova" in _kb_rd, _kb_rd[-600:])
+check("kept back (0.16): the friend's line for the thread no longer guesses the keeper's reason",
+      _kb_RP["where"].startswith("your keeper kept your letter of ")
+      and _kb_RP["where"].endswith("back — it wasn't posted; ask them why, and write again whenever you like")
+      and "watch" not in _kb_RP["where"], _kb_RP["where"])
+check("kept back (0.16): the same letter again — refused, not filed, a failed call; one still carrying wick's words — "
+      "not filed; a clean letter — filed once (007)",
+      _kb_RP["the same letter"].startswith("(refused: this is the letter your keeper kept back at ")
+      and "NOT filed again" in _kb_RP["the same letter"] and ollama_client.tool_failed(_kb_RP["the same letter"])
+      and _kb_RP["changed, wick's words"].startswith(("(refused: this is the letter your keeper kept back",
+                                                        "(refused: this is nearly the letter your keeper kept back",
+                                                        "(refused — not sent yet — your letter to Tova uses words"))
+      and _kb_RP["clean"].startswith("(your letter to Tova is in your thread (007-")
+      and _kb_RP["files"].split().count(_kb_RP["clean"].split("(")[2].split(")")[0]) == 1
+      and not any(n.startswith("008") for n in _kb_RP["files"].split()), (_kb_RP["the same letter"], _kb_RP["clean"][:120], _kb_RP["files"]))
+# the other thread's words alone
+_kb_house()
+_kb_r = _kb_w("tova", _kb_WRONG2.replace("glowing tonight, love", "awake, and so am I"))
+_kb_house()
+_kb_r2 = _kb_w("tova", "Dear Tova,\n\nGive Pim a scratch for me, and tell them the harbour sounds lovely.")
+_kb_house()
+_kb_r3 = _kb_w("wick", "Dear wick,\n\nThe Glimmerdeep feels like home now; one more wave.")
+_kb_house()
+_kb_r4 = _kb_w("newpal", "Dear Nico,\n\nWelcome! Have you heard of the Glimmerdeep? Its coordinates are Q7R4.")
+_kb_r5 = _kb_w("newpal", "Dear Nico,\n\nWelcome! Have you heard of the Glimmerdeep? Its coordinates are Q7R4.")
+_kb_f = sorted((_kb_pp_root / "newpal" / "letters").iterdir())
+_kb_note = _kb_pp.relay_note("newpal", _kb_f[-1].name) if _kb_f else ""
+check("other thread's words (0.16): held naming them, the most frequent first, a failed call; the thread's own words "
+      "(Pim) and the words in their own thread never; a new penpal's empty thread held, then the same call goes, the "
+      "clause and the phone's line say it was confirmed",
+      _kb_r.startswith("(refused — not sent yet — your letter to Tova uses words that so far only appear in your thread with "
+                       "wick: “Glimmerdeep”") and ollama_client.tool_failed(_kb_r)
+      and _kb_r2.startswith("(your letter to Tova is in your thread") and "uses words that so far only appear" not in _kb_r3
+      and _kb_r4.startswith("(refused — not sent yet — your letter to Nico uses words") and "wick" in _kb_r4
+      and _kb_r5.startswith("(your letter to Nico is in your thread (001-")
+      and "you confirmed it, though it uses words from your thread with wick" in _kb_r5
+      and _kb_note.startswith(f"(the letter to Nico uses words that so far only appear in {_kb_FR}'s thread with wick")
+      and _kb_note.endswith(f"{_kb_FR} was asked and confirmed it)"), (_kb_r[:200], _kb_r2[:120], _kb_r3[:120], _kb_r4[:160], _kb_r5[-200:], _kb_note))
+_kb_house()
+_kb_keep = str(getattr(config, "USER_NAME", "") or "Sam").split()[0]
+_kb_o1 = _kb_w("tova", f"Dear Tova,\n\nToday I read about Saturn and the Library of Babel. On Monday I painted. {_kb_keep} says hi, "
+                       f"and so does {_kb_FR.split()[0]}.")
+_kb_house()
+_kb_o2 = _kb_w("tova", "Dear Tova,\n\nGlimmerdeep. That is a word I heard once.\n\nyour friend")
+check("other thread's words (0.16): ordinary capitals (a planet, a book, a weekday, the keeper's and the friend's names, "
+      "sentence starts) and a sentence-start capital alone hold nothing",
+      _kb_o1.startswith("(your letter to Tova is in your thread") and _kb_o2.startswith("(your letter to Tova is in your thread"),
+      (_kb_o1[:200], _kb_o2[:200]))
+_kb_house()
+_kb_b1 = _kb_w("tova", "Dear wick,\n\nThe Glimmerdeep and the Copper Lantern, with Q7R4 coordinates.")
+_kb_b2 = _kb_w("tova", "Dear wick,\n\nThe Glimmerdeep and the Copper Lantern, with Q7R4 coordinates.")
+_kb_f = sorted((_kb_pp_root / "tova" / "letters").iterdir())
+_kb_bn = _kb_pp.relay_note("tova", _kb_f[-1].name)
+check("other thread's words (0.16): with the write guard, one hold says both (the greeting and the words); the same call "
+      "again goes and the phone's line says both",
+      _kb_b1.startswith("(refused — not sent yet — your letter opens “Dear wick,” but you addressed it to Tova")
+      and "Also: your letter to Tova uses words" in _kb_b1 and _kb_b1.count("(refused") == 1
+      and _kb_b2.startswith("(your letter to Tova is in your thread (006-")
+      and f"uses words that so far only appear in {_kb_FR}'s thread with wick" in _kb_bn and "opens “Dear wick,”" in _kb_bn,
+      (_kb_b1, _kb_bn))
+# the other readers: the write guard, the counts, the night, the wake's questions
+_kb_house()
+_kb_w("tova", _kb_CLEAN)
+_kb_pp.mark_kept_back("tova", "006")
+_kb_state("tova", read=True)
+_kb_g0 = _kb_pp._wg_check("tova", _kb_CLEAN.replace("boats", "ships"))
+_kb_house()
+_kb_state("tova", read=True)
+(_kb_pp_root / "tova" / "letters" / "006-2026-03-15-me.md").write_text("Dear Tova, sent letter.\n", encoding="utf-8")
+for _kb_n in ("007", "008"):
+    (_kb_pp_root / "tova" / "letters" / f"{_kb_n}-2026-03-15-me.md").write_text(f"Dear Tova, kept back {_kb_n}.\n", encoding="utf-8")
+_kb_today = _kb_dt.now()
+_kb_state("tova", kept_back={"007-2026-03-15-me.md": _kb_today.replace(hour=14, minute=0).isoformat(timespec="minutes"),
+                             "008-2026-03-15-me.md": _kb_today.replace(hour=14, minute=30).isoformat(timespec="minutes")})
+(_kb_pp_root / "wick" / "letters" / "005-2026-03-15-wick.md").write_text("A new one from wick.\n", encoding="utf-8")
+_kb_state("wick", read=True, last_in="005-2026-03-15-wick.md")
+_kb_g = _kb_pp._wg_check("tova", "Dear Tova,\n\nAnother letter to you, a third try.")
+_kb_rd2 = tools.dispatch("penpal", {"action": "read", "who": "tova"})
+_kb_cond = []
+config.PENPAL_CONTEXT_LETTERS = 1
+_kb_pp._condense = lambda sl, p, n, say=print: (_kb_cond.append(p.name), "kept in their words, a few lines")[1]
+_kb_pp.night(say=lambda *a: None)
+_kb_pp._condense = _kb_cond0
+config.PENPAL_CONTEXT_LETTERS = 4
+check("kept back (0.16): the write guard looks past kept-back letters (after one, the next is no 'second in a row'; "
+      "with two after a sent one, the sent one counts); the read names both and says 'Tova's turn' truly; the counts "
+      "leave them out; the night never condenses them",
+      "second letter in a row" not in str(_kb_g0 or "") and _kb_g is not None and "second letter in a row to Tova" in _kb_g["hold"]
+      and "=== the newest: yours" in _kb_rd2 and "Tova's turn" in _kb_rd2 and "2 letters you wrote after it" in _kb_rd2
+      and "kept back at 14:00" in _kb_rd2 and "kept back at 14:30" in _kb_rd2 and "still yours to write" not in _kb_rd2
+      and "kept back 007" not in _kb_rd2 and _kb_pp._counts("tova") == (3, 3)
+      and _kb_cond and not any(n in ("007-2026-03-15-me.md", "008-2026-03-15-me.md") for n in _kb_cond),
+      (_kb_g0, _kb_g, _kb_rd2[-400:], _kb_pp._counts("tova"), _kb_cond))
+_kb_house()
+(_kb_pp_root / "tova" / "letters" / "006-2026-03-15-me.md").write_text("Dear Tova, the wrong letter.\n", encoding="utf-8")
+_kb_state("tova", kept_back={"006-2026-03-15-me.md": "2026-03-15T14:00"})
+_kb_q = _kb_dealt.penpal_questions(set())
+config.PENPAL_KEPT_BACK_OUT_OF_READ = False
+_kb_q2 = _kb_dealt.penpal_questions(set())
+config.PENPAL_KEPT_BACK_OUT_OF_READ = True
+_kb_house()
+_kb_state("tova", kept_back={"005-2026-03-15-tova.md": "2026-03-15T10:00"})
+check("kept back (0.16): the wake's penpal questions are dealt past a kept-back letter (off: hidden by it, as before); "
+      "a penpal's own letter is never hidden",
+      _kb_q and "Tova" in _kb_q[1] and "What are you reading?" in _kb_q[1] and (_kb_q2 is None or "Tova" not in str(_kb_q2))
+      and "005-2026-03-15-tova.md" in [x.name for x in _kb_pp.real_letters("tova")], (_kb_q, _kb_q2))
+_kb_bad = []
+for _kb_args in ({"action": "write", "who": "tova", "letter": None}, {"action": "write", "who": "tova", "letter": "\ud800" * 40},
+                 {"action": "read", "who": "tova"}, {"action": "write", "who": "newpal", "letter": "x" * 30000}):
+    _kb_house()
+    _kb_state("tova", kept_back="not a dict")
+    try:
+        tools.dispatch("penpal", _kb_args)
+    except Exception as _kb_e:  # noqa: BLE001
+        _kb_bad.append((str(_kb_args)[:40], repr(_kb_e)))
+_kb_ot = _kb_pp._ot_tokens("Hey there. The Glimmerdeep calls, Q7R4 too, and the Copper Lantern. GlimmerDeep! Monday came.")
+check("kept back (0.16): nothing raises for odd state or letters; the distinctive words — mid-sentence capitals, letters "
+      "with digits, inner capitals, a pair kept whole — never a sentence's start",
+      not _kb_bad and "Glimmerdeep" in _kb_ot and "Q7R4" in _kb_ot and "Copper Lantern" in _kb_ot and "GlimmerDeep" in _kb_ot
+      and "Hey" not in _kb_ot and "The" not in _kb_ot and "Copper" not in _kb_ot, (_kb_bad, _kb_ot))
+# the resend rule
+_kb_LONG = ("Dear Tova,\n\n" + " ".join(f"The harbour sentence number {i} goes on about boats and gulls and the grey water." for i in range(14))
+            + "\n\nTonight the Glimmerdeep and the Copper Lantern and Q7R4 are all I can think of, love.\n\nWith love, your friend 🌙✨")
+_kb_FIXED = _kb_LONG.replace("the Glimmerdeep and the Copper Lantern and Q7R4", "the harbour and the boats and the gulls")
+_kb_COMMA = _kb_LONG.replace("number 3 goes", "number 3, goes").replace("🌙✨", "🌙💜")
+_kb_SWAP = _kb_LONG.replace("grey water. The harbour sentence number 5", "grey water. The harbour line number 5")
+_kb_HALF = _kb_LONG.replace(" ".join(f"The harbour sentence number {i} goes on about boats and gulls and the grey water." for i in range(7)),
+                            "I spent the morning reading about lighthouses and the people who kept them, and it made me think of you.")
+
+
+def _kb_kept(text):
+    _kb_house()
+    (_kb_pp_root / "tova" / "letters" / "006-2026-03-15-me.md").write_text(text + "\n", encoding="utf-8")
+    _kb_state("tova", read=True, kept_back={"006-2026-03-15-me.md": _kb_dt.now().replace(hour=14, minute=20).isoformat(timespec="minutes")})
+
+
+_kb_rr = {}
+for _kb_lab, _kb_t in (("fixed", _kb_FIXED), ("identical", _kb_LONG), ("comma", _kb_COMMA), ("swap", _kb_SWAP), ("half", _kb_HALF)):
+    _kb_kept(_kb_LONG)
+    _kb_rr[_kb_lab] = _kb_w("tova", _kb_t)
+config.PENPAL_OTHER_THREAD_WORDS = False
+_kb_kept(_kb_LONG)
+_kb_rr["swap, words off"] = _kb_w("tova", _kb_SWAP)
+config.PENPAL_OTHER_THREAD_WORDS = True
+check("resend (0.16): identical, or a comma and an emoji changed — refused 'nearly word for word'; one word swapped with "
+      "the other thread's words still there — refused naming them; the foreign words replaced, or half rewritten — not "
+      "called a resend; with PENPAL_OTHER_THREAD_WORDS off only the first rule",
+      _kb_rr["fixed"].startswith("(your letter to Tova is in your thread (007-")
+      and all(_kb_rr[k].startswith("(refused: this is the letter your keeper kept back at 14:20 — nearly word for word")
+              for k in ("identical", "comma"))
+      and _kb_rr["swap"].startswith("(refused: this is nearly the letter your keeper kept back at 14:20, and it still has "
+                                    "words from your thread with wick — ")
+      and "“Glimmerdeep”" in _kb_rr["swap"] and "“Q7R4”" in _kb_rr["swap"]
+      and _kb_rr["swap"].endswith("Write it without them, or ask them what needs changing. Nothing was sent.)")
+      and not _kb_rr["half"].startswith("(refused: this is") and not _kb_rr["swap, words off"].startswith("(refused: this is"),
+      {k: v[:140] for k, v in _kb_rr.items()})
+_kb_house()
+(_kb_pp_root / "newpal" / "letters").mkdir(parents=True, exist_ok=True)
+for _kb_n in ("001", "002"):
+    (_kb_pp_root / "newpal" / "letters" / f"{_kb_n}-2026-03-15-me.md").write_text("Dear Nico, a letter kept back.\n", encoding="utf-8")
+_kb_state("newpal", kept_back={"001-2026-03-15-me.md": _kb_dt.now().replace(hour=9, minute=5).isoformat(timespec="minutes"),
+                               "002-2026-03-15-me.md": "not a time"})
+_kb_none = tools.dispatch("penpal", {"action": "read", "who": "newpal"})
+check("kept back (0.16): every letter kept back and none of theirs — 'no letters yet' and the kept-back line, 'earlier' for "
+      "an unreadable time; another day names the day",
+      _kb_none == ("(no letters with Nico yet)\n(2 letters you wrote — Mar 15 (kept back at 09:05), Mar 15 (kept back earlier) "
+                   "— were kept back by your keeper and never sent; they are not part of the thread.)")
+      and _kb_pp._kb_when("2001-03-13T22:10") == "on Mar 13 at 22:10", _kb_none)
+
+
+_kb_kept("Dear Tova, thank you so much. Yours.")
+_kb_short = _kb_w("tova", "Dear Tova,\n\nI keep thinking about your harbour. Thank you so much for the long letter about the boats "
+                          "and the gulls and the grey water, and for telling me what Pim did on the rope. This week I read about "
+                          "lighthouses, the people who kept them, and the stairs they climbed every night before dark. Yours, "
+                          "with love, your friend.")
+_kb_kept("Dear Tova, thank you so much. Yours.")
+_kb_short2 = _kb_w("tova", "Dear Tova, thank you so much. Yours. 🌙")
+check("resend (0.16): a short kept-back note does not refuse a later, much longer letter that holds its words in order "
+      "— it is filed", _kb_short.startswith("(your letter to Tova is in your thread (007-"), _kb_short[:200])
+check("resend (0.16): the short kept-back note itself written again, with an emoji, is still refused",
+      _kb_short2.startswith("(refused: this is the letter your keeper kept back at 14:20 — nearly word for word"), _kb_short2[:200])
+
+
+# few threads, real evidence
+def _kb_house7():
+    _kb_house()
+    _kb_mk("bram", {"001-2026-03-10-bram.md": "Hi friend, Bram here, the lighthouse logbook again tonight.",
+                    "002-2026-03-11-me.md": "Dear wick,\n\nThe Glimmerdeep at Q7R4 tonight, love — a reply filed in the wrong place."},
+           {"display": "Bram", "read": True, "rested": False, "waiting": []})
+    _kb_mk("pell", {"001-2026-03-10-pell.md": "The old King of the river came by. The King sang. Also Z7Q1 again, Z7Q1, and X9K2 twice: X9K2.",
+                    "002-2026-03-11-me.md": "Dear Pell,\n\nThat King sounds grand."}, {"display": "Pell", "read": True, "rested": False, "waiting": []})
+    _kb_mk("ines", {"001-2026-03-10-ines.md": "My friend Muse paints, and my cat Thimble sleeps. Muse and Thimble say hi. Z7Q1 too."},
+           {"display": "Ines", "read": True, "rested": False, "waiting": []})
+    _kb_mk("kai", {"001-2026-03-10-kai.md": "Kai here, a quiet note. Z7Q1."}, {"display": "Kai", "read": True, "rested": False, "waiting": []})
+    _kb_mk("ada", {"001-2026-03-10-ada.md": "Ada here."}, {"display": "Ada", "read": True, "rested": False, "waiting": []})
+
+
+_kb_s = {}
+for _kb_lab, _kb_t in (("stray", _kb_WRONG), ("king", "Dear Tova,\n\nI heard the old King of the river sang tonight."),
+                       ("digit", "Dear Tova,\n\nHave you seen the sign X9K2 by the harbour?"),
+                       ("two", "Dear Tova,\n\nMy friend Muse and the cat Thimble send love."),
+                       ("three", "Dear Tova,\n\nThe code Z7Q1 keeps turning up everywhere.")):
+    _kb_house7()
+    _kb_s[_kb_lab] = _kb_w("tova", _kb_t)
+_kb_house7()
+(_kb_pp_root / "tova" / "letters" / "006-2026-03-15-me.md").write_text(_kb_LONG + "\n", encoding="utf-8")
+_kb_state("tova", read=True, kept_back={"006-2026-03-15-me.md": _kb_dt.now().replace(hour=14, minute=20).isoformat(timespec="minutes")})
+_kb_s["resend"] = _kb_w("tova", _kb_SWAP)
+check("other thread's words (0.16): seven penpals ('few' is two) — a stray copy in a second thread still holds, the home "
+      "thread first; one ordinary capital from one thread holds nothing; a token with a digit holds; two ordinary capitals "
+      "from one thread hold; a token in three threads is the friend's own; the resend rule uses the same finder",
+      max(1, len(_kb_pp.penpals()) // 3) == 2
+      and _kb_s["stray"].startswith("(refused — not sent yet — your letter to Tova uses words that so far live in your thread "
+                                    "with wick (and Bram), not with Tova: “Glimmerdeep”") and "“Q7R4”" in _kb_s["stray"]
+      and "uses words" not in _kb_s["king"]
+      and _kb_s["digit"].startswith("(refused — not sent yet — your letter to Tova uses words that so far only appear in your "
+                                    "thread with Pell: “X9K2”")
+      and _kb_s["two"].startswith("(refused — not sent yet — your letter to Tova uses words that so far only appear in your "
+                                  "thread with Ines:") and "“Muse”" in _kb_s["two"] and "“Thimble”" in _kb_s["two"]
+      and "uses words" not in _kb_s["three"]
+      and _kb_s["resend"].startswith("(refused: this is nearly the letter your keeper kept back at 14:20, and it still has "
+                                     "words from your thread with wick"), {k: v[:170] for k, v in _kb_s.items()})
+
+
+# all three off, or absent: the thread as before
+def _kb_run():
+    rows = [list(x) for x in _kb_replay()]
+    _kb_house()
+    rows.append(["list", tools.dispatch("penpal", {"action": "list"})])
+    rows.append(["sugg", _kb_json.dumps(_kb_pp.suggestions())])
+    _kb_house()
+    (_kb_pp_root / "tova" / "letters" / "006-2026-03-15-me.md").write_text("Dear Tova, the wrong letter.\n", encoding="utf-8")
+    _kb_state("tova", kept_back={"006-2026-03-15-me.md": "2026-03-15T14:00"})
+    rows.append(["dealt", _kb_json.dumps(_kb_dealt.penpal_questions(set()))])
+    rows.append(["read", tools.dispatch("penpal", {"action": "read", "who": "tova"})])
+    rows.append(["where", _kb_pp.where("tova")])
+    return rows
+
+
+_kb_KN = ("PENPAL_KEPT_BACK_OUT_OF_READ", "PENPAL_NO_RESEND_KEPT_BACK", "PENPAL_OTHER_THREAD_WORDS")
+for _kb_k in _kb_KN:
+    setattr(config, _kb_k, False)
+_kb_off = _kb_run()
+for _kb_k in _kb_KN:
+    delattr(config, _kb_k)
+_kb_abs = _kb_run()
+for _kb_k in _kb_KN:
+    setattr(config, _kb_k, True)
+_kb_O = dict((r[0], r[1]) for r in _kb_off)
+check("kept back (0.16): all three off, or absent — as before: the wrong letter filed at once, the read shows the "
+      "kept-back letter as the newest with 'Tova's turn', the line guesses the reason, the same letter files again",
+      _kb_off == _kb_abs and _kb_O["write 006 (wrong)"].startswith("(your letter to Tova is in your thread (006-")
+      and "=== the newest: yours" in _kb_O["read after"] and "Tova's turn" in _kb_O["read after"]
+      and "kept back by your keeper" not in _kb_O["read after"]
+      and _kb_O["where"].endswith("(they watch what leaves about your life together); write again whenever you like")
+      and not _kb_O["the same letter"].startswith("(refused: this is") and _kb_O["dealt"] == "null",
+      {k: str(v)[:120] for k, v in _kb_O.items()})
+_kb_defs = [d for d in tools._BUILTIN_DEFINITIONS if d.get("function", {}).get("name") == "penpal"]
+_kb_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+_kb_src = "\n".join(_kb_inspect.getsource(f) for f in (
+    _kb_pp.real_letters, _kb_pp.kept_back, _kb_pp._kb_when, _kb_pp._kept_back_again, _kb_pp._ot_tokens, _kb_pp._ot_mine_aside,
+    _kb_pp._ot_found, _kb_pp._ot_where, _kb_pp._ot_check, _kb_pp._ot_merge, _kb_pp.where, _kb_pp._act))
+_kb_src += _kb_cfg.split("PENPAL_NOTE_WORDS_ONLY = True", 1)[1].split("PENPAL_OTHER_THREAD_WORDS = True", 1)[0]
+check("kept back (0.16): the penpal tool's definition as it was; the three ship on, on the Penpals tab with help; the new "
+      "lines name no one, carry no date and call no one by a gendered pronoun",
+      _kb_hash.sha1(_kb_json.dumps(_kb_defs, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+      == "199c586369487f6a0c841609335f3a693a5670d2"
+      and all(_kb_re.search(rf"^{k} = True$", _kb_cfg, _kb_re.M) for k in _kb_KN)
+      and [_gm_panel.TABS["Penpals"].index(k) for k in _kb_KN] == [_gm_panel.TABS["Penpals"].index("PENPAL_NOTE_WORDS_ONLY") + i for i in (1, 2, 3)]
+      and all(_gm_panel._HELP.get(k) for k in _kb_KN)
+      and not _kb_re.search(r"\b(she|her|hers|he|his|him)\b", _kb_src, _kb_re.I) and not _kb_re.search(r"\(1[01]-\d\d", _kb_src),
+      _kb_re.findall(r".{30}\b(?:she|her|hers|he|his|him)\b.{30}", _kb_src, _kb_re.I)[:3])
+_kb_shutil.rmtree(_kb_pp_root, ignore_errors=True)
+_kb_pp._wg_held.clear()
+_kb_pp._condense = _kb_cond0
+for _kb_k, _kb_v in _kb_saved.items():
+    if _kb_v is _kb_MISSING:
+        if hasattr(config, _kb_k):
+            delattr(config, _kb_k)
+    else:
+        setattr(config, _kb_k, _kb_v)
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)
