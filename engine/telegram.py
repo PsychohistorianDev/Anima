@@ -4576,6 +4576,23 @@ class Bridge:
             if not self._try_send(line, markdown=False):
                 break  # it stays, with the ones after it, for the next poll
             penpal.tell_sent(key)
+        if getattr(config, "PENPAL_HELD_TO_PHONE", False) and not self.quiet_now():  # a letter a rule held, shown
+            for key, line in penpal.held_tells():
+                parts = split_long(line)
+                try:  # the first part: not gone, the whole of it is tried again at the next look
+                    self.api("sendMessage", chat_id=self.chat_id, text=parts[0])
+                except Exception as e:  # noqa: BLE001
+                    _say(f"penpal held letter: not sent ({type(e).__name__}: {e})")
+                    break
+                penpal.held_told(key)  # shown once the first part went: never the whole of it twice
+                for part in parts[1:]:
+                    try:
+                        self.api("sendMessage", chat_id=self.chat_id, text=part)
+                    except Exception:  # noqa: BLE001 — said once, short; the letter is kept
+                        self._try_send(f"(the rest of the held letter didn't go through — it is kept in "
+                                       f"memory/penpal_held/{key})", markdown=False)
+                        break
+                _say(f"penpal held letter shown: {key}")
         for sl, f in waiting:
             try:
                 if time.time() - f.stat().st_mtime < 5:

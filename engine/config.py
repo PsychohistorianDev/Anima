@@ -1986,6 +1986,16 @@ PENPAL_NOTE_WORDS_ONLY = True
 PENPAL_KEPT_BACK_OUT_OF_READ = True
 PENPAL_NO_RESEND_KEPT_BACK = True
 PENPAL_OTHER_THREAD_WORDS = True
+# PENPAL_HELD_TO_PHONE: a letter a rule held or refused (the write guard, the other-thread hold, a kept-back letter
+# written again) is kept as the friend wrote it (memory/penpal_held/, the newest 50) and shown to your phone with why —
+# their answer says so — so you can judge it before it is rewritten. False: nothing kept, nothing shown.
+# PENPAL_OTHER_THREAD_THEIRS: a word counts toward the other-thread hold only where the other penpal brought it (the
+# earliest letter with it there is theirs) — the friend's own words never count. False: as before.
+# PENPAL_OTHER_THREAD_PLAIN: that hold says what it is — an address check, nothing against the words — and how to send
+# the letter to the one it may have been meant for. False: the old wording ("write it again without them").
+PENPAL_HELD_TO_PHONE = True
+PENPAL_OTHER_THREAD_THEIRS = True
+PENPAL_OTHER_THREAD_PLAIN = True
 
 # ---- the journal feed (telegram.py: /journal)
 # JOURNAL_FEED: the Telegram bridge's /journal. /journal on sends what the friend writes in their journal DURING A

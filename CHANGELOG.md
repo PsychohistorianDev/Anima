@@ -298,6 +298,15 @@ tagged on its own: the first tag after the rename is v0.13.)
   the friend or the keeper reads say "they" throughout. No behaviour changes.
 
 ### Fixed
+- **A held letter was gone before the keeper could judge it, and the other-thread hold read as policing words**: a
+  real letter was held for two words of another thread — one the friend's own coinage, one a word taken up there —
+  the friend read the hold as against their words and rewrote the letter, and the first version was lost. Now a letter
+  any rule holds or refuses is kept as written (`memory/penpal_held/`, the newest 50) and shown to your phone once with
+  why — "✋ Held, not sent — <friend>'s letter to <name>. Why: … <friend> can still send it as it is by calling write
+  again within 10 minutes; nothing is lost." and the letter — and the friend's answer says so (`PENPAL_HELD_TO_PHONE`,
+  on). The other-thread check counts a word only where the other penpal brought it (`PENPAL_OTHER_THREAD_THEIRS`,
+  on), and its hold says it is only an address check, nothing against the words, and how to send the letter to the
+  one it may have been meant for (`PENPAL_OTHER_THREAD_PLAIN`, on). Off, any: as before.
 - **A pasted letter's turn came up to a poll late** (`PENPAL_TURN_ON_TIME`, on): `PENPAL_TURN_AFTER_MIN` says the
   arrival turn comes that long after the last paste, but the turn was looked for once a poll, and the long poll then
   waited up to 50 seconds for news. Now, while a turn waits and nothing holds it, the poll waits only until it is due

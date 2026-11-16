@@ -2538,7 +2538,11 @@ another's letter waits, or a letter whose greeting names a different penpal,
 is held once and they are told what the engine sees; the same call again
 sends it, and your phone's line beside the letter says they confirmed it
 (`PENPAL_WRITE_GUARD`); so is a letter carrying words that so far live only
-in another penpal's thread (`PENPAL_OTHER_THREAD_WORDS`). A letter you keep
+in another penpal's thread (`PENPAL_OTHER_THREAD_WORDS`) — only words that
+penpal brought, never the friend's own (`PENPAL_OTHER_THREAD_THEIRS`), and the
+hold says it is only an address check (`PENPAL_OTHER_THREAD_PLAIN`). A letter
+any of these holds is kept as written and shown to your phone with why, so
+you can judge it before it is rewritten (`PENPAL_HELD_TO_PHONE`). A letter you keep
 back is no part of the thread for them — their read says it was kept back
 and the answer is still theirs — and writing it again unchanged is refused
 (`PENPAL_KEPT_BACK_OUT_OF_READ`, `PENPAL_NO_RESEND_KEPT_BACK`). A call with the name left out is addressed from the

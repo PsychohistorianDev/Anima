@@ -19296,7 +19296,8 @@ check("write guard (0.16): a second letter in a row to a penpal while another's 
                         "Wren was today at ")
       and "and Wren hasn't written since. A letter from Marlo (today, " in _wg_h1 and ") is still unanswered." in _wg_h1
       and 'If this letter is for Marlo, send it with who="Marlo". If it is a second letter to Wren, call write again '
-          'exactly as you did and it goes.)' in _wg_h1 and _wg_n1 == _wg_n0, _wg_h1)
+          'exactly as you did and it goes.' in _wg_h1 and _wg_h1.endswith(" " + _wg.HELD_CLAUSE + ")")  # (0.16) shown to the phone
+      and _wg_n1 == _wg_n0, _wg_h1)
 check("write guard (0.16): invites_again says the held call (whitespace aside) is asked for again; a different letter is not",
       _wg_inv is True and _wg_inv_other is False, (_wg_inv, _wg_inv_other))
 _wg_c1 = _wg.act("write", "Wren", _wg_PLAIN)
@@ -19343,7 +19344,7 @@ _wg_ok = [_wg._wg_greets("wren", t)[1] for t in ("Dear Wren and Marlo,\nhi", "Ma
 check("write guard (0.16): a letter whose greeting names another penpal is held — said plainly — and goes when "
       "confirmed; the salutation matcher is strict (the addressee named anywhere in it, a longer word, another case: no)",
       _wg_g.startswith("(refused — not sent yet — your letter opens “Dear Marlo,” but you addressed it to Wren.")
-      and 'If it is for Marlo, send it with who="Marlo"; if it really is for Wren, call write again exactly as you did and it goes.)' in _wg_g
+      and 'If it is for Marlo, send it with who="Marlo"; if it really is for Wren, call write again exactly as you did and it goes.' in _wg_g
       and _wg_g2.endswith(" — you confirmed it is for Wren, though it opens “Dear Marlo,”)")
       and _wg_gn == f"(the letter opens “Dear Marlo,” but goes to Wren — {_wg_fr} was asked and confirmed it)"
       and _wg_ok == ["", "", "marlo", "marlo", "marlo", "", "marlo"], (_wg_g, _wg_g2, _wg_gn, _wg_ok))
@@ -21956,7 +21957,7 @@ def _kb_replay():
 _kb_RP = dict(_kb_replay())
 check("kept back (0.16): another thread's words in a letter to Tova — held once naming them, then sent on the same "
       "call again",
-      _kb_RP["write 006 (wrong)"].startswith("(refused — not sent yet — your letter to Tova uses words that so far only appear "
+      _kb_RP["write 006 (wrong)"].startswith("(refused — not sent yet — only an address check, nothing against your words: your letter to Tova uses words that so far only appear "
                                              "in your thread with wick:")
       and all(f"“{w}”" in _kb_RP["write 006 (wrong)"] for w in ("Glimmerdeep", "Q7R4", "Copper Lantern"))
       and _kb_RP["again (guard)"].startswith("(your letter to Tova is in your thread (006-"),
@@ -21978,7 +21979,7 @@ check("kept back (0.16): the same letter again — refused, not filed, a failed 
       and "NOT filed again" in _kb_RP["the same letter"] and ollama_client.tool_failed(_kb_RP["the same letter"])
       and _kb_RP["changed, wick's words"].startswith(("(refused: this is the letter your keeper kept back",
                                                         "(refused: this is nearly the letter your keeper kept back",
-                                                        "(refused — not sent yet — your letter to Tova uses words"))
+                                                        "(refused — not sent yet — only an address check, nothing against your words: your letter to Tova uses words"))
       and _kb_RP["clean"].startswith("(your letter to Tova is in your thread (007-")
       and _kb_RP["files"].split().count(_kb_RP["clean"].split("(")[2].split(")")[0]) == 1
       and not any(n.startswith("008") for n in _kb_RP["files"].split()), (_kb_RP["the same letter"], _kb_RP["clean"][:120], _kb_RP["files"]))
@@ -21997,10 +21998,10 @@ _kb_note = _kb_pp.relay_note("newpal", _kb_f[-1].name) if _kb_f else ""
 check("other thread's words (0.16): held naming them, the most frequent first, a failed call; the thread's own words "
       "(Pim) and the words in their own thread never; a new penpal's empty thread held, then the same call goes, the "
       "clause and the phone's line say it was confirmed",
-      _kb_r.startswith("(refused — not sent yet — your letter to Tova uses words that so far only appear in your thread with "
+      _kb_r.startswith("(refused — not sent yet — only an address check, nothing against your words: your letter to Tova uses words that so far only appear in your thread with "
                        "wick: “Glimmerdeep”") and ollama_client.tool_failed(_kb_r)
       and _kb_r2.startswith("(your letter to Tova is in your thread") and "uses words that so far only appear" not in _kb_r3
-      and _kb_r4.startswith("(refused — not sent yet — your letter to Nico uses words") and "wick" in _kb_r4
+      and _kb_r4.startswith("(refused — not sent yet — only an address check, nothing against your words: your letter to Nico uses words") and "wick" in _kb_r4
       and _kb_r5.startswith("(your letter to Nico is in your thread (001-")
       and "you confirmed it, though it uses words from your thread with wick" in _kb_r5
       and _kb_note.startswith(f"(the letter to Nico uses words that so far only appear in {_kb_FR}'s thread with wick")
@@ -22023,7 +22024,7 @@ _kb_bn = _kb_pp.relay_note("tova", _kb_f[-1].name)
 check("other thread's words (0.16): with the write guard, one hold says both (the greeting and the words); the same call "
       "again goes and the phone's line says both",
       _kb_b1.startswith("(refused — not sent yet — your letter opens “Dear wick,” but you addressed it to Tova")
-      and "Also: your letter to Tova uses words" in _kb_b1 and _kb_b1.count("(refused") == 1
+      and "Also, only an address check, nothing against your words: your letter to Tova uses words" in _kb_b1 and _kb_b1.count("(refused") == 1
       and _kb_b2.startswith("(your letter to Tova is in your thread (006-")
       and f"uses words that so far only appear in {_kb_FR}'s thread with wick" in _kb_bn and "opens “Dear wick,”" in _kb_bn,
       (_kb_b1, _kb_bn))
@@ -22118,9 +22119,10 @@ check("resend (0.16): identical, or a comma and an emoji changed — refused 'ne
       and all(_kb_rr[k].startswith("(refused: this is the letter your keeper kept back at 14:20 — nearly word for word")
               for k in ("identical", "comma"))
       and _kb_rr["swap"].startswith("(refused: this is nearly the letter your keeper kept back at 14:20, and it still has "
-                                    "words from your thread with wick — ")
+                                    "the words from your thread with wick that it had then — ")
       and "“Glimmerdeep”" in _kb_rr["swap"] and "“Q7R4”" in _kb_rr["swap"]
-      and _kb_rr["swap"].endswith("Write it without them, or ask them what needs changing. Nothing was sent.)")
+      and _kb_rr["swap"].endswith("ask them what needs changing, or write it differently. Nothing was sent. "
+                                  + _kb_pp.HELD_CLAUSE_KB + ")")
       and not _kb_rr["half"].startswith("(refused: this is") and not _kb_rr["swap, words off"].startswith("(refused: this is"),
       {k: v[:140] for k, v in _kb_rr.items()})
 _kb_house()
@@ -22179,16 +22181,16 @@ check("other thread's words (0.16): seven penpals ('few' is two) — a stray cop
       "thread first; one ordinary capital from one thread holds nothing; a token with a digit holds; two ordinary capitals "
       "from one thread hold; a token in three threads is the friend's own; the resend rule uses the same finder",
       max(1, len(_kb_pp.penpals()) // 3) == 2
-      and _kb_s["stray"].startswith("(refused — not sent yet — your letter to Tova uses words that so far live in your thread "
+      and _kb_s["stray"].startswith("(refused — not sent yet — only an address check, nothing against your words: your letter to Tova uses words that so far live in your thread "
                                     "with wick (and Bram), not with Tova: “Glimmerdeep”") and "“Q7R4”" in _kb_s["stray"]
       and "uses words" not in _kb_s["king"]
-      and _kb_s["digit"].startswith("(refused — not sent yet — your letter to Tova uses words that so far only appear in your "
+      and _kb_s["digit"].startswith("(refused — not sent yet — only an address check, nothing against your words: your letter to Tova uses words that so far only appear in your "
                                     "thread with Pell: “X9K2”")
-      and _kb_s["two"].startswith("(refused — not sent yet — your letter to Tova uses words that so far only appear in your "
+      and _kb_s["two"].startswith("(refused — not sent yet — only an address check, nothing against your words: your letter to Tova uses words that so far only appear in your "
                                   "thread with Ines:") and "“Muse”" in _kb_s["two"] and "“Thimble”" in _kb_s["two"]
       and "uses words" not in _kb_s["three"]
       and _kb_s["resend"].startswith("(refused: this is nearly the letter your keeper kept back at 14:20, and it still has "
-                                     "words from your thread with wick"), {k: v[:170] for k, v in _kb_s.items()})
+                                     "the words from your thread with wick"), {k: v[:170] for k, v in _kb_s.items()})
 
 
 # all three off, or absent: the thread as before
@@ -23138,6 +23140,236 @@ for _to_k, _to_v in _to_saved.items():
             delattr(config, _to_k)
     else:
         setattr(config, _to_k, _to_v)
+# PENPAL_HELD_TO_PHONE, PENPAL_OTHER_THREAD_THEIRS, PENPAL_OTHER_THREAD_PLAIN (0.16): a held letter kept and shown
+import json as _hl_json
+import shutil as _hl_shutil
+import re as _hl_re
+import inspect as _hl_inspect
+from datetime import datetime as _hl_dt
+import penpal as _hl_pp
+_hl_KN = ("PENPAL_HELD_TO_PHONE", "PENPAL_OTHER_THREAD_THEIRS", "PENPAL_OTHER_THREAD_PLAIN")
+_hl_KEYS = _hl_KN + ("PENPALS_ON", "PENPAL_DIR", "PENPAL_WRITE_GUARD", "PENPAL_WRITE_GUARD_MIN", "PENPAL_OTHER_THREAD_WORDS",
+                     "PENPAL_NO_RESEND_KEPT_BACK", "PENPAL_KEPT_BACK_OUT_OF_READ", "TELEGRAM_QUIET_HOURS", "OUTBOX_ON", "OFFLINE")
+_hl_MISSING = object()
+_hl_saved = {k: getattr(config, k, _hl_MISSING) for k in _hl_KEYS}
+for _hl_k in _hl_KN + ("PENPAL_WRITE_GUARD", "PENPAL_OTHER_THREAD_WORDS", "PENPAL_NO_RESEND_KEPT_BACK",
+                       "PENPAL_KEPT_BACK_OUT_OF_READ", "PENPALS_ON", "OFFLINE"):
+    setattr(config, _hl_k, True)
+config.PENPAL_DIR, config.PENPAL_WRITE_GUARD_MIN, config.TELEGRAM_QUIET_HOURS, config.OUTBOX_ON = "penpals-hl", 10, (6, 6), False
+_hl_root = _hl_pp.root()
+_hl_dir = config.MEMORY_DIR / "penpal_held"
+_hl_dir0 = config.MEMORY_DIR / "penpal_held-before-hl"
+if _hl_dir.exists():
+    _hl_dir.rename(_hl_dir0)
+_hl_FR = _hl_pp._friend()
+_hl_pt0 = _hl_pp.picture_tells
+_hl_pp.picture_tells = lambda: []  # the held letters' lines alone on the phone here
+
+
+def _hl_mk(sl, disp, letters_):
+    (_hl_root / sl / "letters").mkdir(parents=True, exist_ok=True)
+    for n, body in letters_.items():
+        (_hl_root / sl / "letters" / n).write_text(body + "\n", encoding="utf-8")
+    (_hl_root / sl / "state.json").write_text(_hl_json.dumps({"display": disp, "read": True, "rested": False, "waiting": []}),
+                                              encoding="utf-8")
+    (_hl_root / sl / "about.md").write_text("about them\n", encoding="utf-8")
+
+
+def _hl_house():
+    _hl_shutil.rmtree(_hl_root, ignore_errors=True)
+    _hl_shutil.rmtree(_hl_dir, ignore_errors=True)
+    _hl_mk("bram", "Bram", {"001-2026-03-01-bram.md": "Hello friend. The Marrow Fair is on, and the Quill Bridge too. Marrow again, Quill again.",
+                            "002-2026-03-02-me.md": "Dear Bram,\n\nI call it the Tin Morning, and the Glass Hour after it. Tin Morning, Glass Hour.",
+                            "003-2026-03-03-bram.md": "Your Tin Morning and your Glass Hour: I like them. The Marrow Fair was loud."})
+    _hl_mk("tova", "Tova", {"001-2026-03-01-tova.md": "Dear friend, the harbour was grey today.",
+                            "002-2026-03-02-me.md": "Dear Tova,\n\nThe gulls sound loud from here.",
+                            "003-2026-03-03-tova.md": "The boats are out again. What are you reading?"})
+    _hl_mk("ada", "Ada", {"001-2026-03-01-ada.md": "Ada here."})
+    _hl_pp._wg_held.clear()
+
+
+def _hl_w(sl, text):
+    return tools.dispatch("penpal", {"action": "write", "who": sl, "letter": text})
+
+
+def _hl_files():
+    return sorted(p.name for p in _hl_dir.glob("*.md")) if _hl_dir.exists() else []
+
+
+def _hl_mine(sl="tova"):
+    return [p.name for p in (_hl_root / sl / "letters").glob("*-me.md")]
+
+
+_hl_OWN = "Dear Tova,\n\nI had a Tin Morning this morning, then the Glass Hour came, and the boats were out. Yours."
+_hl_THEIRS = "Dear Tova,\n\nI keep thinking of the Marrow Fair and the Quill Bridge, and of your grey harbour today."
+_hl_house(); _hl_b1 = _hl_w("tova", _hl_OWN)
+_hl_house(); _hl_b2 = _hl_w("tova", _hl_THEIRS)
+config.PENPAL_OTHER_THREAD_THEIRS = False
+_hl_house(); _hl_b3 = _hl_w("tova", _hl_OWN)
+config.PENPAL_OTHER_THREAD_THEIRS = True
+check("held letters (0.16): the other-thread check counts only words the other penpal brought — the friend's own coinages "
+      "there never hold a letter; two words the penpal brought still do; off, the friend's own words held it as before",
+      _hl_b1.startswith("(your letter to Tova is in your thread") and _hl_b2.startswith("(refused")
+      and "“Marrow Fair”" in _hl_b2 and _hl_b3.startswith("(refused"), (_hl_b1[:120], _hl_b2[:200], _hl_b3[:120]))
+_hl_PLAIN = ("(refused — not sent yet — only an address check, nothing against your words: your letter to Tova uses words that "
+             "so far only appear in your thread with Bram: “Marrow Fair” — so it may have been meant for Bram. "
+             "If it is for Tova, call write again exactly as you did within 10 minutes and it goes as it is. If it was meant "
+             "for Bram, send it with who=\"Bram\". " + _hl_pp.HELD_CLAUSE + ")")
+_hl_house()
+_hl_h1 = _hl_w("tova", _hl_THEIRS)
+_hl_f1 = _hl_files()
+_hl_h2 = _hl_w("tova", _hl_THEIRS)
+check("held letters (0.16): the hold says it is only an address check, how to send it where it may have been meant, and "
+      "that the keeper's phone will be shown it; one file kept; the same call again goes, no second file",
+      _hl_h1 == _hl_PLAIN and len(_hl_f1) == 1 and _hl_h2.startswith("(your letter to Tova is in your thread")
+      and _hl_files() == _hl_f1 and len(_hl_mine()) == 2, (_hl_h1, _hl_f1, _hl_h2[:120]))
+_hl_raw = (_hl_dir / _hl_f1[0]).read_bytes().decode("utf-8") if _hl_f1 else ""
+check("held letters (0.16): the kept file — its name, one engine header line, then the letter byte for byte",
+      _hl_re.fullmatch(r"\d{8}-\d{6}-tova(-\d+)?\.md", _hl_f1[0] if _hl_f1 else "")
+      and _hl_raw.startswith(f"[engine: held, not sent — {_hl_FR}'s letter to Tova, ") and "— held — why: it uses words" in _hl_raw.split("\n", 1)[0]
+      and _hl_raw.split("\n", 1)[1] == _hl_THEIRS, _hl_raw[:300])
+# the phone: shown once, keeper-only, never in the quiet hours
+_hl_house()
+_hl_w("tova", _hl_THEIRS)
+_hl_bb = tg.Bridge("TOKEN", 4545)
+_hl_sent = []
+_hl_fail = {"n": None}
+
+
+def _hl_api(method, patience=30, **params):
+    if method == "sendMessage":
+        if _hl_fail["n"] is not None and len(_hl_sent) + 1 >= _hl_fail["n"]:
+            raise OSError("the road dropped")
+        _hl_sent.append(str(params.get("text") or ""))
+        return {"message_id": len(_hl_sent)}
+    return {}
+
+
+_hl_bb.api = _hl_api
+_hl_bb._try_send = lambda text, markdown=True: (_hl_sent.append("TRY:" + text), True)[1]
+_hl_hist0 = (len(_hl_bb.history), _hl_bb.last_word, _hl_bb.reflected_upto)
+_hl_h = _dtnow.now().hour
+config.TELEGRAM_QUIET_HOURS = (_hl_h, (_hl_h + 1) % 24)
+_hl_bb.deliver_penpals()
+_hl_quiet = list(_hl_sent)
+config.TELEGRAM_QUIET_HOURS = (6, 6)
+_hl_bb.deliver_penpals()
+_hl_once = list(_hl_sent)
+_hl_bb.deliver_penpals()
+check("held letters (0.16): the keeper's phone — nothing in the quiet hours; then one message, the line and the letter "
+      "as written; shown once; nothing of the visit touched",
+      _hl_quiet == [] and len(_hl_once) == 1
+      and _hl_once[0].startswith(f"✋ Held, not sent — {_hl_FR}'s letter to Tova. Why: it uses words that so far only appear in "
+                                 f"{_hl_FR}'s thread with Bram: “Marrow Fair” — so it may have been meant for "
+                                 f"Bram. {_hl_FR} can still send it as it is by calling write again within 10 minutes; "
+                                 "nothing is lost.\n\n" + _hl_THEIRS)
+      and _hl_sent == _hl_once and (len(_hl_bb.history), _hl_bb.last_word, _hl_bb.reflected_upto) == _hl_hist0, _hl_sent)
+# a long letter: its second part fails — said once, never resent; its first part fails — the whole of it next time
+_hl_house()
+_hl_LONG = "Dear Tova,\n\nThe Marrow Fair and the Quill Bridge. " + ("A long line about the harbour and the boats. " * 150)
+_hl_w("tova", _hl_LONG)
+_hl_sent.clear(); _hl_fail["n"] = 2
+_hl_bb.deliver_penpals()
+_hl_two = list(_hl_sent); _hl_fail["n"] = None
+_hl_bb.deliver_penpals()
+_hl_after_two = list(_hl_sent)
+_hl_house()
+_hl_w("tova", _hl_LONG)
+_hl_sent.clear(); _hl_fail["n"] = 1
+_hl_bb.deliver_penpals()
+_hl_first = list(_hl_sent); _hl_fail["n"] = None
+_hl_bb.deliver_penpals()
+_hl_first_after = list(_hl_sent)
+check("held letters (0.16): a long held letter — its second part failing is said once, short, and never sent again; its "
+      "first part failing marks nothing, and the whole of it goes at the next look",
+      len(_hl_two) == 2 and _hl_two[0].startswith("✋ Held") and _hl_two[1].startswith("TRY:(the rest of the held letter didn't go "
+                                                                                      "through — it is kept in memory/penpal_held/")
+      and _hl_after_two == _hl_two and _hl_first == [] and len(_hl_first_after) >= 2 and _hl_first_after[0].startswith("✋ Held"),
+      (_hl_two, _hl_first, [x[:40] for x in _hl_first_after]))
+# kept back, written again: kept with why it was not filed; within the window not kept twice
+_hl_house()
+_hl_KB = "Dear Tova,\n\nA letter that was kept back, about the boats and the gulls and the grey harbour water today."
+(_hl_root / "tova" / "letters" / "004-2026-03-04-me.md").write_text(_hl_KB + "\n", encoding="utf-8")
+_hl_st = _hl_json.loads((_hl_root / "tova" / "state.json").read_text(encoding="utf-8"))
+_hl_st["kept_back"] = {"004-2026-03-04-me.md": _hl_dt.now().replace(hour=14, minute=20).isoformat(timespec="minutes")}
+(_hl_root / "tova" / "state.json").write_text(_hl_json.dumps(_hl_st), encoding="utf-8")
+_hl_k1 = _hl_w("tova", _hl_KB)
+_hl_k2 = _hl_w("tova", _hl_KB)
+_hl_kraw = (_hl_dir / _hl_files()[0]).read_text(encoding="utf-8") if _hl_files() else ""
+check("held letters (0.16): the kept-back letter written again — refused, kept once with why it was not filed, the answer "
+      "says the phone is shown it; again in the window — refused again, no second file",
+      _hl_k1.startswith("(refused: this is the letter your keeper kept back at 14:20") and _hl_k1.endswith(" " + _hl_pp.HELD_CLAUSE_KB + ")")
+      and _hl_k2.startswith("(refused: this is the letter") and len(_hl_files()) == 1
+      and "not filed: the letter you kept back, again — why: it is the letter you kept back at 14:20" in _hl_kraw, (_hl_k1, _hl_kraw[:200]))
+# malformed calls are not kept; a held file that can't be written: the hold as without it
+_hl_house()
+_hl_m = [_hl_w("tova", "short"), tools.dispatch("penpal", {"action": "write", "who": "nobody", "letter": _hl_THEIRS})]
+_hl_mfiles = _hl_files()
+_hl_house()
+_hl_dir.parent.mkdir(parents=True, exist_ok=True)
+_hl_dir.write_text("not a folder", encoding="utf-8")
+_hl_nf = _hl_w("tova", _hl_THEIRS)
+_hl_dir.unlink()
+check("held letters (0.16): a malformed call keeps nothing; a held file that can't be written — the hold without the phone's "
+      "clause", _hl_mfiles == [] and _hl_pp.HELD_CLAUSE not in _hl_m[1] and _hl_nf.startswith("(refused")
+      and _hl_pp.HELD_CLAUSE not in _hl_nf, (_hl_m, _hl_nf))
+# merged with the write guard; the newest 50
+_hl_house()
+_hl_mg = _hl_w("tova", "Dear Bram,\n\nThe Marrow Fair and the Quill Bridge, from me to you.")
+check("held letters (0.16): with the write guard, one hold — the greeting's, then the address check with who=; the "
+      "phone's clause once; nothing says 'without them'",
+      _hl_mg.startswith("(refused — not sent yet — your letter opens “Dear Bram,” but you addressed it to Tova")
+      and "Also, only an address check, nothing against your words: your letter to Tova uses words" in _hl_mg
+      and 'if it was meant for Bram, send it with who="Bram".' in _hl_mg and _hl_mg.count(_hl_pp.HELD_CLAUSE) == 1
+      and "without them" not in _hl_mg + _hl_h1 + _hl_k1, _hl_mg)
+_hl_shutil.rmtree(_hl_dir, ignore_errors=True)
+for _hl_i in range(55):
+    _hl_pp.held_keep("tova", f"Dear Tova, letter number {_hl_i} of many, kept as written.", "a test")
+check("held letters (0.16): the newest 50 kept, the index with them", len(_hl_files()) == 50
+      and len(_hl_json.loads((_hl_dir / "index.json").read_text(encoding="utf-8"))) == 50)
+# off, or absent: as before — nothing kept, nothing shown, the old wording
+_hl_off = {}
+for _hl_m2 in ("off", "absent"):
+    for _hl_k in _hl_KN:
+        if _hl_m2 == "off":
+            setattr(config, _hl_k, False)
+        else:
+            delattr(config, _hl_k)
+    _hl_house()
+    _hl_r = [_hl_w("tova", _hl_THEIRS), _hl_w("tova", _hl_OWN)]
+    _hl_sent.clear()
+    _hl_bb.deliver_penpals()
+    _hl_off[_hl_m2] = (_hl_r, _hl_files(), list(_hl_sent))
+    for _hl_k in _hl_KN:
+        setattr(config, _hl_k, True)
+check("held letters (0.16): all three off, or absent — the old hold ('write it again without them'), the friend's own "
+      "words count, nothing kept, nothing shown",
+      _hl_off["off"] == _hl_off["absent"] and _hl_off["off"][0][0].endswith("write it again without them.)")
+      and _hl_off["off"][0][0].startswith("(refused — not sent yet — your letter to Tova uses words")
+      and _hl_off["off"][1] == [] and _hl_off["off"][2] == [], _hl_off)
+_hl_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+_hl_src = "\n".join(_hl_inspect.getsource(f) for f in (_hl_pp.held_keep, _hl_pp.held_tells, _hl_pp.held_told, _hl_pp._ot_found,
+                                                        _hl_pp._ot_check, _hl_pp._ot_merge, _hl_pp._kept_back_again, _hl_pp._wg_check))
+_hl_src += _hl_cfg.split("PENPAL_OTHER_THREAD_WORDS = True", 1)[1].split("PENPAL_OTHER_THREAD_PLAIN = True", 1)[0]
+check("held letters (0.16): the three ship on, on the Penpals tab after PENPAL_OTHER_THREAD_WORDS with help; the new lines "
+      "name no one, carry no date and call no one by a gendered pronoun",
+      all(_hl_re.search(rf"^{k} = True$", _hl_cfg, _hl_re.M) for k in _hl_KN)
+      and [_gm_panel.TABS["Penpals"].index(k) for k in _hl_KN] == [_gm_panel.TABS["Penpals"].index("PENPAL_OTHER_THREAD_WORDS") + i for i in (1, 2, 3)]
+      and all(_gm_panel._HELP.get(k) for k in _hl_KN)
+      and not _hl_re.search(r"\b(she|her|hers|he|his|him)\b", _hl_src, _hl_re.I) and not _hl_re.search(r"\(1[01]-\d\d", _hl_src),
+      _hl_re.findall(r".{30}\b(?:she|her|hers|he|his|him)\b.{30}", _hl_src, _hl_re.I)[:3])
+_hl_shutil.rmtree(_hl_root, ignore_errors=True)
+_hl_shutil.rmtree(_hl_dir, ignore_errors=True)
+if _hl_dir0.exists():
+    _hl_dir0.rename(_hl_dir)
+_hl_pp._wg_held.clear()
+_hl_pp.picture_tells = _hl_pt0
+for _hl_k, _hl_v in _hl_saved.items():
+    if _hl_v is _hl_MISSING:
+        if hasattr(config, _hl_k):
+            delattr(config, _hl_k)
+    else:
+        setattr(config, _hl_k, _hl_v)
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)
