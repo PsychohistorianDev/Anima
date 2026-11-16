@@ -2445,6 +2445,13 @@ def leave_thread(text: str) -> str:
     (config.MEMORY_DIR / "thread.md").write_text(entry, encoding="utf-8")
     with (config.MEMORY_DIR / "thread.log").open("a", encoding="utf-8") as fh:
         fh.write(entry + "\n")
+    if getattr(config, "THREAD_TELL_PAUSED", False):  # what is true while the thread is paused, or kept from wakes
+        if not getattr(config, "THREAD", True):
+            return (f"kept for the next you: {len(text):,} characters — not read at the door for now: the thread is paused. "
+                    "It is kept (it stays until you leave another), and it is the one read first when the thread is back.")
+        if not getattr(config, "THREAD_IN_WAKES", True):
+            return (f"left for the next you: {len(text):,} characters — read first at the next visit, not at a wake or a "
+                    "reverie, and it stays until you leave another")
     return (f"left for the next you: {len(text):,} characters — read first at the next door, and it stays until "
             "you leave another")
 

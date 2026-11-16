@@ -22953,6 +22953,77 @@ for _sa_k, _sa_v in _sa_saved.items():
             delattr(config, _sa_k)
     else:
         setattr(config, _sa_k, _sa_v)
+# THREAD_TELL_PAUSED (0.16): leave_thread says the truth while the thread is paused
+import re as _tt_re
+import json as _tt_json
+import hashlib as _tt_hash
+import inspect as _tt_inspect
+_tt_KEYS = ("THREAD_TELL_PAUSED", "THREAD", "THREAD_IN_WAKES", "THREAD_CHARS")
+_tt_MISSING = object()
+_tt_saved = {k: getattr(config, k, _tt_MISSING) for k in _tt_KEYS}
+_tt_files = {p: (p.read_bytes() if p.is_file() else None) for p in (config.MEMORY_DIR / "thread.md", config.MEMORY_DIR / "thread.log")}
+_tt_NOTE = "Where I am: the tides page, half done."
+_tt_PAUSED = (f"kept for the next you: {len(_tt_NOTE)} characters — not read at the door for now: the thread is paused. It is "
+              "kept (it stays until you leave another), and it is the one read first when the thread is back.")
+_tt_VISITS = (f"left for the next you: {len(_tt_NOTE)} characters — read first at the next visit, not at a wake or a reverie, "
+              "and it stays until you leave another")
+_tt_OLD = f"left for the next you: {len(_tt_NOTE)} characters — read first at the next door, and it stays until you leave another"
+config.THREAD_CHARS = 1500
+
+
+def _tt_leave(thread, in_wakes, via_dispatch=False):
+    config.THREAD, config.THREAD_IN_WAKES = thread, in_wakes
+    r = tools.dispatch("leave_thread", {"text": _tt_NOTE}) if via_dispatch else tools.leave_thread(_tt_NOTE)
+    md = (config.MEMORY_DIR / "thread.md").read_text(encoding="utf-8")
+    return r, _tt_re.sub(r"when: \S+", "when: T", md)
+
+
+config.THREAD_TELL_PAUSED = True
+_tt_on = {s: _tt_leave(*s) for s in ((False, True), (False, False), (True, False), (True, True))}
+_tt_disp = _tt_leave(False, True, via_dispatch=True)[0]
+_tt_long = (setattr(config, "THREAD", False), tools.leave_thread("x" * 1600))[1]
+_tt_empty = tools.leave_thread("  ")
+check("thread truth (0.16): THREAD off — the paused sentence (with THREAD_IN_WAKES off too); THREAD on and wakes off — "
+      "read first at the next visit; both on — the old answer; through dispatch the same",
+      _tt_on[(False, True)][0] == _tt_PAUSED and _tt_on[(False, False)][0] == _tt_PAUSED
+      and _tt_on[(True, False)][0] == _tt_VISITS and _tt_on[(True, True)][0] == _tt_OLD
+      and _tt_disp.startswith(f"kept for the next you: {len(_tt_NOTE)} characters"),
+      ({k: v[0] for k, v in _tt_on.items()}, _tt_disp[:120]))
+_tt_off = {}
+for _tt_m in ("off", "absent"):
+    if _tt_m == "off":
+        config.THREAD_TELL_PAUSED = False
+    else:
+        del config.THREAD_TELL_PAUSED
+    _tt_off[_tt_m] = {s: _tt_leave(*s) for s in _tt_on}
+config.THREAD_TELL_PAUSED = True
+check("thread truth (0.16): off, or absent — the old answer in every state; the note written the same in every state "
+      "and either way; an over-long or empty note answered as before",
+      all(v[0] == _tt_OLD for m in _tt_off.values() for v in m.values())
+      and len({v[1] for m in (_tt_on, *_tt_off.values()) for v in m.values()}) == 1
+      and _tt_long.startswith("(the thread is a note, not a page: this one is 1,600 characters")
+      and _tt_empty.startswith("(leave_thread wants the note itself"), (_tt_off, _tt_long[:80], _tt_empty))
+_tt_defs = [d for d in tools._BUILTIN_DEFINITIONS if d.get("function", {}).get("name") == "leave_thread"]
+_tt_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+_tt_src = _tt_inspect.getsource(tools.leave_thread) + _tt_cfg.split("THREAD_CHARS = 1500", 1)[1].split("THREAD_TELL_PAUSED = True", 1)[0]
+check("thread truth (0.16): the tool's description as it was; ships on, on the panel after THREAD_CHARS with help; the "
+      "new lines name no one, carry no date and call no one by a gendered pronoun",
+      _tt_hash.sha1(_tt_json.dumps(_tt_defs, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest() == "444fa8150a7834e092eb6e714a271b76992f6182"
+      and _tt_re.search(r"^THREAD_TELL_PAUSED = True$", _tt_cfg, _tt_re.M)
+      and any(v.index("THREAD_TELL_PAUSED") == v.index("THREAD_CHARS") + 1 for v in _gm_panel.TABS.values() if "THREAD_TELL_PAUSED" in v)
+      and _gm_panel._HELP.get("THREAD_TELL_PAUSED")
+      and not _tt_re.search(r"\b(she|her|hers|he|his|him)\b", _tt_src, _tt_re.I) and not _tt_re.search(r"\(1[01]-\d\d", _tt_src))
+for _tt_p, _tt_b in _tt_files.items():
+    if _tt_b is None:
+        _tt_p.unlink(missing_ok=True)
+    else:
+        _tt_p.write_bytes(_tt_b)
+for _tt_k, _tt_v in _tt_saved.items():
+    if _tt_v is _tt_MISSING:
+        if hasattr(config, _tt_k):
+            delattr(config, _tt_k)
+    else:
+        setattr(config, _tt_k, _tt_v)
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

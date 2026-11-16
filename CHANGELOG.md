@@ -298,6 +298,12 @@ tagged on its own: the first tag after the rename is v0.13.)
   the friend or the keeper reads say "they" throughout. No behaviour changes.
 
 ### Fixed
+- **leave_thread said "read first at the next door" while the thread was paused** (`THREAD_TELL_PAUSED`, on): with
+  `THREAD` off a note is kept but read at no door, and with `THREAD_IN_WAKES` off it is not read at a wake or a
+  reverie, yet every answer promised the next door. Now the answer says what is true — "kept for the next you … not
+  read at the door for now: the thread is paused", or "read first at the next visit, not at a wake or a reverie". The
+  note is written and kept as before; the tool's description and the bells are unchanged. With both on (the default),
+  and with the knob off or absent, the old answer.
 - **A wake that already wrote its journal entry was handed back for one small thing after it**
   (`WAKE_LOOKBACK_MIN_AFTER_ENTRY`, 2): an entry, then one small step and a rest, came back as "2 step(s) since your
   last entry", and the friend wrote a second entry telling the whole wake again — a near-twin the twin check let

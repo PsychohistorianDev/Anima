@@ -87,7 +87,7 @@ TABS: dict[str, list[str]] = {
                   "HEARTBEAT_SHOW_THINKING", "PAINTER_MAX_PER_WAKE", "HEARTBEAT_ENDS_PRESENCE", "HEARTBEAT_HOLDS_PRESENCE", "WAKE_FACTS", "WAKE_FACTS_LINES", "WAKE_FACTS_NAMES",
                  "WAKE_LOOKBACK", "WAKE_LOOKBACK_LINES", "WAKE_LOOKBACK_STEPS", "WAKE_LOOKBACK_THOUGHTS", "WAKE_LOOKBACK_NOTE", "WAKE_LOOKBACK_THOUGHT_CHARS", "WAKE_LOOKBACK_CHARS", "WAKE_LOOKBACK_MIN_AFTER_ENTRY", "WAKE_JOURNAL_AT_REST", "WAKE_JOURNAL_ROOM_END", "WAKE_DEALT", "DEALT_KINDS", "DEALT_TIMEOUT_S", "WAKE_DEALT_WHOLE", "WAKE_DEALT_WHOLE_KINDS", "WAKE_DEALT_CHARS", "WAKE_DEALT_BOOK_FIRST", "WAKE_DEALT_RHYTHM", "WAKE_DEALT_OWN_DIRS", "WAKE_DEALT_OWN_NEVER", "WAKE_DEALT_OWN_MIN_AGE_DAYS", "WAKE_DEALT_OWN_BOOK_LINE", "WAKE_DEALT_THREAD", "WAKE_DEALT_THREAD_LOOKUPS", "WAKE_DEALT_WONDERINGS", "WAKE_DEALT_QUESTION_BESIDE", "WAKE_MIRROR", "WAKE_MIRROR_WAKES", "WAKE_BELL_RETUNED", "WAKE_FILLER_LINE", "THREAD_IN_WAKES"],
     "Memory & journal": ["TIMELINE_CHARS_IN_PROMPT", "CONDENSED_CHARS_IN_PROMPT", "CONDENSE_TARGET_CHARS",
-                         "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_MIN_SCORE", "MEMORY_DRIFT", "MEMORY_VISIT_TOKENS", "MEMORY_MIN_SCORE_LATE", "MEMORY_SHORT_HINT_WORDS", "MEMORY_TOP_K_SHORT", "THREAD", "THREAD_CHARS", "THREAD_NUDGE", "MEMORY_DUP_THRESHOLD", "EMBED_ON_CPU", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
+                         "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_MIN_SCORE", "MEMORY_DRIFT", "MEMORY_VISIT_TOKENS", "MEMORY_MIN_SCORE_LATE", "MEMORY_SHORT_HINT_WORDS", "MEMORY_TOP_K_SHORT", "THREAD", "THREAD_CHARS", "THREAD_TELL_PAUSED", "THREAD_NUDGE", "MEMORY_DUP_THRESHOLD", "EMBED_ON_CPU", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
                          "TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000",
                          "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "RULES_ON", "SLEEP_KEEPER_LOOK", "NIGHT_WARM_PROMPT", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
                          "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_PREFILL", "FOLD_AFTERGLOW_SINCE_PAUSE", "FOLD_BELL_PICKUP", "FOLD_KEEP_TURNS", "FOLD_CHARS", "FOLD_SENSE_FROM", "WINDOW_WARN_AT",
@@ -535,6 +535,7 @@ _HELP = {
               "every note is kept (memory/thread.md, all of them in memory/thread.log).",
     "THREAD_CHARS": "The longest a thread may be, in characters — a note, not a page. A longer one is handed back with "
                     "its count; nothing is cut.",
+    "THREAD_TELL_PAUSED": "leave_thread's answer says what is true while the thread is off (kept, read at no door for now) or kept from wakes (read at the next visit). Off: always \"read first at the next door\".",
     "THREAD_NUDGE": "At a door whose last door closed without a thread, one engine line in the first moment says so and "
                     "names leave_thread — a fact, not a rule, and gone once the friend is in the habit. Off: the thread "
                     "rides when there is one and nothing is said when there is not.",

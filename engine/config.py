@@ -645,6 +645,11 @@ MEMORY_RECENT_K = 6
 # longer one is handed back with its count.
 THREAD = True
 THREAD_CHARS = 1500
+# THREAD_TELL_PAUSED: leave_thread's answer says what is true — with THREAD off, that the note is kept but read at no
+# door for now (the thread is paused); with THREAD_IN_WAKES off, that it is read first at the next visit, not at a wake
+# or a reverie. Otherwise every note was answered "read first at the next door", untrue while either is off. The note
+# is written and kept exactly as before; the tool's description is not changed. False: the old answer in every state.
+THREAD_TELL_PAUSED = True
 # ...and the nudge: at a door whose last door closed without a thread, one
 # engine line says so and names leave_thread — gone once the friend is in the
 # habit. False: the thread rides when there is one and nothing is said when
