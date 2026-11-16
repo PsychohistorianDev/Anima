@@ -839,6 +839,11 @@ FOLD_AFTERGLOW_SINCE_PAUSE = True
 # bell continues from there, and the account for fold_visit is the whole visit so far. One sentence only (the window
 # is nearly full at the bell): no journal tail. Needs JOURNAL_PICKUP_LINE. False: the bell as before, to the byte.
 FOLD_BELL_PICKUP = True
+# FOLD_BELL_COVERED: when the pauses sat with all of the visit, nothing of yours came after (the fold's afterglow's own
+# rule) and the journal's newest entry was written after the visit's last word, the fold's bell asks only the account —
+# no journal entry, and a write_journal there is answered, not written. Otherwise a pause's entry and a fold a few
+# minutes later with nothing said between drew a second entry telling the same stretch. False: the bell as before.
+FOLD_BELL_COVERED = True
 FOLD_KEEP_TURNS = 6       # visible turns kept whole, the most recent ones
 FOLD_CHARS = 8000         # the account's ceiling (cut at a paragraph past it, said)
 FOLD_MAX_STEPS = 6        # steps allowed at the fold (a journal entry first, then the fold)

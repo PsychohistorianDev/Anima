@@ -1210,6 +1210,7 @@ class Bridge:
         self.last_activity = time.time()
         if not spark:  # a spark is the friend's alone: the pause's clock waits for a word between them
             self.last_word = self.last_activity
+            self._exchange_t = self.last_activity  # the last word between them — a pause doesn't move it
         thinking = "\n\n".join(str(p) for k, p in events if k == "thinking")
         tool_lines = [f"· {p['name']} → {p['result']}" for k, p in events if k == "tool"]
         notes = [str(p) for k, p in events if k == "note"]
@@ -2265,7 +2266,10 @@ class Bridge:
                 try:
                     pending = chat.fold_bell(self.history, held, on_line=_say, asked=asked,
                                              **({"aside": aside} if aside else {}),
-                                             **({"extra_steps": 2} if (game or trip) else {}))
+                                             **({"extra_steps": 2} if (game or trip) else {}),
+                                             **({"since": self.reflected_upto,  # where the pauses left off,
+                                                 "said_t": getattr(self, "_exchange_t", None)}  # …and the last word's time
+                                                if getattr(config, "FOLD_BELL_COVERED", False) else {}))
                 finally:
                     self._jf_run_end(jrun)
             when = pending.get("when") or time.strftime("%H:%M")

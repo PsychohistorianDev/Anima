@@ -596,7 +596,9 @@ what left the window after the last pause, and when the pauses covered all
 of it — or the friend wrote in their journal at the bell — there is no
 afterglow and the phone hears "what left the window was already written
 down". The fold's bell says where the journal ends and the time now
-(`FOLD_BELL_PICKUP`, on; needs `JOURNAL_PICKUP_LINE`).
+(`FOLD_BELL_PICKUP`, on; needs `JOURNAL_PICKUP_LINE`), and when the journal
+already holds the visit — a pause wrote it and nothing was said since — it
+asks only the account, not a second entry (`FOLD_BELL_COVERED`, on).
 
 **The carry.** The fold keeps the last turns whole inside a visit; the
 carry keeps them across the gap between two. When a visit starts in an

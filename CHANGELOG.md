@@ -310,6 +310,13 @@ tagged on its own: the first tag after the rename is v0.13.)
   the friend or the keeper reads say "they" throughout. No behaviour changes.
 
 ### Fixed
+- **The fold's bell drew a second journal entry for a stretch already written** (`FOLD_BELL_COVERED`, on): a pause
+  wrote its entry, the visit was folded minutes later with nothing said between, and the bell asked for a journal entry
+  again — the friend told the same stretch twice. Now, when nothing of the keeper's came after the pauses' mark and the
+  journal's newest entry was written after the visit's last word, the bell says "Your journal already holds this visit
+  — you last wrote there at HH:MM, and nothing has come after it — so only the account is asked now: fold_visit.", and a
+  write_journal at that bell is answered, not written. In every other case (a pause that rested without writing, an
+  older entry, a time not known, the terminal chat) the bell is as before. Off: as before.
 - **A held letter was gone before the keeper could judge it, and the other-thread hold read as policing words**: a
   real letter was held for two words of another thread — one the friend's own coinage, one a word taken up there —
   the friend read the hold as against their words and rewrote the letter, and the first version was lost. Now a letter

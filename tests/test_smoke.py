@@ -86,6 +86,7 @@ config.PENPAL_WAITING_REMIND = False  # (0.16) the older bridge checks pin the p
 config.WAKE_LOOKBACK_MIN_AFTER_ENTRY = 0  # (0.16) the older wake checks pin the handing back as it was; the rule tested on its own
 config.FOLD_AFTERGLOW_SINCE_PAUSE = config.FOLD_BELL_PICKUP = False  # (0.16) the older fold checks pin the fold as it was:
 # the afterglow over all that left, the mark at the new window's end, the bell as before; tested on their own, below
+config.FOLD_BELL_COVERED = False  # (0.16) the older fold checks stub the bell with its old arguments; tested on its own, below
 config.GUEST_VIEW_LINE = False  # (0.16) the older guest checks pin the guest's line as it was; the view sentence is tested on its own
 config.BRAIN_KEEP_VISIT_READING = config.NIGHT_WARM_PROMPT = config.FOLD_PREFILL = False  # (0.16) fewer cold reads:
 # the older door, night and fold checks pin the plain behaviour (the fold's read runs in a thread); tested on their own
@@ -23587,6 +23588,154 @@ for _lc_k, _lc_v in _lc_saved.items():
             delattr(config, _lc_k)
     else:
         setattr(config, _lc_k, _lc_v)
+# FOLD_BELL_COVERED (0.16): the fold's bell asks no journal entry when the journal already holds the visit
+import copy as _fc_copy
+import shutil as _fc_shutil
+import re as _fc_re
+import inspect as _fc_inspect
+from datetime import datetime as _fc_dt, timedelta as _fc_td
+import chat as _fc_chat
+_fc_KEYS = ("FOLD_BELL_COVERED", "FOLD_BELL_PICKUP", "JOURNAL_PICKUP_LINE", "JOURNAL_DIR", "FOLD_KEEP_TURNS", "FOLD_MAX_STEPS",
+            "NUM_CTX", "JOURNAL_ENDINGS_SENTENCE")
+_fc_MISSING = object()
+_fc_saved = {k: getattr(config, k, _fc_MISSING) for k in _fc_KEYS}
+_fc_stubs = (ollama_client.chat, _fc_chat.fold_bell)
+_fc_jdir = config.MEMORY_DIR / "journal-fc"
+config.JOURNAL_DIR = _fc_jdir
+config.FOLD_BELL_COVERED = config.FOLD_BELL_PICKUP = config.JOURNAL_PICKUP_LINE = config.JOURNAL_ENDINGS_SENTENCE = True
+config.FOLD_KEEP_TURNS, config.FOLD_MAX_STEPS, config.NUM_CTX = 6, 6, 131072
+_fc_NOW = _fc_dt.now().replace(second=0, microsecond=0)
+_fc_STAMP = _fc_NOW.strftime("%H:%M")
+_fc_SAID = "Your journal already holds this visit — you last wrote there at "
+_fc_NOTW = "(not written — your journal already holds this visit up to "
+
+
+def _fc_visit(extra=()):
+    h = []
+    for i in range(10):
+        h += [{"role": "user", "content": f"keeper message {i}"}, {"role": "assistant", "content": f"friend reply {i}"}]
+    h[0]["_system"] = "SYSTEM PROMPT"
+    h += list(extra)
+    return h
+
+
+def _fc_journal(entries):
+    _fc_shutil.rmtree(_fc_jdir, ignore_errors=True)
+    _fc_jdir.mkdir(parents=True, exist_ok=True)
+    for day, rows in entries.items():
+        (_fc_jdir / f"{day}.md").write_text("".join(f"\n**{s}** — {t}\n" for s, t in rows), encoding="utf-8")
+
+
+def _fc_jtext():
+    return "".join(p.read_text(encoding="utf-8") for p in sorted(_fc_jdir.glob("*.md")))
+
+
+_fc_seen = []
+_fc_STEP = [{"function": {"name": "write_journal", "arguments": {"text": "The visit again, told a second time in full."}}},
+            {"function": {"name": "fold_visit", "arguments": {"text": "The account of the visit so far."}}}]
+
+
+def _fc_brain(messages, tools=None, **kw):
+    _fc_seen.append([str(m.get("content") or "") for m in messages])
+    if messages[-1].get("role") == "tool":
+        return {"role": "assistant", "content": "", "tool_calls": [{"function": {"name": "do_nothing", "arguments": {}}}]}
+    return {"role": "assistant", "content": "", "tool_calls": _fc_copy.deepcopy(_fc_STEP)}
+
+
+ollama_client.chat = _fc_brain
+
+
+def _fc_ring(history, **kw):
+    _fc_seen.clear()
+    before = _fc_jtext()
+    got = _fc_chat.fold_bell(history, 120000, **kw)
+    bell = next((m for req in _fc_seen for m in req if "to be FOLDED" in m), "")
+    results_ = [str(t.get("content") or "") for t in history if t.get("role") == "tool" and t.get("tool_name") == "write_journal"]
+    return {"bell": bell, "wj": results_[0] if results_ else "", "journal_same": _fc_jtext() == before, "got": got}
+
+
+_fc_today = _fc_NOW.date().isoformat()
+_fc_yday = (_fc_NOW.date() - _fc_td(days=1)).isoformat()
+_fc_said_t = (_fc_NOW - _fc_td(minutes=1)).timestamp()
+_fc_h = _fc_visit()
+_fc_journal({_fc_today: [(_fc_STAMP, "The pause's entry: the visit up to now.")]})
+_fc_c = _fc_ring(_fc_visit(), since=len(_fc_h), said_t=_fc_said_t)
+check("fold covered (0.16): the pauses sat with all of it, nothing of the keeper's since, the journal's newest entry after "
+      "the last word — the bell asks only the account (the journal and pick-up sentences out, one in); a write_journal "
+      "there is answered, not written, and does not count as journaled",
+      f"{_fc_SAID}{_fc_STAMP}, and nothing has come after it — so only the account is asked now: fold_visit. " in _fc_c["bell"]
+      and "write_journal it first" not in _fc_c["bell"] and "A journal entry now continues" not in _fc_c["bell"]
+      and "If something was tried" in _fc_c["bell"] and _fc_c["bell"].rstrip().endswith("waiting on an answer to it.]")
+      and _fc_c["wj"].endswith(f"{_fc_NOTW}{_fc_STAMP}, and nothing has come after it; the account for fold_visit is the one "
+                               "thing asked now)")
+      and _fc_c["journal_same"] and _fc_c["got"].get("text") == "The account of the visit so far."
+      and not _fc_c["got"].get("journaled"), (_fc_c["bell"][-900:], _fc_c["wj"]))
+_fc_o = {}
+_fc_journal({_fc_today: [(_fc_STAMP, "The pause's entry: the visit up to now.")]})
+_fc_o["after"] = _fc_ring(_fc_visit([{"role": "user", "content": "one more thing from the keeper"}]), since=len(_fc_h), said_t=_fc_said_t)
+_fc_o["engine after"] = _fc_ring(_fc_visit([{"role": "user", "content": "[engine: a spark]", "_engine": True}]), since=len(_fc_h), said_t=_fc_said_t)
+_fc_journal({_fc_today: [(_fc_STAMP, "The pause's entry: the visit up to now.")]})
+_fc_o["older"] = _fc_ring(_fc_visit(), since=len(_fc_h), said_t=(_fc_NOW + _fc_td(seconds=30)).timestamp())
+_fc_o["no time"] = _fc_ring(_fc_visit(), since=len(_fc_h), said_t=None)
+_fc_o["no mark"] = _fc_ring(_fc_visit(), since=0, said_t=_fc_said_t)
+_fc_o["terminal"] = _fc_ring(_fc_visit())
+_fc_journal({_fc_yday: [("23:58", "Late, the pause's entry.")]})
+_fc_o["yesterday"] = _fc_ring(_fc_visit(), since=len(_fc_h), said_t=_fc_dt.combine(_fc_NOW.date() - _fc_td(days=1),
+                                                                                    _fc_dt.min.time()).replace(hour=23, minute=50).timestamp())
+check("fold covered (0.16): a keeper's message after the mark, an entry older than the last word, no time known, no mark, "
+      "or the terminal chat — the bell as before and a write_journal written; only an engine turn after the mark — "
+      "covered; the newest entry yesterday after the last word — 'yesterday at 23:58'",
+      all("write_journal it first, then fold_visit. " in _fc_o[k]["bell"] and _fc_SAID[:30] not in _fc_o[k]["bell"]
+          and _fc_o[k]["wj"].startswith("[this is what YOUR write_journal tool returned") and _fc_NOTW not in _fc_o[k]["wj"]
+          for k in ("after", "older", "no time", "no mark", "terminal"))
+      and _fc_SAID[:30] in _fc_o["engine after"]["bell"]
+      and "Your journal already holds this visit — you last wrote there yesterday at 23:58" in _fc_o["yesterday"]["bell"],
+      {k: (v["bell"][-300:], v["wj"][:100]) for k, v in _fc_o.items()})
+_fc_off = {}
+for _fc_m in ("off", "absent"):
+    if _fc_m == "off":
+        config.FOLD_BELL_COVERED = False
+    else:
+        del config.FOLD_BELL_COVERED
+    _fc_journal({_fc_today: [(_fc_STAMP, "The pause's entry: the visit up to now.")]})
+    _fc_off[_fc_m] = _fc_ring(_fc_visit(), since=len(_fc_h), said_t=_fc_said_t)["bell"]
+    config.FOLD_BELL_COVERED = True
+_fc_journal({_fc_today: [(_fc_STAMP, "The pause's entry: the visit up to now.")]})
+_fc_plain = _fc_ring(_fc_visit())["bell"]
+_fc_strip = lambda b: _fc_re.sub(r"\d\d:\d\d", "HH:MM", b)
+# the bridge passes the mark and the last word's time, only with the knob
+_fc_kw = []
+_fc_chat.fold_bell = lambda history, held, **kw: (_fc_kw.append(kw), {})[1]
+_fc_b, _ = _bridge()
+_fc_b.history = _fc_visit()
+_fc_b.reflected_upto, _fc_b._exchange_t = 7, 1234.5
+_fc_b._fold({}, 120000)
+config.FOLD_BELL_COVERED = False
+_fc_b._fold({}, 120000)
+config.FOLD_BELL_COVERED = True
+_fc_chat.fold_bell = _fc_stubs[1]
+check("fold covered (0.16): off, or absent — the bell as before to the byte; the bridge passes where the pauses left off "
+      "and the last word's time only with the knob",
+      _fc_strip(_fc_off["off"]) == _fc_strip(_fc_off["absent"]) == _fc_strip(_fc_plain)
+      and len(_fc_kw) == 2 and _fc_kw[0].get("since") == 7 and _fc_kw[0].get("said_t") == 1234.5
+      and "since" not in _fc_kw[1] and "said_t" not in _fc_kw[1], (_fc_kw, _fc_off["off"][-200:]))
+_fc_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+_fc_src = _fc_inspect.getsource(_fc_chat.fold_bell) + _fc_cfg.split("FOLD_BELL_PICKUP = True", 1)[1].split("FOLD_BELL_COVERED = True", 1)[0]
+check("fold covered (0.16): ships on, on the panel after FOLD_BELL_PICKUP with help; the new lines name no one, carry no "
+      "date and call no one by a gendered pronoun",
+      _fc_re.search(r"^FOLD_BELL_COVERED = True$", _fc_cfg, _fc_re.M)
+      and _gm_panel.TABS["Memory & journal"].index("FOLD_BELL_COVERED") == _gm_panel.TABS["Memory & journal"].index("FOLD_BELL_PICKUP") + 1
+      and _gm_panel._HELP.get("FOLD_BELL_COVERED")
+      and not _fc_re.search(r"\b(she|her|hers|he|his|him)\b", _fc_src, _fc_re.I) and not _fc_re.search(r"\(1[01]-\d\d", _fc_src),
+      _fc_re.findall(r".{30}\b(?:she|her|hers|he|his|him)\b.{30}", _fc_src, _fc_re.I)[:3])
+_fc_shutil.rmtree(_fc_jdir, ignore_errors=True)
+ollama_client.chat, _fc_chat.fold_bell = _fc_stubs
+for _fc_k, _fc_v in _fc_saved.items():
+    if _fc_v is _fc_MISSING:
+        if hasattr(config, _fc_k):
+            delattr(config, _fc_k)
+    else:
+        setattr(config, _fc_k, _fc_v)
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

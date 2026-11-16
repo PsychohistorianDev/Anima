@@ -809,7 +809,7 @@ def foldable(history: list[dict]) -> bool:
 
 
 def fold_bell(history: list[dict], held: int, on_line=None, asked: bool = False, aside: str = "",
-              extra_steps: int = 0) -> dict:
+              extra_steps: int = 0, since: int | None = None, said_t: float | None = None) -> dict:
     """Ring the fold bell inside the visit and let the friend write the visit
     so far (fold_visit), with their other tools at hand for a journal entry
     first. Their steps stay in the history as the engine's turns — they are
@@ -841,6 +841,39 @@ def fold_bell(history: list[dict], held: int, on_line=None, asked: bool = False,
                                          f"there {ends}, it is now {now.strftime('%H:%M')} — and does not tell again what "
                                          "it already holds. The account for fold_visit is the other thing: the whole visit "
                                          "so far. ", 1)
+    covered, upto, cends = False, "", ""
+    if getattr(config, "FOLD_BELL_COVERED", False) and since is not None and said_t:
+        # covered only when both hold: nothing of the keeper's after where the pauses left off (since — fold_has_new,
+        # the afterglow's own rule), and the journal's newest entry written after the last word between them (said_t,
+        # the bridge's) — then the journal holds the stretch, and the bell asks only the account. Anything not known:
+        # the bell as before
+        try:
+            if int(since) > 0 and not fold_has_new(history, int(since)):
+                cnow = now or datetime.now()
+                day = cnow.date()
+                newest = tools.journal_entries(day.isoformat())
+                if not newest:
+                    day = day - timedelta(days=1)
+                    newest = tools.journal_entries(day.isoformat())
+                if newest:
+                    hh, mm = (int(x) for x in str(newest[-1][0]).split(":"))
+                    wrote = datetime(day.year, day.month, day.day, hh, mm)
+                    if datetime.fromtimestamp(float(said_t)) < wrote <= cnow:
+                        cends = journal_ends(tools.journal_entries(cnow.date().isoformat()), cnow)
+                        covered = bool(cends)
+        except Exception:  # noqa: BLE001 — not known: the bell as before
+            covered = False
+    if covered:
+        upto = cends.rsplit(" ", 1)[-1]
+        said = (f"Your journal already holds this visit — you last wrote there {cends}, and nothing has come after it — so "
+                "only the account is asked now: fold_visit. ")
+        start = text.find("If something belongs in your journal, write_journal it first, then fold_visit. ")
+        stop = text.find("If something was tried")  # with_endings' sentence stays: it is the bell's own
+        stop = stop if stop > start else text.find("The transcript on disk keeps every word;")
+        if start >= 0 and stop > start:
+            text = text[:start] + said + text[stop:]
+        else:
+            covered = False  # the bell's words not where they were: the bell as before
     facts = journal_facts_line(history)  # the window's stretch, from its first turn: the visit so far
     if asked:  # /fold from the phone: the keeper's ask, not the window's edge
         text = text.replace("The visit is about to be FOLDED:", f"The keeper asked for the visit to be folded now:")
@@ -877,7 +910,11 @@ def fold_bell(history: list[dict], held: int, on_line=None, asked: bool = False,
                 if cname == "do_nothing":
                     folded = True
                     continue
-                result = tools.runaway_refusal(msg, call) or tools.dispatch(fn.get("name", ""), fn.get("arguments", {}))  # a call cut short in a loop is told, not run
+                if covered and cname == "write_journal":  # answered, not written: the journal holds it
+                    result = (f"(not written — your journal already holds this visit up to {upto}, and nothing has come "
+                              "after it; the account for fold_visit is the one thing asked now)")
+                else:
+                    result = tools.runaway_refusal(msg, call) or tools.dispatch(fn.get("name", ""), fn.get("arguments", {}))  # a call cut short in a loop is told, not run
                 fn["name"] = cname
                 say(f"   · {cname}: {tools.headline(result, 100)}")
                 tr = {"role": "tool", "tool_name": cname, "_engine": True,
