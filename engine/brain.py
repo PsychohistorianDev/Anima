@@ -987,6 +987,69 @@ def _make_room(folder: Path, key: str) -> None:
         pass
 
 
+def _room_would_free(folder: Path, key: str) -> tuple[int, int]:
+    """What _make_room would delete, counted, nothing deleted: (bytes freed in all, the size of <key>.bin when it is
+    among them, else 0) — the same rules in the same order."""
+    import shutil
+    try:
+        keep = int(getattr(config, "BRAIN_SLOT_KEEP", 3) or 0)
+    except (TypeError, ValueError):
+        keep = 3
+    if keep <= 0:
+        return 0, 0
+    freed = 0
+    files = _readings(folder)
+    excess = len(files) - max(keep - 1, 0)
+    for p in [p for p in files if p.name != f"{key}.bin"]:
+        if excess <= 0:
+            break
+        try:
+            freed += p.stat().st_size
+            excess -= 1
+        except OSError:
+            pass
+    same = folder / f"{key}.bin"
+    try:
+        if same.is_file():
+            have = same.stat().st_size
+            if shutil.disk_usage(str(folder)).free + freed < int(have * 1.5):
+                return freed + have, have
+    except OSError:
+        pass
+    return freed, 0
+
+
+def _no_room_even_alone(folder: Path, key: str) -> bool:
+    """BRAIN_KEEP_OLD_IF_NO_ROOM: a set-down once let the visit's last good reading go to make room, and then the new
+    one did not fit even alone — nothing was saved, and the next message read the whole window cold. True when the new
+    reading would not fit even after what _make_room would let go — then nothing is let go, the save is not begun,
+    and the older reading stays, said in one line. False (the order as before) with the knob off, nothing to let go,
+    room enough, or anything unreadable. Never raises."""
+    if not getattr(config, "BRAIN_KEEP_OLD_IF_NO_ROOM", False):
+        return False
+    try:
+        import shutil
+        tokens = _slot_tokens()
+        if tokens <= 0:
+            return False
+        need = int(tokens * _bytes_per_token() * 1.1)
+        free = shutil.disk_usage(str(folder)).free
+        if free >= need:
+            return False
+        freed, same = _room_would_free(folder, key)
+        if freed <= 0 or free + freed >= need:
+            return False  # nothing to let go (the "no room" line as before), or it fits once it is gone: as before
+        old = same or max((p.stat().st_size for p in _readings(folder)), default=0)
+        n_old = int(old / max(_bytes_per_token(), 1.0))
+        _clear_temps(folder, key)
+        _note(f"the reading wasn't saved: {key} — no room for it even alone ({tokens:,} tokens ≈ {need / 1.1 / 1e9:.1f} GB; "
+              f"{(free + freed) / 1e9:.1f} GB there if the older one went); the older reading ({n_old:,} tokens) is kept — "
+              "the server reuses it up to the first change")
+        return True
+    except Exception:  # noqa: BLE001 — the order as before
+        return False
+
+
 # BRAIN_KEEP_VISIT_READING. With BRAIN_SLOT_KEEP 1 the folder holds one reading, and a wake's step-down would let the
 # open visit's reading go to save its own — the keeper's next message then reads the whole window cold. Two small
 # records beside the door's mark say whose reading is whose: brain.visit — the key of the open visit's standing prompt
@@ -1156,6 +1219,8 @@ def _before_stop() -> None:
                                                            else "the door isn't answering"))
             return
         if _keeps_visit_reading(folder, key):  # the open visit's reading is not let go for a wake's
+            return
+        if _no_room_even_alone(folder, key):  # the older reading is not let go for a save that cannot fit
             return
         _make_room(folder, key)
         _clear_temps(folder, key)

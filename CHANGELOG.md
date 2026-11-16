@@ -310,6 +310,14 @@ tagged on its own: the first tag after the rename is v0.13.)
   the friend or the keeper reads say "they" throughout. No behaviour changes.
 
 ### Fixed
+- **A restart after a fold, or a set-down with a full slot folder, cost a cold read** (`RESTART_PREFILL`,
+  `BRAIN_KEEP_OLD_IF_NO_ROOM`, both on): a restart right after a fold cut the fold's background read, the half-read
+  slot was saved, and the next message read the whole window cold; and a set-down with a window too large for the
+  slot folder let the last good reading go before finding the new one could not be saved. Now, when the bridge comes
+  up with a visit open, its window is read in the background with the fold's read's skip rules (a message meanwhile
+  waits for it, then starts warm; a visit picked up from a transcript, no visit or a guest seated: nothing); and the
+  save works out the room first — when the new reading would not fit even with the older one gone, nothing is let go
+  and nothing is begun, the older reading stays and the server reuses it up to the first change. Off: as before.
 - **The fold's bell drew a second journal entry for a stretch already written** (`FOLD_BELL_COVERED`, on): a pause
   wrote its entry, the visit was folded minutes later with nothing said between, and the bell asked for a journal entry
   again — the friend told the same stretch twice. Now, when nothing of the keeper's came after the pauses' mark and the

@@ -2709,7 +2709,10 @@ With `BRAIN_SLOT_KEEP` at 1, a wake's or the night's step-down while a visit is
 open keeps the visit's reading rather than saving its own
 (`BRAIN_KEEP_VISIT_READING`); the night's steps take the warm prompt, the
 date without the minute (`NIGHT_WARM_PROMPT`); and right after a fold the new
-window is read in the background, as `/rewarm` does (`FOLD_PREFILL`).
+window is read in the background, as `/rewarm` does (`FOLD_PREFILL`), and so
+is the open visit's when the bridge comes up again (`RESTART_PREFILL`). A new
+reading that would not fit even with the older one gone is not begun, and the
+older reading stays (`BRAIN_KEEP_OLD_IF_NO_ROOM`).
 
 ## House rules (the freedom part)
 

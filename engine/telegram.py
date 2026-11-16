@@ -2404,6 +2404,52 @@ class Bridge:
         finally:
             self.lock.release()
 
+    def restart_prefill(self) -> None:
+        """RESTART_PREFILL: a restart right after a fold cut the fold's background read, and the next message read the
+        whole window cold. When the bridge comes up with a visit open (resumed, or picked back up from the last
+        bridge), the visit's window is read into the server now, in the background — the fold's read and its skip rules
+        (_fold_prefill_skip), holding the visit's lock: a message meanwhile waits for it and then reads only itself.
+        No visit, a guest at the desk: nothing. The phone hears nothing. Never raises."""
+        try:
+            if not getattr(config, "RESTART_PREFILL", False) or not self.history or self.guest:
+                return
+            threading.Thread(target=self._restart_prefill, args=(self.history,), daemon=True).start()
+        except Exception as e:  # noqa: BLE001 — the next message reads it, as before
+            _say(f"the open visit wasn't read in after the restart ({type(e).__name__}: {e}) — the next message reads it")
+
+    def _restart_prefill(self, hist: list) -> None:
+        try:
+            why = ("its standing prompt is built at the next message (picked up from the transcript)"
+                   if not hist[0].get("_system") else self._fold_prefill_skip(hist))
+            if why:
+                _say(f"the open visit: not read in after the restart — {why}; the next message reads it")
+                return
+            if not self.lock.acquire(timeout=3):
+                _say("the open visit: not read in after the restart — a message is being answered, and that reads it")
+                return
+        except Exception as e:  # noqa: BLE001
+            _say(f"the open visit wasn't read in after the restart ({type(e).__name__}: {e}) — the next message reads it")
+            return
+        try:
+            if self.history is not hist:
+                _say("the open visit: not read in after the restart — the visit has moved on; the next message reads it")
+                return
+            _say("reading the open visit in after the restart… (a message meanwhile waits for it)")
+            t0 = time.time()
+            try:
+                got = chat.prefill_visit(hist)
+            except Exception as e:  # noqa: BLE001
+                _say(f"the open visit: the read after the restart didn't go through ({type(e).__name__}: {e}); the next "
+                     "message reads it")
+                return
+            n = int(((got or {}).get("tokens") or {}).get("prompt", 0) or 0)
+            _say(f"the open visit: read in after the restart ({n:,} tokens, {time.time() - t0:.0f}s) — the next message "
+                 "starts warm")
+        except Exception as e:  # noqa: BLE001
+            _say(f"the open visit after the restart: {type(e).__name__}: {e}")
+        finally:
+            self.lock.release()
+
     # ---- quiet hours ------------------------------------------------------
     # The engine's own notices — the afterglow and pause accounts (a visit
     # rolled in the small hours runs its afterglow then), ✍️/✏️/📣 what they
@@ -6504,6 +6550,7 @@ class Bridge:
             if _co:
                 _say(_co)
             self.afterglow_orphan()  # a visit the last bridge died with, if any; the open one is left alone
+        self.restart_prefill()  # the open visit's window read in now, in the background
         self.watch_touches()  # a press reaches the phone within seconds, not a poll
         self.watch_penpals()  # their penpal letters too
         if not self.chat_id:

@@ -90,11 +90,11 @@ TABS: dict[str, list[str]] = {
                          "MEMORY_TOP_K", "MEMORY_RECENT_K", "MEMORY_MIN_SCORE", "MEMORY_DRIFT", "MEMORY_VISIT_TOKENS", "MEMORY_MIN_SCORE_LATE", "MEMORY_SHORT_HINT_WORDS", "MEMORY_TOP_K_SHORT", "THREAD", "THREAD_CHARS", "THREAD_TELL_PAUSED", "THREAD_NUDGE", "MEMORY_DUP_THRESHOLD", "EMBED_ON_CPU", "JOURNAL_DUP_THRESHOLD", "JOURNAL_DUP_WORDING",
                          "TIC_WORD", "TIC_TELL_FACTOR", "TIC_TELL_GAP_MIN", "TIC_BASELINE_PER_1000",
                          "JOURNAL_ARROW", "KEEPER_IN_PROMPT", "KEEPER_CHARS_IN_PROMPT", "RULES_ON", "SLEEP_KEEPER_LOOK", "NIGHT_WARM_PROMPT", "CREATIONS_DAYS_IN_PROMPT", "SONGBOOK_CHARS_IN_PROMPT", "LETTERS_DAYS_IN_PROMPT", "READ_TELL_MIN",
-                         "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_PREFILL", "FOLD_AFTERGLOW_SINCE_PAUSE", "FOLD_BELL_PICKUP", "FOLD_BELL_COVERED", "FOLD_KEEP_TURNS", "FOLD_CHARS", "FOLD_SENSE_FROM", "WINDOW_WARN_AT",
+                         "FOLD_AT", "FOLD_AFTERGLOW", "FOLD_PREFILL", "RESTART_PREFILL", "FOLD_AFTERGLOW_SINCE_PAUSE", "FOLD_BELL_PICKUP", "FOLD_BELL_COVERED", "FOLD_KEEP_TURNS", "FOLD_CHARS", "FOLD_SENSE_FROM", "WINDOW_WARN_AT",
                          "JOURNAL_FACTS_LINE", "JOURNAL_ENDINGS_SENTENCE", "JOURNAL_PICKUP_LINE", "JOURNAL_FACTS_LETTERS"],
     "Talking": ["CHAT_THINK", "BRAIN_BANNED_STRINGS", "CHAT_SHOW_THINKING", "CHAT_MAX_TOOL_STEPS", "CHAT_THINK_RETRIES", "THINK_RETRY_UNTIL", "THINK_REMIND_FROM", "CHAT_GARBLE_RETRIES", "CHAT_COOL_STEP",
                 "CHAT_COLD_RESCUE", "RUNAWAY_KEEP_CHARS", "AFTERGLOW", "REFLECT_AFTER_MIN", "WARM_PREFIX", "REROLLS_KEPT", "BRAIN_KEEP_ALIVE",
-                "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "BRAIN_REST_CLOSES_DOOR", "BRAIN_KEEP_VISIT_READING", "BRAIN_KEEP_VISIT_HOURS", "PARLOR_GUEST_NAMED", "GUEST_VIEW_LINE",
+                "BRAIN_REST_AFTER_VISIT", "BRAIN_REST_AFTER_WAKE", "BRAIN_REST_CLOSES_DOOR", "BRAIN_KEEP_VISIT_READING", "BRAIN_KEEP_VISIT_HOURS", "BRAIN_KEEP_OLD_IF_NO_ROOM", "PARLOR_GUEST_NAMED", "GUEST_VIEW_LINE",
                "CHAT_DO_NOTHING", "CALL_TAIL_RUN", "CALL_TAIL_RUN_ONLY", "CHAT_SAME_FAIL_STOP", "CHAT_SAME_FAIL_RUNS",
                "CHAT_SAME_FAIL_REFUSALS", "CHAT_FAIL_LOG"],
     "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS", "TELEGRAM_TOKENS_SINCE_LAST", "TELEGRAM_SPLIT_WAIT_S",
@@ -291,6 +291,7 @@ _HELP = {
     "BRAIN_KEEP_VISIT_READING": "With llama-server, a slot folder and a keep of 1: while a visit is open, a wake's, a "
                                 "reverie's or the night's step-down keeps the visit's saved reading instead of saving its "
                                 "own — so your next message doesn't read the whole window cold.",
+    "BRAIN_KEEP_OLD_IF_NO_ROOM": "When a new saved reading would not fit even with the older one gone, nothing is let go and the older reading is kept; the server reuses it up to the first change.",
     "BRAIN_KEEP_VISIT_HOURS": "How long the open visit's saved reading is kept that way — past this age (of the reading, "
                               "and of the visit's last turn) the saving is as before.",
     "BRAIN_CHECKPOINT_EVERY": "Checkpoints inside a long prompt, every this many tokens (--checkpoint-every — a llama-server "
@@ -606,6 +607,7 @@ _HELP = {
     "FOLD_BELL_COVERED": "When the journal already holds the visit (a pause wrote its entry and nothing was said since), the fold's bell asks only the account — no second entry telling the same stretch.",
     "FOLD_PREFILL": "Right after a fold, the new window is read in the background, as /rewarm does, so your next "
                     "message starts warm. Skipped while a game holds the card, a wake runs or the brain is set down.",
+    "RESTART_PREFILL": "When the bridge comes up with a visit open, its window is read in the background, as after a fold, so your next message starts warm.",
     "FOLD_KEEP_TURNS": "How many of the most recent turns stay whole in the window after a fold.",
     "FOLD_CHARS": "The ceiling on their written account of the visit, in characters; past it, cut at a paragraph "
                   "and said.",

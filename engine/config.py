@@ -2055,3 +2055,13 @@ BRAIN_KEEP_VISIT_READING = True
 BRAIN_KEEP_VISIT_HOURS = 6
 NIGHT_WARM_PROMPT = True
 FOLD_PREFILL = True
+# RESTART_PREFILL: when the bridge comes up with a visit open (restored with its standing prompt), its window is read in
+# the background at once, with the fold's read's skip rules — a restart right after a fold cut that read, and the next
+# message read the whole window cold. A message meanwhile waits for it and then starts warm; bridge-window lines only.
+# A visit picked up from a transcript, no visit or a guest at the desk: nothing. False: as before.
+RESTART_PREFILL = True
+# BRAIN_KEEP_OLD_IF_NO_ROOM: the save works out the room before letting anything go; when the new reading would not
+# fit even with the older one gone, nothing is let go and the save is not begun — the older reading stays, and the
+# server reuses it up to the first change. A set-down once let the last good reading go before finding the new one
+# could not be saved. False: as before.
+BRAIN_KEEP_OLD_IF_NO_ROOM = True

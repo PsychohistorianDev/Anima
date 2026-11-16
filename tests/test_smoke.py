@@ -21353,8 +21353,8 @@ _fg_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8
 _fg_tabs = _gm_panel.TABS["Memory & journal"]
 check("config (0.16): FOLD_AFTERGLOW_SINCE_PAUSE and FOLD_BELL_PICKUP ship on, after the fold's other knobs on the panel, with help",
       _fg_re.search(r"^FOLD_AFTERGLOW_SINCE_PAUSE = True$", _fg_cfg, _fg_re.M) and _fg_re.search(r"^FOLD_BELL_PICKUP = True$", _fg_cfg, _fg_re.M)
-      and _fg_tabs.index("FOLD_AFTERGLOW_SINCE_PAUSE") == _fg_tabs.index("FOLD_PREFILL") + 1
-      and _fg_tabs.index("FOLD_BELL_PICKUP") == _fg_tabs.index("FOLD_PREFILL") + 2
+      and _fg_tabs.index("FOLD_BELL_PICKUP") == _fg_tabs.index("FOLD_AFTERGLOW_SINCE_PAUSE") + 1
+      and _fg_tabs.index("FOLD_AFTERGLOW_SINCE_PAUSE") > _fg_tabs.index("FOLD_PREFILL")
       and all(_gm_panel._HELP.get(k) for k in ("FOLD_AFTERGLOW_SINCE_PAUSE", "FOLD_BELL_PICKUP")))
 _fg_src = "\n".join(_fg_inspect.getsource(f) for f in (_fg_chat.fold_afterglow, _fg_chat.journal_ends, _fg_chat.bell_entry_kept,
                                                        _fg_chat._sit_with, _fg_chat.fold_has_new, _fg_chat.sign_transcript,
@@ -23736,6 +23736,166 @@ for _fc_k, _fc_v in _fc_saved.items():
             delattr(config, _fc_k)
     else:
         setattr(config, _fc_k, _fc_v)
+# RESTART_PREFILL, BRAIN_KEEP_OLD_IF_NO_ROOM (0.16): the open visit read in after a restart; the last reading kept
+import shutil as _rp_shutil
+import time as _rp_time
+import re as _rp_re
+import inspect as _rp_inspect
+from collections import namedtuple as _rp_nt
+import brain as _rp_b
+_rp_KEYS = ("RESTART_PREFILL", "BRAIN_KEEP_OLD_IF_NO_ROOM", "BRAIN_SLOT_KEEP")
+_rp_MISSING = object()
+_rp_saved = {k: getattr(config, k, _rp_MISSING) for k in _rp_KEYS}
+_rp_stubs = (_rp_shutil.disk_usage, _rp_b._slot_tokens, _rp_b._bytes_per_token, _rp_b._note, chat.prefill_visit, tg._say)
+config.RESTART_PREFILL = config.BRAIN_KEEP_OLD_IF_NO_ROOM = True
+config.BRAIN_SLOT_KEEP = 1
+_rp_kv = config.MEMORY_DIR / "rp-kv"
+_rp_shutil.rmtree(_rp_kv, ignore_errors=True)
+_rp_kv.mkdir(parents=True, exist_ok=True)
+_rp_U = _rp_nt("Usage", "total used free")
+_rp_disk = {"total": 0}
+_rp_real_du = _rp_stubs[0]
+
+
+def _rp_du(path):
+    if str(path).startswith(str(_rp_kv)):
+        used = sum(f.stat().st_size for f in _rp_kv.iterdir() if f.is_file())
+        return _rp_U(int(_rp_disk["total"]), used, int(_rp_disk["total"] - used))
+    return _rp_real_du(path)
+
+
+_rp_BPT = 61500.0
+_rp_tok = {"n": 0}
+_rp_notes = []
+_rp_shutil.disk_usage = _rp_du
+_rp_b._slot_tokens = lambda: _rp_tok["n"]
+_rp_b._bytes_per_token = lambda: _rp_BPT
+_rp_b._note = lambda line, show=None: _rp_notes.append(line)
+
+
+def _rp_case(old, new, total, other=0, key="aaaa"):
+    for f in list(_rp_kv.iterdir()):
+        f.unlink()
+    _rp_notes.clear()
+    if other:
+        with open(_rp_kv / "bbbb.bin", "wb") as fh:
+            fh.truncate(int(other * _rp_BPT))
+    if old:
+        with open(_rp_kv / f"{key}.bin", "wb") as fh:
+            fh.truncate(int(old * _rp_BPT))
+    _rp_disk["total"], _rp_tok["n"] = total, new
+    held = _rp_b._no_room_even_alone(_rp_kv, key)
+    return held, sorted((f.name, f.stat().st_size) for f in _rp_kv.iterdir()), list(_rp_notes)
+
+
+_rp_c1 = _rp_case(187_000, 255_000, int(17.1e9))
+_rp_c2 = _rp_case(150_000, 170_000, int(16e9))
+_rp_c3 = _rp_case(0, 255_000, int(10e9))
+_rp_c4 = _rp_case(0, 255_000, int(17.1e9), other=187_000)
+_rp_c5 = _rp_case(10_000, 20_000, int(16e9))
+config.BRAIN_KEEP_OLD_IF_NO_ROOM = False
+_rp_c6 = _rp_case(187_000, 255_000, int(17.1e9))
+del config.BRAIN_KEEP_OLD_IF_NO_ROOM
+_rp_c7 = _rp_case(187_000, 255_000, int(17.1e9))
+config.BRAIN_KEEP_OLD_IF_NO_ROOM = True
+_rp_note = (f"the reading wasn't saved: aaaa — no room for it even alone (255,000 tokens ≈ {255_000 * _rp_BPT / 1e9:.1f} GB; "
+            f"{17.1e9 / 1e9:.1f} GB there if the older one went); the older reading (187,000 tokens) is kept — the server "
+            "reuses it up to the first change")
+check("keep old if no room (0.16): a new reading that would not fit even with the older one gone — nothing let go, the "
+      "save not begun, one line; it fits once the older goes, room enough, or nothing to let go — the order as before; "
+      "another prompt's reading that would go and still no room — kept too; off, or absent — as before",
+      _rp_c1[0] is True and _rp_c1[1] == [("aaaa.bin", int(187_000 * _rp_BPT))] and _rp_c1[2] == [_rp_note]
+      and _rp_c2[0] is False and _rp_c3[0] is False and _rp_c5[0] is False
+      and _rp_c4[0] is True and _rp_c4[1] == [("bbbb.bin", int(187_000 * _rp_BPT))]
+      and _rp_c6[0] is False and _rp_c7[0] is False and _rp_c6[2] == _rp_c7[2] == [],
+      (_rp_c1, _rp_c2[0], _rp_c3[0], _rp_c4, _rp_c5[0], _rp_c6[0], _rp_c7[0]))
+_rp_mk = _rp_b._make_room
+_rp_freed = []
+for _rp_old, _rp_total, _rp_other in ((150_000, int(16e9), 0), (187_000, int(17.1e9), 0), (0, int(17.1e9), 187_000),
+                                      (50_000, int(30e9), 40_000)):
+    _rp_case(_rp_old, 1, _rp_total, other=_rp_other)
+    _rp_before = {f.name: f.stat().st_size for f in _rp_kv.iterdir()}
+    _rp_would = _rp_b._room_would_free(_rp_kv, "aaaa")
+    _rp_b._make_room(_rp_kv, "aaaa")
+    _rp_after = {f.name for f in _rp_kv.iterdir()}
+    _rp_freed.append((_rp_would[0], sum(v for k, v in _rp_before.items() if k not in _rp_after)))
+_rp_shutil.disk_usage, _rp_b._slot_tokens, _rp_b._bytes_per_token, _rp_b._note = _rp_stubs[:4]
+check("keep old if no room (0.16): what would be let go is counted by the same rules as the letting go itself",
+      all(a == b for a, b in _rp_freed), _rp_freed)
+# RESTART_PREFILL
+_rp_said = []
+_rp_reads = []
+tg._say = lambda s: _rp_said.append(s)
+chat.prefill_visit = lambda hist: (_rp_reads.append(len(hist)), {"tokens": {"prompt": 98_000}})[1]
+
+
+def _rp_bridge(hist=True, system=True, guest=None, skip=""):
+    b, _ = _bridge()
+    if hist:
+        b.history = [{"role": "user", "content": f"keeper message {i}"} for i in range(4)]
+        if system:
+            b.history[0]["_system"] = "the visit's prompt"
+    b.guest = guest
+    b._fold_prefill_skip = lambda h: skip
+    return b
+
+
+def _rp_run(b):
+    _rp_said.clear(); _rp_reads.clear()
+    n0 = len(__import__("threading").enumerate())
+    b.restart_prefill()
+    t0 = _rp_time.time()
+    while _rp_time.time() - t0 < 5 and len(__import__("threading").enumerate()) > n0:
+        _rp_time.sleep(0.02)
+    _rp_time.sleep(0.05)
+    return list(_rp_reads), list(_rp_said)
+
+
+_rp_r = {}
+_rp_r["open"] = _rp_run(_rp_bridge())
+_rp_r["none"] = _rp_run(_rp_bridge(hist=False))
+_rp_r["guest"] = _rp_run(_rp_bridge(guest="a guest"))
+_rp_r["transcript"] = _rp_run(_rp_bridge(system=False))
+_rp_r["skip"] = _rp_run(_rp_bridge(skip="the game guard holds the card"))
+_rp_bl = _rp_bridge()
+_rp_bl.lock.acquire()
+_rp_r["busy"] = _rp_run(_rp_bl)
+_rp_bl.lock.release()
+config.RESTART_PREFILL = False
+_rp_r["off"] = _rp_run(_rp_bridge())
+del config.RESTART_PREFILL
+_rp_r["absent"] = _rp_run(_rp_bridge())
+config.RESTART_PREFILL = True
+check("restart prefill (0.16): a visit open with its standing prompt is read in once, in the background, the bridge "
+      "window told; no visit, a guest, off or absent — nothing; picked up from a transcript, a skip rule, or a message "
+      "being answered — no read, the reason in the window",
+      _rp_r["open"][0] == [4] and _rp_r["open"][1][0].startswith("reading the open visit in after the restart")
+      and "(98,000 tokens" in _rp_r["open"][1][-1]
+      and all(_rp_r[k] == ([], []) for k in ("none", "guest", "off", "absent"))
+      and _rp_r["transcript"][0] == [] and "picked up from the transcript" in _rp_r["transcript"][1][0]
+      and _rp_r["skip"] == ([], ["the open visit: not read in after the restart — the game guard holds the card; the next "
+                                 "message reads it"])
+      and _rp_r["busy"][0] == [] and "a message is being answered" in _rp_r["busy"][1][0], _rp_r)
+chat.prefill_visit, tg._say = _rp_stubs[4], _rp_stubs[5]
+_rp_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+_rp_src = "\n".join(_rp_inspect.getsource(f) for f in (_rp_b._room_would_free, _rp_b._no_room_even_alone,
+                                                        tg.Bridge.restart_prefill, tg.Bridge._restart_prefill))
+_rp_src += _rp_cfg.split("FOLD_PREFILL = True", 1)[1].split("BRAIN_KEEP_OLD_IF_NO_ROOM = True", 1)[0]
+check("restart prefill, keep old (0.16): both ship on, on the panel beside FOLD_PREFILL and BRAIN_KEEP_VISIT_HOURS with "
+      "help; the new lines name no one, carry no date and call no one by a gendered pronoun",
+      _rp_re.search(r"^RESTART_PREFILL = True$", _rp_cfg, _rp_re.M) and _rp_re.search(r"^BRAIN_KEEP_OLD_IF_NO_ROOM = True$", _rp_cfg, _rp_re.M)
+      and _gm_panel.TABS["Memory & journal"].index("RESTART_PREFILL") == _gm_panel.TABS["Memory & journal"].index("FOLD_PREFILL") + 1
+      and _gm_panel.TABS["Talking"].index("BRAIN_KEEP_OLD_IF_NO_ROOM") == _gm_panel.TABS["Talking"].index("BRAIN_KEEP_VISIT_HOURS") + 1
+      and all(_gm_panel._HELP.get(k) for k in ("RESTART_PREFILL", "BRAIN_KEEP_OLD_IF_NO_ROOM"))
+      and not _rp_re.search(r"\b(she|her|hers|he|his|him)\b", _rp_src, _rp_re.I) and not _rp_re.search(r"\(1[01]-\d\d", _rp_src),
+      _rp_re.findall(r".{30}\b(?:she|her|hers|he|his|him)\b.{30}", _rp_src, _rp_re.I)[:3])
+_rp_shutil.rmtree(_rp_kv, ignore_errors=True)
+for _rp_k, _rp_v in _rp_saved.items():
+    if _rp_v is _rp_MISSING:
+        if hasattr(config, _rp_k):
+            delattr(config, _rp_k)
+    else:
+        setattr(config, _rp_k, _rp_v)
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)
