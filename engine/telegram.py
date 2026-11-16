@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import io
 import json
+import math
 import os
 import random
 import re
@@ -793,6 +794,8 @@ class Bridge:
             wait_s = int(_pz.poll_s(POLL_S))  # intense's heartbeat: a beat can fall any second
         except Exception:  # noqa: BLE001
             wait_s = POLL_S
+        if getattr(config, "PENPAL_TURN_ON_TIME", False):  # a pasted letter's turn when it is due, not a poll later
+            wait_s = self._pp_turn_wait(wait_s)
         updates = list(self.api("getUpdates", patience=wait_s + 15, offset=self.offset,
                                 timeout=wait_s, allowed_updates=["message", "callback_query"]) or [])  # the room's buttons
         updates = self._split_wait(updates)
@@ -5802,6 +5805,31 @@ class Bridge:
                     self.send("(their brain is off the card — the game has it)", markdown=False)
         except Exception as e:  # noqa: BLE001
             _say(f"game guard: {type(e).__name__}: {e}")
+
+    def _pp_turn_wait(self, wait_s: int) -> int:
+        """PENPAL_TURN_ON_TIME: while an arrival waits for its turn and nothing holds it, the long poll waits only until
+        it is due (rounded up, at least 1 s), so penpal_turn_if_due runs on time; due but a reply in flight holds the
+        lock: a look every 3 s. Held (the quiet hours, the outbox hold, a wake, a game, a guest for a collected letter)
+        or any fault: the poll waits as it would have."""
+        try:
+            if not self.chat_id or getattr(self, "TAG", "telegram") != "telegram" or not getattr(config, "PENPALS_ON", False):
+                return wait_s
+            import penpal
+            got = penpal.arrival_wait()
+            if not got:
+                return wait_s
+            sl, left = got
+            import presence
+            import outbox
+            import gameguard
+            if self.quiet_now() or presence.waking() or outbox.hold_active() or gameguard.playing()[0]:
+                return wait_s
+            if self.guest and getattr(config, "PENPAL_PICTURE_LETTERS", False) and penpal.arrival_kind(sl):
+                return wait_s
+            want = 3 if left <= 0 else max(1, math.ceil(left))
+            return int(min(wait_s, want))
+        except Exception:  # noqa: BLE001
+            return wait_s
 
     def penpal_turn_if_due(self) -> str:
         """A penpal's letter arrived: once the pastes settle, a turn of their own with the arrival line — read

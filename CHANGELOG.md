@@ -298,6 +298,12 @@ tagged on its own: the first tag after the rename is v0.13.)
   the friend or the keeper reads say "they" throughout. No behaviour changes.
 
 ### Fixed
+- **A pasted letter's turn came up to a poll late** (`PENPAL_TURN_ON_TIME`, on): `PENPAL_TURN_AFTER_MIN` says the
+  arrival turn comes that long after the last paste, but the turn was looked for once a poll, and the long poll then
+  waited up to 50 seconds for news. Now, while a turn waits and nothing holds it, the poll waits only until it is due
+  (rounded up, at least a second); due with a reply in flight, a look every 3 seconds. Held (the quiet hours, a wake,
+  the outbox hold, a game, a guest with a collected letter) or any fault: the poll waits as before. The Discord bridge
+  is unchanged. Off: as before.
 - **leave_thread said "read first at the next door" while the thread was paused** (`THREAD_TELL_PAUSED`, on): with
   `THREAD` off a note is kept but read at no door, and with `THREAD_IN_WAKES` off it is not read at a wake or a
   reverie, yet every answer promised the next door. Now the answer says what is true — "kept for the next you … not

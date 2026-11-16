@@ -1726,6 +1726,10 @@ PENPAL_CONDENSE_PER_NIGHT = 6
 PENPAL_CONDENSE_CHARS = 1200
 PENPAL_ARRIVAL_TURN = True
 PENPAL_TURN_AFTER_MIN = 1
+# PENPAL_TURN_ON_TIME: that turn was looked for once a poll, and the poll then waited up to POLL_S (50 s) for news, so
+# a short PENPAL_TURN_AFTER_MIN came up to a poll late. True: while a letter's turn waits and nothing holds it, the poll
+# waits only until it is due. False: as before.
+PENPAL_TURN_ON_TIME = True
 # Their letters reach your phone with buttons (Posted / Posted, trimmed / Not sending) and a look at what in them names
 # your life: these words (any case, whole words), plus clock times, e-mails and phone numbers. They're told plainly
 # when a letter was trimmed or kept back.

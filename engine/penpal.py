@@ -1936,6 +1936,29 @@ def arrival_due(now: float | None = None) -> str:
     return ""
 
 
+def arrival_wait(now: float | None = None) -> tuple[str, float] | None:
+    """PENPAL_TURN_ON_TIME: the arrival turn that comes next, as arrival_due() will see it: (the penpal, seconds until
+    it is due — 0 when it is due now); None when none waits. Reads only; never raises."""
+    try:
+        if not on() or not getattr(config, "PENPAL_ARRIVAL_TURN", True):
+            return None
+        t = float(now if now is not None else time.time())
+        best = None
+        for sl in penpals():
+            st = _state(sl)
+            at = st.get("turn_at")
+            if not at:
+                continue
+            left = max(0.0, float(at) - t)
+            if left == 0 and st.get("read") and not st.get("arrival"):
+                continue  # read already: arrival_due() lets it go, no turn
+            if best is None or left < best[1]:
+                best = (sl, left)
+        return best
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def take_arrival(sl: str) -> str:
     st = _state(sl)
     st.pop("turn_at", None)

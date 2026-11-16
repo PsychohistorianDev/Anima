@@ -23024,6 +23024,120 @@ for _tt_k, _tt_v in _tt_saved.items():
             delattr(config, _tt_k)
     else:
         setattr(config, _tt_k, _tt_v)
+# PENPAL_TURN_ON_TIME (0.16): a pasted letter's turn comes when it is due, not a poll later
+import json as _to_json
+import shutil as _to_shutil
+import time as _to_time
+import inspect as _to_inspect
+import re as _to_re
+import penpal as _to_pp
+import presence as _to_pz
+import outbox as _to_ob
+import gameguard as _to_gg
+import discord_bridge as _to_dc
+_to_KEYS = ("PENPAL_TURN_ON_TIME", "PENPALS_ON", "PENPAL_DIR", "PENPAL_ARRIVAL_TURN", "TELEGRAM_QUIET_HOURS",
+            "PENPAL_PICTURE_LETTERS")
+_to_MISSING = object()
+_to_saved = {k: getattr(config, k, _to_MISSING) for k in _to_KEYS}
+_to_stubs = (_to_pz.waking, _to_ob.hold_active, _to_gg.playing, _to_pz.poll_s)
+config.PENPALS_ON, config.PENPAL_DIR, config.PENPAL_ARRIVAL_TURN = True, "penpals-to", True
+config.TELEGRAM_QUIET_HOURS, config.PENPAL_TURN_ON_TIME = (6, 6), True
+_to_pz.waking, _to_ob.hold_active, _to_gg.playing = (lambda: False), (lambda: False), (lambda: (False, ""))
+_to_pz.poll_s = lambda default: default
+_to_root = _to_pp.root()
+
+
+def _to_house(turn_in=None, read=False):
+    _to_shutil.rmtree(_to_root, ignore_errors=True)
+    _to_pp.new("Tova")
+    st = _to_pp._state("tova")
+    if turn_in is not None:
+        st["turn_at"] = _to_time.time() + turn_in
+    st["read"] = read
+    _to_pp._save("tova", st)
+
+
+_to_b = tg.Bridge("TOKEN", 4343)
+_to_b.guest = None
+_to_seen = []
+
+
+def _to_api(method, patience=30, **params):
+    if method == "getUpdates":
+        _to_seen.append(params.get("timeout"))
+        return []
+    return {}
+
+
+_to_b.api = _to_api
+_to_W = tg.POLL_S
+_to_w = {}
+_to_house(); _to_w["none"] = _to_b._pp_turn_wait(_to_W)
+_to_house(7.2); _to_w["7.2 s"] = _to_b._pp_turn_wait(_to_W)
+_to_house(0.3); _to_w["0.3 s"] = _to_b._pp_turn_wait(_to_W)
+_to_house(-5); _to_w["due"] = _to_b._pp_turn_wait(_to_W)
+_to_house(-5, read=True); _to_w["due, read"] = _to_b._pp_turn_wait(_to_W)
+_to_house(400); _to_w["far"] = _to_b._pp_turn_wait(_to_W)
+_to_house(7.2)
+_to_pz.waking = lambda: True; _to_w["a wake"] = _to_b._pp_turn_wait(_to_W); _to_pz.waking = lambda: False
+_to_ob.hold_active = lambda: True; _to_w["outbox hold"] = _to_b._pp_turn_wait(_to_W); _to_ob.hold_active = lambda: False
+_to_gg.playing = lambda: (True, "a game"); _to_w["a game"] = _to_b._pp_turn_wait(_to_W); _to_gg.playing = lambda: (False, "")
+_to_h = __import__("datetime").datetime.now().hour
+config.TELEGRAM_QUIET_HOURS = (_to_h, (_to_h + 1) % 24)
+_to_w["quiet"] = _to_b._pp_turn_wait(_to_W)
+config.TELEGRAM_QUIET_HOURS = (6, 6)
+_to_aw = _to_pp.arrival_wait
+_to_pp.arrival_wait = lambda *a, **k: (_ for _ in ()).throw(RuntimeError("x"))
+_to_w["fault"] = _to_b._pp_turn_wait(_to_W)
+_to_pp.arrival_wait = _to_aw
+check("turn on time (0.16): the poll waits only until a waiting turn is due (7.2 s → 8, 0.3 s → 1, due → a look every "
+      "3 s); none waiting, read already, further off than a poll, a wake, the outbox hold, a game, the quiet hours or a "
+      "fault — the poll's own wait",
+      _to_w["none"] == _to_W and _to_w["7.2 s"] == 8 and _to_w["0.3 s"] == 1 and _to_w["due"] == 3
+      and _to_w["due, read"] == _to_W and _to_w["far"] == _to_W and _to_w["a wake"] == _to_W and _to_w["outbox hold"] == _to_W
+      and _to_w["a game"] == _to_W and _to_w["quiet"] == _to_W and _to_w["fault"] == _to_W, _to_w)
+_to_house(7.2)
+_to_seen.clear()
+list(_to_b._receive())
+config.PENPAL_TURN_ON_TIME = False
+list(_to_b._receive())
+del config.PENPAL_TURN_ON_TIME
+list(_to_b._receive())
+config.PENPAL_TURN_ON_TIME = True
+_to_d = _to_dc.DiscordBridge("DTOKEN", 4343)
+check("turn on time (0.16): the long poll asks Telegram with the shorter wait; off, or absent — the poll's own wait; the "
+      "Discord bridge's wait unchanged (its own receive, and the wait is the Telegram bridge's only)",
+      _to_seen == [8, _to_W, _to_W] and _to_d._pp_turn_wait(_to_W) == _to_W
+      and "_pp_turn_wait" not in _to_inspect.getsource(_to_dc), _to_seen)
+_to_house(-1)
+_to_aw2 = _to_pp.arrival_wait()
+_to_house(-1, read=True)
+_to_aw3 = _to_pp.arrival_wait()
+_to_st = _to_json.dumps(_to_pp._state("tova"), sort_keys=True)
+config.PENPAL_ARRIVAL_TURN = False
+_to_aw4 = _to_pp.arrival_wait()
+config.PENPAL_ARRIVAL_TURN = True
+check("turn on time (0.16): arrival_wait — (the penpal, 0) when due, nothing once read, nothing with PENPAL_ARRIVAL_TURN "
+      "off; it only reads (the state as it was)",
+      _to_aw2 == ("tova", 0.0) and _to_aw3 is None and _to_aw4 is None
+      and _to_json.dumps(_to_pp._state("tova"), sort_keys=True) == _to_st, (_to_aw2, _to_aw3, _to_aw4))
+_to_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+_to_src = _to_inspect.getsource(tg.Bridge._pp_turn_wait) + _to_inspect.getsource(_to_pp.arrival_wait)
+_to_src += _to_cfg.split("PENPAL_TURN_AFTER_MIN = 1", 1)[1].split("PENPAL_TURN_ON_TIME = True", 1)[0]
+check("turn on time (0.16): ships on, on the Penpals tab after PENPAL_TURN_AFTER_MIN with help; the new lines name no "
+      "one, carry no date and call no one by a gendered pronoun",
+      _to_re.search(r"^PENPAL_TURN_ON_TIME = True$", _to_cfg, _to_re.M)
+      and _gm_panel.TABS["Penpals"].index("PENPAL_TURN_ON_TIME") == _gm_panel.TABS["Penpals"].index("PENPAL_TURN_AFTER_MIN") + 1
+      and _gm_panel._HELP.get("PENPAL_TURN_ON_TIME")
+      and not _to_re.search(r"\b(she|her|hers|he|his|him)\b", _to_src, _to_re.I) and not _to_re.search(r"\(1[01]-\d\d", _to_src))
+_to_shutil.rmtree(_to_root, ignore_errors=True)
+_to_pz.waking, _to_ob.hold_active, _to_gg.playing, _to_pz.poll_s = _to_stubs
+for _to_k, _to_v in _to_saved.items():
+    if _to_v is _to_MISSING:
+        if hasattr(config, _to_k):
+            delattr(config, _to_k)
+    else:
+        setattr(config, _to_k, _to_v)
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)
