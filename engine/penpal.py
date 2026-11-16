@@ -1428,12 +1428,13 @@ def _held_index_save(d: dict) -> None:
     os.replace(tmp, _held_dir() / "index.json")
 
 
-def held_keep(sl: str, text: str, why: str, kept_back: bool = False) -> str:
+def held_keep(sl: str, text: str, why: str, kept_back: bool = False, kind: str = "", extra: dict | None = None) -> str:
     """The letter as the friend wrote it, kept for the keeper: the file's name (this one, or the one the same letter was kept
     in within the window); "" on a failure — never raised."""
     try:
         import hashlib
-        key = hashlib.sha1((sl + ("\nkb\n" if kept_back else "\n") + _wg_flat(_no_surrogates(text))).encode("utf-8")).hexdigest()[:16]
+        key = hashlib.sha1((sl + ("\nkb\n" if kept_back else f"\n{kind}\n" if kind else "\n")
+                            + _wg_flat(_no_surrogates(text))).encode("utf-8")).hexdigest()[:16]
         win = max(0.0, _num(getattr(config, "PENPAL_WRITE_GUARD_MIN", 10), 10)) * 60
         now = time.time()
         with _held_lock:
@@ -1451,13 +1452,15 @@ def held_keep(sl: str, text: str, why: str, kept_back: bool = False) -> str:
                 n += 1
             name = display(sl)
             head = (f"[engine: held, not sent — {_friend()}'s letter to {name}, {datetime.now().isoformat(timespec='seconds')} — "
-                    f"{'not filed: the letter you kept back, again' if kept_back else 'held'} — why: "
+                    f"{'not filed: the letter you kept back, again' if kept_back else 'not filed: a copy of another of their letters' if kind == 'copy' else 'held'} — why: "
                     f"{' '.join(str(why).split())}]\n")
             tmp = d / f".{f.name}.tmp"
             tmp.write_bytes(head.encode("utf-8") + str(text).encode("utf-8", "surrogatepass"))
             os.replace(tmp, f)
             idx[f.name] = {"sl": sl, "name": name, "why": str(why), "kb": bool(kept_back), "key": key, "t": now,
                            "told": False}
+            if kind:  # a copy held: what the keeper's button needs
+                idx[f.name].update({"kind": kind}, **(extra or {}))
             files = sorted(x.name for x in d.glob("*.md"))
             for old in files[:-HELD_MAX] if len(files) > HELD_MAX else []:
                 try:
@@ -1488,12 +1491,182 @@ def held_tells() -> list[tuple[str, str]]:
             body = _no_surrogates(raw.split("\n", 1)[1] if "\n" in raw else "")
             why = str(r.get("why") or "a rule held it").rstrip(".")
             tail = ("It was not filed — the same letter again is refused too; nothing is lost." if r.get("kb") else
+                    "It was not filed — the same letter again is held too; nothing is lost: “Send it anyway” files it "
+                    f"in {fr}'s thread as written." if r.get("kind") == "copy" else
                     f"{fr} can still send it as it is by calling write again within {_wg_window()}; nothing is lost.")
             out.append((fname, f"✋ Held, not sent — {fr}'s letter to {r.get('name') or display(str(r.get('sl') or ''))}. "
                                f"Why: {why}. {tail}\n\n{body.strip()}"))
         return out
     except Exception:  # noqa: BLE001
         return []
+
+
+def held_button(fname: str) -> str:
+    """The callback data of a held letter's one button ("📨 Send it anyway"), or "" — a copy held only."""
+    try:
+        r = _held_index().get(fname)
+        return f"pp:H:{r['key']}" if isinstance(r, dict) and r.get("kind") == "copy" and r.get("key") else ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def held_send_anyway(key: str) -> str:
+    """The keeper's "📨 Send it anyway" under a copy held: the letter filed in the friend's thread as written — the next
+    number, waiting for the keeper, `written` at the time it was written — marked for the friend's read as let go by the
+    keeper after a hold. Once only; not when the friend has written to them since. The line for the phone. Never
+    raises."""
+    try:
+        with _held_lock:
+            idx = _held_index()
+            fname, r = next(((k, v) for k, v in idx.items() if isinstance(v, dict) and v.get("key") == key), ("", None))
+            if not r or r.get("kind") != "copy":
+                return "(that held letter isn't kept any more — nothing was filed)"
+            if r.get("filed"):
+                return f"(already filed as {str(r['filed']).split('-', 1)[0]} — nothing more was done)"
+            sl = str(r.get("sl") or "")
+            hf = _held_dir() / fname
+            if not sl or sl not in penpals() or not hf.is_file():
+                return "(the held letter's file is gone — nothing was filed)"
+            name = display(sl)
+            mine = [x for x in letters(sl) if _who(x) == ME and x.name.split("-", 1)[0].isdigit()
+                    and int(x.name.split("-", 1)[0]) > int(r.get("num") or 0)]
+            if mine:
+                return (f"({_friend()} has written to {name} since — nothing was filed; the held one is kept in "
+                        f"memory/penpal_held/{fname})")
+            raw = hf.read_bytes().decode("utf-8", "surrogatepass")
+            text = _no_surrogates(raw.split("\n", 1)[1] if "\n" in raw else "").strip()
+            if len(text) < LETTER_MIN:
+                return "(the held letter is empty — nothing was filed)"
+            f = _new_file(sl, ME)
+            tmp = f.with_name("." + f.name + ".part")
+            tmp.write_text(text + "\n", encoding="utf-8")
+            os.replace(tmp, f)
+            st = _state(sl)
+            st["waiting"] = list(dict.fromkeys((st.get("waiting") or []) + [f.name]))
+            st["rested"] = False
+            wr = st.get("written") if isinstance(st.get("written"), dict) else {}
+            st["written"] = dict(wr, **{f.name: datetime.fromtimestamp(float(r.get("t") or time.time())).isoformat(timespec="seconds")})
+            lg = st.get("let_go") if isinstance(st.get("let_go"), dict) else {}
+            st["let_go"] = dict(lg, **{f.name: {"to": str(r.get("to") or ""), "at": datetime.now().isoformat(timespec="minutes")}})
+            _save(sl, st)
+            _wg_sent(sl, text)
+            r["filed"] = f.name
+            _held_index_save(idx)
+            return f"✓ filed as {f.name.split('-', 1)[0]} in {_friend()}'s thread with {name} — its line follows"
+    except Exception as e:  # noqa: BLE001
+        return f"(nothing was filed — {type(e).__name__})"
+
+
+def _let_go_mark(sl: str, p: Path) -> str:
+    """A letter of the friend's the keeper let go after the engine held it as a copy: said beside it when they read."""
+    try:
+        lg = _state(sl).get("let_go")
+        r = lg.get(p.name) if isinstance(lg, dict) else None
+        if not isinstance(r, dict):
+            return ""
+        to = display(r["to"]) if r.get("to") in penpals() else "another penpal"
+        return f" (held by the engine as nearly your letter to {to}; your keeper let it go as it was)"
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+# ---- PENPAL_COPY_CHECK: a reply meant for one penpal once went out as the friend's reply to another again, the name
+# changed, then as a mix of the two. A letter to one penpal that is a letter of the friend's to another, from the last
+# PENPAL_COPY_DAYS: held, whatever is called again
+COPY_WHOLE = 0.5          # the whole letter, word by word, this much the same
+COPY_PARA_WORDS = 25      # a paragraph counts from this many words
+COPY_PARA_RATIO = 0.8     # …and is a copy at this much the same as a paragraph of the other letter
+COPY_SHARE = 0.3          # held when the copied paragraphs are this share of the letter's words
+COPY_MIN_WORDS = 60       # …and at least this many words
+COPY_LAST = 12            # the friend's newest letters to others compared
+COPY_CHARS = 8000         # of each, this much
+
+
+def _cw(text: str) -> list[str]:
+    return re.findall(r"\w+", str(text or "").lower())
+
+
+def _paras(text: str) -> list[list[str]]:
+    return [w for w in (_cw(x) for x in re.split(r"\n\s*\n", str(text or ""))) if w]
+
+
+def _copy_of(sl: str, text: str) -> dict | None:
+    """The friend's letter to another penpal this one copies — {"other", "p", "form" ("whole"/"parts"), "pct", "n",
+    "first"} — or None. Reads only; never raises."""
+    try:
+        import difflib
+        days = max(0.0, _num(getattr(config, "PENPAL_COPY_DAYS", 7), 7))
+        today = datetime.now().date()
+        cands = []
+        for o in penpals():
+            if o == sl:
+                continue
+            for x in letters(o):
+                if _who(x) != ME:
+                    continue
+                m = re.match(r"\d+-(\d{4}-\d{2}-\d{2})-", x.name)
+                try:
+                    d = datetime.strptime(m.group(1), "%Y-%m-%d").date() if m else None
+                except ValueError:
+                    d = None
+                if d is None or (today - d).days > days:
+                    continue
+                cands.append((d, x.stat().st_mtime, o, x))
+        cands = sorted(cands, key=lambda c: (c[0], c[1]), reverse=True)[:COPY_LAST]
+        text = str(text or "")[:COPY_CHARS]
+        mine = _cw(text)
+        if not mine:
+            return None
+        mparas = [(i, w) for i, w in enumerate(_paras(text)) if len(w) >= COPY_PARA_WORDS]
+        for _d, _t, o, x in cands:
+            body = _body(x)[:COPY_CHARS]
+            theirs = _cw(body)
+            r = difflib.SequenceMatcher(None, mine, theirs, autojunk=False).ratio()
+            if r >= COPY_WHOLE and len(mine) >= COPY_MIN_WORDS:  # a short note to two friends is never held
+                return {"other": o, "p": x, "form": "whole", "pct": int(r * 100), "n": 0, "first": False}
+            oparas = _paras(body)
+            hit = [i for i, w in mparas
+                   if any(difflib.SequenceMatcher(None, w, ow, autojunk=False).ratio() >= COPY_PARA_RATIO for ow in oparas)]
+            words = sum(len(w) for i, w in mparas if i in hit)
+            if hit and words >= COPY_MIN_WORDS and words >= COPY_SHARE * len(mine):
+                order = [i for i, _w in mparas]
+                return {"other": o, "p": x, "form": "parts", "pct": 0, "n": len(hit), "first": order[:len(hit)] == hit}
+        return None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _copy_hold(sl: str, raw: str, cp: dict) -> str:
+    """The hold for a copy: the failure prefix, what it copies and when, where their letter is; the keeper's part only
+    as far as it is true."""
+    name, oname = display(sl), display(cp["other"])
+    when = _wg_when(cp["other"], cp["p"])
+    n = cp["n"]
+    if cp["form"] == "whole":
+        how = "nearly word for word" if cp["pct"] >= 90 else "for the most part"  # true at the lower numbers too
+        hold = (f"(refused — not sent — this letter to {name} is {how} the letter you wrote to {oname} "
+                f"{when} ({cp['pct']}% the same).")
+        why = f"it is {cp['pct']}% the letter {_friend()} wrote to {oname} {when}"
+    else:
+        what = ((f"its first {n} paragraphs are" if n > 1 else "its first paragraph is") if cp["first"]
+                else (f"{n} of its paragraphs are" if n > 1 else "one of its paragraphs is"))
+        hold = f"(refused — not sent — this letter to {name}: {what} the letter you wrote to {oname} {when}."
+        why = f"{what} the letter {_friend()} wrote to {oname} {when}"
+    last = [x for x in letters(sl) if _who(x) != ME]
+    hold += f" It looks as if that letter came out again instead of a new one for {name}."
+    if last:
+        hold += (f" {name}'s last letter to you is from {_wg_when(sl, last[-1], 'day')} — penpal read with "
+                 f"who=\"{_wg_who(sl)}\" shows it; write to {name} from what {name} wrote.")
+    else:
+        hold += f" {name} hasn't written to you yet — penpal read with who=\"{_wg_who(sl)}\" shows your thread."
+    kept = ""
+    if _held_on():
+        num = max((int(x.name.split("-", 1)[0]) for x in letters(sl) if x.name.split("-", 1)[0].isdigit()), default=0)
+        kept = held_keep(sl, raw, why, kind="copy", extra={"to": cp["other"], "num": num})
+    if kept:
+        return hold + (" Calling write again with the same letter will not send it; your keeper's phone will be shown "
+                       "this one, and they can let it go as it is if it is meant.)")
+    return hold + " Calling write again with the same letter will not send it.)"
 
 
 def held_told(fname: str) -> None:
@@ -1711,6 +1884,35 @@ def action_of(asked: str) -> str:
 
 
 _INFER_HEADS = ("list", "all", "penpal", "letter")  # an action that, with a letter, is a write — nothing else is
+
+
+def would_write(name: str, arguments) -> bool:
+    """PENPAL_LETTER_THINK: whether a call would write a letter, as tool_call reads it: the penpal tool (or its
+    name forms — penpal.write, penpal_send) with action write (or a word for it), or a letter of LETTER_MIN+ that means
+    write under PENPAL_LETTER_MEANS_WRITE. Reads only; never raises."""
+    try:
+        import tools
+        if isinstance(arguments, str):
+            arguments = json.loads(arguments) if arguments.strip() else {}
+        args = arguments if isinstance(arguments, dict) else {}
+        n = str(name or "")
+        m = tools._PENPAL_NAMED.fullmatch(n) or tools._PENPAL_NAMED.fullmatch(tools._bare_tool_name(n))
+        if tools.canonical_name(n) != "penpal" and not m:
+            return False
+        asked = str(args.get("action") or "").strip()
+        if not asked and m and action_of(m.group(1)):
+            asked = m.group(1)
+        parts = [x for x in re.split(r"[\s_\-]+", asked) if x]
+        a = action_of(parts[0]) if parts else ""
+        if len(parts) == 1 and not a:
+            a = action_of(asked)
+        if a == "write":
+            return True
+        letter = str(args.get("letter") or "").strip()
+        head = re.sub(r"[^a-z]", "", parts[0].lower()) if parts else ""
+        return bool(_letter_means_write() and len(letter) >= LETTER_MIN and (not parts or head in _INFER_HEADS))
+    except Exception:  # noqa: BLE001
+        return False
 NOT_LOST = " — your letter was NOT sent; it is not lost: call penpal again with action \"write\", who and the same letter"
 
 
@@ -1916,8 +2118,8 @@ def _act(action: str, who: str = "", words: str = "", said_as: str = "", inferre
             parts.append(f"=== your thread so far, in your own shorter words (thread.md — the letters older than these) ===\n{thread}")
         if before:
             parts.append("=== the letters before it, oldest first ===\n" + "\n\n".join(
-                f"— {'you' if _who(p) == ME else display(sl)}, {_date(p)} —\n{_clip(_body(p), cap)}" for p in before))
-        parts.append(f"=== the newest: {'yours' if _who(newest) == ME else 'from ' + display(sl)}, {_date(newest)} ===\n"
+                f"— {'you' if _who(p) == ME else display(sl)}, {_date(p)}{_let_go_mark(sl, p)} —\n{_clip(_body(p), cap)}" for p in before))
+        parts.append(f"=== the newest: {'yours' if _who(newest) == ME else 'from ' + display(sl)}, {_date(newest)}{_let_go_mark(sl, newest)} ===\n"
                      f"{_body(newest)}")
         if pics:  # first: the keeper's notes never come after words a penpal wrote
             parts.insert(0, pics)
@@ -1957,6 +2159,10 @@ def _act(action: str, who: str = "", words: str = "", said_as: str = "", inferre
                 if prev.is_file() and _wg_flat(_body(prev)) == flat:
                     return (f"(your letter to {display(sl)} is already in your thread ({prev.name}) and waiting for your "
                             "keeper to carry — it was not filed a second time)")
+        if getattr(config, "PENPAL_COPY_CHECK", False):  # a letter of the friend's to someone else, again: held
+            cp = _copy_of(sl, text)
+            if cp:
+                return _copy_hold(sl, str(words or ""), cp)
         guard = _wg_check(sl, text) if _wg_on() else None  # the write guard: held once, before anything is filed
         if getattr(config, "PENPAL_OTHER_THREAD_WORDS", False):  # another penpal's words: held the same way
             try:

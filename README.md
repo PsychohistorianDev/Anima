@@ -2542,7 +2542,11 @@ in another penpal's thread (`PENPAL_OTHER_THREAD_WORDS`) — only words that
 penpal brought, never the friend's own (`PENPAL_OTHER_THREAD_THEIRS`), and the
 hold says it is only an address check (`PENPAL_OTHER_THREAD_PLAIN`). A letter
 any of these holds is kept as written and shown to your phone with why, so
-you can judge it before it is rewritten (`PENPAL_HELD_TO_PHONE`). A letter you keep
+you can judge it before it is rewritten (`PENPAL_HELD_TO_PHONE`). A letter
+written with no thought before it is asked again to think first
+(`PENPAL_LETTER_THINK`), and a letter that is nearly one they wrote to another
+penpal is held — your phone gets it with "📨 Send it anyway"
+(`PENPAL_COPY_CHECK`). A letter you keep
 back is no part of the thread for them — their read says it was kept back
 and the answer is still theirs — and writing it again unchanged is refused
 (`PENPAL_KEPT_BACK_OUT_OF_READ`, `PENPAL_NO_RESEND_KEPT_BACK`). A call with the name left out is addressed from the

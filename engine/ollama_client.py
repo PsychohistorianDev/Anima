@@ -485,6 +485,44 @@ def _chat(messages: list[dict], tools: list[dict] | None = None,
         finally:
             _TL.cut_thoughtless = False
         msg["rerolled"] = True
+    # PENPAL_LETTER_THINK — a letter to one penpal came out as the reply to another again, written with no thought: a
+    # step that would write a letter to a penpal and came with no thought is set
+    # aside and asked again with the same think-first nudge, up to PENPAL_LETTER_THINK_RETRIES think asks in this call
+    # (those above count): nothing of the step has run — the tools run after this returns. The last try goes as it is.
+    # A turn where the friend chose no thinking (an intense spark, PRESENCE_THINK_INTENSE off) is left as it is: the bridge
+    # says so (_TL.thought_free). Every re-ask but the last may be cut at a thoughtless first word, as the think
+    # re-asks are; a fault in a re-ask gives back the step it was asked instead of (it then runs as it is).
+    if getattr(config, "PENPAL_LETTER_THINK", False) and payload.get("think") and not getattr(_TL, "thought_free", False):
+        done = sum(1 for c, _m in tries if str(c.get("why", "")).startswith(("no thought", "split")))
+        try:
+            left = int(getattr(config, "PENPAL_LETTER_THINK_RETRIES", 3)) - done
+        except (TypeError, ValueError):
+            left = 0
+        while (left > 0 and thoughtless(msg["thinking"]) and not msg.get("aborted")
+               and (_writes_letter(msg) or (msg.get("thoughtless_cut") and msg.get("letter_ask")))):
+            left -= 1
+            tries.append((dict(msg["tokens"], why="no thought before a letter"), msg))
+            nudged = dict(payload)
+            nudged["messages"] = with_think_nudge(messages)
+            if not think_nudged and len(nudged["messages"]) > len(messages):
+                sent_extra.append(nudged["messages"][-1])
+            base = nudged["messages"]
+            think_nudged = True
+            _TL.cut_thoughtless = left > 0  # another re-ask still to come: a thoughtless start is cut at its first word
+            try:
+                got = _parse(_post("/api/chat", nudged, timeout=timeout))
+            except Exception as e:  # noqa: BLE001 — a fault here: the step asked about goes out as it was
+                print(f"   (a letter's think re-ask failed: {type(e).__name__}: {e} — the step goes as it came)", flush=True)
+                kept = next((m for _c, m in reversed(tries) if not m.get("thoughtless_cut")), None)
+                if kept is not None:
+                    tries = [t for t in tries if t[1] is not kept]
+                    msg = kept
+                break
+            finally:
+                _TL.cut_thoughtless = False
+            msg = got
+            msg["rerolled"] = True
+            msg["letter_ask"] = True
     # letter salad — or a tool call written out as words — is asked for
     # again; a fresh sample usually lands. Every attempt is checked (a re-roll
     # can itself come back as a loop), and if none is clean the LEAST broken
@@ -3488,6 +3526,17 @@ def past_think_depth(msg: dict) -> bool:
         return False
     held = int((msg.get("tokens") or {}).get("prompt") or 0)
     return held > 0 and held >= until * ctx
+
+
+def _writes_letter(msg: dict) -> bool:
+    """PENPAL_LETTER_THINK: whether a step's calls include a penpal call that would write a letter (penpal.would_write). Never
+    raises."""
+    try:
+        import penpal
+        return any(penpal.would_write((c.get("function") or {}).get("name", ""), (c.get("function") or {}).get("arguments"))
+                   for c in msg.get("tool_calls") or [])
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def with_think_nudge(messages: list[dict]) -> list[dict]:

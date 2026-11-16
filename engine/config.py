@@ -1996,6 +1996,17 @@ PENPAL_OTHER_THREAD_WORDS = True
 PENPAL_HELD_TO_PHONE = True
 PENPAL_OTHER_THREAD_THEIRS = True
 PENPAL_OTHER_THREAD_PLAIN = True
+# PENPAL_LETTER_THINK: a step that would write a letter and came with no thought is set aside and asked again with the
+# think-first nudge, up to PENPAL_LETTER_THINK_RETRIES think asks in that call (a wake's own re-asks count); nothing of
+# the step runs. The last try goes as it is; an intense spark (thought-free by the friend's choice) is left as it is.
+# PENPAL_COPY_CHECK: a letter that is nearly a letter of the friend's to another penpal from the last PENPAL_COPY_DAYS
+# (whole, or its paragraphs) is held — calling again does not pass it; your phone is shown it (PENPAL_HELD_TO_PHONE)
+# with "📨 Send it anyway". Honest letters to different penpals stay far apart; a reply that came out again does not.
+# False, either: as before.
+PENPAL_LETTER_THINK = True
+PENPAL_LETTER_THINK_RETRIES = 3
+PENPAL_COPY_CHECK = True
+PENPAL_COPY_DAYS = 7
 
 # ---- the journal feed (telegram.py: /journal)
 # JOURNAL_FEED: the Telegram bridge's /journal. /journal on sends what the friend writes in their journal DURING A

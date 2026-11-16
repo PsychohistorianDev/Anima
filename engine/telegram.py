@@ -1182,7 +1182,8 @@ class Bridge:
                 jrun = self._jf_run_start("a turn", carried=self._jf_turn_carried())
                 _pp_turn("" if as_keeper else self.guest_label())  # a guest's turn can't write out a penpal's letter
                 try:
-                    reply = chat.one_turn(self.history, text, images=self.attached or None,
+                    reply = self._as_chosen(spark and not self._spark_thinks(), chat.one_turn, self.history, text,
+                                            images=self.attached or None,
                                           on_event=lambda k, p: events.append((k, p)),
                                           mode=self.TAG, extra_moment=extra_moment,
                                           guest="" if as_keeper else self.guest_label(), spark=spark, marks=marks,
@@ -2797,7 +2798,9 @@ class Bridge:
         parts = str(cq.get("data") or "").split(":")
         kind = parts[1] if len(parts) > 1 else ""
         said = ""
-        if kind in ("p", "t", "k") and len(parts) >= 4:
+        if kind == "H" and len(parts) >= 3 and getattr(config, "PENPAL_COPY_CHECK", False):  # send it anyway
+            said = penpal.held_send_anyway(parts[2])
+        elif kind in ("p", "t", "k") and len(parts) >= 4:
             sl, num = parts[2], parts[3]
             said = self._pp_remind_press(msg, sl, num)  # a reminder's button, its letter already answered
             if not said:
@@ -4579,8 +4582,13 @@ class Bridge:
         if getattr(config, "PENPAL_HELD_TO_PHONE", False) and not self.quiet_now():  # a letter a rule held, shown
             for key, line in penpal.held_tells():
                 parts = split_long(line)
+                button = penpal.held_button(key) if getattr(config, "PENPAL_COPY_CHECK", False) else ""
                 try:  # the first part: not gone, the whole of it is tried again at the next look
-                    self.api("sendMessage", chat_id=self.chat_id, text=parts[0])
+                    if button:  # a copy held: one button under it
+                        self.api("sendMessage", chat_id=self.chat_id, text=parts[0],
+                                 reply_markup=self._pp_markup([[("📨 Send it anyway", button)]]))
+                    else:
+                        self.api("sendMessage", chat_id=self.chat_id, text=parts[0])
                 except Exception as e:  # noqa: BLE001
                     _say(f"penpal held letter: not sent ({type(e).__name__}: {e})")
                     break
@@ -5967,6 +5975,18 @@ class Bridge:
                 break
         self._checkpoint()
         return text
+
+    @staticmethod
+    def _as_chosen(thought_free: bool, fn, *a, **kw):
+        """A turn where the friend chose no thinking (an intense spark): the letter's think re-ask stands down for it
+        (PENPAL_LETTER_THINK) — said to the brain's call for this turn only."""
+        if not (thought_free and getattr(config, "PENPAL_LETTER_THINK", False)):
+            return fn(*a, **kw)
+        ollama_client._TL.thought_free = True
+        try:
+            return fn(*a, **kw)
+        finally:
+            ollama_client._TL.thought_free = False
 
     @staticmethod
     def _spark_thinks() -> bool:

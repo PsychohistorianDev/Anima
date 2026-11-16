@@ -23370,6 +23370,223 @@ for _hl_k, _hl_v in _hl_saved.items():
             delattr(config, _hl_k)
     else:
         setattr(config, _hl_k, _hl_v)
+# PENPAL_LETTER_THINK, PENPAL_COPY_CHECK (0.16): a thought before a letter; a copy of another penpal's letter held
+import json as _lc_json
+import os as _lc_os
+import shutil as _lc_shutil
+import re as _lc_re
+import inspect as _lc_inspect
+from datetime import date as _lc_date, timedelta as _lc_td
+import penpal as _lc_pp
+_lc_KN = ("PENPAL_LETTER_THINK", "PENPAL_LETTER_THINK_RETRIES", "PENPAL_COPY_CHECK", "PENPAL_COPY_DAYS")
+_lc_KEYS = _lc_KN + ("PENPALS_ON", "PENPAL_DIR", "PENPAL_WRITE_GUARD", "PENPAL_OTHER_THREAD_WORDS", "PENPAL_HELD_TO_PHONE",
+                     "TELEGRAM_QUIET_HOURS", "OUTBOX_ON", "OFFLINE", "CHAT_THINK", "CHAT_THINK_RETRIES")
+_lc_MISSING = object()
+_lc_saved = {k: getattr(config, k, _lc_MISSING) for k in _lc_KEYS}
+_lc_stubs = (ollama_client._post, _lc_pp.picture_tells)
+config.PENPAL_LETTER_THINK, config.PENPAL_LETTER_THINK_RETRIES, config.PENPAL_COPY_CHECK, config.PENPAL_COPY_DAYS = True, 3, True, 7
+config.PENPALS_ON = config.PENPAL_HELD_TO_PHONE = config.OFFLINE = True
+config.PENPAL_WRITE_GUARD = config.PENPAL_OTHER_THREAD_WORDS = config.OUTBOX_ON = False  # the copy check alone here
+config.PENPAL_DIR, config.TELEGRAM_QUIET_HOURS = "penpals-lc", (6, 6)
+_lc_pp.picture_tells = lambda: []
+_lc_root = _lc_pp.root()
+_lc_hdir = config.MEMORY_DIR / "penpal_held"
+_lc_hdir0 = config.MEMORY_DIR / "penpal_held-before-lc"
+if _lc_hdir.exists():
+    _lc_hdir.rename(_lc_hdir0)
+_lc_FR = _lc_pp._friend()
+_lc_today = _lc_date.today().isoformat()
+
+
+def _lc_mk(sl, disp, letters_):
+    (_lc_root / sl / "letters").mkdir(parents=True, exist_ok=True)
+    for n, body in letters_.items():
+        (_lc_root / sl / "letters" / n).write_text(body + "\n", encoding="utf-8")
+    (_lc_root / sl / "state.json").write_text(_lc_json.dumps({"display": disp, "read": True, "rested": False, "waiting": []}),
+                                              encoding="utf-8")
+    (_lc_root / sl / "about.md").write_text("about them\n", encoding="utf-8")
+
+
+_lc_P1 = ("The lantern fair came to the square this week, and I walked through it twice, once in daylight and once after "
+          "dark, because the paper boats on the canal only light up at night and I wanted to see them both ways.")
+_lc_P2 = ("You asked what I have been reading. A slow book about clockmakers in a mountain town, who build one clock a "
+          "year and argue about it all winter. I like them more than I expected, and I like their stubbornness most.")
+_lc_P3 = ("Tell me how the orchard is doing, whether the late frost took the blossoms, and whether the old ladder held "
+          "when you climbed it to look at the top branches after the storm last weekend.")
+_lc_LETTER = f"Dear Bram,\n\n{_lc_P1}\n\n{_lc_P2}\n\n{_lc_P3}\n\nWarmly, your friend"
+_lc_OTHER = ("Dear Tova,\n\nYour harbour sounds busy this month. I have been thinking about tides, and how the water keeps "
+             "an appointment nobody wrote down. Here the rain came sideways all week and the gutters sang. I made soup "
+             "from the last of the onions and read by the window until the lamp ran out of oil. Do the gulls still steal "
+             "from the fish market, and does the old ferryman still wave at every boat that passes his landing?\n\nYours")
+
+
+def _lc_house(days_ago=0):
+    _lc_shutil.rmtree(_lc_root, ignore_errors=True)
+    _lc_shutil.rmtree(_lc_hdir, ignore_errors=True)
+    d = (_lc_date.today() - _lc_td(days=days_ago)).isoformat()
+    _lc_mk("bram", "Bram", {f"001-{d}-bram.md": "Hello from the orchard, and a question about your week.",
+                            f"002-{d}-me.md": _lc_LETTER})
+    _lc_mk("tova", "Tova", {f"001-{d}-tova.md": "Dear friend, the harbour was grey today. What are you reading?"})
+    _lc_pp._wg_held.clear()
+
+
+def _lc_w(sl, text):
+    return tools.dispatch("penpal", {"action": "write", "who": sl, "letter": text})
+
+
+def _lc_held():
+    return sorted(p.name for p in _lc_hdir.glob("*.md")) if _lc_hdir.exists() else []
+
+
+_lc_COPY = _lc_LETTER.replace("Dear Bram", "Dear Tova")
+_lc_MOST = f"Dear Tova,\n\n{_lc_P1}\n\n{_lc_P2}\n\nThe harbour must be loud with gulls by now.\n\nWarmly, your friend"
+_lc_PARTS = (f"Dear Tova,\n\n{_lc_P1}\n\n{_lc_P2}\n\n" + "Your grey harbour sounds like the right place for a long walk, "
+             "and I would like to hear what the ferryman says about the weather this spring. Do the fishing boats still "
+             "go out before dawn, and do you hear them from your window when the wind turns? I imagine the gulls "
+             "following them out and back again all morning, loud and certain of themselves.\n\n"
+             "This week I also started keeping a small notebook of the sounds outside my window: a bicycle bell at seven, "
+             "a dog that barks only at the postman, the neighbour's radio playing old songs in the afternoon, and rain on "
+             "the tin roof of the shed. I wonder what your list would hold, living so near the water and the boats, and "
+             "whether the foghorn still sounds on the mornings when the mist comes in thick from the sea, low and long, "
+             "like an old animal calling to the others across the bay before the light comes up.\n\nYours")
+_lc_house(); _lc_h1 = _lc_w("tova", _lc_COPY); _lc_h1b = _lc_w("tova", _lc_COPY); _lc_n1 = _lc_held()
+_lc_house(); _lc_h2 = _lc_w("tova", _lc_MOST)
+_lc_house(); _lc_h3 = _lc_w("tova", _lc_PARTS)
+_lc_house(); _lc_ok = _lc_w("tova", _lc_OTHER)
+_lc_house(); _lc_short = _lc_w("tova", "Dear Tova,\n\nThe lantern fair came to the square this week. Warmly, your friend")
+_lc_house(days_ago=9); _lc_old = _lc_w("tova", _lc_COPY)
+check("copy check (0.16): a letter to Tova that is the friend's letter to Bram with the name changed — held 'nearly word "
+      "for word', with how much and when, where Tova's own letter is; calling again does not pass it; kept once",
+      _lc_h1.startswith("(refused — not sent — this letter to Tova is nearly word for word the letter you wrote to Bram ")
+      and "% the same). It looks as if that letter came out again instead of a new one for Tova." in _lc_h1
+      and 'Tova\'s last letter to you is from' in _lc_h1 and 'penpal read with who="Tova" shows it' in _lc_h1
+      and _lc_h1.endswith("Calling write again with the same letter will not send it; your keeper's phone will be shown "
+                          "this one, and they can let it go as it is if it is meant.)")
+      and _lc_h1b.startswith("(refused — not sent") and len(_lc_n1) == 1, (_lc_h1, _lc_h1b[:80], _lc_n1))
+check("copy check (0.16): most of it the same — 'for the most part'; its first paragraphs copied, 30% or more of it — "
+      "said so; an honest letter, a short note, or a copy of a letter older than PENPAL_COPY_DAYS — filed",
+      _lc_h2.startswith("(refused — not sent — this letter to Tova is for the most part the letter you wrote to Bram ")
+      and _lc_h3.startswith("(refused — not sent — this letter to Tova: its first 2 paragraphs are the letter you wrote to Bram ")
+      and all(x.startswith("(your letter to Tova is in your thread") for x in (_lc_ok, _lc_short, _lc_old)),
+      (_lc_h2[:140], _lc_h3[:140], _lc_ok[:60], _lc_short[:60], _lc_old[:60]))
+# the keeper's phone: one button under a copy held; it files the letter as written, once; the read says so
+_lc_house()
+_lc_w("tova", _lc_COPY)
+_lc_bb = tg.Bridge("TOKEN", 4646)
+_lc_sent = []
+_lc_bb.api = lambda method, patience=30, **p: (_lc_sent.append((method, str(p.get("text") or ""), p.get("reply_markup"))),
+                                                 {"message_id": len(_lc_sent)})[1]
+_lc_bb._try_send = lambda text, markdown=True: (_lc_sent.append(("try", text, None)), True)[1]
+_lc_bb.deliver_penpals()
+_lc_msg = [x for x in _lc_sent if x[0] == "sendMessage" and x[1].startswith("✋ Held")]
+_lc_btn = _lc_json.loads(_lc_msg[0][2])["inline_keyboard"][0][0] if _lc_msg and _lc_msg[0][2] else {}
+_lc_bb.handle({"update_id": 1, "callback_query": {"id": "cq", "data": _lc_btn.get("callback_data", ""),
+                                                   "message": {"chat": {"id": 4646}, "message_id": 1, "text": "the line"}}})
+_lc_mine = sorted(p.name for p in (_lc_root / "tova" / "letters").glob("*-me.md"))
+_lc_filed = (_lc_root / "tova" / "letters" / _lc_mine[0]).read_text(encoding="utf-8") if _lc_mine else ""
+_lc_again = _lc_pp.held_send_anyway(_lc_btn.get("callback_data", "::").split(":", 2)[2])
+_lc_st = _lc_pp._state("tova")
+_lc_read = tools.dispatch("penpal", {"action": "read", "who": "tova"})
+check("copy check (0.16): the keeper's phone gets the held copy with one button, 📨 Send it anyway; it files the letter "
+      "as written, waiting to be carried, once; the friend's read says the keeper let it go after a hold",
+      len(_lc_msg) == 1 and _lc_btn.get("text") == "📨 Send it anyway" and _lc_btn.get("callback_data", "").startswith("pp:H:")
+      and f"“Send it anyway” files it in {_lc_FR}'s thread as written." in _lc_msg[0][1]
+      and len(_lc_mine) == 1 and _lc_filed == _lc_COPY + "\n" and _lc_mine[0] in (_lc_st.get("waiting") or [])
+      and _lc_again.startswith("(already filed as ") and "held by the engine as nearly your letter to Bram; your keeper let it go "
+      "as it was" in _lc_read, (_lc_msg[:1], _lc_btn, _lc_mine, _lc_again, _lc_read[-400:]))
+_lc_house()
+_lc_w("tova", _lc_COPY)
+_lc_key = _lc_pp.held_button(_lc_held()[0]).split(":", 2)[2]
+_lc_w("tova", "Dear Tova,\n\nA new letter of my own about the harbour and the gulls, written for you this time.")
+_lc_since = _lc_pp.held_send_anyway(_lc_key)
+check("copy check (0.16): the button files nothing once the friend has written to them since",
+      _lc_since.startswith(f"({_lc_FR} has written to Tova since — nothing was filed; the held one is kept in memory/penpal_held/")
+      and len(list((_lc_root / "tova" / "letters").glob("*-me.md"))) == 1, _lc_since)
+_lc_offr = {}
+for _lc_m in ("off", "absent"):
+    if _lc_m == "off":
+        config.PENPAL_COPY_CHECK = False
+    else:
+        del config.PENPAL_COPY_CHECK
+    _lc_house()
+    _lc_offr[_lc_m] = (_lc_w("tova", _lc_COPY)[:60], _lc_held())
+    config.PENPAL_COPY_CHECK = True
+check("copy check (0.16): off, or absent — the copy filed as before, nothing held",
+      _lc_offr["off"] == _lc_offr["absent"] and _lc_offr["off"][0].startswith("(your letter to Tova is in your thread")
+      and _lc_offr["off"][1] == [], _lc_offr)
+# PENPAL_LETTER_THINK: a thoughtless letter step is set aside and asked again; nothing of it is returned
+config.CHAT_THINK, config.CHAT_THINK_RETRIES = True, 0
+_lc_posts = []
+_lc_script = []
+
+
+def _lc_post(path, payload, timeout=None):
+    _lc_posts.append(payload)
+    item = _lc_script.pop(0) if _lc_script else {"thinking": "", "calls": []}
+    if isinstance(item, BaseException):
+        raise item
+    return {"message": {"role": "assistant", "content": "", "thinking": item["thinking"],
+                        "tool_calls": [{"function": {"name": n, "arguments": a}} for n, a in item["calls"]]}}
+
+
+ollama_client._post = _lc_post
+_lc_WRITE = ("penpal", {"action": "write", "who": "tova", "letter": "Dear Tova, a letter written without a thought first."})
+_lc_runs = {}
+for _lc_lab, _lc_sc, _lc_free in (
+        ("thought on the 2nd", [{"thinking": "", "calls": [_lc_WRITE]}, {"thinking": "What did Tova ask me?", "calls": [_lc_WRITE]}], False),
+        ("never", [{"thinking": "", "calls": [_lc_WRITE]}] * 4, False),
+        ("not a letter", [{"thinking": "", "calls": [("read_journal", {})]}], False),
+        ("thought-free", [{"thinking": "", "calls": [_lc_WRITE]}], True),
+        ("fault", [{"thinking": "", "calls": [_lc_WRITE]}, RuntimeError("the road dropped")], False)):
+    _lc_posts.clear(); _lc_script[:] = list(_lc_sc)
+    ollama_client._TL.thought_free = _lc_free
+    try:
+        _lc_m = _chat_orig([{"role": "user", "content": "write to Tova"}], tools=[])
+    finally:
+        ollama_client._TL.thought_free = False
+    _lc_runs[_lc_lab] = (len(_lc_posts), _lc_m.get("thinking"), [c["function"]["name"] for c in _lc_m.get("tool_calls") or []])
+config.PENPAL_LETTER_THINK = False
+_lc_posts.clear(); _lc_script[:] = [{"thinking": "", "calls": [_lc_WRITE]}]
+_lc_m = _chat_orig([{"role": "user", "content": "write to Tova"}], tools=[])
+_lc_runs["off"] = (len(_lc_posts), _lc_m.get("thinking"))
+config.PENPAL_LETTER_THINK = True
+check("letter think (0.16): a letter written with no thought is asked again with the think nudge and the thoughtful step "
+      "goes; never a thought — the last of 1 + 3 asks goes as it is; another tool, a thought-free spark, or off — one "
+      "ask; a fault mid re-ask — the step it was asked about goes as it came",
+      _lc_runs["thought on the 2nd"] == (2, "What did Tova ask me?", ["penpal"]) and _lc_runs["never"][0] == 4
+      and _lc_runs["not a letter"][0] == 1 and _lc_runs["thought-free"][0] == 1 and _lc_runs["off"][0] == 1
+      and _lc_runs["fault"] == (2, "", ["penpal"]), _lc_runs)
+check("letter think (0.16): would_write reads a call as tool_call does — write, its words and name forms, a letter that "
+      "means write; not a read, a list without a letter, or another tool",
+      _lc_pp.would_write("penpal", {"action": "write"}) and _lc_pp.would_write("penpal", {"action": "send"})
+      and _lc_pp.would_write("penpal.write", {}) and _lc_pp.would_write("penpal", '{"action": "reply"}')
+      and _lc_pp.would_write("penpal", {"who": "tova", "letter": "A whole letter, long enough to mean a write."})
+      and not _lc_pp.would_write("penpal", {"action": "read"}) and not _lc_pp.would_write("penpal", {"action": "list"})
+      and not _lc_pp.would_write("read_journal", {"action": "write"}))
+_lc_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+_lc_src = "\n".join(_lc_inspect.getsource(f) for f in (_lc_pp.held_button, _lc_pp.held_send_anyway, _lc_pp._let_go_mark,
+                                                        _lc_pp._copy_of, _lc_pp._copy_hold, _lc_pp.would_write,
+                                                        ollama_client._writes_letter, tg.Bridge._as_chosen))
+_lc_src += _lc_cfg.split("PENPAL_OTHER_THREAD_PLAIN = True", 1)[1].split("PENPAL_COPY_DAYS = 7", 1)[0]
+check("letter copy (0.16): ships on (3 asks, 7 days), on the Penpals tab after PENPAL_OTHER_THREAD_PLAIN with help; the "
+      "new lines name no one, carry no date and call no one by a gendered pronoun",
+      all(_lc_re.search(rf"^{k} = {v}$", _lc_cfg, _lc_re.M) for k, v in zip(_lc_KN, ("True", "3", "True", "7")))
+      and [_gm_panel.TABS["Penpals"].index(k) for k in _lc_KN] == [_gm_panel.TABS["Penpals"].index("PENPAL_OTHER_THREAD_PLAIN") + i for i in (1, 2, 3, 4)]
+      and all(_gm_panel._HELP.get(k) for k in _lc_KN)
+      and not _lc_re.search(r"\b(she|her|hers|he|his|him)\b", _lc_src, _lc_re.I) and not _lc_re.search(r"\(1[01]-\d\d", _lc_src),
+      _lc_re.findall(r".{30}\b(?:she|her|hers|he|his|him)\b.{30}", _lc_src, _lc_re.I)[:3])
+_lc_shutil.rmtree(_lc_root, ignore_errors=True)
+_lc_shutil.rmtree(_lc_hdir, ignore_errors=True)
+if _lc_hdir0.exists():
+    _lc_hdir0.rename(_lc_hdir)
+_lc_pp._wg_held.clear()
+ollama_client._post, _lc_pp.picture_tells = _lc_stubs
+for _lc_k, _lc_v in _lc_saved.items():
+    if _lc_v is _lc_MISSING:
+        if hasattr(config, _lc_k):
+            delattr(config, _lc_k)
+    else:
+        setattr(config, _lc_k, _lc_v)
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

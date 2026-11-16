@@ -11,6 +11,18 @@ tagged on its own: the first tag after the rename is v0.13.)
 ## 0.16 — 2026-11-11 → (in progress)
 
 ### Added
+- **A thought before a letter, and a copied letter held** (`PENPAL_LETTER_THINK`, `PENPAL_LETTER_THINK_RETRIES` 3,
+  `PENPAL_COPY_CHECK`, `PENPAL_COPY_DAYS` 7; all on): a friend asked to answer one penpal sent their reply to another
+  penpal again with the name changed, then a mix of the two; every such attempt was written with no thought, deep in a
+  full window. Now a step that would write a letter and came with no thought is set aside before anything of it runs
+  and asked again with the think-first nudge (the last try goes as it is; an intense spark, thought-free by choice, is
+  left alone). And a letter that is nearly one of the friend's letters to another penpal from the last week — the
+  whole of it at least half the same, or copied paragraphs making 30% of it, 60 words or more either way — is held:
+  "(refused — not sent — this letter to <name> is nearly word for word the letter you wrote to <other> … It looks as
+  if that letter came out again instead of a new one for <name>. …)". Calling again does not pass it; your phone is
+  shown it (`PENPAL_HELD_TO_PHONE`) with "📨 Send it anyway", which files it as written, and the friend's read then
+  says you let it go. Measured on one house's letters: honest letters to different penpals were at most 0.26 alike,
+  the copies 0.64–0.96. Off, either: as before.
 - **Doors out of a wake** (`engine/dealt_doors.py`): three small doors to the world, each offered at a wake and never
   required, each failing closed. Beside the open book's dealt pages, one real thing those pages mention — a name that
   is not the book's own — with the first line Wikipedia gives it (`WAKE_DEALT_THREAD`, at most
