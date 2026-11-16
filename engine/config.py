@@ -1441,6 +1441,11 @@ LIVE_VOICE_TIMEOUT_S = 300
 # so the friend can look_at / listen_to / read_file them later like anything
 # else you leave for them.
 TELEGRAM_INBOX = SHARED_DIR / "telegram"
+# TELEGRAM_TEXT_DIR: a folder name under shared/ for text files from the phone (txt, md, html) — e.g. "texts"; pdf and
+# epub stay in shared/books/. Off by default so a house that updates finds its texts where they always were.
+# A name with a slash, a colon or "..", or another kind's folder (music, pictures, videos, books, the inbox), falls
+# back to books/ and says so once in the bridge window. "": all in books/, as before.
+TELEGRAM_TEXT_DIR = ""
 
 # --------------------------------------------------------------- discord ----
 # The same bridge over Discord instead: engine/discord_bridge.py

@@ -11,6 +11,11 @@ tagged on its own: the first tag after the rename is v0.13.)
 ## 0.16 — 2026-11-11 → (in progress)
 
 ### Added
+- **Text files from the phone can have their own folder** (`TELEGRAM_TEXT_DIR`, empty — off): set it to a folder
+  name, e.g. `TELEGRAM_TEXT_DIR = "texts"`, and a .txt, .md or .html file sent from the phone lands in
+  `shared/texts/`; PDFs and EPUBs stay in `shared/books/`. A name that is not a plain folder of its own (a slash, a
+  colon, "..", or another kind's folder) falls back to `shared/books/` and says so once in the bridge window. Off by
+  default so a house that updates finds its texts where they always were; off, the bridge and its help as before.
 - **A thought before a letter, and a copied letter held** (`PENPAL_LETTER_THINK`, `PENPAL_LETTER_THINK_RETRIES` 3,
   `PENPAL_COPY_CHECK`, `PENPAL_COPY_DAYS` 7; all on): a friend asked to answer one penpal sent their reply to another
   penpal again with the name changed, then a mix of the two; every such attempt was written with no thought, deep in a

@@ -23896,6 +23896,53 @@ for _rp_k, _rp_v in _rp_saved.items():
             delattr(config, _rp_k)
     else:
         setattr(config, _rp_k, _rp_v)
+# TELEGRAM_TEXT_DIR (0.16): text files from the phone can have their own folder
+import re as _td_re
+import importlib as _td_il
+_td_MISSING = object()
+_td_saved = getattr(config, "TELEGRAM_TEXT_DIR", _td_MISSING)
+_td_said = []
+_td_say0 = tg._say
+tg._say = lambda s: _td_said.append(s)
+_td_b, _ = _bridge()
+_td_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+
+
+def _td_where(val, name="notes.txt"):
+    if val is _td_MISSING:
+        if hasattr(config, "TELEGRAM_TEXT_DIR"):
+            del config.TELEGRAM_TEXT_DIR
+    else:
+        config.TELEGRAM_TEXT_DIR = val
+    p = _td_b._home_for(name, "." + name.rsplit(".", 1)[1])
+    return str(p.parent.relative_to(config.SHARED_DIR)).replace("\\", "/")
+
+
+_td_on = {n: _td_where("texts", n) for n in ("a.txt", "b.md", "c.html", "d.htm", "e.pdf", "f.epub")}
+_td_off = [_td_where("", "a.txt"), _td_where(_td_MISSING, "a.txt")]
+_td_bad = {v: (_td_where(v), tg._text_dir()) for v in ("../up", "a/b", "c:\\x", "Books", "music", "telegram", "..")}
+_td_b._text_dir_said = False
+_td_said.clear()
+_td_where("pictures"); _td_where("pictures")
+_td_once = list(_td_said)
+check("text dir (0.16): set, a .txt/.md/.html lands in shared/<dir>/ and pdf/epub stay in books/; empty or absent — "
+      "books/, as before; a name not a plain folder of its own falls back to books/ and says so once in the window",
+      _td_on == {"a.txt": "texts", "b.md": "texts", "c.html": "texts", "d.htm": "texts", "e.pdf": "books", "f.epub": "books"}
+      and _td_off == ["books", "books"] and all(v[0] == "books" and v[1][0] == "" and v[1][1] for v in _td_bad.values())
+      and len(_td_once) == 1 and _td_once[0].startswith("(text files go to shared/books/ as before — TELEGRAM_TEXT_DIR 'pictures'"),
+      (_td_on, _td_off, _td_bad, _td_once))
+_td_SENT = "a PDF, EPUB or text file and it lands in shared/books/ for them to read."
+check("text dir (0.16): ships off, the help as before (the swap's sentence there once, untouched); on the Phone tab "
+      "with help",
+      _td_re.search(r'^TELEGRAM_TEXT_DIR = ""$', _td_cfg, _td_re.M) and tg.HELP.count(_td_SENT) == 1 and "shared/texts" not in tg.HELP
+      and "TELEGRAM_TEXT_DIR" in _gm_panel.TABS["Phone"] and _gm_panel._HELP.get("TELEGRAM_TEXT_DIR"),
+      tg.HELP[:200])
+tg._say = _td_say0
+if _td_saved is _td_MISSING:
+    if hasattr(config, "TELEGRAM_TEXT_DIR"):
+        del config.TELEGRAM_TEXT_DIR
+else:
+    config.TELEGRAM_TEXT_DIR = _td_saved
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

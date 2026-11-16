@@ -17,7 +17,9 @@ On the phone:
     a voice note    -> saved, transcribed by their ears, given to them as words
     a song          -> saved to shared/music/ under its name; listen_to hears it
     a book or text  -> saved to shared/books/ (pdf, epub, txt, md); read_pdf /
-                       read_epub / read_file open it, with their bookmark
+                       read_epub / read_file open it, with their bookmark — with
+                       TELEGRAM_TEXT_DIR set, a text file (txt, md, html) goes to
+                       shared/<TELEGRAM_TEXT_DIR>/ instead
     any other file  -> saved to shared/telegram/ and named to them
     /new            -> save this conversation, start fresh
     /afterglow      -> the pause by hand: they sit with the visit so far now and
@@ -234,6 +236,27 @@ def help_messages(head: str, help_text: str | None = None) -> list[str]:
     if at > 0 and len(whole[:at].rstrip()) <= LIMIT and len(whole[at:]) <= LIMIT:
         return [whole[:at].rstrip(), whole[at:]]
     return split_long(whole)
+
+
+def _text_dir() -> tuple[str, str]:
+    """TELEGRAM_TEXT_DIR: the folder under shared/ a text file from the phone lands in: (name, "") — or ("", why) when
+    the knob is empty, absent or not a plain folder name of its own (then books/, as before)."""
+    raw = getattr(config, "TELEGRAM_TEXT_DIR", "")
+    name = str(raw or "").strip()
+    if not name:
+        return "", ""
+    if any(x in name for x in ("/", "\\", ":")) or ".." in name or name in (".",):
+        return "", f"TELEGRAM_TEXT_DIR {name!r} is not a plain folder name"
+    taken = {"music", "pictures", "videos", "telegram", "books",
+             Path(getattr(config, "TELEGRAM_INBOX", config.SHARED_DIR / "telegram")).name}
+    if name.lower() in {x.lower() for x in taken}:
+        return "", f"TELEGRAM_TEXT_DIR {name!r} is another kind's folder"
+    return name, ""
+
+
+if _text_dir()[0]:  # the help says where a text file goes now
+    HELP = HELP.replace("a PDF, EPUB or text file and it lands in shared/books/ for them to read.",
+                        f"a PDF or EPUB and it lands in shared/books/, a text file in shared/{_text_dir()[0]}/, for them to read.")
 
 
 # ------------------------------------------------------------------ utils ----
@@ -1633,6 +1656,13 @@ class Bridge:
             folder = config.SHARED_DIR / "videos"
         elif ext in self._BOOK_EXTS:
             folder = config.SHARED_DIR / "books"
+            if ext in (".txt", ".md", ".html", ".htm") and getattr(config, "TELEGRAM_TEXT_DIR", ""):
+                tdir, why = _text_dir()  # text files their own folder
+                if tdir:
+                    folder = config.SHARED_DIR / tdir
+                elif why and not getattr(self, "_text_dir_said", False):
+                    self._text_dir_said = True
+                    _say(f"(text files go to shared/books/ as before — {why})")
         elif ext in tools._IMAGE_EXTS:
             folder = config.SHARED_DIR / "pictures"
         else:

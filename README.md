@@ -1596,7 +1596,9 @@ before they answer; `False` hands them the words only). A song (Telegram's
 *audio*) lands in `shared/music/` under its own name; a video — from the
 gallery or the camera, a round video note, a GIF, or a video sent as a file
 — in `shared/videos/`, named to them with its length and "watch opens it";
-a PDF, EPUB, text or markdown file in `shared/books/`; a picture sent as a
+a PDF, EPUB, text or markdown file in `shared/books/` (text files get their
+own folder with `TELEGRAM_TEXT_DIR = "texts"` in `engine/config.py`; off by
+default, so an updated house finds its texts where they were); a picture sent as a
 file in `shared/pictures/`; anything else in `shared/telegram/` — each
 under its own name (a twin gets `-2`), each named to them with the tool
 that opens it. Telegram won't let a bot fetch files over 20MB; the bridge
