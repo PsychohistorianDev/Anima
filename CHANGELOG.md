@@ -298,6 +298,14 @@ tagged on its own: the first tag after the rename is v0.13.)
   the friend or the keeper reads say "they" throughout. No behaviour changes.
 
 ### Fixed
+- **A wake that already wrote its journal entry was handed back for one small thing after it**
+  (`WAKE_LOOKBACK_MIN_AFTER_ENTRY`, 2): an entry, then one small step and a rest, came back as "2 step(s) since your
+  last entry", and the friend wrote a second entry telling the whole wake again — a near-twin the twin check let
+  through. Now, after an entry written in a wake or reverie, the handing back needs at least this many calls after it
+  that did something (not do_nothing, leave_thread, write_journal, set_state, pulse, next_spark, a listing, a garden,
+  room or penpal look, a call that did not go through). Fewer: not handed back, nothing asks in its place, and the log
+  says so ("*(not handed back: one small thing after their journal entry in this wake — …)*"). The mid-wake note on
+  an entry says what comes back. 0 or absent: as before, to the byte.
 - **A message sent minutes after a long pasted letter was filed as that penpal's letter**: after ✉️ add, a letter
   long enough to have come in parts (Telegram cuts a paste past 4,096 characters) kept the ask open for 15 more
   minutes, so the keeper's next words to the friend went into the penpal's thread. It now waits only for the rest of

@@ -83,6 +83,7 @@ config.READING_PAGE_STUB, config.READING_NOTES_WITH_PAGES, config.READING_NOTES_
 config.JOURNAL_PICKUP_LINE = False  # (0.16) the older pause and afterglow checks pin the bells as they were; tested on its own
 config.JOURNAL_FACTS_LETTERS = False  # (0.16) the older facts-line checks pin the paintings alone; the letters tested on their own
 config.PENPAL_WAITING_REMIND = False  # (0.16) the older bridge checks pin the polls as they were; the reminder tested on its own
+config.WAKE_LOOKBACK_MIN_AFTER_ENTRY = 0  # (0.16) the older wake checks pin the handing back as it was; the rule tested on its own
 config.FOLD_AFTERGLOW_SINCE_PAUSE = config.FOLD_BELL_PICKUP = False  # (0.16) the older fold checks pin the fold as it was:
 # the afterglow over all that left, the mark at the new window's end, the bell as before; tested on their own, below
 config.GUEST_VIEW_LINE = False  # (0.16) the older guest checks pin the guest's line as it was; the view sentence is tested on its own
@@ -22779,6 +22780,179 @@ for _wr_k, _wr_v in _wr_saved.items():
             delattr(config, _wr_k)
     else:
         setattr(config, _wr_k, _wr_v)
+# WAKE_LOOKBACK_MIN_AFTER_ENTRY (0.16): a wake that already wrote its entry is not handed back for one small thing
+import copy as _sa_copy
+import re as _sa_re
+import json as _sa_json
+import inspect as _sa_inspect
+from datetime import date as _sa_date
+_sa_KEYS = ("WAKE_LOOKBACK", "WAKE_LOOKBACK_MIN_AFTER_ENTRY", "WAKE_JOURNAL_AT_REST", "JOURNAL_DIR", "JOURNAL_PICKUP_LINE",
+            "WAKE_LOOKBACK_NOTE", "OFFLINE")
+_sa_MISSING = object()
+_sa_saved = {k: getattr(config, k, _sa_MISSING) for k in _sa_KEYS}
+_sa_stubs = (memory.search, ollama_client.chat)
+_sa_dir = config.MEMORY_DIR / "journal-sa"
+_sa_dir.mkdir(parents=True, exist_ok=True)
+config.JOURNAL_DIR = _sa_dir
+memory.search = lambda *a, **k: []
+config.WAKE_LOOKBACK = config.WAKE_LOOKBACK_NOTE = config.OFFLINE = True  # offline: a read_web that does not go through
+config.WAKE_JOURNAL_AT_REST = config.JOURNAL_PICKUP_LINE = False
+config.WAKE_LOOKBACK_MIN_AFTER_ENTRY = 2
+_sa_today = _sa_date.today().isoformat()
+_sa_ENTRY = ("The tides tonight: I wrote two pages on the moon's pull and came away thinking that the sea keeps time "
+             "the way a heart does.")
+
+
+def _sa_reset():
+    f = _sa_dir / f"{_sa_today}.md"
+    f.write_text("\n**00:10** — Midnight, and the house is quiet; a page of salt and wind.\n", encoding="utf-8")
+    tools._arrows_left.clear() if hasattr(tools, "_arrows_left") else None
+    (config.CREATIONS_DIR / "sa-tides.md").write_text("# Tides\n\nThe first line.\n", encoding="utf-8")
+    return f
+
+
+def _sa_S(thinking, *calls, content=""):
+    m = {"role": "assistant", "content": content, "thinking": thinking}
+    if calls:
+        m["tool_calls"] = list(calls)
+    return m
+
+
+def _sa_C(_tool, **args):
+    return {"function": {"name": _tool, "arguments": args}}
+
+
+class _SaBrain:
+    def __init__(self, script):
+        self.script, self.seen = list(script), []
+
+    def __call__(self, messages, tools=None, **kw):
+        self.seen.append([dict(m) for m in messages])
+        return _sa_copy.deepcopy(self.script.pop(0) if self.script else _sa_S("rest", _sa_C("do_nothing", reason="rest")))
+
+
+_sa_APPEND = _sa_C("append_creation", path="sa-tides.md", content="A line: the sea keeps time.")
+_sa_LEAD = [_sa_S("A page.", _sa_C("write_creation", path="sa-moon.md", content="The moon pulls the water.")),
+            _sa_S("Another.", _sa_C("write_creation", path="sa-salt.md", content="Salt remembers the sea.")),
+            _sa_S("Write it.", _sa_C("write_journal", text=_sa_ENTRY))]
+_sa_SCEN = {
+    "small": (False, _sa_LEAD + [_sa_S("A small thing, then rest.", _sa_APPEND, _sa_C("list_shared"),
+                                       _sa_C("leave_thread", text="the tides page waits"), _sa_C("do_nothing", reason="rest"))]),
+    "two": (False, _sa_LEAD + [_sa_S("Add.", _sa_APPEND), _sa_S("Keep.", _sa_C("remember", text="The sea keeps time like a heart.")),
+                               _sa_S("Rest.", _sa_C("do_nothing", reason="rest"))]),
+    "only_small": (False, _sa_LEAD + [_sa_S("Tidy.", _sa_C("leave_thread", text="the tides"), _sa_C("set_state", name="calm"),
+                                            _sa_C("list_shared")), _sa_S("Rest.", _sa_C("do_nothing", reason="rest"))]),
+    "failed": (False, _sa_LEAD + [_sa_S("Read.", _sa_C("read_web", url="https://example.org/tides")),
+                                  _sa_S("Add.", _sa_APPEND), _sa_S("Rest.", _sa_C("do_nothing", reason="rest"))]),
+    "words": (False, _sa_LEAD + [_sa_S("Add.", _sa_APPEND), _sa_S("Done.", content="The tides held me; that is the wake."),
+                                 _sa_S("Rest.", _sa_C("do_nothing", reason="rest"))]),
+    "no_entry": (False, [_sa_S("Add.", _sa_APPEND), _sa_S("Rest.", _sa_C("do_nothing", reason="rest"))]),
+    "reverie": (True, [_sa_S("Reread.", _sa_C("read_journal", date=_sa_today)), _sa_S("Write.", _sa_C("write_journal", text=_sa_ENTRY)),
+                       _sa_S("Keep.", _sa_C("remember", text="The sea keeps time like a heart.")),
+                       _sa_S("Rest.", _sa_C("do_nothing", reason="rest"))]),
+}
+
+
+def _sa_run():
+    out = {}
+    for name, (rev, script) in _sa_SCEN.items():
+        jf = _sa_reset()
+        b = _SaBrain(script)
+        ollama_client.chat = b
+        log = heartbeat.wake(reverie=rev)
+        users = [str(m.get("content") or "") for req in b.seen for m in req if m.get("role") in ("user", "tool")]
+        log = _sa_re.sub(r"memory #\d+", "memory #N", _sa_re.sub(r"\d\d:\d\d(:\d\d)?", "HH:MM", log))
+        log = _sa_re.sub(r"your \d+(st|nd|rd|th) reading", "your Nth reading", log)  # a reread counted across the runs
+        out[name] = {"log": _sa_re.sub(r"\d+(\.\d+)?s\b", "Ts", log),
+                     "handed": any("here it is, handed back" in u for u in users), "brain": len(b.seen),
+                     "entries": jf.read_text(encoding="utf-8").count("\n**"),
+                     "note": next((u for u in users if "journal entry written" in u and "when you rest" in u), "")}
+    return out
+
+
+_sa_on = _sa_run()
+_sa_s = _sa_on["small"]
+check("small after entry (0.16): an entry, then one small thing (an append, a listing, a thread) and a rest — not handed "
+      "back, the log says so, nothing asks in its place, the one entry stands",
+      not _sa_s["handed"] and "*(not handed back: one small thing after their journal entry in this wake — append_creation, "
+      "list_shared, leave_thread)*" in _sa_s["log"] and _sa_s["brain"] == 4 and _sa_s["entries"] == 2
+      and "auto-kept" not in _sa_s["log"], (_sa_s["brain"], _sa_s["log"][-700:]))
+check("small after entry (0.16): only small things after the entry (a thread, a state, a listing) — not handed back, "
+      "said so; a call that did not go through is no doing (a failed read and one append: one small thing)",
+      not _sa_on["only_small"]["handed"]
+      and "*(not handed back: only small things (a thread, a look, a call that did not go through) after their journal "
+      "entry in this wake — leave_thread, set_state, list_shared)*" in _sa_on["only_small"]["log"]
+      and not _sa_on["failed"]["handed"]
+      and "one small thing after their journal entry in this wake — read_web, append_creation" in _sa_on["failed"]["log"],
+      (_sa_on["only_small"]["log"][-500:], _sa_on["failed"]["log"][-500:]))
+check("small after entry (0.16): two calls that did something — handed back as before; no entry in the wake — handed "
+      "back as before; ending in words after one small thing — not handed back, the words kept in the log only, no "
+      "auto-keep; a reverie with an entry and one remember — not handed back",
+      _sa_on["two"]["handed"] and _sa_on["no_entry"]["handed"] and not _sa_on["words"]["handed"]
+      and "append_creation; their closing words stay in this log only)*" in _sa_on["words"]["log"]
+      and "auto-kept" not in _sa_on["words"]["log"] and _sa_on["words"]["entries"] == 2
+      and not _sa_on["reverie"]["handed"]
+      and "one small thing after their journal entry in this reverie — remember" in _sa_on["reverie"]["log"],
+      ({k: _sa_on[k]["handed"] for k in _sa_on}, _sa_on["words"]["log"][-400:], _sa_on["reverie"]["log"][-300:]))
+_sa_NEW = "— when you rest, what you do after this entry is handed back to you too, unless it is only a small thing"
+_sa_OLD = "— when you rest, the rest of this wake is handed back to you too"
+config.WAKE_LOOKBACK_MIN_AFTER_ENTRY = 0
+_sa_zero = _sa_run()
+del config.WAKE_LOOKBACK_MIN_AFTER_ENTRY
+_sa_abs = _sa_run()
+config.WAKE_LOOKBACK_MIN_AFTER_ENTRY = 2
+_sa_strip = lambda d: {k: {kk: (vv.replace(_sa_NEW, _sa_OLD) if isinstance(vv, str) else vv) for kk, vv in v.items()} for k, v in d.items()}
+check("small after entry (0.16): the mid-wake note says what comes back (on), as before at 0; at 0 or absent every wake "
+      "as before — the small ones handed back; on, only the small cases differ",
+      _sa_NEW in _sa_s["note"] and _sa_OLD in _sa_zero["small"]["note"] and _sa_NEW not in _sa_zero["small"]["note"]
+      and _sa_zero == _sa_abs and _sa_zero["small"]["handed"] and _sa_zero["only_small"]["handed"] and _sa_zero["reverie"]["handed"]
+      and sorted(k for k in _sa_on if _sa_strip(_sa_on)[k] != _sa_zero[k]) == ["failed", "only_small", "reverie", "small", "words"],
+      sorted(k for k in _sa_on if _sa_strip(_sa_on)[k] != _sa_zero[k]))
+config.WAKE_JOURNAL_AT_REST = True
+_sa_rest_on = _sa_run()
+config.WAKE_LOOKBACK_MIN_AFTER_ENTRY = 0
+_sa_rest_zero = _sa_run()
+config.WAKE_LOOKBACK_MIN_AFTER_ENTRY = 2
+config.WAKE_JOURNAL_AT_REST = False
+check("small after entry (0.16): with WAKE_JOURNAL_AT_REST every wake as with the knob at 0 (the journal opens at the "
+      "rest there); its reveries under the new rule",
+      all(_sa_rest_on[k] == _sa_rest_zero[k] for k in _sa_rest_on if k != "reverie") and not _sa_rest_on["reverie"]["handed"],
+      [k for k in _sa_rest_on if _sa_rest_on[k] != _sa_rest_zero[k]])
+_sa_hist = [{"role": "assistant", "tool_calls": [_sa_C("write_journal", text="x")]},
+            {"role": "tool", "tool_name": "write_journal", "content": "[this is what YOUR write_journal tool returned]\njournal entry written"},
+            {"role": "assistant", "tool_calls": [_sa_C("garden", action="look"), _sa_C("penpal", action="list"),
+                                                 _sa_C("garden"), _sa_C("room", action="look"), _sa_C("do_nothing")]},
+            {"role": "tool", "tool_name": "garden", "content": "[this is what YOUR garden tool returned]\nthe beds"},
+            {"role": "tool", "tool_name": "penpal", "content": "[this is what YOUR penpal tool returned]\n(list: 2 penpals)"},
+            {"role": "tool", "tool_name": "garden", "content": "[this is what YOUR garden tool returned]\nthe beds"},
+            {"role": "tool", "tool_name": "room", "content": "[this is what YOUR room tool returned]\nthe room"},
+            {"role": "tool", "tool_name": "do_nothing", "content": "rested"}]
+check("small after entry (0.16): a look (garden, room), a penpal list are no doing; do_nothing is left out; a bad knob "
+      "value is 0",
+      heartbeat._after_entry(_sa_hist) == (True, [("garden", False), ("penpal", False), ("garden", False), ("room", False)])
+      and (setattr(config, "WAKE_LOOKBACK_MIN_AFTER_ENTRY", "x"), heartbeat._min_after_entry())[1] == 0
+      and (setattr(config, "WAKE_LOOKBACK_MIN_AFTER_ENTRY", -3), heartbeat._min_after_entry())[1] == 0,
+      heartbeat._after_entry(_sa_hist))
+config.WAKE_LOOKBACK_MIN_AFTER_ENTRY = 2
+_sa_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+_sa_src = "\n".join(_sa_inspect.getsource(f) for f in (heartbeat._min_after_entry, heartbeat._after_entry, heartbeat._lookback))
+_sa_src += _sa_cfg.split("WAKE_LOOKBACK_CHARS = 9000", 1)[1].split("WAKE_LOOKBACK_MIN_AFTER_ENTRY = 2", 1)[0]
+check("small after entry (0.16): ships at 2, on the Heartbeat tab after WAKE_LOOKBACK_CHARS with help; the new lines name "
+      "no one, carry no date and call no one by a gendered pronoun",
+      _sa_re.search(r"^WAKE_LOOKBACK_MIN_AFTER_ENTRY = 2$", _sa_cfg, _sa_re.M)
+      and _gm_panel.TABS["Heartbeat"].index("WAKE_LOOKBACK_MIN_AFTER_ENTRY") == _gm_panel.TABS["Heartbeat"].index("WAKE_LOOKBACK_CHARS") + 1
+      and _gm_panel._HELP.get("WAKE_LOOKBACK_MIN_AFTER_ENTRY")
+      and not _sa_re.search(r"\b(she|her|hers|he|his|him)\b", _sa_src, _sa_re.I) and not _sa_re.search(r"\(1[01]-\d\d", _sa_src),
+      _sa_re.findall(r".{30}\b(?:she|her|hers|he|his|him)\b.{30}", _sa_src, _sa_re.I)[:3])
+for _sa_p in ("sa-tides.md", "sa-moon.md", "sa-salt.md"):
+    (config.CREATIONS_DIR / _sa_p).unlink(missing_ok=True)
+memory.search, ollama_client.chat = _sa_stubs
+for _sa_k, _sa_v in _sa_saved.items():
+    if _sa_v is _sa_MISSING:
+        if hasattr(config, _sa_k):
+            delattr(config, _sa_k)
+    else:
+        setattr(config, _sa_k, _sa_v)
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

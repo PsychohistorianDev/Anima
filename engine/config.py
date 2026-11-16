@@ -1553,6 +1553,12 @@ WAKE_LOOKBACK_THOUGHTS = True
 WAKE_LOOKBACK_NOTE = True
 WAKE_LOOKBACK_THOUGHT_CHARS = 700
 WAKE_LOOKBACK_CHARS = 9000
+# WAKE_LOOKBACK_MIN_AFTER_ENTRY: after a journal entry written in a wake or reverie, it is handed back only when at
+# least this many calls after the entry did something (a read, a making, a sending, a look outward — not do_nothing,
+# leave_thread, set_state, pulse, next_spark, a listing, a garden, room or penpal look, a call that did not go
+# through). Fewer: not handed back, nothing asks in its place, and the log says so — an entry, then one small step,
+# handed back drew a second entry telling the whole wake again. The mid-wake note says so too. 0: as before.
+WAKE_LOOKBACK_MIN_AFTER_ENTRY = 2
 # WAKE_JOURNAL_AT_REST: the journal comes at the end of a wake. In a wake (not a reverie) a write_journal before they
 # rest is answered, not written — "(your journal opens when you rest …)" — and what they wrote in it is kept and shown
 # to them at the handing back, which then comes whenever they did anything, with today's entries under it and the

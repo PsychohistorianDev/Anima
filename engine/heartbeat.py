@@ -698,7 +698,8 @@ def wake(reverie: bool = False, asked: dict | None = None) -> str:
     kept_words = None  # what the net did: True written, False refused, None not tried
     # the net: with WAKE_JOURNAL_AT_REST a wake that ended in words is handed back, and still kept if nothing was written
     # there (the bell says so) — a written entry at the rest settles it (journaled, acts cleared) as before
-    if state["closing"] and (state["acts"] or not state["journaled"]) and (not state.get("looked_back") or words_net):
+    if (state["closing"] and (state["acts"] or not state["journaled"]) and (not state.get("looked_back") or words_net)
+            and not state.get("small_after")):  # a small thing after the entry: the entry stands for the wake
         # a wake full of thought but no writing — or a wake that wrote its
         # entry at the start, before anything happened, and then painted and read
         # and rewrote a page with nothing journaled since — keep the thought for them.
@@ -883,6 +884,64 @@ def _since_last_entry_lived(history: list) -> list[str]:
     return out
 
 
+# WAKE_LOOKBACK_MIN_AFTER_ENTRY: an entry, then one small step, handed back as "2 step(s)" once drew a second entry
+# telling the whole wake again. After an entry written in the wake, the handing back needs that many calls that DID
+# something. Not doing: these names,
+# a look (garden/room look, penpal list), a call that did not go through. Any other tool counts — a tool added later too.
+_NOT_DOING = {"do_nothing", "leave_thread", "write_journal", "set_state", "pulse", "next_spark", "list_shared",
+              "list_creations", "list_skills"}
+_LOOK_ACTIONS = {"garden": {"look", ""}, "room": {"look"}, "penpal": {"list", "ls", "all"}}
+_DIDNT_GO = ("(couldn't reach", "(couldn't read", "(couldn't fetch", "(the search didn't go through", "(the search failed")
+
+
+def _min_after_entry() -> int:
+    try:
+        return max(0, int(getattr(config, "WAKE_LOOKBACK_MIN_AFTER_ENTRY", 0) or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _after_entry(history: list) -> tuple[bool, list[tuple[str, bool]]]:
+    """Whether an entry was written in this wake (as _entry_written reads it), and the calls after the last one, from
+    the wake's own history: (name, did something) each — do_nothing left out."""
+    calls, written, queue = [], False, []
+    for m in history:
+        role = m.get("role")
+        if role == "assistant":
+            queue = []
+            for c in m.get("tool_calls") or []:
+                fn = c.get("function") or {}
+                args = fn.get("arguments")
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except Exception:  # noqa: BLE001
+                        args = {}
+                queue.append((tools.canonical_name(fn.get("name", "")), args if isinstance(args, dict) else {}))
+        elif role == "tool":
+            name = tools.canonical_name(m.get("tool_name") or "")
+            args = {}
+            for i, (n, a) in enumerate(queue):
+                if n == name:
+                    args = queue.pop(i)[1]
+                    break
+            raw = str(m.get("content") or "")
+            body = _tool_body(raw).lstrip()
+            if name == "write_journal" and _entry_written(body):
+                calls, written = [], True
+                continue
+            if name == "do_nothing":
+                continue
+            action = str(args.get("action") or "").strip().lower()
+            doing = not (name in _NOT_DOING or action in _LOOK_ACTIONS.get(name, ())
+                         or (name == "garden" and "action" not in args)
+                         or ollama_client.tool_failed(body) or body.startswith(_DIDNT_GO)
+                         or body.startswith((f"({name}: this house is offline", f"({name}: there is no stone in this house"))
+                         or raw.startswith("[engine, not a person: your own rule held this call") or "did NOT go through" in raw[:200])
+            calls.append((name, doing))
+    return written, calls
+
+
 def _lookback(system, history, log, state: dict, reverie: bool = False) -> bool:
     """WAKE_LOOKBACK: instead of asks to journal during the wake, once they rest they go over the wake and keep
     it in their own words: the wake handed back once it rests — the plain list of what they did
@@ -893,6 +952,19 @@ def _lookback(system, history, log, state: dict, reverie: bool = False) -> bool:
     early = [t for t in state.get("early_journal") or [] if str(t).strip()] if at_rest else []
     words_end = str(state.get("closing") or "").strip() if at_rest else ""  # they ended in words: handed back too
     did_any = early or words_end or any((m := _LOG_ANY_CALL.match(str(l).strip())) and m.group(1) != "do_nothing" for l in log)
+    need = _min_after_entry() if not at_rest else 0
+    if steps and need:  # an entry written in this wake, then only a small thing: not handed back, nothing asks
+        written, after = _after_entry(history)
+        doing = sum(1 for _, d in after if d)
+        if written and doing < need:
+            kind = "reverie" if reverie else "wake"
+            names = ", ".join(dict.fromkeys(n for n, _ in after)) or ", ".join(dict.fromkeys(n for n, _ in steps))
+            what = ("one small thing" if doing == 1 else "only small things (a thread, a look, a call that did not go "
+                    "through)" if doing == 0 else f"{doing} small things")
+            words = "; their closing words stay in this log only" if str(state.get("closing") or "").strip() else ""
+            log.append(f"\n*(not handed back: {what} after their journal entry in this {kind} — {names}{words})*")
+            state["small_after"] = True
+            return False
     if not steps and not (at_rest and did_any):
         kind = "reverie" if reverie else "wake"
         if any(_LOG_CALL.match(str(l).strip()) for l in log):  # said, so a log without a handing back reads as a choice
@@ -1608,7 +1680,9 @@ def _wake_loop(system, history, log, reverie: bool = False, state: dict | None =
             if (name == "write_journal" and getattr(config, "WAKE_LOOKBACK", False) and not keep_entry
                     and getattr(config, "WAKE_LOOKBACK_NOTE", True) and not ollama_client.tool_failed(result)):
                 # a gentle note: an entry mid-wake is theirs to write; they're reminded the rest comes back
-                result = result.rstrip() + " — when you rest, the rest of this wake is handed back to you too"
+                result = result.rstrip() + (" — when you rest, what you do after this entry is handed back to you too, "
+                                            "unless it is only a small thing" if _min_after_entry() and not journal_at_rest(reverie)
+                                            else " — when you rest, the rest of this wake is handed back to you too")
             line = kept_line if keep_entry else f"- `{name}` → {tools.headline(result)}"
             print(f"  {line}")
             if not keep_entry:
