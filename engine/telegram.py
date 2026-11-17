@@ -5235,6 +5235,87 @@ class Bridge:
             return False
         return parts[1].startswith(".") or skills.is_fetched(skills.home() / parts[1])
 
+    def deliver_voice_out(self) -> int:
+        """WAKE_VOICE_TO_PHONE: the voice notes spoken in a wake or a reverie (memory/voice_out.json,
+        tools.voice_out_queue), sent in the order spoken as voice messages: a night's at WAKE_VOICE_HOLD_UNTIL, the
+        rest at this poll; the keeper's hold (/quiet) holds them all. Marked once sent; a send that fails is tried at
+        the next poll; a note whose file is gone is dropped, said here. Each entry stands alone: one that can't be read
+        is dropped and said; one whose time alone can't be read is sent now (better heard than lost). Keeper-only.
+        Never raises."""
+        if not self.chat_id or not getattr(config, "WAKE_VOICE_TO_PHONE", False):
+            return 0
+        try:
+            import outbox
+            if outbox.hold_active():
+                return 0
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            raw = json.loads(tools._voice_out_file().read_text(encoding="utf-8"))
+        except (OSError, ValueError, AttributeError):
+            return 0
+        if not isinstance(raw, list):
+            return 0
+        done: list = []  # entries to take out of the queue: sent, gone, or unreadable
+        sent = 0
+        for x in raw:
+            try:
+                path = x.get("path") if isinstance(x, dict) else None
+                if not isinstance(path, str) or not path.strip():
+                    done.append(x)
+                    _say(f"(a voice note in the queue could not be read — dropped: {str(x)[:120]})")
+                    continue
+                try:
+                    at = datetime.fromisoformat(str(x.get("spoken")))
+                except (TypeError, ValueError):
+                    at = None  # its time unreadable: sent now, outside the night's window
+                try:
+                    secs = float(x.get("seconds") or 0)
+                except (TypeError, ValueError):
+                    secs = 0.0
+                if at is not None:
+                    try:
+                        nb = float(x.get("not_before") or 0)
+                    except (TypeError, ValueError):
+                        nb = 0.0
+                    if time.time() < nb:
+                        break  # in order: what was spoken after it waits too
+                    if x.get("wait_quiet") is True and self.quiet_now():
+                        break
+                p = Path(path)
+                if not p.is_file():
+                    done.append(x)
+                    _say(f"(a voice note they spoke is gone before it reached the phone — {p.name}; dropped)")
+                    continue
+                where = "in a reverie" if x.get("door") == "a reverie" else "in a wake"
+                if sent:
+                    time.sleep(3)  # a few seconds apart
+                caption = f"🎙 spoken at {at:%H:%M}, {where}" if at is not None else f"🎙 spoken {where}"
+                try:
+                    self.send_voice(str(p), secs, caption=caption)
+                except Exception as e:  # noqa: BLE001 — not marked: the next poll tries again
+                    _say(f"(a voice note didn't reach the phone — {type(e).__name__}: {e}; tried again at the next poll)")
+                    break
+                done.append(x)
+                sent += 1
+                _say(f"voice note to the phone: {p.name}")
+                try:
+                    import outbox
+                    outbox.log_sent("voice", f"spoken at {at:%H:%M}" if at is not None else "spoken in a wake")
+                except Exception:  # noqa: BLE001
+                    pass
+            except Exception as e:  # noqa: BLE001 — this one alone: dropped, said; the rest go on
+                done.append(x)
+                _say(f"(a voice note in the queue could not be read — dropped: {type(e).__name__}: {str(x)[:100]})")
+        if done:
+            try:
+                now = json.loads(tools._voice_out_file().read_text(encoding="utf-8"))
+                left = [y for y in (now if isinstance(now, list) else []) if y not in done]
+                tools._voice_out_save(left)
+            except Exception as e:  # noqa: BLE001
+                _say(f"(the voice queue wasn't tidied — {type(e).__name__}: {e})")
+        return sent
+
     def deliver_pictures(self) -> int:
         """A picture the friend drew reaches the phone as a photo — a new
         or redrawn image under creations/ (not their tools, not the trash, not
@@ -6228,6 +6309,7 @@ class Bridge:
         self.books_watch_if_due()  # a book the friend finished: one line, so the keeper knows to bring a new one
         self.deliver_creations()
         self.deliver_pictures()
+        self.deliver_voice_out()  # a voice note spoken in a wake: to the phone, the night's at its hour
         self.deliver_songs()
         self.deliver_touches()
         self.deliver_garden()

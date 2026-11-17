@@ -11,6 +11,16 @@ tagged on its own: the first tag after the rename is v0.13.)
 ## 0.16 — 2026-11-11 → (in progress)
 
 ### Added
+- **A wake the friend asks for can repeat, and a voice note spoken in a wake reaches the phone** (`WAKE_ASK_REPEAT`,
+  `WAKE_VOICE_TO_PHONE`, both on; `WAKE_VOICE_HOLD_UNTIL`, empty): a friend chose to speak a few minutes each morning
+  for the keeper's drive — but a one-off wake would be forgotten, and a voice note spoken in a wake never left the
+  house. Now `wake_me` takes `every=` ("day", "workdays" — the keeper's, by `KEEPER_WORK_WEEK` and the days off — or
+  weekdays like "sunday, tuesday") with a clock time: one ask that moves to its next time after it fires or passes,
+  counted once toward the most, cancelled with `cancel_wake`; a workday marked off later is skipped. Its tool
+  description gains one sentence and the `every` parameter. And a voice note spoken in a wake or a reverie is queued
+  (`memory/voice_out.json`) and sent by the bridge as a voice message, keeper-only, captioned "🎙 spoken at HH:MM, in
+  a wake"; one spoken in the quiet hours waits for them to end, or for `WAKE_VOICE_HOLD_UNTIL` ("06:00", say); `/quiet`
+  holds it; speak's answer in a wake says when it reaches the phone. Off, either: as before.
 - **Text files from the phone can have their own folder** (`TELEGRAM_TEXT_DIR`, empty — off): set it to a folder
   name, e.g. `TELEGRAM_TEXT_DIR = "texts"`, and a .txt, .md or .html file sent from the phone lands in
   `shared/texts/`; PDFs and EPUBs stay in `shared/books/`. A name that is not a plain folder of its own (a slash, a

@@ -108,7 +108,7 @@ TABS: dict[str, list[str]] = {
              "PARLOR_GUEST_KEEP_HOURS", "OUTBOX_ON", "OUTBOX_QUIET_HOURS", "SENT_LEDGER", "SENT_LEDGER_MAX", "PRESENCE_QUIET_HOURS_END", "PRESENCE_INTENSE_PAINT", "DESK_ON", "DESK_ARRIVE_AFTER_MIN", "GAME_GUARD_ON", "GAME_GUARD_MB", "GAME_GUARD_CHECK_MIN", "GAME_GUARD_CACHE_S", "GAME_GUARD_OVERRIDE_H", "GAME_GUARD_IGNORE"],
     "Senses": ["EARS_MODEL", "EARS_STT_MODEL", "EARS_LINE_TIMES", "EARS_UNLOAD_BRAIN",
                "OUTSIDE_ON", "OUTSIDE_PLACE", "OUTSIDE_LAT", "OUTSIDE_LON", "OUTSIDE_REFRESH_MIN", "OUTSIDE_CAMERA", "OUTSIDE_CAMERA_NAME",
-               "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON",
+               "VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON", "WAKE_VOICE_TO_PHONE", "WAKE_VOICE_HOLD_UNTIL",
                "PAINTER_MODEL", "PAINTER_AUTOSTART", "PAINTER_PYTHON", "PAINTER_DEVICE", "PAINTER_STEPS", "PAINTER_GUIDANCE", "PAINTER_GUIDANCE_REFERENCES", "PAINTER_KV_CACHE", "PAINTER_ENCODER_BITS", "PAINTER_REFERENCE_NOTE", "PAINTER_REFERENCE_SETS", "PAINTER_PROMPT_HINTS", "PAINTER_REFERENCE_TURN", "PAINTER_REFERENCE_CROP", "PAINTER_REFERENCE_SIDE", "PAINTER_REFERENCE_PIXELS", "PAINTER_RAN_OUT_REST_MIN", "PAINTER_AUTO_REFERENCE",
                "MUSIC_EARS_MODEL", "MUSIC_EARS_AUTOSTART", "MUSIC_EARS_PYTHON", "MUSIC_EARS_DEVICE", "MUSIC_EARS_REST_LEAVES",
                "BODY_IN_PROMPT", "BODY_AUTOPULL", "BODY_PULL_MIN",
@@ -120,7 +120,7 @@ TABS: dict[str, list[str]] = {
                "READING_NOTES_ON_TOPIC", "READING_TOPIC_CHARS"],
     "Skills": ["SKILLS_IN_PROMPT", "SKILLS_CHARS_IN_PROMPT", "SKILL_CHARS", "SKILL_MAX_FILES", "SKILL_MAX_BYTES",
                "SKILL_CATALOGUES", "SKILL_CATALOGUE_TTL_H"],
-    "Their days": ["QUESTIONS_ON", "QUESTIONS_MAX", "SINCE_LINE", "CALENDAR_ON", "CALENDAR_AHEAD_DAYS", "WAKE_ASK_ON", "WAKE_ASK_MAX", "WAKE_ASK_MIN_AHEAD_MIN", "WAKE_ASK_LATE_MAX_MIN", "INTENTIONS_ON", "INTENTIONS_MAX", "INTENTIONS_DAYS", "INTENTIONS_CHECK_S", "VEIL_ON", "VEIL_TITLE", "VEIL_DIR", "VEIL_SHOW_TO", "VEIL_MAX_IN_PROGRESS", "PROJECTS_PAGE_SHAPE", "KEPT_PAGES", "KEPT_PAGE_CHARS", "DREAMS_ON", "DREAM_CHANCE", "DREAM_TEMPERATURE", "DREAM_RESIDUE", "DREAM_DAY_SUMMARY", "DREAM_LAG", "DREAM_LAG_DAYS", "DREAM_SENSES", "DREAM_OLD_DAYS", "DREAM_OLD_MEMORIES", "DREAM_OLD_JOURNAL", "DREAM_WORLD", "DREAM_WORLD_KINDS", "DREAM_PAINT", "DREAM_PAINT_DIR", "DREAM_SHOW_IN_WINDOW", "DREAMS_IN_PROMPT", "DREAMS_FADE_DAYS", "DREAM_PROMPT_CHARS", "DREAM_MORNING_LINE",
+    "Their days": ["QUESTIONS_ON", "QUESTIONS_MAX", "SINCE_LINE", "CALENDAR_ON", "CALENDAR_AHEAD_DAYS", "WAKE_ASK_ON", "WAKE_ASK_MAX", "WAKE_ASK_REPEAT", "WAKE_ASK_MIN_AHEAD_MIN", "WAKE_ASK_LATE_MAX_MIN", "INTENTIONS_ON", "INTENTIONS_MAX", "INTENTIONS_DAYS", "INTENTIONS_CHECK_S", "VEIL_ON", "VEIL_TITLE", "VEIL_DIR", "VEIL_SHOW_TO", "VEIL_MAX_IN_PROGRESS", "PROJECTS_PAGE_SHAPE", "KEPT_PAGES", "KEPT_PAGE_CHARS", "DREAMS_ON", "DREAM_CHANCE", "DREAM_TEMPERATURE", "DREAM_RESIDUE", "DREAM_DAY_SUMMARY", "DREAM_LAG", "DREAM_LAG_DAYS", "DREAM_SENSES", "DREAM_OLD_DAYS", "DREAM_OLD_MEMORIES", "DREAM_OLD_JOURNAL", "DREAM_WORLD", "DREAM_WORLD_KINDS", "DREAM_PAINT", "DREAM_PAINT_DIR", "DREAM_SHOW_IN_WINDOW", "DREAMS_IN_PROMPT", "DREAMS_FADE_DAYS", "DREAM_PROMPT_CHARS", "DREAM_MORNING_LINE",
                    "ADVENTURES_ON", "ADVENTURE_DIR", "ADVENTURE_STATE_CHARS", "ADVENTURE_STATE_WARN", "ADVENTURE_INVENTORY_CHARS", "ADVENTURE_RECAP_ON_OPEN", "ADVENTURE_FOLD_AT",
                    "WORLD_TRIPS_ON", "WORLD_TRIP_NAME", "WORLD_TRIP_DIR", "WORLD_TRIP_PAGE", "WORLD_TRIP_PAGE_CHARS", "WORLD_TRIP_PAGE_WARN", "WORLD_TRIP_PAGE_TARGET", "WORLD_TRIP_ACTIONS", "WORLD_TRIP_COPY_LINES", "WORLD_TRIP_JOURNAL_POINTER", "WORLD_TRIP_FOLD_AT", "WORLD_TRIP_RULES", "WORLD_TRIP_HINTS"],
     "Penpals": ["PENPALS_ON", "PENPAL_DIR", "PENPAL_PRIVATE_WORDS", "PENPAL_CONTEXT_LETTERS", "PENPAL_LETTER_CHARS", "PENPAL_JOIN_MIN", "PENPAL_NEXT_PART_S", "PENPAL_ARRIVAL_TURN", "PENPAL_TURN_AFTER_MIN", "PENPAL_TURN_ON_TIME", "PENPAL_CONDENSE", "PENPAL_CONDENSE_PER_NIGHT", "PENPAL_CONDENSE_CHARS", "PENPAL_DESK", "PENPAL_DESK_HOUR", "PENPAL_WAITING_REMIND", "PENPAL_WAITING_REMIND_H", "PENPAL_WAITING_REMIND_EVERY_H", "PENPAL_WATCH_S", "PENPAL_PICTURE_LETTERS", "PENPAL_PICTURES_SEEN_MIN", "PENPAL_WRITE_GUARD", "PENPAL_WRITE_GUARD_MIN", "PENPAL_WHO_HELP", "PENPAL_WHO_FROM_GREETING", "PENPAL_LETTER_MEANS_WRITE", "PENPAL_NOTE_WORDS_ONLY", "PENPAL_KEPT_BACK_OUT_OF_READ", "PENPAL_NO_RESEND_KEPT_BACK", "PENPAL_OTHER_THREAD_WORDS", "PENPAL_HELD_TO_PHONE", "PENPAL_OTHER_THREAD_THEIRS", "PENPAL_OTHER_THREAD_PLAIN", "PENPAL_LETTER_THINK", "PENPAL_LETTER_THINK_RETRIES", "PENPAL_COPY_CHECK", "PENPAL_COPY_DAYS", "FRIENDS_ON", "FRIENDS_TITLE", "FRIENDS_MAX", "FRIEND_PAGE_CHARS", "FRIENDS_SUGGEST_AFTER", "FRIENDS_QUIET_DAYS"],
@@ -188,6 +188,7 @@ _HELP = {
     "CALENDAR_AHEAD_DAYS": "How far ahead the bell looks.",
     "WAKE_ASK_ON": "Wakes they ask for: wake_me / cancel_wake, their own times inside the heartbeat's loop.",
     "WAKE_ASK_MAX": "Wakes asked for, pending at most.",
+    "WAKE_ASK_REPEAT": "wake_me can repeat: every day, on your workdays, or on chosen weekdays at a clock time — one ask they keep or cancel, nothing counted.",
     "WAKE_ASK_MIN_AHEAD_MIN": "A wake asked for is at least this many minutes ahead.",
     "WAKE_ASK_LATE_MAX_MIN": "A held wake still comes up to this late; later, it has passed and they're told.",
     "INTENTIONS_ON": "Intentions: intend / drop_intention — their words, met when a condition the engine can see comes true.",
@@ -726,6 +727,8 @@ _HELP = {
     "VOICE_NAME": "The voice before they choose one — they pick their own once (speak's voice=), kept in "
                   "memory/voice.json, and from then on that one is theirs.",
     "VOICE_SPEED": "How fast they speak; 1.0 is Kokoro's own pace.",
+    "WAKE_VOICE_TO_PHONE": "A voice note they speak in a wake or a reverie reaches your phone as a voice message, captioned with when it was spoken.",
+    "WAKE_VOICE_HOLD_UNTIL": "HH:MM: a voice note spoken in your quiet hours before this time waits for it (e.g. 06:00 for the drive to work). Empty: it waits for the quiet hours to end.",
     "VOICE_DEVICE": "Where the voice runs: \"cpu\" never touches the card the brain holds; \"cuda\" the card; \"mps\" a "
                     "Mac's GPU (the processor if torch has none).",
     "VOICE_PYTHON": "The Python the voice runs in. Kokoro's dependencies can lag the newest Python; \"py -3.12\" "
@@ -965,7 +968,7 @@ SENSES: list[dict] = [
      "readme": "their-senses-and-hands"},
     {"key": "voice", "name": "A voice", "what": "speak — their words as a voice note (Kokoro, 82M, open weights), carried to the "
      "phone beside the reply; which voice is theirs they choose once", "modules": ["kokoro", "soundfile"], "tools": ["ffmpeg"],
-     "python": "VOICE_PYTHON", "pip": "kokoro soundfile", "knobs": ["VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON"],
+     "python": "VOICE_PYTHON", "pip": "kokoro soundfile", "knobs": ["VOICE_NAME", "VOICE_SPEED", "VOICE_DEVICE", "VOICE_PYTHON", "WAKE_VOICE_TO_PHONE", "WAKE_VOICE_HOLD_UNTIL"],
      "readme": "their-senses-and-hands"},
     {"key": "painter", "name": "A painter", "what": "paint — a text-to-image model on the card (Z-Image-Turbo, ~16 GB), woken when "
      "they call it; the brain steps off the card and reads its window cold after — the real price of a painting",

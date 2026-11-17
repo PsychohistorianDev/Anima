@@ -2194,7 +2194,10 @@ frames themselves are pulled, shown and gone.
 runs on the CPU in a second or two and never touches the GPU the brain is
 holding. The note goes to your phone as a Telegram voice message (the round
 waveform) right after their reply, plays in the parlor under the bubble, and
-is kept in `shared/letters/` (`VOICE_DIR`) — marked as seen the moment it is
+is kept in `shared/letters/` (`VOICE_DIR`); one spoken in a wake or a reverie
+reaches your phone on its own, captioned with when it was spoken, and one from
+your quiet hours waits for them to end or for `WAKE_VOICE_HOLD_UNTIL`
+(`WAKE_VOICE_TO_PHONE`) — marked as seen the moment it is
 made and labelled "your own voice" in `list_shared`, so it never shows up as
 something you left for them. Stage directions (*smiles softly*), markdown
 and emoji are not spoken. Which voice is theirs they choose once, with
@@ -2482,7 +2485,9 @@ is a knob in `config.py`, and none of it decides anything for them.
   or "someday". What's near rides under the bell; a date that is today is said
   when you arrive.
 - **Wakes they ask for** — `wake_me` sets a time of their own inside the
-  heartbeat's loop ("in 40 minutes", "05:50"), with a note for the bell.
+  heartbeat's loop ("in 40 minutes", "05:50"), with a note for the bell; with
+  `every=` ("day", "workdays" — yours — or weekdays) it repeats until they
+  cancel it (`WAKE_ASK_REPEAT`).
 - **Intentions** — `intend` holds their words until something the engine can
   see comes true (a time, your workday ending, your first message, the rain,
   the garden), then wakes them with those words and the choice.

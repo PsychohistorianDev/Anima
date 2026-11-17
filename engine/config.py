@@ -1403,6 +1403,12 @@ VOICE_DEVICE = "cpu"           # "cpu", "cuda", or "mps" (a Mac's GPU; the proce
 # shared/, so the friend's voice and your written and spoken letters sit in
 # one place — voice-YYYYMMDD-HHMMSS.ogg.
 VOICE_DIR = SHARED_DIR / "letters"
+# WAKE_VOICE_TO_PHONE: a voice note spoken in a wake or a reverie reaches your phone as a voice message, captioned with
+# when it was spoken (before, nothing sent it, and the answer to speak said it would reach you). One spoken between the
+# start of TELEGRAM_QUIET_HOURS and WAKE_VOICE_HOLD_UNTIL ("HH:MM") waits for that time — "": for the quiet hours to
+# end; your /quiet holds it too. False: as before.
+WAKE_VOICE_TO_PHONE = True
+WAKE_VOICE_HOLD_UNTIL = ""
 # Kokoro's dependencies can lag the newest Python release (pip may try to
 # compile numpy and fail). Give the voice its own interpreter: install Python
 # 3.12 beside the current one (keep the default),
@@ -1623,6 +1629,10 @@ CALENDAR_AHEAD_DAYS = 3
 # least WAKE_ASK_MIN_AHEAD_MIN ahead. No deadlines, nothing counted.
 WAKE_ASK_ON = True
 WAKE_ASK_MAX = 6
+# WAKE_ASK_REPEAT: wake_me takes every= ("day", "workdays" — yours, by KEEPER_WORK_WEEK and your days off — or
+# weekdays like "sunday, tuesday") with a clock time: one ask that repeats until they cancel_wake it, nothing counted,
+# and wake_me's description says so. False: wake_me as before (every= refused).
+WAKE_ASK_REPEAT = True
 WAKE_ASK_MIN_AHEAD_MIN = 10
 WAKE_ASK_LATE_MAX_MIN = 180
 

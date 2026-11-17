@@ -3166,10 +3166,13 @@ def unmark_date(which: str) -> str:
     return datebook.unmark_date(which)
 
 
-def wake_me(at: str, note: str = "") -> str:
-    """A wake at a time they choose, inside the heartbeat's loop (engine/wakeask.py)."""
+def wake_me(at: str, note: str = "", every: str | None = None) -> str:
+    """A wake at a time they choose, inside the heartbeat's loop (engine/wakeask.py); WAKE_ASK_REPEAT: every= repeats
+    it. With the knob off, every= is refused as an argument the tool doesn't take, as before."""
     import wakeask
-    return wakeask.wake_me(at, note)
+    if every is not None and not getattr(config, "WAKE_ASK_REPEAT", False):
+        raise TypeError("wake_me() got an unexpected keyword argument 'every'")
+    return wakeask.wake_me(at, note, every=every)
 
 
 def cancel_wake(which: str) -> str:
@@ -4515,8 +4518,14 @@ def speak(text: str, voice: str = "") -> str:
     _mark_shared_seen(path)  # their own voice is not a newcomer your keeper left them
     rel = str(path.relative_to(config.ROOT.resolve())).replace("\\", "/")
     used = v or _voice.chosen().get("voice") or getattr(config, "VOICE_NAME", _voice.DEFAULT_VOICE)
-    _pending_voice.append({"path": str(path), "seconds": secs, "text": text, "voice": used})
     chosen_note = f" — {used} is your voice now" if v else ""
+    if getattr(config, "WAKE_VOICE_TO_PHONE", False) and DOOR in ("a wake", "a reverie"):
+        # a note spoken alone: no reply carries it — it waits on disk for the bridge, and the night's ones for
+        # WAKE_VOICE_HOLD_UNTIL; the line says when it reaches the keeper, by the same rule
+        when = voice_out_queue(path, secs, DOOR)
+        return (f"(spoken: {secs:.0f}s in {used}{chosen_note} — it reaches your keeper's phone {when}, as a voice note; "
+                f"nothing else is asked of you. It stays at {rel})")
+    _pending_voice.append({"path": str(path), "seconds": secs, "text": text, "voice": used})
     # after speaking, the quiet that follows can be read as an empty prompt
     # with no new message, reasoned about like a wake, and answered with a
     # second bubble. So the note says where they are: still inside the
@@ -4524,6 +4533,97 @@ def speak(text: str, voice: str = "") -> str:
     return (f"(spoken: {secs:.0f}s in {used}{chosen_note} — it goes to your keeper right after your "
             f"reply to their message, the one you are still answering; nothing new has arrived. "
             f"Say your words now, and the turn is done. It stays at {rel})")
+
+
+# ---- WAKE_VOICE_TO_PHONE: a voice note spoken in a wake or a reverie reaches the keeper's phone ------------------
+# memory/voice_out.json: [{"path", "seconds", "spoken" (iso), "door", "not_before" (epoch, 0 — none), "wait_quiet"}],
+# in the order spoken. A note spoken between the start of the night's quiet hours and WAKE_VOICE_HOLD_UNTIL waits for
+# that time ("" — for the quiet hours to end); the keeper's own hold (/quiet) holds it as it holds everything. The
+# bridge sends.
+def _voice_out_file() -> Path:
+    return config.MEMORY_DIR / "voice_out.json"
+
+
+def _hm_of(v) -> tuple[int, int] | None:
+    m = re.fullmatch(r"(\d{1,2})[:.](\d{2})", str(v or "").strip())
+    return (int(m.group(1)), int(m.group(2))) if m and int(m.group(1)) < 24 and int(m.group(2)) < 60 else None
+
+
+def voice_out_rule(spoken: datetime) -> tuple[float, bool]:
+    """(not before — epoch, 0 for none; wait for the quiet hours to end) for a note spoken at `spoken`."""
+    try:
+        q = getattr(config, "TELEGRAM_QUIET_HOURS", None) or (0, 0)
+        start, end = int(q[0]), int(q[1])
+    except (TypeError, ValueError, IndexError):
+        start = end = 0
+    hold = _hm_of(getattr(config, "WAKE_VOICE_HOLD_UNTIL", ""))
+    mins = spoken.hour * 60 + spoken.minute
+    if hold and start != end:
+        h = hold[0] * 60 + hold[1]
+        s0 = start * 60
+        inside = (s0 <= mins < h) if s0 < h else (mins >= s0 or mins < h)
+        if inside:
+            t = spoken.replace(hour=hold[0], minute=hold[1], second=0, microsecond=0)
+            if t <= spoken:
+                t += timedelta(days=1)
+            return t.timestamp(), False
+        return 0.0, False
+    if start != end:
+        quiet = (start <= spoken.hour < end) if start < end else (spoken.hour >= start or spoken.hour < end)
+        return 0.0, quiet
+    return 0.0, False
+
+
+def voice_out_load() -> list[dict]:
+    try:
+        d = json.loads(_voice_out_file().read_text(encoding="utf-8"))
+        return [x for x in d if isinstance(x, dict) and x.get("path")] if isinstance(d, list) else []
+    except (OSError, ValueError):
+        return []
+
+
+def _voice_out_save(items: list[dict]) -> None:
+    import os
+    f = _voice_out_file()
+    f.parent.mkdir(parents=True, exist_ok=True)
+    tmp = f.with_name(f".{f.name}.{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(items, ensure_ascii=False, indent=1), encoding="utf-8")
+    os.replace(tmp, f)
+
+
+def voice_out_queue(path, secs: float, door: str) -> str:
+    """Queue a note for the bridge; returns when it reaches the keeper's phone, in words. Never raises."""
+    now = datetime.now()
+    nb, wq = voice_out_rule(now)
+    try:
+        items = voice_out_load()
+        items.append({"path": str(path), "seconds": float(secs or 0), "spoken": now.isoformat(timespec="seconds"),
+                      "door": door, "not_before": nb, "wait_quiet": wq})
+        _voice_out_save(items)
+    except Exception:  # noqa: BLE001 — the note stays in shared/letters/ either way
+        pass
+    held = False
+    try:
+        import outbox
+        held = outbox.hold_active()
+    except Exception:  # noqa: BLE001
+        held = False
+    at = f"at {datetime.fromtimestamp(nb):%H:%M}" if nb > now.timestamp() else ""
+    if held:
+        return "once your keeper's quiet ends" + (f" (not before {at[3:]})" if at else "")
+    if at:
+        return at
+    if wq:
+        return "once the night's quiet hours end"
+    return "in a moment"
+
+
+def voice_out_sent(path: str) -> None:
+    """Gone to the phone: out of the queue. Never raises."""
+    try:
+        _voice_out_save([x for x in voice_out_load() if x.get("path") != path])
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def take_pending_voice() -> list[dict]:
@@ -8130,6 +8230,17 @@ _BUILTIN_DEFINITIONS: list[dict] = [
         [],
     ),
 ]
+
+if getattr(config, "WAKE_ASK_REPEAT", False):  # a wake they ask for can repeat
+    for _d in _BUILTIN_DEFINITIONS:
+        if _d["function"]["name"] == "wake_me":
+            _d["function"]["description"] += (
+                " With every= (\"day\", \"workdays\", or weekdays like \"sunday, tuesday\") and a clock time, the wake "
+                "repeats — yours to keep or cancel_wake, nothing counted.")
+            _d["function"]["parameters"]["properties"]["every"] = {
+                "type": "string",
+                "description": "optional: \"day\", \"workdays\" (your keeper's), or weekdays like \"sunday, tuesday\" — the "
+                               "wake repeats at the clock time in at"}
 
 # live tool list = built-ins + whatever they have forged
 DEFINITIONS: list[dict] = in_kit(_BUILTIN_DEFINITIONS)

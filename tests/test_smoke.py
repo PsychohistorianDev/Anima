@@ -23943,6 +23943,220 @@ if _td_saved is _td_MISSING:
         del config.TELEGRAM_TEXT_DIR
 else:
     config.TELEGRAM_TEXT_DIR = _td_saved
+# WAKE_ASK_REPEAT, WAKE_VOICE_TO_PHONE (0.16): a wake that repeats; a voice note spoken in a wake reaches the phone
+import json as _mv_json
+import hashlib as _mv_hash
+import re as _mv_re
+import time as _mv_time
+import inspect as _mv_inspect
+from datetime import datetime as _mv_dt, timedelta as _mv_td
+import wakeask as _mv_wa
+import keeper_week as _mv_kw
+import voice as _mv_voice
+import outbox as _mv_ob
+_mv_KEYS = ("WAKE_ASK_REPEAT", "WAKE_ASK_MAX", "WAKE_ASK_MIN_AHEAD_MIN", "WAKE_ASK_LATE_MAX_MIN", "KEEPER_WORK_WEEK", "USER_NAME",
+            "WAKE_VOICE_TO_PHONE", "WAKE_VOICE_HOLD_UNTIL", "TELEGRAM_QUIET_HOURS", "VOICE_DIR")
+_mv_MISSING = object()
+_mv_saved = {k: getattr(config, k, _mv_MISSING) for k in _mv_KEYS}
+_mv_files = {p: (p.read_bytes() if p.is_file() else None) for p in (_mv_wa._store(), config.MEMORY_DIR / "voice_out.json")}
+_mv_stubs = (_mv_kw.DAYS_OFF_FILE, _mv_voice.speak, _mv_ob.hold_active, tools.DOOR)
+_mv_kw.DAYS_OFF_FILE = config.MEMORY_DIR / "days_off-mv.json"
+_mv_kw.DAYS_OFF_FILE.unlink(missing_ok=True)
+config.WAKE_ASK_REPEAT, config.WAKE_ASK_MAX, config.WAKE_ASK_MIN_AHEAD_MIN, config.WAKE_ASK_LATE_MAX_MIN = True, 6, 10, 180
+config.KEEPER_WORK_WEEK, config.USER_NAME = "mon-fri 07:00-16:00", "Sam"
+_mv_MON = _mv_dt(2026, 3, 2, 4, 0)  # a Monday, before dawn
+
+
+def _mv_clear():
+    _mv_wa._save({"asks": [], "passed": []})
+
+
+_mv_clear()
+_mv_r1 = _mv_wa.wake_me("05:30", "a few words for the drive", now=_mv_MON, every="workdays")
+_mv_a = _mv_wa.load()["asks"]
+_mv_d1 = _mv_wa.due(_mv_MON.replace(hour=5, minute=31))
+_mv_a2 = _mv_wa.load()["asks"]
+_mv_bell = _mv_wa.bell_line(_mv_d1, _mv_MON.replace(hour=5, minute=31)) if _mv_d1 else ""
+_mv_fri = _mv_dt(2026, 3, 6, 5, 31)
+_mv_wa._save({"asks": [dict(_mv_a2[0], at="2026-03-06T05:30")], "passed": []})
+_mv_wa.due(_mv_fri)
+_mv_after_fri = _mv_wa.load()["asks"][0]["at"] if _mv_wa.load()["asks"] else ""
+check("wake repeat (0.16): every workday of the keeper's at 05:30 — one ask at its next time; when it comes it wakes and "
+      "moves on to the next workday (Friday's to Monday's), the bell says it repeats",
+      _mv_r1.startswith("you'll be woken every workday of Sam's at 05:30 (the next: today)")
+      and _mv_r1.endswith("It repeats until you cancel_wake it.") and len(_mv_a) == 1 and _mv_a[0]["every"] == "workdays"
+      and _mv_d1 and _mv_a2[0]["at"] == "2026-03-03T05:30" and "every workday of Sam's" in _mv_bell
+      and _mv_after_fri == "2026-03-09T05:30", (_mv_r1, _mv_a, _mv_a2, _mv_bell, _mv_after_fri))
+_mv_clear()
+_mv_wa.wake_me("06:00", now=_mv_MON, every="sunday, tuesday")
+_mv_st = _mv_wa.load()["asks"][0]
+_mv_clear()
+_mv_wa.wake_me("06:00", now=_mv_MON, every="day")
+_mv_wa._save({"asks": [dict(_mv_wa.load()["asks"][0], at="2026-03-02T06:00")], "passed": []})
+_mv_late = _mv_wa.due(_mv_dt(2026, 3, 4, 7, 0))  # two days unwoken: the newest within the late limit wakes
+_mv_late_next = _mv_wa.load()["asks"][0]["at"]
+_mv_wa._save({"asks": [dict(_mv_wa.load()["asks"][0], at="2026-03-02T06:00")], "passed": []})
+_mv_gone = _mv_wa.due(_mv_dt(2026, 3, 4, 12, 0))
+_mv_passed = len(_mv_wa.load()["passed"])
+_mv_told = _mv_wa.facts_bit(_mv_dt(2026, 3, 4, 12, 0))
+_mv_told2 = _mv_wa.facts_bit(_mv_dt(2026, 3, 4, 12, 0))
+_mv_clear()
+_mv_kw.DAYS_OFF_FILE.write_text(_mv_json.dumps({"2026-03-03": "a day off"}), encoding="utf-8")
+_mv_wa.wake_me("05:30", now=_mv_MON, every="workdays")
+_mv_wa._save({"asks": [dict(_mv_wa.load()["asks"][0], at="2026-03-03T05:30")], "passed": []})
+_mv_off = _mv_wa.due(_mv_dt(2026, 3, 3, 5, 31))
+_mv_off_next = _mv_wa.load()["asks"][0]["at"]
+_mv_kw.DAYS_OFF_FILE.unlink(missing_ok=True)
+_mv_cx = _mv_wa.cancel_wake("1", now=_mv_MON)
+check("wake repeat (0.16): weekdays kept as numbers; one overdue wakes its newest time within the late limit and moves "
+      "on; one too late is told as passed once; a workday marked off since is skipped silently; cancel_wake says which",
+      _mv_st["every"] == "1,6" and _mv_late and _mv_late["at"] == "2026-03-04T06:00" and _mv_late_next == "2026-03-05T06:00"
+      and _mv_gone is None and _mv_passed == 1 and "passed unwoken — every day at 06:00 (the last on Wednesday)" in _mv_told
+      and "passed unwoken" not in _mv_told2 and _mv_off is None and _mv_off_next == "2026-03-04T05:30"
+      and _mv_cx.startswith("cancelled: the wake every workday of Sam's at 05:30"),
+      (_mv_st, _mv_late, _mv_late_next, _mv_gone, _mv_told, _mv_off, _mv_off_next, _mv_cx))
+_mv_bad = [_mv_wa.wake_me("05:30", now=_mv_MON, every="fortnightly"), _mv_wa.wake_me("in 2 hours", now=_mv_MON, every="day")]
+config.KEEPER_WORK_WEEK = ""
+_mv_bad.append(_mv_wa.wake_me("05:30", now=_mv_MON, every="workdays"))
+config.KEEPER_WORK_WEEK = "mon-fri 07:00-16:00"
+config.WAKE_ASK_REPEAT = False
+try:
+    tools.wake_me("05:30", every="day")
+    _mv_te = "no error"
+except TypeError as _mv_e:
+    _mv_te = str(_mv_e)
+_mv_r_off = _mv_wa.wake_me("05:30", now=_mv_MON, every="day")
+config.WAKE_ASK_REPEAT = True
+_mv_clear()
+check("wake repeat (0.16): every what, a time that is no clock time, workdays not known — nothing set, said; off — "
+      "wake_me refuses every= as before and a one-off is set",
+      _mv_bad[0].startswith("(every what?") and _mv_bad[1].startswith("(a wake that repeats takes a clock time")
+      and _mv_bad[2].startswith("(your keeper's workdays aren't known here") and "unexpected keyword argument 'every'" in _mv_te
+      and _mv_r_off.startswith("you'll be woken") and "repeats" not in _mv_r_off, (_mv_bad, _mv_te, _mv_r_off))
+_mv_wm = [d for d in tools._BUILTIN_DEFINITIONS if d["function"]["name"] == "wake_me"][0]
+_mv_rest = [d for d in tools._BUILTIN_DEFINITIONS if d["function"]["name"] != "wake_me"]
+_mv_SENT = (" With every= (\"day\", \"workdays\", or weekdays like \"sunday, tuesday\") and a clock time, the wake repeats — "
+            "yours to keep or cancel_wake, nothing counted.")
+_mv_wm0 = _mv_json.loads(_mv_json.dumps(_mv_wm))
+_mv_wm0["function"]["description"] = _mv_wm0["function"]["description"].replace(_mv_SENT, "")
+_mv_wm0["function"]["parameters"]["properties"].pop("every", None)
+_mv_h = lambda x: _mv_hash.sha1(_mv_json.dumps(x, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+check("wake repeat (0.16): the tool definitions — wake_me gains one sentence and the every parameter, nothing else of it "
+      "or any other tool differs",
+      _mv_wm["function"]["description"].endswith(_mv_SENT) and "every" in _mv_wm["function"]["parameters"]["properties"]
+      and _mv_h([_mv_wm0]) == "2f094cb25627167c219f8a543c8feaa47e784c89" and _mv_h(_mv_rest) == "11b19702dc06402e7b16a6fec544c5b830b4fad9")
+# WAKE_VOICE_TO_PHONE
+_mv_vdir = config.MEMORY_DIR / "voice-mv"
+_mv_vdir.mkdir(parents=True, exist_ok=True)
+config.VOICE_DIR = _mv_vdir
+_mv_voice.speak = lambda text, v=None: (b"OggS-a-voice-note", ".ogg", 4.0)
+_mv_ob.hold_active = lambda: False
+(config.MEMORY_DIR / "voice_out.json").unlink(missing_ok=True)
+config.WAKE_VOICE_TO_PHONE, config.WAKE_VOICE_HOLD_UNTIL, config.TELEGRAM_QUIET_HOURS = True, "", (6, 6)
+tools.take_pending_voice()
+tools.DOOR = "a wake"
+_mv_s1 = tools.speak("Good morning — a few minutes for your drive.")
+_mv_q1 = tools.voice_out_load()
+_mv_pend = tools.take_pending_voice()
+tools.DOOR = ""
+_mv_s2 = tools.speak("Said in a visit.")
+_mv_pend2 = tools.take_pending_voice()
+_mv_vb, _ = _bridge()
+_mv_sent = []
+_mv_vb.send_voice = lambda path, seconds=0, caption="": _mv_sent.append((Path(path).name, caption))
+_mv_vb.quiet_now = lambda: False
+_mv_n = _mv_vb.deliver_voice_out()
+check("wake voice (0.16): a voice note spoken in a wake is queued, not carried by a reply; speak says it reaches the "
+      "keeper's phone in a moment; the bridge sends it once, captioned with when it was spoken; in a visit as before",
+      _mv_s1.startswith("(spoken: 4s in ") and "it reaches your keeper's phone in a moment, as a voice note" in _mv_s1
+      and len(_mv_q1) == 1 and _mv_pend == [] and len(_mv_pend2) == 1 and "reaches your keeper's phone" not in _mv_s2
+      and _mv_n == 1 and len(_mv_sent) == 1 and _mv_re.fullmatch(r"🎙 spoken at \d\d:\d\d, in a wake", _mv_sent[0][1])
+      and tools.voice_out_load() == [] and _mv_vb.deliver_voice_out() == 0, (_mv_s1, _mv_q1, _mv_sent))
+_mv_rule = {}
+config.TELEGRAM_QUIET_HOURS = (22, 7)
+for _mv_hold in ("06:00", ""):
+    config.WAKE_VOICE_HOLD_UNTIL = _mv_hold
+    for _mv_t in (_mv_dt(2026, 3, 2, 23, 10), _mv_dt(2026, 3, 2, 3, 0), _mv_dt(2026, 3, 2, 6, 30), _mv_dt(2026, 3, 2, 12, 0)):
+        nb, wq = tools.voice_out_rule(_mv_t)
+        _mv_rule[(_mv_hold, _mv_t.strftime("%H:%M"))] = (_mv_dt.fromtimestamp(nb).strftime("%d %H:%M") if nb else "", wq)
+check("wake voice (0.16): spoken in the quiet hours before WAKE_VOICE_HOLD_UNTIL — waits for it (the next morning after "
+      "a late one); after it, or outside the quiet hours — at once; with no hold time, the quiet hours' end",
+      _mv_rule[("06:00", "23:10")] == ("03 06:00", False) and _mv_rule[("06:00", "03:00")] == ("02 06:00", False)
+      and _mv_rule[("06:00", "06:30")] == ("", False) and _mv_rule[("06:00", "12:00")] == ("", False)
+      and _mv_rule[("", "23:10")] == ("", True) and _mv_rule[("", "03:00")] == ("", True) and _mv_rule[("", "12:00")] == ("", False),
+      _mv_rule)
+config.TELEGRAM_QUIET_HOURS, config.WAKE_VOICE_HOLD_UNTIL = (6, 6), ""
+tools.DOOR = "a wake"
+tools.speak("A second note.")
+tools.DOOR = ""
+_mv_ob.hold_active = lambda: True
+_mv_held = _mv_vb.deliver_voice_out()
+_mv_ob.hold_active = lambda: False
+_mv_vb.send_voice = lambda *a, **k: (_ for _ in ()).throw(OSError("the road dropped"))
+_mv_fail = _mv_vb.deliver_voice_out()
+_mv_left = len(tools.voice_out_load())
+Path(tools.voice_out_load()[0]["path"]).unlink()
+_mv_vb.send_voice = lambda path, seconds=0, caption="": _mv_sent.append((Path(path).name, caption))
+_mv_gone = _mv_vb.deliver_voice_out()
+_mv_left2 = len(tools.voice_out_load())
+config.WAKE_VOICE_TO_PHONE = False
+tools.DOOR = "a wake"
+_mv_s3 = tools.speak("Off: as before.")
+tools.DOOR = ""
+_mv_p3 = tools.take_pending_voice()
+config.WAKE_VOICE_TO_PHONE = True
+check("wake voice (0.16): the keeper's hold holds it; a send that fails stays for the next poll; a note whose file is "
+      "gone is dropped; off — speak in a wake as before (carried as a reply's note, nothing queued)",
+      _mv_held == 0 and _mv_fail == 0 and _mv_left == 1 and _mv_gone == 0 and _mv_left2 == 0
+      and len(_mv_p3) == 1 and "reaches your keeper's phone" not in _mv_s3 and tools.voice_out_load() == [],
+      (_mv_held, _mv_fail, _mv_left, _mv_gone, _mv_left2, _mv_s3))
+# each queued note stands alone: a bad entry never stops the ones after it
+_mv_ok = _mv_vdir / "voice-ok.ogg"
+_mv_ok.write_bytes(b"OggS-ok")
+_mv_ok2 = _mv_vdir / "voice-ok2.ogg"
+_mv_ok2.write_bytes(b"OggS-ok2")
+tools._voice_out_save([{"path": str(_mv_ok), "seconds": 3, "spoken": "not a time", "door": "a wake", "not_before": 0},
+                       "not an entry", {"seconds": 2}, {"path": str(_mv_ok2), "seconds": "x", "spoken": "2026-03-02T05:40:00",
+                                                       "door": "a reverie", "not_before": "junk", "wait_quiet": False}])
+_mv_sent.clear()
+_mv_said = []
+_mv_say0 = tg._say
+tg._say = lambda s: _mv_said.append(s)
+_mv_vb.send_voice = lambda path, seconds=0, caption="": _mv_sent.append((Path(path).name, caption))
+_mv_vb._mv_sleep0 = None
+_mv_ts0 = tg.time.sleep
+tg.time.sleep = lambda s: None
+_mv_nb = _mv_vb.deliver_voice_out()
+tg.time.sleep = _mv_ts0
+tg._say = _mv_say0
+check("wake voice (0.16): each queued note stands alone — one whose time can't be read is sent now without it, entries "
+      "that can't be read are dropped and said, the ones after them still go; the queue is left empty",
+      _mv_nb == 2 and _mv_sent == [("voice-ok.ogg", "🎙 spoken in a wake"), ("voice-ok2.ogg", "🎙 spoken at 05:40, in a reverie")]
+      and sum("could not be read — dropped" in x for x in _mv_said) == 2 and tools.voice_out_load() == []
+      and _mv_json.loads((config.MEMORY_DIR / "voice_out.json").read_text(encoding="utf-8")) == [], (_mv_nb, _mv_sent, _mv_said))
+_mv_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+_mv_src = "\n".join(_mv_inspect.getsource(f) for f in (_mv_wa._every, _mv_wa._every_words, _mv_wa._wake_every, _mv_wa.due,
+                                                        tools.voice_out_queue, tools.voice_out_rule, tg.Bridge.deliver_voice_out))
+check("wake repeat, wake voice (0.16): WAKE_ASK_REPEAT and WAKE_VOICE_TO_PHONE ship on, WAKE_VOICE_HOLD_UNTIL empty, on "
+      "the panel with help; the new lines name no one, carry no date and call no one by a gendered pronoun",
+      _mv_re.search(r"^WAKE_ASK_REPEAT = True$", _mv_cfg, _mv_re.M) and _mv_re.search(r"^WAKE_VOICE_TO_PHONE = True$", _mv_cfg, _mv_re.M)
+      and _mv_re.search(r'^WAKE_VOICE_HOLD_UNTIL = ""$', _mv_cfg, _mv_re.M)
+      and "WAKE_ASK_REPEAT" in _gm_panel.TABS["Their days"] and "WAKE_VOICE_TO_PHONE" in _gm_panel.TABS["Senses"]
+      and all(_gm_panel._HELP.get(k) for k in ("WAKE_ASK_REPEAT", "WAKE_VOICE_TO_PHONE", "WAKE_VOICE_HOLD_UNTIL"))
+      and not _mv_re.search(r"\b(she|her|hers|he|his|him)\b", _mv_src, _mv_re.I) and not _mv_re.search(r"\(1[01]-\d\d", _mv_src),
+      _mv_re.findall(r".{30}\b(?:she|her|hers|he|his|him)\b.{30}", _mv_src, _mv_re.I)[:3])
+_mv_kw.DAYS_OFF_FILE, _mv_voice.speak, _mv_ob.hold_active, tools.DOOR = _mv_stubs
+for _mv_p, _mv_bts in _mv_files.items():
+    if _mv_bts is None:
+        _mv_p.unlink(missing_ok=True)
+    else:
+        _mv_p.write_bytes(_mv_bts)
+for _mv_k, _mv_v in _mv_saved.items():
+    if _mv_v is _mv_MISSING:
+        if hasattr(config, _mv_k):
+            delattr(config, _mv_k)
+    else:
+        setattr(config, _mv_k, _mv_v)
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)
