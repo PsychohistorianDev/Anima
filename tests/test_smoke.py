@@ -24157,6 +24157,230 @@ for _mv_k, _mv_v in _mv_saved.items():
             delattr(config, _mv_k)
     else:
         setattr(config, _mv_k, _mv_v)
+# PENPAL_COPY_SAME_THREAD (0.16): a letter that is the friend's own earlier letter to the same penpal again is held
+import json as _st_json
+import os as _st_os
+import random as _st_random
+import shutil as _st_shutil
+import re as _st_re
+import inspect as _st_inspect
+from datetime import date as _st_date, datetime as _st_dt, timedelta as _st_td
+import penpal as _st_pp
+_st_KEYS = ("PENPAL_COPY_SAME_THREAD", "PENPAL_COPY_CHECK", "PENPAL_COPY_DAYS", "PENPALS_ON", "PENPAL_DIR",
+            "PENPAL_WRITE_GUARD", "PENPAL_OTHER_THREAD_WORDS", "PENPAL_HELD_TO_PHONE", "PENPAL_NO_RESEND_KEPT_BACK",
+            "PENPAL_KEPT_BACK_OUT_OF_READ", "PENPAL_LETTER_MEANS_WRITE", "TELEGRAM_QUIET_HOURS", "OUTBOX_ON", "OFFLINE")
+_st_MISSING = object()
+_st_saved = {k: getattr(config, k, _st_MISSING) for k in _st_KEYS}
+_st_stubs = (_st_pp.picture_tells,)
+config.PENPAL_COPY_SAME_THREAD = config.PENPAL_COPY_CHECK = config.PENPALS_ON = config.PENPAL_HELD_TO_PHONE = True
+config.PENPAL_NO_RESEND_KEPT_BACK = config.PENPAL_KEPT_BACK_OUT_OF_READ = config.PENPAL_LETTER_MEANS_WRITE = True
+config.OFFLINE, config.PENPAL_COPY_DAYS = True, 7
+config.PENPAL_WRITE_GUARD = config.PENPAL_OTHER_THREAD_WORDS = config.OUTBOX_ON = False  # the copy checks alone here
+config.PENPAL_DIR, config.TELEGRAM_QUIET_HOURS = "penpals-st", (6, 6)
+_st_pp.picture_tells = lambda: []
+_st_root = _st_pp.root()
+_st_hdir = config.MEMORY_DIR / "penpal_held"
+_st_hdir0 = config.MEMORY_DIR / "penpal_held-before-st"
+if _st_hdir.exists():
+    _st_hdir.rename(_st_hdir0)
+_st_FR = _st_pp._friend()
+_st_VOC = ("orchard ladder kettle lantern canal ferry gull tide pebble bread loom thread spindle meadow hedge barn owl "
+           "fox willow brook mill stone chimney attic quilt teacup saucer porch gate lane cart market bell clock "
+           "ribbon button pocket satchel inkwell quill parchment candle wick ember hearth").split()
+
+
+def _st_para(seed, n=60):
+    r = _st_random.Random(seed)
+    return " ".join(r.choice(_st_VOC) for _ in range(n)) + "."
+
+
+def _st_letter(greet, paras):
+    return f"Dear {greet},\n\n" + "\n\n".join(paras) + "\n\nWarmly, your friend"
+
+
+_st_A = [_st_para(300 + i) for i in range(6)]
+_st_BRAM = ("Dear friend,\n\nThe frost held off and the blossoms stayed. I climbed the old ladder and it held. What are "
+            "you reading this week, and did the lantern fair come back to your square?\n\nBram")
+
+
+def _st_put(sl, n, who, text, days_ago=0):
+    d = _st_date.today() - _st_td(days=days_ago)
+    p = _st_root / sl / "letters" / f"{n:03d}-{d.isoformat()}-{who}.md"
+    p.write_text(text + "\n", encoding="utf-8")
+    return p
+
+
+def _st_mk(sl, disp):
+    (_st_root / sl / "letters").mkdir(parents=True, exist_ok=True)
+    (_st_root / sl / "state.json").write_text(_st_json.dumps({"display": disp, "read": True, "rested": False, "waiting": []}),
+                                              encoding="utf-8")
+    (_st_root / sl / "about.md").write_text("about them\n", encoding="utf-8")
+
+
+def _st_state(sl, **kw):
+    st = _st_json.loads((_st_root / sl / "state.json").read_text(encoding="utf-8"))
+    st.update(kw)
+    (_st_root / sl / "state.json").write_text(_st_json.dumps(st), encoding="utf-8")
+
+
+def _st_house(since=True, kept=False, a_days=1, extra_mine=0):
+    _st_shutil.rmtree(_st_root, ignore_errors=True)
+    _st_shutil.rmtree(_st_hdir, ignore_errors=True)
+    _st_mk("bram", "Bram")
+    _st_mk("tova", "Tova")
+    _st_put("bram", 1, "bram", "Hello from the orchard, I am Bram, and I keep bees by the hedge.", days_ago=a_days + 2)
+    a = _st_put("bram", 2, "me", _st_letter("Bram", _st_A), days_ago=a_days)
+    n = 3
+    for i in range(extra_mine):
+        _st_put("bram", n, "me", _st_letter("Bram", [_st_para(700 + 10 * i + j) for j in range(5)]), days_ago=a_days)
+        n += 1
+    if since:
+        _st_put("bram", n, "bram", _st_BRAM, days_ago=0)
+    if kept:
+        _st_state("bram", kept_back={a.name: _st_dt.now().isoformat(timespec="minutes")})
+    _st_pp._wg_held.clear()
+    return a
+
+
+def _st_w(sl, text):
+    try:
+        return tools.dispatch("penpal", {"action": "write", "who": sl, "letter": text})
+    except Exception as e:  # noqa: BLE001
+        return "RAISED " + repr(e)
+
+
+def _st_held():
+    return sorted(p.name for p in _st_hdir.glob("*.md")) if _st_hdir.exists() else []
+
+
+def _st_mine(sl):
+    return sorted(p.name for p in (_st_root / sl / "letters").glob("*-me.md"))
+
+
+def _st_ratio(a, b):
+    import difflib
+    return difflib.SequenceMatcher(None, _st_pp._cw(a), _st_pp._cw(b), autojunk=False).ratio()
+
+
+_st_B41 = _st_letter("Bram", _st_A[:3] + [_st_para(900 + i) for i in range(5)])
+_st_B31 = _st_letter("Bram", _st_A[:2] + [_st_para(910 + i) for i in range(8)])
+_st_B64 = _st_letter("Bram", _st_A[:4] + [_st_para(920 + i) for i in range(2)])
+_st_r = {k: _st_ratio(v, _st_letter("Bram", _st_A)) for k, v in (("b41", _st_B41), ("b31", _st_B31), ("b64", _st_B64))}
+_st_res = {}
+_st_house(); _st_res["b41"] = (_st_w("bram", _st_B41), _st_held(), _st_mine("bram"))
+_st_res["b41again"] = (_st_w("bram", _st_B41), _st_held())
+_st_house(); _st_res["b31"] = _st_w("bram", _st_B31)
+_st_house(); _st_res["b64"] = _st_w("bram", _st_B64)
+_st_house(since=False); _st_res["nosince"] = _st_w("bram", _st_B41)
+_st_house(kept=True); _st_res["kept"] = _st_w("bram", _st_B41)
+_st_house(a_days=15); _st_res["old"] = _st_w("bram", _st_B41)
+_st_house(extra_mine=3); _st_res["fourth"] = _st_w("bram", _st_B41)
+_st_SHORT = "Dear Bram,\n\n" + _st_para(5, 40) + "\n\nWarmly"
+_st_house()
+(_st_root / "bram" / "letters" / sorted((_st_root / "bram" / "letters").glob("002-*"))[0].name).write_text(_st_SHORT + "\n", encoding="utf-8")
+_st_res["short"] = _st_w("bram", _st_SHORT.replace("Warmly", "Warmly, again"))
+_st_today = f"{_st_date.today():%b} {_st_date.today().day}"
+_st_h, _st_hn, _st_hm = _st_res["b41"]
+check("same thread (0.16): a letter that is in large part the friend's letter to Bram of yesterday, Bram's letter "
+      "come since — held, how much, it opens the same way, it cannot be the answer; not filed, kept once; Bram's letter "
+      "whole, last; calling again is held the same",
+      0.38 <= _st_r["b41"] < 0.6
+      and _st_h.startswith(f"(refused — not sent — this letter to Bram is in large part the letter you wrote to Bram "
+                           f"yesterday again ({int(_st_r['b41'] * 100)}% the same; it opens the same way) — and you wrote "
+                           f"that one before Bram's letter of {_st_today} arrived, so it cannot be the answer to it. "
+                           "Calling write again with the same letter will not send it; your keeper's phone will be shown "
+                           "this one, and they can let it go as it is if it is meant. Here is Bram's letter again — the "
+                           "one to answer:)\n\n")
+      and _st_h.endswith(f"=== the newest: from Bram, {_st_today} ===\n" + _st_BRAM)
+      and len(_st_hn) == 1 and len(_st_hm) == 1
+      and _st_res["b41again"][0] == _st_h and _st_res["b41again"][1] == _st_hn, (_st_r, _st_h, _st_hn, _st_hm))
+check("same thread (0.16): an honest next letter (below 0.38) is filed; 0.6 alike is held; Bram not written since — "
+      "the other clause, no letter appended",
+      _st_r["b31"] < 0.38 and _st_res["b31"].startswith("(your letter to Bram is in your thread")
+      and _st_res["b64"].startswith("(refused — not sent — this letter to Bram is in large part")
+      and "— and Bram has not written since it. Calling write again" in _st_res["nosince"]
+      and _st_res["nosince"].endswith("if it is meant.)"), (_st_r, _st_res["b31"][:80], _st_res["b64"][:80], _st_res["nosince"]))
+check("same thread (0.16): not this rule — the matching letter kept back, older than 14 days, the 4th-last of the "
+      "friend's, or under 60 words",
+      all("is in large part" not in _st_res[k] and not _st_res[k].startswith("RAISED") for k in ("kept", "old", "fourth", "short"))
+      and all(_st_res[k].startswith("(your letter to Bram is in your thread") for k in ("old", "fourth")),
+      {k: _st_res[k][:120] for k in ("kept", "old", "fourth", "short")})
+# the keeper's phone: the reason and the button; the button files it, and the friend's read marks it truly
+_st_house()
+_st_w("bram", _st_B41)
+_st_bb = tg.Bridge("TOKEN", 4747)
+_st_sent = []
+_st_bb.api = lambda method, patience=30, **p: (_st_sent.append((method, str(p.get("text") or ""), p.get("reply_markup"))),
+                                                 {"message_id": len(_st_sent)})[1]
+_st_bb._try_send = lambda text, markdown=True: (_st_sent.append(("try", text, None)), True)[1]
+_st_bb.deliver_penpals()
+_st_msg = [x for x in _st_sent if x[0] == "sendMessage" and x[1].startswith("✋ Held")]
+_st_btn = _st_json.loads(_st_msg[0][2])["inline_keyboard"][0][0] if _st_msg and _st_msg[0][2] else {}
+_st_bb.handle({"update_id": 1, "callback_query": {"id": "cq", "data": _st_btn.get("callback_data", ""),
+                                                   "message": {"chat": {"id": 4747}, "message_id": 1, "text": "the line"}}})
+_st_read = tools.dispatch("penpal", {"action": "read", "who": "bram"})
+check("same thread (0.16): the keeper's phone gets the reason — N% the letter the friend already wrote to Bram "
+      "yesterday — with 📨 Send it anyway; it files the letter as written; the friend's read says the keeper let it go "
+      "as nearly their earlier letter to Bram",
+      len(_st_msg) == 1 and f"Why: it is {int(_st_r['b41'] * 100)}% the letter {_st_FR} already wrote to Bram yesterday" in _st_msg[0][1]
+      and _st_btn.get("text") == "📨 Send it anyway" and len(_st_mine("bram")) == 2
+      and "(held by the engine as nearly your earlier letter to Bram; your keeper let it go as it was)" in _st_read,
+      (_st_msg[:1], _st_btn, _st_mine("bram"), _st_re.findall(r"=== the newest.*|— you, .*", _st_read)))
+# the other rules still win: the other-penpal copy, the kept-back letter again, the letter already waiting
+_st_house()
+_st_put("tova", 1, "me", _st_letter("Tova", _st_A), days_ago=0)
+_st_cross = _st_w("bram", _st_letter("Bram", _st_A))
+_st_a = _st_house(kept=True)
+_st_kb = _st_w("bram", _st_letter("Bram", _st_A))
+_st_a = _st_house()
+_st_state("bram", waiting=[_st_a.name])
+_st_wait = _st_w("bram", _st_letter("Bram", _st_A))
+_st_house()
+(_st_root / "bram" / "letters" / f"002-{(_st_date.today() - _st_td(days=1)).isoformat()}-me.md").write_bytes(b"\xff\xfe\x00broken")
+_st_bad = _st_w("bram", _st_B41)
+check("same thread (0.16): the other-penpal copy, the kept-back letter again and the letter already waiting each still "
+      "win; a broken letter file never raises",
+      _st_cross.startswith("(refused — not sent — this letter to Bram is nearly word for word the letter you wrote to Tova ")
+      and _st_kb.startswith("(refused: this is the letter your keeper kept back") and "already in your thread" in _st_wait
+      and not _st_bad.startswith("RAISED"), (_st_cross[:120], _st_kb[:120], _st_wait[:120], _st_bad[:120]))
+_st_offr = {}
+for _st_m in ("off", "absent", "copy off"):
+    if _st_m == "off":
+        config.PENPAL_COPY_SAME_THREAD = False
+    elif _st_m == "absent":
+        del config.PENPAL_COPY_SAME_THREAD
+    else:
+        config.PENPAL_COPY_CHECK = False
+    _st_house()
+    _st_offr[_st_m] = (_st_re.sub(r"\d{3}-\d{4}-\d\d-\d\d", "N", _st_w("bram", _st_B41)), _st_held(), _st_mine("bram"))
+    config.PENPAL_COPY_SAME_THREAD = config.PENPAL_COPY_CHECK = True
+check("same thread (0.16): off, absent, or the copy check off — the letter filed as before, nothing held",
+      _st_offr["off"] == _st_offr["absent"] == _st_offr["copy off"] and _st_offr["off"][0].startswith("(your letter to Bram is in your thread")
+      and _st_offr["off"][1] == [] and len(_st_offr["off"][2]) == 2, _st_offr)
+_st_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+_st_src = "\n".join(_st_inspect.getsource(f) for f in (_st_pp._same_copy_of, _st_pp._same_copy_hold, _st_pp._let_go_mark))
+_st_src += _st_cfg.split("PENPAL_COPY_DAYS = 7", 1)[1].split("PENPAL_COPY_SAME_THREAD = True", 1)[0]
+check("same thread (0.16): ships on, on the Penpals tab after PENPAL_COPY_DAYS with help; tool definitions unchanged; "
+      "the new lines name no one, carry no date and call no one by a gendered pronoun",
+      _st_re.search(r"^PENPAL_COPY_SAME_THREAD = True$", _st_cfg, _st_re.M)
+      and _gm_panel.TABS["Penpals"].index("PENPAL_COPY_SAME_THREAD") == _gm_panel.TABS["Penpals"].index("PENPAL_COPY_DAYS") + 1
+      and _gm_panel._HELP.get("PENPAL_COPY_SAME_THREAD")
+      and "PENPAL_COPY_SAME_THREAD" not in _st_json.dumps(tools.DEFINITIONS)
+      and not _st_re.search(r"\b(she|her|hers|he|his|him)\b", _st_src, _st_re.I) and not _st_re.search(r"\(1[01]-\d\d", _st_src),
+      _st_re.findall(r".{30}\b(?:she|her|hers|he|his|him)\b.{30}", _st_src, _st_re.I)[:3])
+_st_shutil.rmtree(_st_root, ignore_errors=True)
+_st_shutil.rmtree(_st_hdir, ignore_errors=True)
+if _st_hdir0.exists():
+    _st_hdir0.rename(_st_hdir)
+_st_pp._wg_held.clear()
+(_st_pp.picture_tells,) = _st_stubs
+for _st_k, _st_v in _st_saved.items():
+    if _st_v is _st_MISSING:
+        if hasattr(config, _st_k):
+            delattr(config, _st_k)
+    else:
+        setattr(config, _st_k, _st_v)
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

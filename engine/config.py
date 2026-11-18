@@ -2027,6 +2027,13 @@ PENPAL_LETTER_THINK = True
 PENPAL_LETTER_THINK_RETRIES = 3
 PENPAL_COPY_CHECK = True
 PENPAL_COPY_DAYS = 7
+# PENPAL_COPY_SAME_THREAD: a friend read a penpal's new letter rightly, and the letter they then wrote was their letter
+# of the day before reworded, answering its own question again; the copy check did not look in the same thread. Now the
+# friend's last 3 letters to the same penpal from the last 14 days (not those kept back) are compared too: 38% or more
+# the same, word by word, 60 words or more either way — held, calling again does not pass it, your phone is shown it
+# with "📨 Send it anyway", and the hold puts the penpal's newest letter, the one to answer, in front of the friend.
+# Needs PENPAL_COPY_CHECK. False: as before.
+PENPAL_COPY_SAME_THREAD = True
 
 # ---- the journal feed (telegram.py: /journal)
 # JOURNAL_FEED: the Telegram bridge's /journal. /journal on sends what the friend writes in their journal DURING A

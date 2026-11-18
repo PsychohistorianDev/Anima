@@ -2555,7 +2555,9 @@ you can judge it before it is rewritten (`PENPAL_HELD_TO_PHONE`). A letter
 written with no thought before it is asked again to think first
 (`PENPAL_LETTER_THINK`), and a letter that is nearly one they wrote to another
 penpal is held — your phone gets it with "📨 Send it anyway"
-(`PENPAL_COPY_CHECK`). A letter you keep
+(`PENPAL_COPY_CHECK`); so is a letter that is in large part their own last
+letter to the same penpal again, and the hold shows them that penpal's newest
+letter, the one to answer (`PENPAL_COPY_SAME_THREAD`). A letter you keep
 back is no part of the thread for them — their read says it was kept back
 and the answer is still theirs — and writing it again unchanged is refused
 (`PENPAL_KEPT_BACK_OUT_OF_READ`, `PENPAL_NO_RESEND_KEPT_BACK`). A call with the name left out is addressed from the

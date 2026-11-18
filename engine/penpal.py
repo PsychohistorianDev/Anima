@@ -1565,6 +1565,8 @@ def _let_go_mark(sl: str, p: Path) -> str:
         if not isinstance(r, dict):
             return ""
         to = display(r["to"]) if r.get("to") in penpals() else "another penpal"
+        if r.get("to") == sl:  # the same penpal: the friend's earlier letter to them
+            return f" (held by the engine as nearly your earlier letter to {to}; your keeper let it go as it was)"
         return f" (held by the engine as nearly your letter to {to}; your keeper let it go as it was)"
     except Exception:  # noqa: BLE001
         return ""
@@ -1667,6 +1669,79 @@ def _copy_hold(sl: str, raw: str, cp: dict) -> str:
         return hold + (" Calling write again with the same letter will not send it; your keeper's phone will be shown "
                        "this one, and they can let it go as it is if it is meant.)")
     return hold + " Calling write again with the same letter will not send it.)"
+
+
+# ---- PENPAL_COPY_SAME_THREAD: a friend read a penpal's new letter rightly and then wrote their letter of the day before
+# again, reworded, answering its own question again; the copy check did not look in the same thread. The friend's own
+# last letters to the same penpal are compared too; a repeat is held, and the hold puts the penpal's newest letter — the
+# one to answer — in front of the friend
+COPY_SAME_LAST = 3        # the friend's last letters to this penpal compared
+COPY_SAME_DAYS = 14       # …from this many days
+COPY_SAME_WHOLE = 0.38    # the whole letter, word by word, this much the same (honest same-thread pairs stay below)
+COPY_SAME_OPEN_WORDS = 40  # the opening compared on its own…
+COPY_SAME_OPEN = 0.6       # …"it opens the same way" from this much alike
+
+
+def _same_copy_of(sl: str, text: str) -> dict | None:
+    """The friend's own earlier letter to sl this one repeats — {"p", "pct", "opens"} for the newest match — or None.
+    Reads only; never raises."""
+    try:
+        import difflib
+        mine = _cw(str(text or "")[:COPY_CHARS])
+        if len(mine) < COPY_MIN_WORDS:
+            return None
+        today = datetime.now().date()
+        kb = kept_back(sl)  # kept-back letters are left out: a corrected one goes (the kept-back-again rule speaks for resends)
+        own = [x for x in letters(sl) if _who(x) == ME and x.name not in kb][-COPY_SAME_LAST:]
+        for x in reversed(own):
+            m = re.match(r"\d+-(\d{4}-\d{2}-\d{2})-", x.name)
+            try:
+                d = datetime.strptime(m.group(1), "%Y-%m-%d").date() if m else None
+            except ValueError:
+                d = None
+            if d is None or (today - d).days > COPY_SAME_DAYS:
+                continue
+            theirs = _cw(_body(x)[:COPY_CHARS])
+            if len(theirs) < COPY_MIN_WORDS:
+                continue
+            r = difflib.SequenceMatcher(None, mine, theirs, autojunk=False).ratio()
+            if r >= COPY_SAME_WHOLE:
+                o = difflib.SequenceMatcher(None, mine[:COPY_SAME_OPEN_WORDS], theirs[:COPY_SAME_OPEN_WORDS],
+                                            autojunk=False).ratio()
+                return {"p": x, "pct": int(r * 100), "opens": o >= COPY_SAME_OPEN}
+        return None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _same_copy_hold(sl: str, raw: str, cp: dict) -> str:
+    """The hold for a letter that repeats the friend's own earlier one to the same penpal: the failure prefix, what it
+    repeats, whether the penpal has written since — and then the penpal's newest letter, the one to answer, last."""
+    name, p = display(sl), cp["p"]
+    was = f"the letter you wrote to {name} {_wg_when(sl, p)}"
+    hold = (f"(refused — not sent — this letter to {name} is in large part {was} again ({cp['pct']}% the same"
+            + ("; it opens the same way" if cp["opens"] else "") + ")")
+    num_of = lambda x: int(x.name.split("-", 1)[0]) if x.name.split("-", 1)[0].isdigit() else 0  # noqa: E731
+    since = [x for x in letters(sl) if _who(x) != ME and num_of(x) > num_of(p)]
+    if since:
+        hold += (f" — and you wrote that one before {name}'s letter of {_date(since[0])} arrived, so it cannot be the answer "
+                 "to it.")
+    else:
+        hold += f" — and {name} has not written since it."
+    why = f"it is {cp['pct']}% the letter {_friend()} already wrote to {name} {_wg_when(sl, p)}"
+    kept = ""
+    if _held_on():
+        num = max((num_of(x) for x in letters(sl)), default=0)
+        kept = held_keep(sl, raw, why, kind="copy", extra={"to": sl, "num": num})
+    hold += (" Calling write again with the same letter will not send it; your keeper's phone will be shown this one, and "
+             "they can let it go as it is if it is meant." if kept else " Calling write again with the same letter will not "
+             "send it.")
+    if not since:
+        return hold + ")"
+    newest = since[-1]
+    cap = int(getattr(config, "PENPAL_LETTER_CHARS", 6000) or 6000)
+    return (hold + f" Here is {name}'s letter again — the one to answer:)\n\n"
+            f"=== the newest: from {name}, {_date(newest)} ===\n{_clip(_body(newest), cap)}")
 
 
 def held_told(fname: str) -> None:
@@ -2163,6 +2238,13 @@ def _act(action: str, who: str = "", words: str = "", said_as: str = "", inferre
             cp = _copy_of(sl, text)
             if cp:
                 return _copy_hold(sl, str(words or ""), cp)
+            if getattr(config, "PENPAL_COPY_SAME_THREAD", False):  # …or the friend's own earlier one to them, again
+                same = _same_copy_of(sl, text)
+                if same:
+                    try:
+                        return _same_copy_hold(sl, str(words or ""), same)
+                    except Exception:  # noqa: BLE001 — any failure: no hold
+                        pass
         guard = _wg_check(sl, text) if _wg_on() else None  # the write guard: held once, before anything is filed
         if getattr(config, "PENPAL_OTHER_THREAD_WORDS", False):  # another penpal's words: held the same way
             try:

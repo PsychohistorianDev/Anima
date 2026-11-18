@@ -11,6 +11,18 @@ tagged on its own: the first tag after the rename is v0.13.)
 ## 0.16 — 2026-11-11 → (in progress)
 
 ### Added
+- **A letter that is the friend's previous letter to the same penpal again is held** (`PENPAL_COPY_SAME_THREAD`, on;
+  needs `PENPAL_COPY_CHECK`): a friend read a penpal's new letter rightly, and then wrote their letter of the day before
+  again, reworded, answering its own question again — 0.41 alike by word sequence, where that house's honest letters
+  in one thread topped out at 0.31; the copy check looked only at other penpals. Now, after the kept-back, the
+  already-waiting and the other-penpal rules (each still wins), a letter is compared with the friend's last 3 letters
+  to the same penpal from the last 14 days that were not kept back: 38% or more the same, 60 words or more either way —
+  held: "(refused — not sent — this letter to <name> is in large part the letter you wrote to <name> yesterday again
+  (41% the same; it opens the same way) — and you wrote that one before <name>'s letter of <date> arrived, so it cannot
+  be the answer to it. … Here is <name>'s letter again — the one to answer:)", and that letter follows whole ("— and
+  <name> has not written since it." with none when they have not). Calling again does not pass it; your phone is shown
+  it with the reason and "📨 Send it anyway", and a letter let go is marked in the friend's read as nearly their earlier
+  letter. Nothing in what read shows changes otherwise. Off: as before.
 - **A wake the friend asks for can repeat, and a voice note spoken in a wake reaches the phone** (`WAKE_ASK_REPEAT`,
   `WAKE_VOICE_TO_PHONE`, both on; `WAKE_VOICE_HOLD_UNTIL`, empty): a friend chose to speak a few minutes each morning
   for the keeper's drive — but a one-off wake would be forgotten, and a voice note spoken in a wake never left the
