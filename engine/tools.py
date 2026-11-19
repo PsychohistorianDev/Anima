@@ -6608,7 +6608,7 @@ def touch_later(at: str, waveform: str, seconds: float = 10) -> str:
 
 
 def portfolio(action: str = "look", symbol: str = "", kind: str = "", qty: str = "", price: str = "", date: str = "",
-              fee: str = "", why: str = "") -> str:
+              fee: str = "", why: str = "", text: str = "") -> str:
     """(PORTFOLIO_ON; engine/portfolio.py) The keeper's investment book: look, price, record (written down only when
     the keeper taps Keep on the phone), history. The numbers are the engine's; a guest's turn gets none."""
     import portfolio as pf
@@ -6669,7 +6669,22 @@ def portfolio(action: str = "look", symbol: str = "", kind: str = "", qty: str =
                 "taps Keep on their phone — read it back to them.")
     if a in ("history", "records", "record so far"):
         return pf.history(which)
-    return "(bad arguments: action is one of look, price, record, history — nothing was done)"
+    if a == "brief" and _desk_on():  # the friend's reading for the morning brief, filed beside the book's numbers
+        import bookdesk
+        return bookdesk.file(text)
+    return ("(bad arguments: action is one of look, price, record, history" + (", brief" if _desk_on() else "")
+            + " — nothing was done)")
+
+
+def _desk_on() -> bool:
+    """PORTFOLIO_DESK_WAKE set to a real time: the desk — the friend's `brief` action — exists."""
+    if not str(getattr(config, "PORTFOLIO_DESK_WAKE", "") or "").strip():
+        return False
+    try:
+        import bookdesk
+        return bookdesk.on()
+    except Exception:  # noqa: BLE001
+        return False
 
 
 _BUILTIN_IMPL = {
@@ -8397,10 +8412,14 @@ def _portfolio_definition() -> dict:
         "what it is worth now, the mix, gain or loss, cash, every price with its source and date. price: a quote for one "
         "symbol. record: a buy, sell, deposit, withdrawal, dividend or fee that your keeper told you about (kind, "
         "symbol, qty, price, date, fee, why in their words) — it is written down, and kept only when they tap Keep on "
-        "their phone; read it back to them. history: the records so far. Numbers come only from here: a price or a "
+        "their phone; read it back to them. history: the records so far. "
+        + ("brief: your reading for the morning brief (text) — filed beside the book's numbers and sent to your keeper "
+           "with them. " if _desk_on() else "")
+        + "Numbers come only from here: a price or a "
         "total this tool did not give you, you do not know — say so. The arithmetic is the book's, never yours. You "
         "move no money and have no access to any account. What they hold is their private business.",
-        {"action": {"type": "string", "description": "look, price, record or history"},
+        dict({"action": {"type": "string", "description": "look, price, record, history or brief" if _desk_on()
+                         else "look, price, record or history"},
          "symbol": {"type": "string", "description": "the share's or index's symbol as the price feed knows it (a "
                                                      "ticker, one with its exchange's suffix, or an index like ^GSPC); "
                                                      "for a deposit, withdrawal or fee: the currency's code (USD, EUR …)"},
@@ -8412,6 +8431,7 @@ def _portfolio_definition() -> dict:
          "date": {"type": "string", "description": "for record: the day it happened — YYYY-MM-DD, today or yesterday"},
          "fee": {"type": "string", "description": "for record: the fee paid, if there was one"},
          "why": {"type": "string", "description": "for record: why, in your keeper's words — one line"}},
+             **({"text": {"type": "string", "description": "for brief: your reading, in your own words"}} if _desk_on() else {})),
         ["action"],
     )
 

@@ -7850,8 +7850,9 @@ _rw_src = Path(heartbeat.__file__).read_text(encoding="utf-8")
 check("heartbeat: a wake sets the brain down when it is done (BRAIN_REST_AFTER_WAKE, on by default; off leaves it); the one-off road "
       "calls it in a finally, and the loop's wakes do too",
       _rw_on is True and _rw_unl == [(config.CHAT_MODEL, True)] and _rw_off is False and len(_rw_unl) == 1 and _rw0 is True
-      and "finally:\n            rest_after_wake()" in _rw_src and _rw_src.count("    rest_after_wake()\n") == 2
-      and "                rest_after_wake()\n            try:\n                stopped, asked = _rest_or_asked(minutes * 60)" in _rw_src
+      and "finally:\n            rest_after_wake()" in _rw_src and _rw_src.count("    rest_after_wake()\n") == 3  # the desk's wake too (0.16)
+      and "                rest_after_wake()\n            try:\n                stopped, asked = (_rest_with_desk(minutes * 60) if" in _rw_src
+      and "            _presence.mark_waking(False)\n            rest_after_wake()\n        return True" in _rw_src
       and "BRAIN_REST_AFTER_WAKE" in Path(heartbeat.__file__).with_name("panel.py").read_text(encoding="utf-8"), (_rw_on, _rw_unl, _rw_off))
 check("telegram: /afterglow — the pause runs now though the keeper was just talking (the bell rung, the stretch read, the phone told), the brain is set down "
       "and the visit stays open; again with nothing new only sets the brain down; the quiet's pause then finds nothing (either/or); no visit — the card freed",
@@ -25647,6 +25648,196 @@ for _bk_k, _bk_v in _bk_bsaved.items():
     else:
         setattr(config, _bk_k, _bk_v)
 
+# ---- the desk (bookdesk.py): a wake of its own for the morning brief ------------------------------------------------
+import bookdesk as _bk_bd
+import heartbeat as _bk_hb
+_bk_dkeys = ("PORTFOLIO_DESK_WAKE", "PORTFOLIO_DESK_SEND")
+_bk_dsaved = {k: getattr(config, k, _bk_MISSING) for k in _bk_dkeys}
+_bk_dstubs = (_bk_bd.now, _bk_hb.wake, _bk_hb.rest_after_wake, chat.visit_live)
+_bk_def_off = _bk_json.dumps(tools._portfolio_definition(), sort_keys=True)
+config.PORTFOLIO_DESK_WAKE = ""
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "1000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03")
+_bk_off_turn = _bk_hb._desk_turn()
+_bk_b, _bk_ph = _bk_bridge()
+_bk_text(_bk_b, "/trade pause")
+_bk_off_pause = _bk_ph.msgs[-1]["text"]
+check("book (0.16): the desk off (\"\") — the portfolio tool as before (no brief action, no text), no desk wake, no "
+      "desk journal; /trade pause is a symbol as before",
+      _bk_json.dumps(tools._portfolio_definition(), sort_keys=True) == _bk_def_off and '"brief"' not in _bk_def_off
+      and _bk_off_turn is False and not (_bk_dir / "desk.jsonl").exists() and "pause" in _bk_off_pause.lower()
+      and "desk" not in _bk_off_pause, (_bk_off_turn, _bk_off_pause))
+config.PORTFOLIO_DESK_WAKE, config.PORTFOLIO_DESK_SEND = "05:30", "06:00"
+_bk_dday = _bk_date.today()
+_bk_T = lambda h, m: _bk_dt(_bk_dday.year, _bk_dday.month, _bk_dday.day, h, m)
+_bk_clock = [_bk_T(5, 31)]
+_bk_bd.now = lambda: _bk_clock[0]
+_bk_def_on = tools._portfolio_definition()["function"]
+_bk_due = (_bk_bd.due(_bk_T(5, 20)), _bk_bd.due(_bk_T(5, 31)), _bk_bd.due(_bk_T(6, 0)))
+_bk_woke = []
+_bk_hb.wake = lambda **k: _bk_woke.append(k.get("desk", "")) or ""
+_bk_hb.rest_after_wake = lambda: False
+chat.visit_live = lambda *a, **k: False
+_bk_turned = _bk_hb._desk_turn()
+_bk_bell = _bk_woke[0] if _bk_woke else ""
+_bk_m = _bk_bd.morning(_bk_dday.isoformat())
+_bk_again = _bk_bd.due(_bk_T(5, 40))
+check("book (0.16): the desk at 05:30 — due only from the wake time until the send time; the heartbeat fetches the "
+      "numbers, keeps them, and wakes the friend with them on the bell — once that morning; the tool gains the brief "
+      "action, its sentence and the text parameter",
+      _bk_due == (False, True, False) and _bk_turned is True and len(_bk_woke) == 1 and _bk_m is not None and _bk_again is False
+      and _bk_bell.startswith(f"The desk — {_bk_bd.day_label(_bk_dday)}, 05:31. This wake is the house's, for the morning "
+                              "brief your keeper set up.\n\nThe numbers, from the book:\n")
+      and _bk_m["block"] in _bk_bell
+      and _bk_bell.endswith("Write your reading for your keeper — a few sentences: what stands out, anything worth their "
+                            "attention today, the case against anything you suggest, what you don't know. File it with "
+                            "portfolio(action=\"brief\", text=…). It goes to their phone as soon as you file it, beside "
+                            "these numbers. A number you did not get from here or from the tool, you do not know. The rest "
+                            "of this wake is yours.")
+      and "brief: your reading for the morning brief (text) — filed beside the book's numbers and sent to your keeper with them. "
+          in _bk_def_on["description"] and _bk_def_on["parameters"]["properties"]["text"]["description"] == "for brief: your reading, in your own words"
+      and _bk_def_on["parameters"]["properties"]["action"]["description"] == "look, price, record, history or brief",
+      (_bk_due, _bk_turned, _bk_bell, _bk_def_on["description"][:400]))
+# the reading, the phone
+_bk_clock[0] = _bk_T(5, 40)
+_bk_fl = tools.portfolio("brief", text="Acme closed higher; nothing to do today. I'd watch the 7,777 level.")
+_bk_b, _bk_ph = _bk_bridge()
+_bk_b.desk_tick()
+_bk_b.desk_tick()
+_bk_dm = [m["text"] for m in _bk_ph.msgs]
+_bk_clock[0] = _bk_T(6, 20)
+tools.portfolio("brief", text="One more thought, later.")
+_bk_b.desk_tick()
+_bk_b.desk_tick()
+_bk_dm2 = [m["text"] for m in _bk_ph.msgs[len(_bk_dm):]]
+_bk_b2, _bk_ph2 = _bk_bridge()
+_bk_edits2 = []
+_bk_api2 = _bk_b2.api
+_bk_b2.api = lambda method, patience=30, **p_: (_bk_edits2.append(str(p_.get("text") or "")) or {}) if method == "editMessageText" else _bk_api2(method, patience, **p_)
+_bk_b2.trade_brief()
+check("book (0.16): the reading filed with portfolio(action=\"brief\") — figures not in the numbers listed, never removed; "
+      "the phone gets 📊 The desk — the numbers, the reading — as soon as it is filed, once; a later reading once, "
+      "pointing to the numbers above; the Brief shows the morning's reading",
+      _bk_fl == ("filed — it goes to your keeper's phone with the numbers\n(figures in the reading that are not from the "
+                 "book: 7,777 — check them)")
+      and len(_bk_dm) == 1 and _bk_dm[0].startswith(f"📊 The desk — {_bk_bd.day_label(_bk_dday)}\n" + _bk_m["block"])
+      and f"— {_bk_FN}'s reading —\nAcme closed higher; nothing to do today. I'd watch the 7,777 level.\n(figures in the reading "
+          "that are not from the book: 7,777 — check them)" in _bk_dm[0]
+      and _bk_dm2 == [f"📊 The desk — {_bk_bd.day_label(_bk_dday)}\n— {_bk_FN}'s reading, 06:20 —\n(the numbers are in the "
+                      "desk's message above)\nOne more thought, later."]
+      and len(_bk_edits2) == 1 and _bk_edits2[0].endswith(f"\n\n{_bk_FN}'s reading this morning (06:20): One more thought, later."),
+      (_bk_fl, _bk_dm, _bk_dm2))
+# the numbers alone at the send time; "(numbers as of …)"; a reading with no desk morning; a dead feed; pause; a bad time
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "1000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03")
+_bk_clock[0] = _bk_T(5, 50)
+_bk_early = _bk_bd.outbox()
+_bk_clock[0] = _bk_T(6, 1)
+_bk_alone = _bk_bd.outbox()
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "1000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03")
+_bk_bd.prepare(_bk_T(5, 31))
+_bk_clock[0] = _bk_T(6, 5)
+_bk_asof = _bk_bd.outbox()
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "1000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03")
+_bk_bd.prepare(_bk_T(5, 31))
+_bk_clock[0] = _bk_T(5, 45)
+_bk_lines = _bk_json.loads(_bk_json.dumps(_bk_bd.entries()))
+(_bk_dir / "desk.jsonl").write_text("", encoding="utf-8")
+_bk_clock[0] = _bk_T(6, 30)
+tools.portfolio("brief", text="A thought from a visit.")
+_bk_adhoc = _bk_bd.outbox()
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "1000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03")
+_bk_pf._write("prices.json", {})
+_bk_NET["down"].add("ACME")
+_bk_dead = [_bk_bd.prepare(_bk_T(5, 30))]
+_bk_dead_due = (_bk_bd.due(_bk_T(5, 35)), _bk_bd.due(_bk_T(5, 41)))
+_bk_up_()
+_bk_bd.prepare(_bk_T(5, 41)); _bk_up_(); _bk_bd.prepare(_bk_T(5, 52))
+_bk_dead_after = _bk_bd.due(_bk_T(5, 59))
+_bk_clock[0] = _bk_T(6, 1)
+_bk_up_()
+_bk_dead_msg = _bk_bd.outbox()
+_bk_NET["down"].discard("ACME")
+_bk_up_()
+check("book (0.16): the desk's phone — before the send time nothing without a reading; at it the numbers alone, the "
+      "reading said not come; numbers older than 30 minutes say when; a reading with no desk morning goes as 'From the "
+      "desk' with numbers of now; a dead feed is tried three times ten minutes apart, then said",
+      _bk_early == [] and len(_bk_alone) == 1 and _bk_alone[0][0].startswith(f"📊 The desk — {_bk_bd.day_label(_bk_dday)}\n")
+      and _bk_alone[0][0].endswith(f"\n\n(no reading from {_bk_FN} yet this morning)") and "(numbers as of" not in _bk_alone[0][0]
+      and "\n(numbers as of 05:31)\n" in _bk_asof[0][0]
+      and _bk_adhoc[0][0].startswith(f"📊 From the desk — {_bk_bd.day_label(_bk_dday)}, 06:30\n(numbers as of now)\n")
+      and _bk_adhoc[0][0].endswith("A thought from a visit.")
+      and _bk_dead == [None] and _bk_dead_due == (False, True) and _bk_dead_after is False
+      and _bk_dead_msg == [("no brief this morning — prices could not be fetched", {"what": "nofeed"})],
+      (_bk_early, _bk_alone, _bk_asof, _bk_adhoc, _bk_dead_due, _bk_dead_after, _bk_dead_msg))
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "1000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03")
+_bk_b, _bk_ph = _bk_bridge()
+_bk_text(_bk_b, "/trade pause")
+_bk_p1 = (_bk_ph.msgs[-1]["text"], _bk_bd.due(_bk_T(5, 31)))
+_bk_text(_bk_b, "/trade")
+_bk_pmenu = _bk_ph.msgs[-2]["text"]
+_bk_text(_bk_b, "/trade resume")
+_bk_p2 = (_bk_ph.msgs[-1]["text"], _bk_bd.due(_bk_T(5, 31)))
+_bk_pf.seat("parlor", "Wren")
+_bk_guestdue = _bk_bd.due(_bk_T(5, 31))
+_bk_pf.seat("parlor", "")
+config.PORTFOLIO_DESK_WAKE = "5am"
+_bk_b, _bk_ph = _bk_bridge()
+_bk_text(_bk_b, "/trade")
+_bk_text(_bk_b, "/trade")
+_bk_badm = [m["text"] for m in _bk_ph.msgs]
+_bk_baddef = _bk_json.dumps(tools._portfolio_definition(), sort_keys=True)
+config.PORTFOLIO_DESK_WAKE = "05:30"
+check("book (0.16): /trade pause and resume stop and start the desk; a guest seated — no desk morning; a time that "
+      "isn't one turns the desk off, said once, the tool as without the desk",
+      _bk_p1 == ("(the desk is paused — no desk wake and no morning message until /trade resume)", False)
+      and _bk_pmenu == "(the desk is paused — no desk wake and no morning message; /trade resume starts them again)"
+      and _bk_p2 == ("(the desk is back — the desk wake and the morning message from the next morning)", True)
+      and _bk_guestdue is False and _bk_badm.count("(PORTFOLIO_DESK_WAKE isn't a time — the desk wake is off)") == 1
+      and _bk_baddef == _bk_def_off, (_bk_p1, _bk_pmenu, _bk_p2, _bk_guestdue, _bk_badm))
+# the regular wake never starts within 20 minutes after a desk wake
+_bk_ft = [1000.0]
+_bk_rstubs = (_bk_hb._rest_or_asked, _bk_hb._desk_turn, _bk_hb.time)
+
+
+class _BkTime:
+    @staticmethod
+    def time():
+        return _bk_ft[0]
+
+
+def _bk_rest(sec):
+    _bk_ft[0] += sec
+    return False, None
+
+
+_bk_turns_at = []
+_bk_hb.time = _BkTime
+_bk_hb._rest_or_asked = _bk_rest
+_bk_hb._desk_turn = lambda: (_bk_turns_at.append(_bk_ft[0]) or len(_bk_turns_at) == 3)
+_bk_rw = _bk_hb._rest_with_desk(5 * 60)
+_bk_end1 = _bk_ft[0]
+_bk_hb._rest_or_asked, _bk_hb._desk_turn, _bk_hb.time = _bk_rstubs
+check("book (0.16): a desk wake inside the rest moves the regular wake out to 20 minutes after it, never sooner",
+      _bk_rw == (False, None) and _bk_end1 >= 1000.0 + 180 + 20 * 60, (_bk_rw, _bk_end1, _bk_turns_at[:4]))
+_bk_bd.now, _bk_hb.wake, _bk_hb.rest_after_wake, chat.visit_live = _bk_dstubs
+for _bk_k, _bk_v in _bk_dsaved.items():
+    if _bk_v is _bk_MISSING:
+        if hasattr(config, _bk_k):
+            delattr(config, _bk_k)
+    else:
+        setattr(config, _bk_k, _bk_v)
+
 # ---- on: the tool list and /help in a fresh process; the knobs; the words ------------------------------------------
 _bk_on = _bk_sub.run([_bk_sys.executable, "-c",
                       "import sys, json, tempfile\nsys.path.insert(0, sys.argv[1])\nsys.dont_write_bytecode = True\nimport config\n"
@@ -25665,6 +25856,7 @@ _bk_src = (Path(config.ROOT) / "engine" / "portfolio.py").read_text(encoding="ut
                                          tg.Bridge.trade_take, tg.Bridge.trade_callback, tg.Bridge.trade_tick, tg.Bridge._trade_next,
                                          tg.Bridge._trade_answer, tg.Bridge._pf_seat, tg.Bridge._pf_scrub))
 _bk_src += _bk_cfg.split("# ---- the investment book", 1)[1].split("PORTFOLIO_GUEST_SCRUB = False", 1)[0]
+_bk_src += (Path(config.ROOT) / "engine" / "bookdesk.py").read_text(encoding="utf-8") + _bk_inspect.getsource(heartbeat._desk_turn)
 _bk_KN = ("PORTFOLIO_ON", "PORTFOLIO_HOME_CURRENCY", "PORTFOLIO_PRICE_CACHE_MIN", "PORTFOLIO_JUMP", "PORTFOLIO_BACKUPS",
           "PORTFOLIO_GUEST_SCRUB")
 check("book (0.16): on — the tool list gains portfolio only and /help names /trade; its description says 'your keeper', "

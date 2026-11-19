@@ -198,6 +198,13 @@ if getattr(config, "PORTFOLIO_ON", False):
     HELP_PHONE += ("/trade — your investment book, with buttons: 📒 Book, ➕ Record, ✏️ Fix, 🧪 Paper / 💼 Real; "
                    "/trade <symbol> — one holding and its price; /trade unseat — mend the book's guest seat; /book — the book\n")
     HELP_PHONE += "/brief — the morning brief: the book's day, the yardsticks, the rates (and headlines, if on)\n"
+    if str(getattr(config, "PORTFOLIO_DESK_WAKE", "") or "").strip():  # the desk (bookdesk.py), when its times are real
+        try:
+            import bookdesk as _bd
+            if _bd.on():
+                HELP_PHONE += "/trade pause · /trade resume — the morning desk wake and its message\n"
+        except Exception:  # noqa: BLE001
+            pass
 
 HELP = (
     "/new — save this conversation and start fresh\n"
@@ -5388,6 +5395,17 @@ class Bridge:
 
     def trade_menu(self) -> None:
         import portfolio as pf
+        if getattr(config, "PORTFOLIO_DESK_WAKE", "") is None or str(getattr(config, "PORTFOLIO_DESK_WAKE", "") or "").strip():
+            try:
+                import bookdesk
+                bad = bookdesk.bad_knob()
+                if bad and not getattr(self, "_desk_bad_said", False):
+                    self._desk_bad_said = True
+                    self._tr_send(f"({bad})")
+                if bookdesk.on() and bookdesk.paused():
+                    self._tr_send("(the desk is paused — no desk wake and no morning message; /trade resume starts them again)")
+            except Exception:  # noqa: BLE001
+                pass
         if not pf.paper_on():  # one book: no Paper / Real
             news = pf.adoption_news("phone")
             if news:
@@ -5421,6 +5439,15 @@ class Bridge:
         rows = [[("🔄", f"tr:bf:{self._tr_b(which)}"), ("📒 menu", "tr:m")]]
         mid = self._tr_send("🌅 Brief — fetching…")
         text_ = pf.brief(which)
+        if str(getattr(config, "PORTFOLIO_DESK_WAKE", "") or "").strip():  # the friend's reading this morning, under the numbers
+            try:
+                import bookdesk
+                said = bookdesk.today_reading()
+                if said:
+                    text_ = (text_ + "\n\n" + said) if len(text_) + len(said) + 2 <= 4096 else \
+                        (text_ + "\n\n" + said)[:4080].rstrip() + "\n(shortened)"
+            except Exception as e:  # noqa: BLE001
+                _say(f"brief: the reading not shown ({type(e).__name__})")
         if mid:
             try:
                 self.api("editMessageText", chat_id=self.chat_id, message_id=mid, text=text_,
@@ -5445,6 +5472,17 @@ class Bridge:
             return True
         if ours and self._tr_guest():  # a guest seated anywhere: nothing of the book shows
             self._tr_send(self._tr_closed())
+            return True
+        if str(getattr(config, "PORTFOLIO_DESK_WAKE", "") or "").strip() and low.split()[:2] in (["/trade", "pause"], ["/trade", "resume"]):
+            if self._tr_guest():
+                self._tr_send(self._tr_closed())
+                return True
+            import bookdesk
+            stop = low.split()[1] == "pause"
+            ok = bookdesk.set_paused(stop)
+            self._tr_send(("(the desk is paused — no desk wake and no morning message until /trade resume)" if stop
+                           else "(the desk is back — the desk wake and the morning message from the next morning)")
+                          if ok else "(the book is busy — nothing changed, try again)")
             return True
         if low == "/brief" or low.startswith("/brief@"):
             self.trade_brief()
@@ -5951,6 +5989,31 @@ class Bridge:
             pf.save_state(s)
             pf.set_open("real")
             self.trade_menu()
+
+    def desk_tick(self) -> None:
+        """(PORTFOLIO_DESK_WAKE) The desk's message as soon as the friend's reading is filed, or at PORTFOLIO_DESK_SEND
+        with the numbers alone (not held by the quiet hours — asked for then; held while a guest is seated), and a
+        reading filed after it. Marked sent only when it went. Never raises."""
+        if not self.chat_id or not getattr(config, "PORTFOLIO_ON", False):
+            return
+        try:
+            import bookdesk
+            if self._tr_guest():
+                return
+            for text_, mark in bookdesk.outbox():
+                parts = split_long(text_, 3800)
+                done = bookdesk.parts_sent(mark)  # each part marked as it goes: a failed part two never re-sends one
+                for i, part in enumerate(parts):
+                    if i in done:
+                        continue
+                    if not self._tr_send(part):
+                        break
+                    bookdesk.part_sent(mark, i)
+                    done.add(i)
+                if len(done) >= len(parts):
+                    bookdesk.sent(mark)
+        except Exception as e:  # noqa: BLE001
+            _say(f"desk: {type(e).__name__}: {e}")
 
     def trade_tick(self) -> None:
         """At the poll: the friend's records waiting for the keeper's Keep, each its own message; the ones that waited a
@@ -7206,6 +7269,8 @@ class Bridge:
         self.deliver_creations()
         self.deliver_gathered()  # a gathered folder's pieces, as one, at its hour
         self.trade_tick()  # the friend's records, for the keeper's Keep; lapses; a flow that waited too long
+        if str(getattr(config, "PORTFOLIO_DESK_WAKE", "") or "").strip():
+            self.desk_tick()  # the desk's morning message, and a reading filed after it
         self.deliver_pictures()
         self.deliver_voice_out()  # a voice note spoken in a wake: to the phone, the night's at its hour
         self.deliver_songs()

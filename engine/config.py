@@ -1927,6 +1927,14 @@ PORTFOLIO_PAPER = True
 # False: the 💱 offer after a buy, as before.
 PORTFOLIO_AUTO_CONVERT = False
 PORTFOLIO_INDICES = []
+# The desk (engine/bookdesk.py): PORTFOLIO_DESK_WAKE — a clock time "HH:MM": a wake of the house's own for the morning
+# brief, at or just after it, on a morning the feed has a new close and the book holds something; the friend reads the
+# Brief's numbers and files a reading (portfolio action "brief"). PORTFOLIO_DESK_SEND: the latest the numbers and the
+# reading go to your phone (the message goes as soon as the reading is filed; the numbers alone then if none). "" —
+# none of it. A value that isn't a time turns the desk off and is said once. /trade pause and /trade resume stop and
+# start both.
+PORTFOLIO_DESK_WAKE = ""
+PORTFOLIO_DESK_SEND = "06:00"
 PORTFOLIO_BRIEF_MOVE = 0.03
 PORTFOLIO_BRIEF_NEWS = False
 PORTFOLIO_BRIEF_NEWS_MAX = 2

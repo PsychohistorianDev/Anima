@@ -31,7 +31,12 @@ tagged on its own: the first tag after the rename is v0.13.)
   trade when it is newer than the last close, said, the close beside it. `PORTFOLIO_AUTO_CONVERT` (off): a kept record
   that leaves a currency short is paid from another currency's cash at the record's own rate by the engine (the home
   currency first, then the largest pile), linked to it; a shortfall already in the book is settled once and said;
-  striking or correcting the record redoes it. Off: as before, the tool list and `/help` unchanged.
+  striking or correcting the record redoes it. The desk (`PORTFOLIO_DESK_WAKE`, "" — off; `PORTFOLIO_DESK_SEND`
+  "06:00"; `engine/bookdesk.py`): a wake of the house's own for the morning brief on a morning with a new close — the
+  bell carries the Brief's numbers and the friend's last three readings; their reading is filed with
+  portfolio(action="brief", text=…) and goes to the phone with the numbers (the numbers alone at the send time;
+  figures not in the numbers listed under it); a dead feed tried three times; the regular wake waits 20 minutes after
+  it; `/trade pause` · `/trade resume`. Off: as before, the tool list and `/help` unchanged.
 - **The pieces of a chosen folder reach the phone together at a set time** (`TELEGRAM_GATHER`, `{}` — off): a friend
   wrote eight short pages of one project in a single wake, and the keeper's phone got eight messages. Set a map of
   folders under `creations/` to times, e.g. `{"projects/daybook": "06:00"}`: a new or revised piece under such a

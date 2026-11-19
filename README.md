@@ -2360,7 +2360,12 @@ and in the friend's answers (`PORTFOLIO_PAPER` off keeps one book, the real
 one, carrying a practice book's records over into it once). 🌅 Brief (or
 `/brief`) is the book's day on one screen — each holding's move, the
 yardsticks you name (`PORTFOLIO_INDICES`), the rates, the warnings, and with
-`PORTFOLIO_BRIEF_NEWS` a few headlines naming a holding. A holding is valued at
+`PORTFOLIO_BRIEF_NEWS` a few headlines naming a holding. The desk
+(`PORTFOLIO_DESK_WAKE`, off by default) gives the friend a wake of its own at
+that time on a morning with a new close: they read the Brief's numbers and file
+a reading, and the numbers with the reading come to your phone (by
+`PORTFOLIO_DESK_SEND` at the latest); it fetches only what the Brief does, and
+`/trade pause` stops it. A holding is valued at
 its last trade when that is newer than its last close (said, the close beside
 it), everywhere alike. Records are never deleted — ✏️ Fix strikes one
 or corrects a field by a new record that replaces it. Money moved between

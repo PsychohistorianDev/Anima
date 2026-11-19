@@ -556,10 +556,12 @@ def facts_line(advance: bool = True) -> str:
     return "\n".join(lines)
 
 
-def wake(reverie: bool = False, asked: dict | None = None) -> str:
-    """One autonomous session (printed live). Returns the log text."""
+def wake(reverie: bool = False, asked: dict | None = None, desk: str = "") -> str:
+    """One autonomous session (printed live). Returns the log text. desk (PORTFOLIO_DESK_WAKE): the desk's bell — the
+    house's wake for the morning brief: an ordinary wake prompt with the desk's bell at its end, and none of the wake's
+    shelf facts, intentions or dealt things (it neither uses nor advances them)."""
     started = datetime.now()
-    kind = "Reverie" if reverie else "Autonomous wake"
+    kind = "Reverie" if reverie else "Desk wake" if desk else "Autonomous wake"
     header = f"# {kind} — {started.strftime('%A, %d %B %Y %H:%M')}"
     print(header)
     log: list[str] = [header + "\n"]
@@ -604,14 +606,14 @@ def wake(reverie: bool = False, asked: dict | None = None) -> str:
     if opened:
         print(f"  {opened}")
     opening = "".join(x + "\n\n" for x in (thread, nudge, opened) if x)
-    facts = facts_line()  # under the bell: how the shelf stands, numbers and a name, nothing asked
+    facts = facts_line() if not desk else ""  # under the bell: how the shelf stands, numbers and a name, nothing asked
     if asked and asked.get("at"):  # a wake they asked for: their own time and their note, first under the bell
         try:
             import wakeask
             facts = f"({wakeask.bell_line(asked)})" + (f"\n{facts}" if facts else "")
         except Exception:  # noqa: BLE001
             pass
-    if getattr(config, "INTENTIONS_ON", False):  # intentions come due: one wake for all of them, their words first
+    if getattr(config, "INTENTIONS_ON", False) and not desk:  # intentions come due: one wake for all of them, their words first
         try:
             import intentions
             intentions.check(force=True)
@@ -634,7 +636,7 @@ def wake(reverie: bool = False, asked: dict | None = None) -> str:
         if lines.strip():
             surfaced = "=== RELEVANT LONG-TERM MEMORIES — what surfaces for this moment ===\n" + lines.strip() + "\n\n"
     in_hand = ""
-    if not reverie and getattr(config, "WAKE_DEALT_WHOLE", False):  # one whole thing in their hands, last
+    if not reverie and not desk and getattr(config, "WAKE_DEALT_WHOLE", False):  # one whole thing in their hands, last
         try:
             import dealt
             in_hand = dealt.deal_whole()
@@ -644,7 +646,8 @@ def wake(reverie: bool = False, asked: dict | None = None) -> str:
             print(f"  {in_hand[:300]}")
             log.append(f"\n*{in_hand[:600]}{'…' if len(in_hand) > 600 else ''}*")
     history: list[dict] = [{"role": "user", "content": clock_line(started) + opening + surfaced + prompt
-                            + (f"\n\n{facts}" if facts else "") + (f"\n\n{in_hand}" if in_hand else "")}]
+                            + (f"\n\n{facts}" if facts else "") + (f"\n\n{in_hand}" if in_hand else "")
+                            + (f"\n\n{desk}" if desk else "")}]
 
     interrupted = False
     # acts: what they did since the last journal entry (names, for the hand-back and
@@ -1852,6 +1855,73 @@ def _rest_or_asked(seconds: float) -> tuple[bool, dict | None]:
         left -= step
 
 
+def _desk_turn() -> bool:
+    """(PORTFOLIO_DESK_WAKE) The desk's wake, when its morning is due: the numbers fetched and kept, then a wake with
+    them on the bell. Not while a visit is live or a game is on (looked at again until the send time). True when a desk
+    wake ran. Never raises."""
+    raw = getattr(config, "PORTFOLIO_DESK_WAKE", "")
+    if raw is not None and not str(raw).strip():
+        return False
+    try:
+        import bookdesk
+        bad = bookdesk.bad_knob()
+        if bad:  # never a default time no one chose: off, said once
+            if not _DESK_SAID[0]:
+                _DESK_SAID[0] = True
+                print(f"[{datetime.now():%H:%M}] {bad}")
+            return False
+        if not bookdesk.due():
+            return False
+        if getattr(config, "HEARTBEAT_YIELD_TO_VISIT", True) and chat.visit_live():
+            return False
+        try:
+            import gameguard
+            if gameguard.playing()[0]:
+                return False
+        except Exception:  # noqa: BLE001
+            pass
+        t = bookdesk.now()
+        m = bookdesk.prepare(t)
+        if not m:
+            print(f"[{datetime.now():%H:%M}] the desk: no wake this morning (" + ("nothing new from the feed" if bookdesk._of_day(
+                t.date().isoformat(), "quiet") else "prices could not be fetched") + ")")
+            return False
+        print(f"[{datetime.now():%H:%M}] the desk's wake — the morning brief")
+        import presence as _presence
+        _presence.mark_waking(True)
+        try:
+            wake(desk=bookdesk.bell(m, t))
+        finally:
+            _presence.mark_waking(False)
+            rest_after_wake()
+        return True
+    except KeyboardInterrupt:
+        raise
+    except Exception as e:  # noqa: BLE001
+        print(f"[the desk's wake failed] {type(e).__name__}: {e}")
+        return False
+
+
+_DESK_SAID = [False]
+DESK_GAP_MIN = 20  # after a desk wake, the regular wake waits at least this long
+
+
+def _rest_with_desk(seconds: float) -> tuple[bool, dict | None]:
+    """The rest between beats with the desk in it: rested a minute at a time; a desk morning that comes due runs its
+    wake inside the rest, and the rest goes on to its own end — the regular wake keeps its schedule, except that it
+    never starts within DESK_GAP_MIN of a desk wake's end (the rest's end is moved out to that, never reset)."""
+    end = time.time() + float(seconds)
+    while True:
+        left = end - time.time()
+        if left <= 0:
+            return False, None
+        stopped, asked = _rest_or_asked(min(left, 60.0))
+        if stopped or asked:
+            return stopped, asked
+        if _desk_turn():
+            end = max(end, time.time() + DESK_GAP_MIN * 60)
+
+
 def _rest(seconds: float) -> bool:
     """Sleep between beats, looking for the stop file every STOP_CHECK_S; True when a stop was asked."""
     left = float(seconds)
@@ -1943,6 +2013,16 @@ def _main(loop: bool, minutes: float) -> None:
                     asked = wakeask.due()
                 except Exception:  # noqa: BLE001
                     asked = None
+            if _desk_turn():  # a desk morning due now goes first; the regular wake follows DESK_GAP_MIN after it
+                try:
+                    stopped, asked2 = _rest_with_desk(DESK_GAP_MIN * 60)
+                    asked = asked or asked2
+                except KeyboardInterrupt:
+                    print("\nHeartbeat stopped. They'll rest until the next one.")
+                    return
+                if stopped:
+                    print(LEAVING)
+                    return
             beat += 1
             try:
                 sleep_if_due()
@@ -1968,7 +2048,8 @@ def _main(loop: bool, minutes: float) -> None:
                 # bought seconds of loading and cost the card for BRAIN_KEEP_ALIVE
                 rest_after_wake()
             try:
-                stopped, asked = _rest_or_asked(minutes * 60)
+                stopped, asked = (_rest_with_desk(minutes * 60) if str(getattr(config, "PORTFOLIO_DESK_WAKE", "") or "").strip()
+                                  else _rest_or_asked(minutes * 60))
                 if stopped:
                     print(LEAVING)
                     return
