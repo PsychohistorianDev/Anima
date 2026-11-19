@@ -365,7 +365,9 @@ def paper_on() -> bool:
 def open_book() -> str:
     if not paper_on():  # one book: whatever state.json says (a stale "paper" is ignored)
         _maybe_adopt()
+        _maybe_settle()
         return "real"
+    _maybe_settle()
     b = str(state().get("open") or "paper")
     return b if b in BOOKS else "paper"
 
@@ -1281,7 +1283,8 @@ def record_line(r: dict) -> str:
         a, b, tc = float(r["price"]), float(r.get("to_amount") or 0), r.get("to_currency") or ""
         shown, label = conv_shown(cur, tc, b / a if a and b else 0.0)
         fee = f" + fee {money(float(r['fee']), r.get('fee_currency') or cur)}" if float(r.get("fee") or 0) else ""
-        return f"converted {money(a, cur)} to {money(b, tc)} (at {shown:.4f} {label}) on {when}{fee}" + why
+        auto = f" — automatic, for #{r['for']}" if r.get("auto") and r.get("for") else ""
+        return f"converted {money(a, cur)} to {money(b, tc)} (at {shown:.4f} {label}) on {when}{fee}{auto}" + why
     else:
         s = {"deposit": "deposited", "withdraw": "withdrew", "fee": "a fee of"}[k] + f" {money(float(r['price']), cur)} on {when}{fee}"
     if r.get("fx"):
@@ -1321,9 +1324,172 @@ def _add_locked(rec: dict, which: str) -> tuple[dict | None, str]:
     r["recorded_at"] = datetime.now().isoformat(timespec="seconds")
     book["records"].append(r)
     book["next_id"] = r["id"] + 1
+    if auto_on():
+        _auto_settle(book, r)  # paid from another currency at the record's own rate, in the same save
     if not _save_locked(which, book):
         return None, "the book couldn't be written — nothing was kept"
     return r, ""
+
+
+# ---- PORTFOLIO_AUTO_CONVERT: the book converts by itself -----------------------------------------------------------
+# A kept record that leaves its currency's cash below zero, while another currency covers the shortfall at the record's
+# own rate, is paid from that currency: a `convert` record by the engine, dated as the record, marked auto and linked
+# (for: <id>). Which pays: the home currency first, then the largest other pile — among those the record's own rate
+# reaches (home per the record's currency, or the dollar for a record in the home currency). Not enough anywhere:
+# nothing is converted (the warning stays).
+_SPENDS = ("buy", "fee", "withdraw")
+
+
+def auto_on() -> bool:
+    return bool(getattr(config, "PORTFOLIO_AUTO_CONVERT", False))
+
+
+def _cost(r: dict) -> float:
+    try:
+        if r.get("kind") == "buy":
+            return float(r["qty"]) * float(r["price"]) + float(r.get("fee") or 0)
+        return float(r.get("price") or 0) + float(r.get("fee") or 0)
+    except (TypeError, ValueError, KeyError):
+        return 0.0
+
+
+def _record_per(r: dict, other: str) -> float | None:
+    """Units of `other` per one unit of the record's currency, at the record's own rate — when its rate reaches."""
+    h, cur = home(), r.get("currency") or ""
+    try:
+        fx = float(r.get("fx") or 0)
+    except (TypeError, ValueError):
+        return None
+    if fx <= 0 or str(r.get("fx_home") or h) != h:
+        return None
+    ref = _fx_ccy(r)
+    if cur != h and ref == cur and other == h:
+        return fx
+    if cur == h and other == ref:
+        return 1.0 / fx
+    return None
+
+
+def _auto_settle(book: dict, r: dict) -> dict | None:
+    """In the open book (under the lock, before its save): the conversion this record needs, appended — or None."""
+    if r.get("kind") not in _SPENDS or r.get("struck"):
+        return None
+    cur = r.get("currency")
+    if not cur:
+        return None
+    if any(x.get("auto") and x.get("for") == r["id"] and not x.get("struck") for x in book["records"]):
+        return None
+    cash = replay(book["records"])["cash"]
+    if cash.get(cur, 0.0) >= -1e-9:
+        return None
+    short = round(min(-cash[cur], _cost(r)), 2)
+    if short <= 0:
+        return None
+    h = home()
+    piles = sorted((c for c, v in cash.items() if c != cur and v > 1e-9), key=lambda c: (c != h, -cash[c]))
+    for other in piles:
+        per = _record_per(r, other)
+        if not per:
+            continue
+        pay = round(short * per, 2)
+        if pay <= 0 or cash.get(other, 0.0) + 1e-9 < pay:
+            continue
+        c = {"date": r["date"], "kind": "convert", "symbol": "", "qty": 1.0, "price": pay, "currency": other,
+             "to_amount": short, "to_currency": cur, "fx": round(short / pay, 6), "fx_source": "the record's own rate",
+             "fee": 0.0, "fee_currency": other, "why": "", "by": "engine", "auto": True, "for": r["id"],
+             "id": int(book.get("next_id") or 1), "recorded_at": datetime.now().isoformat(timespec="seconds")}
+        book["records"].append(c)
+        book["next_id"] = c["id"] + 1
+        return c
+    return None
+
+
+def auto_for(which: str, rid: int) -> dict | None:
+    """The engine's conversion for a record (not struck), if there is one."""
+    try:
+        return next((x for x in load(which)["records"] if x.get("auto") and x.get("for") == int(rid) and not x.get("struck")), None)
+    except BookUnreadable:
+        return None
+
+
+def paid_clause(c: dict | None) -> str:
+    """" · paid from euros at 0.9200: €378.35" — for the phone's kept line."""
+    if not c:
+        return ""
+    shown, _ = conv_shown(c["currency"], c["to_currency"], float(c["fx"]))
+    return f" · paid from {cur_word(c['currency'], True)} at {shown:.4f}: {money(float(c['price']), c['currency'])}"
+
+
+def _strike_auto(book: dict, rid: int) -> dict | None:
+    """The engine's conversion linked to #rid, struck with it (by the engine)."""
+    for x in book["records"]:
+        if x.get("auto") and x.get("for") == int(rid) and not x.get("struck"):
+            x["struck"] = datetime.now().isoformat(timespec="seconds")
+            x["struck_by"] = "engine"
+            return x
+    return None
+
+
+_SETTLE_LOOKED = [False]
+SETTLE_PHONE = "the shortfalls already in the book were paid from another currency at each record's own rate — {n} conversion{s} written"
+SETTLE_FRIEND = "the book now pays a record from another currency at its own rate when one runs short: "
+
+
+def _maybe_settle() -> None:
+    """Once per process with the knob on: a shortfall already in the open book is settled, record by record, at each
+    record's own rate — under the lock; the second process finds it done."""
+    if _SETTLE_LOOKED[0] or not auto_on():
+        return
+    _SETTLE_LOOKED[0] = True
+    st0 = state()
+    which = "real" if not paper_on() else (str(st0.get("open") or "paper") if str(st0.get("open") or "paper") in BOOKS else "paper")
+    try:
+        with _locked():
+            s_ = state()
+            if (s_.get("auto_settled") or {}).get(which):
+                return
+            try:
+                book = load(which)
+            except BookUnreadable:
+                _SETTLE_LOOKED[0] = False
+                return
+            made = []
+            for r in live(book["records"]):
+                c = _auto_settle(book, r)
+                if c:
+                    made.append(c)
+            if made and not _save_locked(which, book):
+                _SETTLE_LOOKED[0] = False
+                return
+            s_ = state()
+            s_.setdefault("auto_settled", {})[which] = {"n": len(made), "at": time.time(), "phone": not made,
+                                                       "friend": not made, "lines": [record_line(c) for c in made]}
+            _write("state.json", s_)
+            if made:
+                _log(f"auto convert: {len(made)} conversion(s) written for the shortfall already in the book")
+    except BookBusy:
+        _SETTLE_LOOKED[0] = False
+
+
+def settle_news(who: str) -> str:
+    """The one-time settle, said once to "phone" or to "friend"."""
+    if not auto_on():
+        return ""
+    _maybe_settle()
+    try:
+        with _locked():
+            s_ = state()
+            for which, a in (s_.get("auto_settled") or {}).items():
+                if isinstance(a, dict) and a.get("n") and not a.get(who):
+                    a[who] = True
+                    _write("state.json", s_)
+                    n = int(a["n"])
+                    if who == "phone":
+                        return SETTLE_PHONE.format(n=n, s="" if n == 1 else "s")
+                    return SETTLE_FRIEND + "; ".join(a.get("lines") or [])
+    except BookBusy:
+        pass
+    return ""
 
 
 def strike(rid: int, which: str | None = None) -> tuple[dict | None, str]:
@@ -1343,6 +1509,9 @@ def strike(rid: int, which: str | None = None) -> tuple[dict | None, str]:
             if after:
                 return None, f"striking #{rid} would leave {after}"
             r["struck"] = datetime.now().isoformat(timespec="seconds")
+            if r.get("auto"):  # the keeper struck the engine's conversion: it is their decision now
+                r["struck_by"] = "keeper"
+            _strike_auto(book, rid)
             if not _save_locked(which, book):
                 return None, "the book couldn't be written — nothing changed"
             return r, ""
@@ -1373,7 +1542,7 @@ def correct(rid: int, field: str, value, which: str | None = None) -> tuple[dict
              "why": old.get("why")}
         c[key] = value
         rec, why = make_convert(old.get("currency"), c["price"], old.get("to_currency"), c["to"], c["day"], c["fee"],
-                                old.get("fee_currency"), c["why"] or "", by=old.get("by", "keeper"))
+                                old.get("fee_currency"), c["why"] or "", by="keeper" if old.get("auto") else old.get("by", "keeper"))
         if rec is None:
             return None, why
         return _replace(rid, old, rec, which)
@@ -1418,11 +1587,14 @@ def _replace(rid: int, old: dict, rec: dict, which: str) -> tuple[dict | None, s
                 return None, (f"correcting #{rid} that way: {after}" if after.startswith("it would")
                               else f"correcting #{rid} that way would leave {after}")
             now_old["struck"] = datetime.now().isoformat(timespec="seconds")
+            _strike_auto(book, now_old["id"])  # its automatic conversion goes with it, and is made again below
             rec["replaces"] = now_old["id"]
             rec["id"] = int(book.get("next_id") or 1)
             rec["recorded_at"] = datetime.now().isoformat(timespec="seconds")
             book["records"].append(rec)
             book["next_id"] = rec["id"] + 1
+            if auto_on():
+                _auto_settle(book, rec)
             if not _save_locked(which, book):
                 return None, "the book couldn't be written — nothing changed"
             return rec, ""
@@ -1942,10 +2114,17 @@ def since_last_look(which: str) -> list[str]:
 
 def _since_locked(which: str) -> list[str]:
     s = state()
+    a = (s.get("auto_settled") or {}).get(which) if isinstance(s.get("auto_settled"), dict) else None
+    news = []
+    if isinstance(a, dict) and a.get("n") and not a.get("friend"):
+        a["friend"] = True
+        _write("state.json", s)
+        news = [SETTLE_FRIEND + "; ".join(a.get("lines") or [])]
+        s = state()
     first = "last_look" not in s
     last = float(s.get("last_look") or 0)
     seen = (s.get("last_id") or {}).get(which)  # the last record the friend saw, by id — a clock's second is too coarse
-    out = []
+    out = list(news)
     if not first:
         try:
             book = load(which)

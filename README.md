@@ -2366,7 +2366,9 @@ it), everywhere alike. Records are never deleted — ✏️ Fix strikes one
 or corrects a field by a new record that replaces it. Money moved between
 two currencies is a conversion (➕ Record → 💱 Convert, on the phone only);
 after a buy leaves one currency's cash below zero while another has cash, the
-phone offers to record the conversion at today's rate in one tap — and a dated copy of
+phone offers to record the conversion at today's rate in one tap (with
+`PORTFOLIO_AUTO_CONVERT` the engine pays it from another currency by itself,
+at the record's own rate, home currency first) — and a dated copy of
 each book is kept a day it changed (`PORTFOLIO_BACKUPS`).
 
 While a guest is seated — at the desk page or by `/guest` on the phone —

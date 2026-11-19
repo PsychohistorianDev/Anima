@@ -25416,6 +25416,77 @@ if _bk_pp0 is _bk_MISSING:
 else:
     config.PORTFOLIO_PAPER = _bk_pp0
 
+# ---- PORTFOLIO_AUTO_CONVERT: the book converts by itself ------------------------------------------------------------
+_bk_ac0 = getattr(config, "PORTFOLIO_AUTO_CONVERT", _bk_MISSING)
+_bk_fresh("EUR")
+config.PORTFOLIO_AUTO_CONVERT = True
+_bk_pf._SETTLE_LOOKED[0] = True
+_bk_add("deposit", "EUR", None, "1000", "2026-03-02")
+_bk_cvm, _ = _bk_pf.make_convert("EUR", "50", "GBP", "43", "2026-03-02")
+_bk_pf.add(_bk_cvm, "paper")
+_bk_gA, _ = _bk_add("buy", "ACME", "10", "41", "2026-03-03")
+_bk_recs = _bk_pf.load("paper")["records"]
+_bk_auto = _bk_pf.auto_for("paper", _bk_gA["id"])
+_bk_cashA = _bk_pf.replay(_bk_recs)["cash"]
+_bk_b, _bk_ph = _bk_bridge()
+_bk_b._convert_offer("paper", _bk_gA)
+_bk_nooffer = len(_bk_ph.msgs)
+tools.portfolio("record", kind="buy", symbol="ACME", qty="2", price="41.5", date="2026-03-04")
+_bk_b.trade_tick()
+_bk_press(_bk_b, _bk_ph.msgs[-1]["markup"]["inline_keyboard"][0][0]["callback_data"])
+_bk_keptp = _bk_ph.msgs[-1]["text"]
+_bk_press(_bk_b, f"tr:fy:p:{_bk_gA['id']}")
+_bk_strk = _bk_ph.msgs[-1]["text"]
+_bk_after = _bk_pf.load("paper")["records"]
+_bk_cor3, _ = _bk_pf.correct(int(_bk_re.search(r"#(\d+)", _bk_keptp).group(1)), "price", "42", which="paper")
+_bk_auto3 = _bk_pf.auto_for("paper", _bk_cor3["id"]) if _bk_cor3 else None
+_bk_conv_refuse = tools.portfolio("record", kind="convert", date="today")
+check("book (0.16): PORTFOLIO_AUTO_CONVERT — a buy in dollars with euros in cash is paid from euros at the buy's own "
+      "rate, linked to it, by the engine; no offer; the phone's kept line says it; striking the buy strikes its "
+      "conversion with it; correcting it makes a new one; a conversion by hand is never touched; the friend's record "
+      "of a conversion answers that the book converts by itself",
+      _bk_auto is not None and _bk_auto["by"] == "engine"
+      and _bk_pf.record_line(_bk_auto) == f"converted €377.61 to $410.00 (at 0.9210 €/$) on Mar 3 — automatic, for #{_bk_gA['id']}"
+      and abs(_bk_cashA["USD"]) < 0.01 and abs(_bk_cashA["EUR"] - 572.39) < 0.01 and _bk_nooffer == 0
+      and _bk_keptp.endswith("· paid from euros at 0.9190: €76.28")
+      and _bk_strk.endswith(f"(its automatic conversion #{_bk_auto['id']} struck with it)")
+      and next(x for x in _bk_after if x["id"] == _bk_auto["id"]).get("struck_by") == "engine"
+      and not next(x for x in _bk_after if x.get("to_currency") == "GBP").get("struck")
+      and _bk_auto3 is not None and _bk_auto3["to_amount"] == 84.0 and _bk_conv_refuse.startswith("(the book converts by itself"),
+      (_bk_pf.record_line(_bk_auto) if _bk_auto else None, _bk_cashA, _bk_nooffer, _bk_keptp, _bk_strk, _bk_auto3, _bk_conv_refuse))
+# a shortfall already in the book: settled once, said once to each; not enough to pay: nothing converted
+_bk_fresh("EUR")
+config.PORTFOLIO_AUTO_CONVERT = False
+_bk_add("deposit", "EUR", None, "1000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03")
+tools.portfolio("look")
+config.PORTFOLIO_AUTO_CONVERT = True
+_bk_pf._SETTLE_LOOKED[0] = False
+_bk_b, _bk_ph = _bk_bridge()
+_bk_b.trade_tick()
+_bk_b.trade_tick()
+_bk_settle_ph = [m["text"] for m in _bk_ph.msgs]
+_bk_sl1 = tools.portfolio("look")
+_bk_sl2 = tools.portfolio("look")
+_bk_fresh("EUR")
+_bk_pf._SETTLE_LOOKED[0] = True
+_bk_add("deposit", "EUR", None, "10", "2026-03-02")
+_bk_gS, _ = _bk_add("buy", "ACME", "10", "41", "2026-03-03")
+_bk_none = _bk_pf.auto_for("paper", _bk_gS["id"])
+check("book (0.16): PORTFOLIO_AUTO_CONVERT — a shortfall already in the book is settled once at its record's rate, said "
+      "once on the phone and once to the friend; not enough in another currency — nothing converted, the warning stays",
+      _bk_settle_ph == ["(the shortfalls already in the book were paid from another currency at each record's own rate — "
+                        "1 conversion written)"]
+      and "the book now pays a record from another currency at its own rate when one runs short: converted €377.61 to "
+          "$410.00 (at 0.9210 €/$) on Mar 3 — automatic, for #2" in _bk_sl1 and "runs short" not in _bk_sl2
+      and _bk_none is None and "below zero" in _bk_pf.block("paper"), (_bk_settle_ph, _bk_sl1[-300:], _bk_none))
+_bk_pf._SETTLE_LOOKED[0] = False
+if _bk_ac0 is _bk_MISSING:
+    if hasattr(config, "PORTFOLIO_AUTO_CONVERT"):
+        del config.PORTFOLIO_AUTO_CONVERT
+else:
+    config.PORTFOLIO_AUTO_CONVERT = _bk_ac0
+
 # ---- the morning brief; one valuation everywhere ------------------------------------------------------------------
 _bk_bkeys = ("PORTFOLIO_INDICES", "PORTFOLIO_BRIEF_MOVE", "PORTFOLIO_BRIEF_NEWS", "PORTFOLIO_BRIEF_NEWS_MAX",
              "PORTFOLIO_BRIEF_NEWS_CACHE_H", "PORTFOLIO_BRIEF_NEWS_SKIP")

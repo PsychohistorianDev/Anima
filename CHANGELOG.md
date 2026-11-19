@@ -28,7 +28,10 @@ tagged on its own: the first tag after the rename is v0.13.)
   — movers ▲/▼ (`PORTFOLIO_BRIEF_MOVE` 0.03), yardsticks (`PORTFOLIO_INDICES`, none), each rate's move, the book's
   warnings, and headlines naming a holding from Brave's news search (`PORTFOLIO_BRIEF_NEWS`, off; `_MAX` 2,
   `_CACHE_H` 3, `_SKIP`); closed while a guest is seated; OFFLINE asks nothing. One valuation everywhere: the last
-  trade when it is newer than the last close, said, the close beside it. Off: as before, the tool list and `/help` unchanged.
+  trade when it is newer than the last close, said, the close beside it. `PORTFOLIO_AUTO_CONVERT` (off): a kept record
+  that leaves a currency short is paid from another currency's cash at the record's own rate by the engine (the home
+  currency first, then the largest pile), linked to it; a shortfall already in the book is settled once and said;
+  striking or correcting the record redoes it. Off: as before, the tool list and `/help` unchanged.
 - **The pieces of a chosen folder reach the phone together at a set time** (`TELEGRAM_GATHER`, `{}` — off): a friend
   wrote eight short pages of one project in a single wake, and the keeper's phone got eight messages. Set a map of
   folders under `creations/` to times, e.g. `{"projects/daybook": "06:00"}`: a new or revised piece under such a

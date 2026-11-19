@@ -5392,6 +5392,9 @@ class Bridge:
             news = pf.adoption_news("phone")
             if news:
                 self._tr_send(f"({news})")
+            news = pf.settle_news("phone")
+            if news:
+                self._tr_send(f"({news})")
             self._tr_send("📒 the book", [[("📒 Book", "tr:b"), ("➕ Record", "tr:r")], [("✏️ Fix", "tr:f")],
                                          [("🌅 Brief", f"tr:bf:{self._tr_b(pf.open_book())}")]])
             return
@@ -5603,7 +5606,7 @@ class Bridge:
         live offer per book."""
         import portfolio as pf
         try:
-            if not got or got.get("kind") != "buy":
+            if not got or got.get("kind") != "buy" or pf.auto_on():  # the book converts by itself: no question
                 return
             sf = pf.shortfall(which)
             if not sf or sf["cur"] != got.get("currency") or not pf.offer_once(which, sf["cur"], sf["short"]):
@@ -5674,6 +5677,7 @@ class Bridge:
             got, no = pf.correct(flow["fix"], flow["field"], text, which=flow.get("book"))
             self._trade = None
             self._tr_send(f"{self._tr_paper(flow.get('book'))}✓ #{got['id']} replaces #{flow['fix']}: {pf.record_line(got)}"
+                          f"{pf.paid_clause(pf.auto_for(flow.get('book') or pf.open_book(), got['id']))}"
                           if got else f"(not corrected: {no})")
             return
         k = flow["kind"]
@@ -5860,7 +5864,8 @@ class Bridge:
             elif k == "y" and flow.get("rec"):
                 got, no = pf.add(flow["rec"], flow.get("book"))  # into the book it began in
                 self._trade = None
-                self._tr_send(f"{self._tr_paper(flow.get('book'))}✓ kept #{got['id']}: {pf.record_line(got)}" if got
+                self._tr_send(f"{self._tr_paper(flow.get('book'))}✓ kept #{got['id']}: {pf.record_line(got)}"
+                              f"{pf.paid_clause(pf.auto_for(flow.get('book') or pf.open_book(), got['id']))}" if got
                               else f"(not kept: {no})")
                 self._convert_offer(flow.get("book") or pf.open_book(), got)
                 return
@@ -5869,6 +5874,9 @@ class Bridge:
         elif k in ("pk", "pd") and len(d) > 2:
             x = next((i for i in pf.pending() if int(i.get("pid") or 0) == int(d[2])), None)
             said = pf.resolve_pending(int(d[2]), keep=(k == "pk"))
+            m_ = re.search(r"✓ kept #(\d+)", said)
+            if m_ and x:
+                said += pf.paid_clause(pf.auto_for((x.get("book") or "paper") if pf.paper_on() else "real", int(m_.group(1))))
             self._tr_send(said)
             if k == "pk" and x and "✓ kept #" in said:
                 which = (x.get("book") or "paper") if pf.paper_on() else "real"
@@ -5899,7 +5907,15 @@ class Bridge:
                           [[("✂️ Yes, strike it", f"tr:fy:{b}:{d[2]}")], [self._TR_CANCEL]])
         elif k == "fy" and len(d) > 2:
             got, no = pf.strike(int(d[2]))
-            self._tr_send(f"{self._tr_paper()}✂️ struck #{d[2]}: {pf.record_line(got)}" if got else f"(not struck: {no})")
+            also = ""
+            if got:
+                try:
+                    c_ = next((x for x in pf.load()["records"] if x.get("auto") and x.get("for") == int(d[2])
+                               and x.get("struck_by") == "engine"), None)
+                    also = f" (its automatic conversion #{c_['id']} struck with it)" if c_ else ""
+                except pf.BookUnreadable:
+                    also = ""
+            self._tr_send(f"{self._tr_paper()}✂️ struck #{d[2]}: {pf.record_line(got)}{also}" if got else f"(not struck: {no})")
         elif k == "fc" and len(d) > 2 and self._tr_is_convert(int(d[2])):
             b = self._tr_b(pf.open_book())
             self._tr_send(f"{self._tr_paper()}Correct which part of #{d[2]}?",
@@ -5952,6 +5968,9 @@ class Bridge:
                 news = pf.adoption_news("phone", standing=False)
                 if news:
                     self._tr_send(f"({news})")
+            news = pf.settle_news("phone") if pf.auto_on() else ""  # the one-time settle, said once
+            if news:
+                self._tr_send(f"({news})")
             for line in pf.lapse_pending():
                 self.notice(line)
             for x in pf.pending():  # read without the lock; each sent outside it, then marked told by its id

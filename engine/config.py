@@ -1920,6 +1920,12 @@ PORTFOLIO_PAPER = True
 # that name a holding (Brave's news search; the key in memory/web_search.json, as for web search) — only the company's
 # name is sent, never a quantity or anything of the book; at most _MAX each, cached _CACHE_H hours; hosts in _SKIP
 # (press wires that carry law-firm notices) are passed over.
+# PORTFOLIO_AUTO_CONVERT: a kept record that leaves one currency's cash below zero, while another currency's cash
+# covers it at the record's own rate, is paid from that currency by the engine itself (a `convert` record, automatic,
+# linked to it; the home currency pays first, then the largest other pile); a shortfall already in the book is settled
+# once the same way and said once. Striking or correcting the record redoes it; a conversion by hand is never touched.
+# False: the 💱 offer after a buy, as before.
+PORTFOLIO_AUTO_CONVERT = False
 PORTFOLIO_INDICES = []
 PORTFOLIO_BRIEF_MOVE = 0.03
 PORTFOLIO_BRIEF_NEWS = False

@@ -6649,6 +6649,9 @@ def portfolio(action: str = "look", symbol: str = "", kind: str = "", qty: str =
         missing = [n for n, v in (("kind", kind), ("date", date)) if not str(v or "").strip()]
         k = str(kind or "").strip().lower()
         if k in ("convert", "conversion"):  # the keeper's, on the phone, for now
+            if pf.auto_on():  # the book converts by itself
+                return ("(the book converts by itself at the day's rate when a buy needs it — nothing to record; nothing "
+                        "was written)")
             return ("(a conversion is recorded by your keeper on their phone for now — /trade → Record → Convert; "
                     "nothing was written)")
         if k in ("buy", "sell") and (not str(symbol or "").strip() or not str(qty or "").strip() or not str(price or "").strip()):
