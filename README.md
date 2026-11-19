@@ -2357,7 +2357,12 @@ currency's central bank where the engine knows one.
 **PAPER** is a second book for practice, and it is the one open until you
 choose 💼 Real (asked once): everything in it is marked PAPER, on the phone
 and in the friend's answers (`PORTFOLIO_PAPER` off keeps one book, the real
-one, carrying a practice book's records over into it once). Records are never deleted — ✏️ Fix strikes one
+one, carrying a practice book's records over into it once). 🌅 Brief (or
+`/brief`) is the book's day on one screen — each holding's move, the
+yardsticks you name (`PORTFOLIO_INDICES`), the rates, the warnings, and with
+`PORTFOLIO_BRIEF_NEWS` a few headlines naming a holding. A holding is valued at
+its last trade when that is newer than its last close (said, the close beside
+it), everywhere alike. Records are never deleted — ✏️ Fix strikes one
 or corrects a field by a new record that replaces it. Money moved between
 two currencies is a conversion (➕ Record → 💱 Convert, on the phone only);
 after a buy leaves one currency's cash below zero while another has cash, the
@@ -2827,7 +2832,9 @@ the first time they run, and read them from disk after. A world trip
 With the investment book on (`PORTFOLIO_ON`), a look at it or a price asks
 `query1.finance.yahoo.com` for the symbols in it (and a rate), with nothing
 of yours attached but the symbols; with an ILS home currency the rate is
-asked of `boi.org.il` first.
+asked of `boi.org.il` first. With the brief's headlines on (`PORTFOLIO_BRIEF_NEWS`),
+the names of the companies held go to Brave's news search — never a quantity,
+a price or anything else of the book.
 
 **`OFFLINE = True`** (Settings › Main) closes every road the friend or the
 engine can take on their own — the five web tools leave the prompt, a call

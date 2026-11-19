@@ -24708,7 +24708,7 @@ config.PORTFOLIO_ON = False
 check("book (0.16): off or absent — no portfolio tool, /trade and /book go to the friend as words, a tr: button "
       "does nothing of the book, /help names neither, nothing written under memory/portfolio",
       "portfolio" not in _bk_names_off and "portfolio" not in tools._BUILTIN_IMPL and _bk_off[0] == 1 and len(_bk_turns) == 2
-      and "/trade" not in tg.HELP and "/book —" not in tg.HELP and not _bk_dir.exists()
+      and "/trade" not in tg.HELP and "/book —" not in tg.HELP and "/brief" not in tg.HELP and not _bk_dir.exists()
       and "_book_read_fence" not in tools._sandbox_prelude() and "PermissionError(\"your keeper" not in tools._sandbox_prelude()
       and not tools._names_book("open('memory/portfolio/book.json')"), (_bk_off, _bk_turns))
 config.PORTFOLIO_ON = True
@@ -25040,7 +25040,7 @@ _bk_press(_bk_b, "tr:o:paper")
 check("book (0.16): /trade — the menu (PAPER open), 📒 Book as the compact block, ➕ Record through its buttons and "
       "replies (the home currency among the currencies), ✅ Keep files it by the keeper; another form of a symbol asked, "
       "not swapped; a message outside the flow goes to the friend; /book; 💼 Real asked once, then open",
-      _bk_menu == ("📒 the book — the PAPER book (practice) is open", [["📒 Book", "➕ Record"], ["✏️ Fix", "🧪 Paper ✓", "💼 Real"]])
+      _bk_menu == ("📒 the book — the PAPER book (practice) is open", [["📒 Book", "➕ Record"], ["✏️ Fix", "🧪 Paper ✓", "💼 Real"], ["🌅 Brief"]])
       and _bk_view.startswith("<pre>PAPER the paper book,") and _bk_kinds[0] == ["Buy", "Sell", "Dividend"]
       and _bk_curs[0] == ["$ USD", "€ EUR"] and _bk_sum.startswith(f"PAPER · deposited €1,500.00 on {_bk_pf._day(_bk_date.today())}")
       and _bk_kept.startswith("PAPER · ✓ kept #1: deposited €1,500.00") and _bk_pf.load("paper")["records"][0]["by"] == "keeper",
@@ -25379,7 +25379,7 @@ check("book (0.16): PORTFOLIO_PAPER True or absent — the practice book as befo
       _bk_menus["true"] == _bk_menus["absent"] and _bk_menus["true"][2] == "paper" and "💼 Real" in _bk_menus["true"][1][1]
       and _bk_one[0][0] == "(the practice book is now the book — 2 records carried over, nothing changed in them)"
       and _bk_one[1] == ("📒 the book", [[{"text": "📒 Book", "callback_data": "tr:b"}, {"text": "➕ Record", "callback_data": "tr:r"}],
-                                         [{"text": "✏️ Fix", "callback_data": "tr:f"}]])
+                                         [{"text": "✏️ Fix", "callback_data": "tr:f"}], [{"text": "🌅 Brief", "callback_data": "tr:bf:r"}]])
       and _bk_one2 == ["📒 the book"] and len(_bk_adopted[0]) == 1 and _bk_adopted[0][0].startswith("paper.adopted-")
       and _bk_adopted[1:] == ([1, 2], ["real"], "real")
       and _bk_flook.endswith("the practice book is now the book: the same records, no longer marked PAPER")
@@ -25416,12 +25416,172 @@ if _bk_pp0 is _bk_MISSING:
 else:
     config.PORTFOLIO_PAPER = _bk_pp0
 
+# ---- the morning brief; one valuation everywhere ------------------------------------------------------------------
+_bk_bkeys = ("PORTFOLIO_INDICES", "PORTFOLIO_BRIEF_MOVE", "PORTFOLIO_BRIEF_NEWS", "PORTFOLIO_BRIEF_NEWS_MAX",
+             "PORTFOLIO_BRIEF_NEWS_CACHE_H", "PORTFOLIO_BRIEF_NEWS_SKIP")
+_bk_bsaved = {k: getattr(config, k, _bk_MISSING) for k in _bk_bkeys}
+_bk_news_http0 = _bk_pf._news_http
+_bk_ws = config.MEMORY_DIR / "web_search.json"
+_bk_ws0 = _bk_ws.read_bytes() if _bk_ws.exists() else None
+_bk_NEWS = {"calls": [], "fail": False}
+_bk_SECRET = "k-" + "0123456789abcdef"
+
+
+def _bk_fake_news(url, headers, timeout):
+    _bk_NEWS["calls"].append((url, dict(headers)))
+    if _bk_NEWS["fail"]:
+        raise OSError("refused")
+    return {"results": [
+        {"title": "Acme Widgets opens a second plant by the river", "meta_url": {"hostname": "www.dailyledger.example"},
+         "age": "3 hours ago", "page_age": "2026-03-06T09:00:00"},
+        {"title": "Acme shares slip as the widget season ends", "meta_url": {"hostname": "marketnote.example"},
+         "age": "1 hour ago", "page_age": "2026-03-06T11:00:00"},
+        {"title": "Law firm reminds Acme Widgets investors of a deadline", "meta_url": {"hostname": "prnewswire.com"},
+         "page_age": "2026-03-06T12:00:00"},
+        {"title": "A quiet day for the widget trade", "meta_url": {"hostname": "dailyledger.example"},
+         "page_age": "2026-03-06T12:30:00"}]}
+
+
+_bk_pf._news_http = _bk_fake_news
+config.PORTFOLIO_INDICES, config.PORTFOLIO_BRIEF_MOVE = ["^GSPC"], 0.03
+config.PORTFOLIO_BRIEF_NEWS, config.PORTFOLIO_BRIEF_NEWS_MAX, config.PORTFOLIO_BRIEF_NEWS_CACHE_H = False, 2, 3
+config.PORTFOLIO_BRIEF_NEWS_SKIP = ["prnewswire.com"]
+_bk_FIX["^GSPC"] = _bk_chart("^GSPC", "USD", [5000.0, 5010.0, 5020.0, 5030.0, 5080.3])
+_bk_fresh("EUR")
+_bk_add("deposit", "EUR", None, "2000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03")
+_bk_today = _bk_date.today().isoformat()
+_bk_add("buy", "NORD", "5", "20", _bk_today)
+_bk_br = _bk_pf.brief("paper", now=_bk_dt(2026, 3, 9, 7, 30))
+_bk_blk = _bk_pf.block("paper")
+_bk_tot = _bk_re.search(r"total (€[\d,.]+)", _bk_blk).group(1)
+check("book (0.16): 🌅 Brief — worth now as the book's total, in euros with dollars beside; each holding's day: held "
+      "before today from the close before, bought today from the buy price; the day's sum; movers; the yardsticks in "
+      "points; each rate's move from Yahoo's close; PAPER on every line",
+      _bk_br.startswith("PAPER 🌅 Brief — Mon Mar 9, 07:30\n") and f"PAPER worth now {_bk_tot} · $" in _bk_br
+      and "PAPER ▲ ACME +4.2% (" not in _bk_br and "PAPER ▲ ACME +4.2%" in _bk_br
+      and "PAPER   close Mar 6 $43.25, +4.2% from Mar 5 · +$17.50" in _bk_br
+      and "PAPER   close Mar 6 €20.40 · bought today at €20.00: +2.0% · +€2.00 (the share itself is +0.5% from Mar 5)" in _bk_br
+      and "PAPER the day +€18.19 (prices only — deposits and buys not counted)" in _bk_br
+      and "PAPER ^GSPC  close Mar 6 5,080.30, +1.0% from Mar 5" in _bk_br
+      and "PAPER rate 0.9250 €/$ (Yahoo EUR=X, " in _bk_br and "from Yahoo's EUR=X close of Mar 6 (0.9250)" in _bk_br
+      and all(l_.startswith("PAPER ") for l_ in _bk_br.splitlines()) and "said today" not in _bk_br, (_bk_br, _bk_tot))
+# one valuation: a last trade newer than the close
+_bk_now2 = int(_bk_time.time())
+_bk_live = _bk_json.loads(_bk_json.dumps(_bk_FIX["ACME"]))
+_bk_live["chart"]["result"][0]["meta"].update(regularMarketPrice=44.0, regularMarketTime=_bk_now2 - 120)
+_bk_FIX0 = _bk_FIX["ACME"]
+_bk_FIX["ACME"] = _bk_live
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "1000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03")
+_bk_v_blk = _bk_pf.block("paper")
+_bk_v_cmp = _bk_pf.block("paper", compact=True)
+_bk_v_look = tools.portfolio("look")
+_bk_v_br = _bk_pf.brief("paper")
+_bk_b, _bk_ph = _bk_bridge()
+_bk_text(_bk_b, "/trade ACME")
+_bk_v_sym = _bk_ph.msgs[-1]["text"]
+_bk_FIX["ACME"] = _bk_FIX0
+check("book (0.16): one valuation — a last trade newer than the last close is the price, said, the close beside it; "
+      "the total says how many are at their last trade; the book, the friend's look, /trade <symbol> and the brief agree",
+      f"PAPER   $44.00 (last trade {_bk_at(_bk_now2 - 120)}, Yahoo) · close Mar 6 $43.25" in _bk_v_blk
+      and "PAPER total $1,030.00 (1 at its last trade — markets open)" in _bk_v_blk
+      and f"PAPER   $44.00 · {_bk_dt.fromtimestamp(_bk_now2 - 120):%H:%M} · Yahoo · last trade" in _bk_v_cmp
+      and "PAPER total $1,030.00" in _bk_v_look and "PAPER worth now $1,030.00" in _bk_v_br
+      and "+1.7% since the close of Mar 6" in _bk_v_br and "worth $440.00" in _bk_v_sym,
+      (_bk_v_blk, _bk_v_br, _bk_v_sym))
+# headlines: only names, only through the web search's key, skipped hosts, cached, failures remembered, offline
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "1000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03")
+config.PORTFOLIO_BRIEF_NEWS = True
+_bk_ws.write_text(_bk_json.dumps({"brave_key": _bk_SECRET}), encoding="utf-8")
+_bk_NEWS["calls"].clear()
+_bk_n1 = _bk_pf.brief("paper")
+_bk_n2 = _bk_pf.brief("paper")
+_bk_ncalls = list(_bk_NEWS["calls"])
+_bk_newsfile = (_bk_dir / "news.json").read_text(encoding="utf-8")
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "1000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03")
+_bk_NEWS["fail"] = True
+_bk_NEWS["calls"].clear()
+_bk_n3 = _bk_pf.brief("paper")
+_bk_n4 = _bk_pf.brief("paper")
+_bk_failcalls = len(_bk_NEWS["calls"])
+_bk_NEWS["fail"] = False
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "1000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03")
+config.OFFLINE = True
+_bk_NEWS["calls"].clear()
+_bk_NET["calls"].clear()
+_bk_n5 = _bk_pf.brief("paper")
+_bk_offcalls = len(_bk_NEWS["calls"]) + len(_bk_NET["calls"])
+config.OFFLINE = False
+check("book (0.16): headlines — asked by the company's cleaned name only, with the web search's key in the header "
+      "alone; titles that name the holding, newest first, at most _MAX, press wires passed over; cached; a failed "
+      "search said and not asked again for 5 minutes; offline — nothing asked, said",
+      len(_bk_ncalls) == 1 and "q=Acme+Widgets" in _bk_ncalls[0][0] and "1000" not in _bk_ncalls[0][0] and "41" not in _bk_ncalls[0][0]
+      and _bk_ncalls[0][1].get("X-Subscription-Token") == _bk_SECRET and _bk_SECRET not in _bk_n1 and _bk_SECRET not in _bk_newsfile
+      and "PAPER said today (headlines as found — not checked facts)\nPAPER · Acme shares slip as the widget season ends — "
+          "marketnote.example, 1 hour ago\nPAPER · Acme Widgets opens a second plant by the river — dailyledger.example, 3 hours ago" in _bk_n1
+      and "prnewswire" not in _bk_n1 and "quiet day" not in _bk_n1 and _bk_n2 == _bk_n1
+      and "(headlines could not be fetched)" in _bk_n3 and "(headlines could not be fetched)" in _bk_n4 and _bk_failcalls == 1
+      and "(headlines: this house is offline — not asked)" in _bk_n5 and _bk_offcalls == 0,
+      (_bk_ncalls, _bk_n1[-400:], _bk_n3[-200:], _bk_failcalls, _bk_n5[-200:], _bk_offcalls))
+check("book (0.16): a headline names a holding by its whole cleaned name, a distinctive word of it (case-blind), or a "
+      "bare ticker of 3+ letters (case-sensitive, not a common word)",
+      _bk_pf.names_holding("Zentrova rallies", "Zentrova Holdings", "ZTV") and _bk_pf.names_holding("ZTV jumps", "Zentrova Holdings", "ZTV")
+      and not _bk_pf.names_holding("ztv jumps", "Zentrova Holdings", "ZTV") and not _bk_pf.names_holding("Holdings rally", "Zentrova Holdings", "ZTV")
+      and not _bk_pf.names_holding("A WIN for all", "Quillon", "WIN") and _bk_pf._clean_name("Zentrova Holdings Inc.", "ZTV") == "Zentrova")
+# the phone: the button and /brief; closed while a guest is seated; the knob off — /brief is the friend's
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "10", "2026-03-02")
+_bk_b, _bk_ph = _bk_bridge()
+_bk_edits = []
+_bk_ph0 = _bk_b.api
+_bk_b.api = lambda method, patience=30, **p_: (_bk_edits.append(p_.get("text")) or {}) if method == "editMessageText" else _bk_ph0(method, patience, **p_)
+_bk_text(_bk_b, "/trade")
+_bk_menu_b = _bk_ph.buttons()
+_bk_press(_bk_b, "tr:bf:p")
+_bk_text(_bk_b, "/brief")
+_bk_bmsg = ([m["text"] for m in _bk_ph.msgs[-2:]], list(_bk_edits))
+_bk_b.guest_command("Wren")
+_bk_text(_bk_b, "/brief")
+_bk_bclosed = _bk_ph.msgs[-1]["text"]
+_bk_b.guest_command("off")
+config.PORTFOLIO_ON = False
+_bk_turns.clear()
+_bk_text(_bk_b, "/brief")
+_bk_boff = len(_bk_turns)
+config.PORTFOLIO_ON = True
+check("book (0.16): 🌅 Brief on the /trade menu and /brief — sent as 'fetching…' and edited into the brief; closed while "
+      "a guest is seated; with the book off, /brief is the friend's",
+      _bk_menu_b[-1] == ["🌅 Brief"] and _bk_bmsg[0] == ["🌅 Brief — fetching…"] * 2 and len(_bk_bmsg[1]) == 2
+      and all(t_.startswith("PAPER 🌅 Brief — ") for t_ in _bk_bmsg[1])
+      and _bk_bclosed.startswith("(the book stays closed while a guest is here — Wren") and _bk_boff == 1,
+      (_bk_menu_b, _bk_bmsg, _bk_bclosed, _bk_boff))
+_bk_pf._news_http = _bk_news_http0
+if _bk_ws0 is None:
+    _bk_ws.unlink(missing_ok=True)
+else:
+    _bk_ws.write_bytes(_bk_ws0)
+del _bk_FIX["^GSPC"]
+for _bk_k, _bk_v in _bk_bsaved.items():
+    if _bk_v is _bk_MISSING:
+        if hasattr(config, _bk_k):
+            delattr(config, _bk_k)
+    else:
+        setattr(config, _bk_k, _bk_v)
+
 # ---- on: the tool list and /help in a fresh process; the knobs; the words ------------------------------------------
 _bk_on = _bk_sub.run([_bk_sys.executable, "-c",
                       "import sys, json, tempfile\nsys.path.insert(0, sys.argv[1])\nsys.dont_write_bytecode = True\nimport config\n"
                       "from pathlib import Path\nconfig.MEMORY_DIR = Path(tempfile.mkdtemp())\nconfig.OFFLINE = True\n"
                       "config.PORTFOLIO_ON = True\nimport tools, telegram\n"
-                      "print(json.dumps([[d['function']['name'] for d in tools.DEFINITIONS], '/trade — your investment book' in telegram.HELP]))\n",
+                      "print(json.dumps([[d['function']['name'] for d in tools.DEFINITIONS], '/trade — your investment book' in telegram.HELP and '/brief — the morning brief' in telegram.HELP]))\n",
                       str(Path(config.ROOT) / "engine")], capture_output=True, text=True, timeout=180)
 try:
     _bk_onr = _bk_json.loads(_bk_on.stdout.strip().splitlines()[-1])

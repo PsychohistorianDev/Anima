@@ -197,6 +197,7 @@ if getattr(config, "WORLD_TRIPS_ON", False):
 if getattr(config, "PORTFOLIO_ON", False):
     HELP_PHONE += ("/trade — your investment book, with buttons: 📒 Book, ➕ Record, ✏️ Fix, 🧪 Paper / 💼 Real; "
                    "/trade <symbol> — one holding and its price; /trade unseat — mend the book's guest seat; /book — the book\n")
+    HELP_PHONE += "/brief — the morning brief: the book's day, the yardsticks, the rates (and headlines, if on)\n"
 
 HELP = (
     "/new — save this conversation and start fresh\n"
@@ -5391,7 +5392,8 @@ class Bridge:
             news = pf.adoption_news("phone")
             if news:
                 self._tr_send(f"({news})")
-            self._tr_send("📒 the book", [[("📒 Book", "tr:b"), ("➕ Record", "tr:r")], [("✏️ Fix", "tr:f")]])
+            self._tr_send("📒 the book", [[("📒 Book", "tr:b"), ("➕ Record", "tr:r")], [("✏️ Fix", "tr:f")],
+                                         [("🌅 Brief", f"tr:bf:{self._tr_b(pf.open_book())}")]])
             return
         paper = pf.open_book() == "paper"
         if not pf.state_readable():
@@ -5399,13 +5401,31 @@ class Bridge:
         self._tr_send(f"📒 the book — {'the PAPER book (practice) is open' if paper else 'the REAL book is open'}",
                       [[("📒 Book", "tr:b"), ("➕ Record", "tr:r")],
                        [("✏️ Fix", "tr:f"), ("🧪 Paper ✓" if paper else "🧪 Paper", "tr:o:paper"),
-                        ("💼 Real ✓" if not paper else "💼 Real", "tr:o:real")]])
+                        ("💼 Real ✓" if not paper else "💼 Real", "tr:o:real")],
+                       [("🌅 Brief", f"tr:bf:{self._tr_b(pf.open_book())}")]])
 
     def trade_book(self, refresh: bool = False) -> None:
         import portfolio as pf
         parts = split_long(pf.block(compact=True, refresh=refresh), 3800)
         for i, part in enumerate(parts):
             self._tr_send(part, [[("🔄", "tr:b:r"), ("📒 menu", "tr:m")]] if i == len(parts) - 1 else None, pre=True)
+
+    def trade_brief(self) -> None:
+        """🌅 Brief — the engine's: sent as "fetching…", then edited to the brief (or sent anew if the edit doesn't
+        go). Nothing of it is the friend's."""
+        import portfolio as pf
+        which = pf.open_book()
+        rows = [[("🔄", f"tr:bf:{self._tr_b(which)}"), ("📒 menu", "tr:m")]]
+        mid = self._tr_send("🌅 Brief — fetching…")
+        text_ = pf.brief(which)
+        if mid:
+            try:
+                self.api("editMessageText", chat_id=self.chat_id, message_id=mid, text=text_,
+                         reply_markup=self._pp_markup(rows))
+                return
+            except Exception as e:  # noqa: BLE001
+                _say(f"brief: not edited ({type(e).__name__})")
+        self._tr_send(text_, rows)
 
     def trade_take(self, msg: dict, text: str) -> bool:
         """True when the message was the book's: /trade, /book, or a reply to the flow's own prompt."""
@@ -5414,13 +5434,17 @@ class Bridge:
         low = text.lower()
         flow = getattr(self, "_trade", None)
         rt = (msg.get("reply_to_message") or {}).get("message_id")
-        ours = (low == "/book" or low.startswith("/book@") or low == "/trade" or low.startswith("/trade ")
+        ours = (low == "/book" or low.startswith("/book@") or low == "/brief" or low.startswith("/brief@")
+                or low == "/trade" or low.startswith("/trade ")
                 or low.startswith("/trade@") or (flow and rt and int(rt) == int(flow.get("prompt") or -1)))
         if low.split()[:2] in (["/trade", "unseat"],) or low.startswith("/trade@") and low.split()[1:2] == ["unseat"]:
             self.trade_unseat()
             return True
         if ours and self._tr_guest():  # a guest seated anywhere: nothing of the book shows
             self._tr_send(self._tr_closed())
+            return True
+        if low == "/brief" or low.startswith("/brief@"):
+            self.trade_brief()
             return True
         if low == "/book" or low.startswith("/book@"):
             self.trade_book()
@@ -5749,16 +5773,18 @@ class Bridge:
         d = str(cq.get("data") or "").split(":")
         k = d[1] if len(d) > 1 else ""
         flow = getattr(self, "_trade", None)
-        if not pf.paper_on() and (k in ("o", "oy") or (k in ("fi", "fs", "fy", "fc", "ff", "cv", "ct", "cl", "s")
+        if not pf.paper_on() and (k in ("o", "oy") or (k in ("fi", "fs", "fy", "fc", "ff", "cv", "ct", "cl", "s", "bf")
                                                          and len(d) > 2 and d[2] == "p")):
             self._tr_send("(the practice book is gone — this is the book now; open /trade again)")  # a stale button
             return
-        if k in ("fi", "fs", "fy", "fc", "ff", "cv", "ct", "cl"):  # a record's button carries its book: tr:<k>:<p|r>:…
-            if len(d) < (3 if k == "cl" else 4) or d[2] != self._tr_b(pf.open_book()):
+        if k in ("fi", "fs", "fy", "fc", "ff", "cv", "ct", "cl", "bf"):  # a button carries its book: tr:<k>:<p|r>:…
+            if len(d) < (3 if k in ("cl", "bf") else 4) or d[2] != self._tr_b(pf.open_book()):
                 self._tr_send("(that button is from the other book — nothing was done)")
                 return
             d = d[:2] + d[3:]
-        if k == "m":
+        if k == "bf":
+            self.trade_brief()
+        elif k == "m":
             self.trade_menu()
         elif k == "b":
             self.trade_book(refresh=len(d) > 2)

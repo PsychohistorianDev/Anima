@@ -1913,6 +1913,20 @@ PORTFOLIO_GUEST_SCRUB = False
 # records over into the real one unchanged when the real one has none (paper.json is renamed paper.adopted-<stamp>.json,
 # never deleted; said once on your phone and once to the friend). Both with records: nothing merged, said.
 PORTFOLIO_PAPER = True
+# The morning brief: /trade → 🌅 Brief, or /brief — the book's day (each holding's move: shares held before today from
+# the close before, shares bought today from their buy price), the yardsticks, each rate's move, the book's warnings.
+# PORTFOLIO_INDICES: the yardsticks, symbols as the price feed knows them, e.g. ["^GSPC"] (none by default).
+# PORTFOLIO_BRIEF_MOVE: a day's move this large marks a holding ▲/▼ at the top. PORTFOLIO_BRIEF_NEWS: a few headlines
+# that name a holding (Brave's news search; the key in memory/web_search.json, as for web search) — only the company's
+# name is sent, never a quantity or anything of the book; at most _MAX each, cached _CACHE_H hours; hosts in _SKIP
+# (press wires that carry law-firm notices) are passed over.
+PORTFOLIO_INDICES = []
+PORTFOLIO_BRIEF_MOVE = 0.03
+PORTFOLIO_BRIEF_NEWS = False
+PORTFOLIO_BRIEF_NEWS_MAX = 2
+PORTFOLIO_BRIEF_NEWS_CACHE_H = 3
+PORTFOLIO_BRIEF_NEWS_SKIP = ["globenewswire.com", "prnewswire.com", "businesswire.com", "accessnewswire.com",
+                             "newsfilecorp.com"]
 
 # ---- the journal's facts (chat.journal_facts_line, chat.with_endings)
 # What the friend is handed when they sit down to write a stretch of a visit — the pause, the afterglow, the fold's

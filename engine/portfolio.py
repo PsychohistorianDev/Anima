@@ -859,12 +859,26 @@ def find(symbol: str) -> dict:
     return {"ok": False, "tried": tried, "error": "the feed knows none of them"}
 
 
+def at_trade(q: dict) -> bool:
+    """True when the feed's last trade is newer than its last completed daily close (a market open, or a first-day
+    share): then the holding is valued at that trade. A last trade older than the newest close is not used."""
+    last, lt, close = q.get("last"), q.get("last_time"), q.get("close")
+    if last is None or not lt:
+        return False
+    try:
+        return close is None or datetime.fromtimestamp(int(lt)).date().isoformat() > str(q.get("close_date"))
+    except (TypeError, ValueError, OverflowError, OSError):
+        return False
+
+
 def price_of(q: dict) -> float | None:
-    """The price a holding is valued at: the last completed close, or — no close yet — the last trade."""
+    """The price a holding is valued at, one rule everywhere (the book, the friend's look, /trade <symbol>, the
+    brief): the latest the feed has — the last trade when it is newer than the last completed close, otherwise that
+    close."""
+    if at_trade(q):
+        return float(q["last"])
     if q.get("close") is not None:
         return float(q["close"])
-    if q.get("last") is not None and q.get("last_time"):
-        return float(q["last"])
     return None
 
 
@@ -1099,7 +1113,7 @@ def make_record(kind: str, symbol: str = "", qty=None, price=None, day=None, fee
                 return None, f"price “{price}” isn't a price above zero"
             close = float(price_of(q) or 0)
             if close and 50 <= p / close <= 200 and q.get("minor"):
-                said = (f"closed at {money(close, q['currency'])} ({_day(q.get('close_date'))})" if q.get("close") is not None
+                said = (f"closed at {money(close, q['currency'])} ({_day(q.get('close_date'))})" if not at_trade(q)
                         else f"last traded at {money(close, q['currency'])} ({_at(q['last_time'])})")
                 return None, f"{p:,.2f} looks like {q['minor']} — {q['symbol']} {said}; give the price in {q.get('major') or q['currency']}"
             rec["qty"], rec["price"] = round(n, 6), round(p, 6)
@@ -1696,14 +1710,18 @@ def _block(which, book, tag, compact, refresh, until=None, for_friend=False) -> 
         if q.get("ok"):
             stale = " (could not be fetched now)" if q.get("stale") else ""
             mn = q.get("minor") or ""
-            if q.get("close") is None:  # no completed close yet: the last trade, with its time — said so
+            if at_trade(q):  # valued at the last trade — said, with the close beside it
                 ag = ((f" · {mn}" if compact else f"; in {mn}") if mn else "")
+                lt = int(q["last_time"])
+                hm = _hm(lt) if datetime.fromtimestamp(lt).date() == date.today() else _at(lt)
                 if compact:
-                    lines.append(f"  {money(price_of(q), cur)} · last {_at(q['last_time'])}{ag}{stale}")
-                    lines.append("  no completed close yet")
+                    lines.append(f"  {money(price_of(q), cur)} · {hm} · {q.get('source', 'Yahoo')} · last trade{ag}{stale}")
+                    if q.get("close") is None:
+                        lines.append("  no completed close yet")
                 else:
-                    lines.append(f"  {money(price_of(q), cur)} (last trade {_at(q['last_time'])}, {q.get('source', 'Yahoo')}"
-                                 f"{ag}; no completed daily close yet){stale}")
+                    beside = (f" · close {_day(q.get('close_date'))} {money(float(q['close']), cur)}" if q.get("close") is not None
+                              else " · no completed daily close yet")
+                    lines.append(f"  {money(price_of(q), cur)} (last trade {_at(lt)}, {q.get('source', 'Yahoo')}{ag}){beside}{stale}")
             elif compact:
                 src = f"{_day(q.get('close_date'))} · {q.get('source', 'Yahoo')}" + (f" · {mn}" if mn else "")
                 lines.append(f"  {money(float(q['close']), cur)} · {src}{stale}" + (" ⚠ check this" if q.get("jump") else ""))
@@ -1750,7 +1768,8 @@ def _block(which, book, tag, compact, refresh, until=None, for_friend=False) -> 
         lines.append("mix: not given — " + ("cash is below zero" if below else "the total isn't above zero"
                                              if total_known else "a price or the rate is missing"))
     old = [q for s_, q in quotes.items() if q.get("ok") and q.get("stale") and s_ in dict(held)]
-    lastonly = [s_ for s_, q in quotes.items() if q.get("ok") and q.get("close") is None and s_ in dict(held)]
+    attrade = [s_ for s_, q in quotes.items() if q.get("ok") and at_trade(q) and s_ in dict(held)]
+    firstday = [s_ for s_ in attrade if quotes[s_].get("close") is None]
     usd = rates.get("USD") or {}
     in_usd = f" · {money(whole / usd['rate'], 'USD')}" if h != "USD" and usd.get("ok") else ""
     if fx_ok and negative:
@@ -1759,8 +1778,9 @@ def _block(which, book, tag, compact, refresh, until=None, for_friend=False) -> 
         notes = []
         if not total_known:
             notes.append("a price is missing")
-        if lastonly:
-            notes.append(f"{', '.join(lastonly)} at {'its' if len(lastonly) == 1 else 'their'} last trade — no close yet")
+        if attrade:  # one clause for both: markets open, and a first day with no close yet
+            notes.append(f"{len(attrade)} at {'its' if len(attrade) == 1 else 'their'} last trade — markets open"
+                         + (f"; {', '.join(firstday)} with no close yet" if firstday else ""))
         if old:
             notes.append(f"{len(old)} price{'s are' if len(old) != 1 else ' is'} from "
                          f"{', '.join(sorted({_day(q.get('close_date') or q.get('last_time') and datetime.fromtimestamp(int(q['last_time'])).date().isoformat()) for q in old}))} — could not be fetched now")
@@ -1960,3 +1980,383 @@ def _since_locked(which: str) -> list[str]:
     s["for_friend"] = []
     _write("state.json", s)
     return out
+
+
+# ---- the morning brief: the engine's, nothing of it the friend's --------------------------------------------------
+# /trade → 🌅 Brief, or /brief. Prices with their dates and sources as the book gives them, the day's move, the
+# yardsticks (PORTFOLIO_INDICES), each rate's move, the book's own warnings, and — PORTFOLIO_BRIEF_NEWS — a couple of
+# headlines a holding is named in (Brave's news search; the key from memory/web_search.json, never shown).
+BRIEF_PRICE_S = 6.0   # the feed's share of the brief's time; a fetch started inside it may take its 6 s timeout
+BRIEF_TOTAL_S = 12.0  # headlines only while the brief is inside this
+NEWS_URL = "https://api.search.brave.com/res/v1/news/search?"
+NEWS_FAIL_S = 300     # a failed search is remembered this long, per company, so 🔄 doesn't hammer
+BRIEF_LIMIT = 4096
+_SUFFIX = re.compile(r"(,?\s+(inc\.?|incorporated|corp\.?|corporation|co\.?|company|ltd\.?|limited|plc|pbc|"
+                     r"n\.?v\.?|s\.?a\.?|ag|se|holdings?|group|b\.?m\.?))+\s*$", re.I)
+NAME_STOP = {"bank", "group", "holdings", "holding", "international", "global", "technologies", "technology", "industries",
+             "pharmaceutical", "pharmaceuticals", "systems", "financial", "capital", "trust", "fund", "etf", "the", "of",
+             "and", "corp", "corporation", "inc", "ltd", "limited", "plc", "company", "co", "sa", "ag", "nv"}
+TICKER_WORDS = {"ALL", "NOW", "ON", "IT", "ARE", "CAT", "KEY", "REAL", "WELL", "FAST", "LOVE", "LIFE", "OPEN",
+                "PLAY", "RUN", "SEE", "TWO", "ONE", "CAN", "BIG", "CAR", "FUN", "GOOD", "HAS", "JOB", "MAN", "NEW",
+                "OUT", "PAY", "SAVE", "SO", "TRUE", "WAY", "WIN", "YOU", "AIR", "ARM", "BOX", "EAT", "GO"}
+
+
+def _minus(x: float) -> str:
+    return "+" if x >= 0 else "−"
+
+
+def _pct(x: float) -> str:
+    return f"{_minus(x)}{abs(x) * 100:.1f}%"
+
+
+def _signed(v: float, cur: str) -> str:
+    return f"{_minus(v)}{money(abs(v), cur)}"
+
+
+def _hm(ts) -> str:
+    t = datetime.fromtimestamp(int(ts))
+    return f"{t:%H:%M}"
+
+
+def _move(q: dict, avg: float | None = None) -> dict:
+    """The day's move of a quote: {"price", "base", "pct", "line", "first", …} — the latest price the feed has against
+    the close before it; a first day (no close before) against the buy price (avg), if given."""
+    cur = q.get("currency") or ""
+    last, lt, close = q.get("last"), q.get("last_time"), q.get("close")
+    newer = at_trade(q)
+    if newer:
+        price, said = float(last), f"now {money(float(last), cur)} ({_hm(lt)})"
+        base, since = (float(close), f"since the close of {_day(q.get('close_date'))}") if close is not None else (None, "")
+    else:
+        price = float(close) if close is not None else None
+        said = f"close {_day(q.get('close_date'))} {money(price, cur)}" if price is not None else "no price"
+        base, since = ((float(q["prev_close"]), f"from {_day(q.get('prev_date'))}") if q.get("prev_close") else (None, ""))
+    first = base is None
+    if first and avg:
+        base, since = float(avg), f"since the buy at {money(float(avg), cur)} — first day, no close before"
+    pct = (price / base - 1) if (price is not None and base) else None
+    if pct is None:
+        line = said
+    elif newer:
+        line = f"{said} {_pct(pct)} {since}"
+    else:
+        line = f"{said}, {_pct(pct)} {since}"
+    return {"price": price, "base": base, "pct": pct, "line": line, "first": first, "said": said, "since": since,
+            "newer": bool(newer)}
+
+
+def _plain(v: float) -> str:
+    return f"{v:,.2f}"
+
+
+def _clean_name(name: str, symbol: str) -> str:
+    n = " ".join(str(name or "").split())
+    for _ in range(3):
+        n = _SUFFIX.sub("", n).strip(" ,")
+    return n or re.sub(r"\.[A-Z]+$", "", str(symbol or "")).lstrip("^")
+
+
+def _news_http(url: str, headers: dict, timeout: float) -> dict:
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode("utf-8", "replace"))
+
+
+def _brave_key() -> str:
+    """The search key through the web search's own secret reader (memory/web_search.json) — never config."""
+    try:
+        import web
+        return web._secret("brave_key")
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _headlines(symbol: str, name: str, until: float) -> list[dict] | None:
+    """Headlines naming a holding today: [{"title", "host", "age"}], newest first, at most PORTFOLIO_BRIEF_NEWS_MAX;
+    None when they couldn't be fetched (offline, no key, a refusal, garbage, no time). Cached per company. Never
+    raises; the key goes only into the request's header — never into a log, a message or a file. Only the company's
+    name is asked: never a quantity, a price or anything of the book."""
+    query = _clean_name(name, symbol)
+    ck = query.lower()
+    hours = float(getattr(config, "PORTFOLIO_BRIEF_NEWS_CACHE_H", 3) or 3)
+    cache = _read("news.json", {})
+    cache = cache if isinstance(cache, dict) else {}
+    c = cache.get(ck) if isinstance(cache.get(ck), dict) else None
+    if c and c.get("failed") and time.time() - float(c.get("t") or 0) < NEWS_FAIL_S:
+        return None  # a search that failed a moment ago isn't tried again yet
+    if c and not c.get("failed") and time.time() - float(c.get("t") or 0) < hours * 3600 and isinstance(c.get("items"), list):
+        return c["items"]
+    if getattr(config, "OFFLINE", False):
+        return None
+    key = _brave_key()
+    left = until - time.time()
+    if not key or left < 0.5:
+        return None
+    try:
+        data = _news_http(NEWS_URL + urllib.parse.urlencode({"q": query, "count": 8, "freshness": "pd"}),
+                          {"Accept": "application/json", "X-Subscription-Token": key, "User-Agent": UA},
+                          min(4.0, left))
+        res = data.get("results") if isinstance(data, dict) else None
+        if not isinstance(res, list):
+            raise ValueError("not the news shape")
+    except Exception:  # noqa: BLE001 — its text may carry the request; nothing of it is kept
+        _news_keep(ck, {"t": time.time(), "failed": True})
+        return None
+    skip = [str(h).lower() for h in (getattr(config, "PORTFOLIO_BRIEF_NEWS_SKIP", None) or [])]
+    items = []
+    for r in res:
+        if not isinstance(r, dict):
+            continue
+        title = " ".join(str(r.get("title") or "").split())
+        host = str(((r.get("meta_url") or {}) if isinstance(r.get("meta_url"), dict) else {}).get("hostname") or "")
+        if not host:
+            host = urllib.parse.urlparse(str(r.get("url") or "")).hostname or ""
+        host = host.lower()
+        host = host[4:] if host.startswith("www.") else host
+        if not title or not names_holding(title, query, symbol):
+            continue
+        if any(host == h or host.endswith("." + h) for h in skip):
+            continue
+        items.append({"title": title, "host": host, "age": str(r.get("age") or "").strip(),
+                      "when": str(r.get("page_age") or "")})
+    items.sort(key=lambda x: x["when"], reverse=True)
+    items = [{k: v for k, v in x.items() if k != "when"} for x in items[:int(getattr(config, "PORTFOLIO_BRIEF_NEWS_MAX", 2) or 2)]]
+    _news_keep(ck, {"t": time.time(), "items": items})
+    return items
+
+
+def _news_keep(ck: str, entry: dict) -> None:
+    try:
+        with _locked():
+            cache = _read("news.json", {})
+            cache = cache if isinstance(cache, dict) else {}
+            cache[ck] = entry
+            cache = {k: v for k, v in cache.items() if isinstance(v, dict) and time.time() - float(v.get("t") or 0) < 24 * 3600}
+            _write("news.json", cache)
+    except BookBusy:
+        pass
+
+
+def names_holding(title: str, name: str, symbol: str) -> bool:
+    """Does a headline name the holding? The whole cleaned name; or one distinctive word of it (4+ letters, not a
+    common company word), whole and case-blind; or the bare ticker — 3+ letters, whole, case-sensitive, and not an
+    English word."""
+    t = str(title or "")
+    n = " ".join(str(name or "").split())
+    if n and re.search(rf"(?<![\w-]){re.escape(n)}(?![\w-])", t, re.I):
+        return True
+    for w in re.findall(r"[A-Za-z][A-Za-z'&-]*", n):
+        if len(w) >= 4 and w.lower() not in NAME_STOP and re.search(rf"(?<![\w-]){re.escape(w)}(?![\w-])", t, re.I):
+            return True
+    bare = re.sub(r"\.[A-Z]+$", "", str(symbol or "")).lstrip("^")
+    return bool(len(bare) >= 3 and bare.upper() not in TICKER_WORDS and re.search(rf"(?<![\w-]){re.escape(bare)}(?![\w-])", t))
+
+
+def _pair_close(ccy: str, until: float | None) -> tuple[float | None, str, str]:
+    """Yahoo's last completed close (not today's) of the home currency per one ccy: (value, its day, the symbols)."""
+    syms = _yahoo_syms(home(), ccy)
+    vals, day_ = [], ""
+    for sy in syms:
+        fq = quote(sy, until=until)
+        base = fq.get("close") if fq.get("ok") else None
+        bday = fq.get("close_date")
+        if base is not None and bday == date.today().isoformat() and fq.get("prev_close"):
+            base, bday = fq["prev_close"], fq.get("prev_date")
+        if not base:
+            return None, "", " and ".join(syms)
+        vals.append(float(base))
+        day_ = day_ or str(bday)
+    if ccy == "USD":
+        v = vals[0]
+    elif home() == "USD":
+        v = 1.0 / vals[0]
+    else:
+        v = vals[0] / vals[1]
+    return v, day_, " and ".join(syms)
+
+
+def brief(which: str | None = None, now: datetime | None = None) -> str:
+    """The morning brief, plain text for the phone. Never raises."""
+    try:
+        return _brief(which or open_book(), now or datetime.now())
+    except BookUnreadable as e:
+        return f"🌅 Brief\n({e})"
+    except Exception as e:  # noqa: BLE001
+        return f"🌅 Brief\n(the brief could not be made: {type(e).__name__})"
+
+
+def _brief(which: str, now: datetime) -> str:
+    t0 = time.time()
+    until_p, until_all = t0 + BRIEF_PRICE_S, t0 + BRIEF_TOTAL_S
+    h0 = home()
+    tag = "PAPER " if which == "paper" and paper_on() else ""
+    book = load(which)
+    rp = replay(book["records"])
+    held = [(s_, hd) for s_, hd in sorted(rp["positions"].items()) if hd["qty"] > 0]
+    quotes = {s_: quote(s_, until=until_p) for s_, hd in held}
+    need = {hd["currency"] for _, hd in held} | {c for c, v in rp["cash"].items() if abs(v) > 1e-9}
+    need.discard(h0)
+    if h0 != "USD":
+        need.add("USD")
+    order = (["USD"] if "USD" in need else []) + sorted(need - {"USD"})
+    rates = {c: rate(c, until=until_p) for c in order}
+    fx_ok = all(r.get("ok") for r in rates.values())
+    fx_err = next((r.get("error") for r in rates.values() if not r.get("ok")), "") or "no rate"
+    move_lim = float(getattr(config, "PORTFOLIO_BRIEF_MOVE", 0.03) or 0.03)
+
+    def to_home(v, cur):
+        if cur == h0:
+            return v
+        r = rates.get(cur) or {}
+        return v * r["rate"] if r.get("ok") else None
+
+    out = [f"🌅 Brief — {now:%a} {now:%b} {now.day}, {now:%H:%M}"]
+    movers, lines, day_home, left_out, worth_home, missing = [], [], 0.0, [], 0.0, []
+    today_iso = date.today().isoformat()
+    for s_, hd in held:
+        q = quotes.get(s_) or {}
+        if not q.get("ok"):
+            lines.append(f"{s_} ×{hd['qty']:g}  no price — {q.get('error') or 'not known'}")
+            missing.append(s_)
+            continue
+        cur = hd["currency"]
+        m = _move(q)  # the share's own move: its latest price against the close before it
+        P, C = m["price"], m["base"]
+        lots = [r for r in live(book["records"]) if r.get("symbol") == s_ and str(r.get("date")) == today_iso]
+        buys = [(float(r["qty"]), float(r["price"])) for r in lots if r.get("kind") == "buy"]
+        sells = [(float(r["qty"]), float(r["price"])) for r in lots if r.get("kind") == "sell"]
+        bq, sq = sum(x for x, _ in buys), sum(x for x, _ in sells)
+        before = max(0.0, hd["qty"] - bq + sq)  # held at yesterday's end (a split today aside)
+        lines.append(f"{s_} ×{hd['qty']:g}")
+        amount, parts_left = 0.0, False
+        if P is None:
+            lines.append(f"  {m['line']}")
+            missing.append(s_)
+            continue
+        # per lot: held before moves from the close before; bought today from its buy price; sold today up to the
+        # sale price — the keeper's real day, not the share's
+        if before > 1e-9:
+            if C is None:
+                parts_left = True
+            else:
+                amount += before * (P - C)
+        amount += sum(x * (P - b) for x, b in buys)
+        amount += sum(x * (sp - P) for x, sp in sells)
+        share = f"{_pct(m['pct'])} {m['since']}" if m["pct"] is not None else ""
+        sold = (f"; {sq:g} sold today at {money(sum(x * sp for x, sp in sells) / sq, cur)}" if sq else "")
+        if buys and before <= 1e-9:
+            bavg = sum(x * b for x, b in buys) / bq
+            own = P / bavg - 1
+            tail = f"(the share itself is {share})" if share else "(first day — no close before)"
+            lines.append(f"  {m['said']} · bought today at {money(bavg, cur)}: {_pct(own)} · {_signed(amount, cur)} {tail}"
+                         + (f" ({sold[2:]})" if sold else ""))
+        elif buys:
+            bavg = sum(x * b for x, b in buys) / bq
+            lines.append(f"  {m['said']} {share} · {_signed(amount, cur)} ({before:g} held before, {bq:g} bought today at "
+                         f"{money(bavg, cur)}{sold})")
+        elif parts_left:
+            lines.append(f"  {m['said']} — no close before, so its day isn't known; not in the day's sum")
+        else:
+            lines.append(f"  {m['line']} · {_signed(amount, cur)}" + (f" ({sold[2:]})" if sold else ""))
+        if parts_left:
+            left_out.append(s_)
+        x = to_home(amount, cur)
+        if x is None:
+            missing.append(s_)
+        else:
+            day_home += x
+        wv = to_home(hd["qty"] * P, cur)
+        if wv is None:
+            missing.append(s_)
+        else:
+            worth_home += wv
+        mv = m["pct"]
+        if mv is None and buys:
+            mv = P / (sum(x * b for x, b in buys) / bq) - 1
+        if mv is not None and abs(mv) >= move_lim:
+            movers.append(f"{'▲' if mv > 0 else '▼'} {s_} {_pct(mv)}" + (" (bought today)" if buys else ""))
+    cash_home = 0.0
+    for cur, v in rp["cash"].items():
+        x = to_home(v, cur)
+        if x is None and abs(v) > 1e-9:
+            missing.append(cur)
+        elif x is not None:
+            cash_home += x
+    out += movers
+    out.append("the book")
+    usd = rates.get("USD") or {}
+    worth = worth_home + cash_home
+    if fx_ok:
+        in_usd = f" · {money(worth / usd['rate'], 'USD')}" if h0 != "USD" and usd.get("ok") else ""
+        out.append(f"worth now {money(worth, h0)}{in_usd}" + (" (a price is missing)" if missing else ""))
+    else:
+        out.append(f"worth now: not known — {fx_err}")
+    out += lines
+    if held:
+        if fx_ok:
+            out.append(f"the day {_signed(day_home, h0)} (prices only — deposits and buys not counted)")
+        else:
+            out.append("the day: not known — no rate")
+        if left_out:
+            out.append(f"  {', '.join(left_out)}: the shares held before today left out — no close before")
+    if rp["put_home"] and fx_ok:
+        out.append(f"put in {money(rp['put_home'], h0)} — worth {money(worth, h0)}")
+    idx = list(getattr(config, "PORTFOLIO_INDICES", None) or [])
+    if idx:
+        out.append("yardsticks")
+        for s_ in idx:
+            q = quote(s_, until=until_p)
+            if not q.get("ok"):
+                out.append(f"{s_}  no price — {q.get('error') or 'not known'}")
+                continue
+            line = _move(q)["line"]
+            for v in (q.get("close"), q.get("last")):  # an index is points, not money
+                if v is not None:
+                    line = line.replace(money(float(v), q.get("currency") or ""), _plain(float(v)))
+            out.append(f"{s_}  {line}")
+    for c, r in rates.items():
+        if not r.get("ok"):
+            out.append(f"rate: {rate_line(r)}")
+            continue
+        mv = ""
+        try:
+            base, bday, syms = _pair_close(c, until_p)
+            if base:
+                mv = f", {_pct(r['rate'] / base - 1)} from Yahoo's {syms} close of {_day(bday)} ({base:.4f})"
+        except Exception:  # noqa: BLE001
+            mv = ""
+        out.append(f"rate {rate_line(r)}{mv}")
+    warn = [ln.strip() for ln in _block(which, book, "", True, False, until_p).splitlines()
+            if ("⚠" in ln or "below zero" in ln or "could not be fetched" in ln or "in doubt" in ln)
+            and not ln.strip().startswith("mix:")]
+    seen = set()
+    warn = [w for w in warn if not (w in seen or seen.add(w))]
+    if warn:
+        out.append("the book says")
+        out += ["  " + w for w in warn]
+    news = []
+    if getattr(config, "PORTFOLIO_BRIEF_NEWS", False) and held:
+        if getattr(config, "OFFLINE", False):
+            news = ["(headlines: this house is offline — not asked)"]
+        else:
+            failed = False
+            for s_, hd in held:
+                q = quotes.get(s_) or {}
+                got = _headlines(s_, q.get("name") or "", until_all)
+                if got is None:
+                    failed = True
+                    continue
+                for it in got:
+                    t = it["title"] if len(it["title"]) <= 90 else it["title"][:89].rstrip() + "…"
+                    news.append(f"· {t} — {it['host']}" + (f", {it['age']}" if it.get("age") else ""))
+            if news or failed:
+                news = ["said today (headlines as found — not checked facts)"] + news + \
+                       (["(headlines could not be fetched)"] if failed else [])
+    body = [tag + ln for ln in out]
+    text = "\n".join(body + [tag + ln for ln in news])
+    if len(text) > BRIEF_LIMIT:
+        text = "\n".join(body)
+        if len(text) > BRIEF_LIMIT - 20:
+            text = text[:BRIEF_LIMIT - 20].rsplit("\n", 1)[0]
+        text += "\n(shortened)"
+    return text

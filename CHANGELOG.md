@@ -23,7 +23,12 @@ tagged on its own: the first tag after the rename is v0.13.)
   phone (💱 Convert), offered in one tap after a buy leaves one currency's cash below zero; one whose rate is more than
   twice away from today's for that pair is refused as a typo. `PORTFOLIO_PAPER` (on) keeps the practice book; off, there
   is one book, the real one — no Paper/Real, no PAPER — and a practice book's records are carried over into it once,
-  unchanged, when it has none (both with records: nothing merged, said). Off: as before, the tool list and `/help` unchanged.
+  unchanged, when it has none (both with records: nothing merged, said). 🌅 Brief on /trade and `/brief`: the book's
+  day — shares held before today from the close before, bought today from their buy price, sold today up to the sale
+  — movers ▲/▼ (`PORTFOLIO_BRIEF_MOVE` 0.03), yardsticks (`PORTFOLIO_INDICES`, none), each rate's move, the book's
+  warnings, and headlines naming a holding from Brave's news search (`PORTFOLIO_BRIEF_NEWS`, off; `_MAX` 2,
+  `_CACHE_H` 3, `_SKIP`); closed while a guest is seated; OFFLINE asks nothing. One valuation everywhere: the last
+  trade when it is newer than the last close, said, the close beside it. Off: as before, the tool list and `/help` unchanged.
 - **The pieces of a chosen folder reach the phone together at a set time** (`TELEGRAM_GATHER`, `{}` — off): a friend
   wrote eight short pages of one project in a single wake, and the keeper's phone got eight messages. Set a map of
   folders under `creations/` to times, e.g. `{"projects/daybook": "06:00"}`: a new or revised piece under such a
