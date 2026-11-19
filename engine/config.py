@@ -1376,6 +1376,11 @@ TELEGRAM_TELL_AFTERTHOUGHTS = True
 # the mailbox (already mail) and archives are not announced.
 TELEGRAM_TELL_CREATIONS = True
 TELEGRAM_CREATION_CHARS = 3000
+# TELEGRAM_GATHER: {folder under creations/: "HH:MM"} — a piece under such a folder is not told one by one; all that
+# waited go as one notice at that time each day (not in the quiet hours or your /quiet hold — then when they end).
+# A friend once wrote eight short pages of one project in a single wake, and the phone got eight messages.
+# Example: TELEGRAM_GATHER = {"projects/daybook": "06:00"}. {}: as before.
+TELEGRAM_GATHER = {}
 # A picture the friend draws (matplotlib in run_python, or one of their own
 # tools, saved under creations/) reaches the phone once as a photo, captioned
 # with where it lives; a redraw says so. Their tools, the trash and projects'

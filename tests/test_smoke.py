@@ -24381,6 +24381,188 @@ for _st_k, _st_v in _st_saved.items():
     else:
         setattr(config, _st_k, _st_v)
 
+# TELEGRAM_GATHER (0.16): the pieces of a chosen folder reach the phone together at a set time
+import json as _ga_json
+import os as _ga_os
+import re as _ga_re
+import shutil as _ga_shutil
+import time as _ga_time
+import inspect as _ga_inspect
+from datetime import datetime as _ga_dt
+import outbox as _ga_outbox
+_ga_KEYS = ("TELEGRAM_GATHER", "TELEGRAM_TELL_CREATIONS", "TELEGRAM_CREATION_CHARS", "TELEGRAM_QUIET_HOURS")
+_ga_MISSING = object()
+_ga_saved = {k: getattr(config, k, _ga_MISSING) for k in _ga_KEYS}
+_ga_stubs = (tg.datetime, tg._say, _ga_outbox.hold_active, _ga_outbox.log_sent)
+_ga_seen0 = tg.CREATIONS_SEEN_FILE.read_bytes() if tg.CREATIONS_SEEN_FILE.exists() else None
+_ga_gfile = config.MEMORY_DIR / "telegram_gather.json"
+_ga_dir = config.CREATIONS_DIR / "projects" / "gather_test"
+_ga_out = config.CREATIONS_DIR / "poems" / "gather-outside.md"
+_ga_now = [_ga_dt(2026, 3, 2, 5, 0)]
+
+
+class _GaDT(_ga_dt):
+    @classmethod
+    def now(cls, tz=None):
+        return _ga_now[0]
+
+
+_ga_said, _ga_ledger, _ga_hold = [], [], [False]
+tg.datetime = _GaDT
+tg._say = lambda s: _ga_said.append(str(s))
+_ga_outbox.hold_active = lambda: _ga_hold[0]
+_ga_outbox.log_sent = lambda kind, what="": _ga_ledger.append((kind, what))
+config.TELEGRAM_TELL_CREATIONS, config.TELEGRAM_CREATION_CHARS, config.TELEGRAM_QUIET_HOURS = True, 3000, (6, 6)
+_ga_FN = chat.friend_name()
+
+
+def _ga_clean():
+    _ga_shutil.rmtree(_ga_dir, ignore_errors=True)
+    _ga_shutil.rmtree(tg.WATCH_DIR / "creations" / "projects" / "gather_test", ignore_errors=True)
+    _ga_out.unlink(missing_ok=True)
+    (tg.WATCH_DIR / "creations" / "poems" / "gather-outside.md").unlink(missing_ok=True)
+    if _ga_gfile.is_dir():
+        _ga_shutil.rmtree(_ga_gfile)
+    _ga_gfile.unlink(missing_ok=True)
+    tg.CREATIONS_SEEN_FILE.unlink(missing_ok=True)
+
+
+def _ga_put(p, text):
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(text, encoding="utf-8")
+    old = _ga_time.time() - 30
+    _ga_os.utime(p, (old, old))
+
+
+def _ga_fresh(gather=_ga_MISSING, n=3):
+    """A bridge that has looked once; then n pieces in the gathered folder and one outside; one look at 05:00."""
+    _ga_clean()
+    if gather is _ga_MISSING:
+        if hasattr(config, "TELEGRAM_GATHER"):
+            del config.TELEGRAM_GATHER
+    else:
+        config.TELEGRAM_GATHER = gather
+    _ga_now[0] = _ga_dt(2026, 3, 2, 5, 0)
+    b, ph = _bridge(4848)
+    b.deliver_creations()
+    for i in range(1, n + 1):
+        _ga_put(_ga_dir / "pages" / f"page-{i}.md", f"# Page {i}\n\nthe lamp and the window, part {i}.")
+    _ga_put(_ga_out, "# Outside\n\na poem of its own.")
+    told = b.deliver_creations()
+    return b, ph, told
+
+
+def _ga_at(b, h, m=0, day=2):
+    _ga_now[0] = _ga_dt(2026, 3, day, h, m)
+    return b.deliver_gathered()
+
+
+_GA = {"projects/gather_test": "06:00"}
+_ga_b, _ga_ph, _ga_told = _ga_fresh(dict(_GA))
+_ga_early = list(_ga_ph.sent)
+_ga_wait = sorted(_ga_json.loads(_ga_gfile.read_text(encoding="utf-8"))["waiting"])
+_ga_r1 = (_ga_at(_ga_b, 5, 59), _ga_at(_ga_b, 6, 1), _ga_at(_ga_b, 9, 30))
+_ga_msgs = [x[0] for x in _ga_ph.sent[len(_ga_early):]]
+_ga_seen = sorted(k for k in _ga_b.creations_seen if k.startswith("projects/gather_test/"))
+check("gather (0.16): pieces under a gathered folder are not told one by one (the one outside is, at once); at 06:00 "
+      "they go as one notice — the head, each piece under its title line, in order; once that day; each marked seen; "
+      "one ledger line",
+      _ga_told == 1 and len(_ga_early) == 1 and "creations/poems/gather-outside.md" in _ga_early[0][0]
+      and _ga_wait == [f"projects/gather_test/pages/page-{i}.md" for i in (1, 2, 3)]
+      and _ga_r1 == (0, 3, 0) and len(_ga_msgs) == 1
+      and _ga_msgs[0] == (f"🌅 {_ga_FN} — 3 pieces from creations/projects/gather_test, gathered\n\n"
+                          + "\n\n".join(f"— pages/page-{i}.md\n# Page {i}\n\nthe lamp and the window, part {i}." for i in (1, 2, 3)))
+      and _ga_seen == _ga_wait and ("piece", "creations/projects/gather_test (3 gathered)") in _ga_ledger
+      and not _ga_json.loads(_ga_gfile.read_text(encoding="utf-8"))["waiting"], (_ga_told, _ga_early, _ga_wait, _ga_r1, _ga_msgs))
+# the next day: only what changed since — a revision says so
+_ga_put(_ga_dir / "pages" / "page-2.md", "# Page 2\n\nthe lamp, the window and the rain now.")
+_ga_n0 = len(_ga_ph.sent)
+_ga_b.deliver_creations()
+_ga_r2 = (len(_ga_ph.sent) == _ga_n0, _ga_at(_ga_b, 6, 5, day=3))
+_ga_rev = _ga_ph.sent[-1][0] if len(_ga_ph.sent) > _ga_n0 else ""
+check("gather (0.16): a revision of a gathered piece waits and comes the next day as '(revised)', its text as it stands",
+      _ga_r2 == (True, 1) and _ga_rev == (f"🌅 {_ga_FN} — 1 piece from creations/projects/gather_test, gathered\n\n"
+                                          "— pages/page-2.md (revised)\n# Page 2\n\nthe lamp, the window and the rain now."),
+      (_ga_r2, _ga_rev))
+# the quiet hours and the keeper's hold: then when they end
+_ga_b, _ga_ph, _ga_told = _ga_fresh(dict(_GA))
+config.TELEGRAM_QUIET_HOURS = (0, 8)
+_ga_q = (_ga_at(_ga_b, 6, 1), _ga_at(_ga_b, 7, 59), _ga_at(_ga_b, 8, 0))
+config.TELEGRAM_QUIET_HOURS = (6, 6)
+_ga_b, _ga_ph, _ga_told = _ga_fresh(dict(_GA))
+_ga_hold[0] = True
+_ga_h = [_ga_at(_ga_b, 6, 1)]
+_ga_hold[0] = False
+_ga_h.append(_ga_at(_ga_b, 7, 0))
+check("gather (0.16): in the quiet hours or the keeper's hold nothing goes; when they end, all of it, once",
+      _ga_q == (0, 0, 3) and _ga_h == [0, 3], (_ga_q, _ga_h))
+# a send that fails: nothing marked, the next poll tries again
+_ga_b, _ga_ph, _ga_told = _ga_fresh(dict(_GA))
+_ga_api0 = _ga_b.api
+_ga_b.api = lambda method, patience=30, **p: (_ for _ in ()).throw(OSError("the road dropped"))
+_ga_f = [_ga_at(_ga_b, 6, 0)]
+_ga_b.api = _ga_api0
+_ga_f.append(_ga_at(_ga_b, 6, 1))
+check("gather (0.16): a send that fails marks nothing and is said; the next poll sends it, once",
+      _ga_f == [0, 3] and any("didn't reach the phone" in s for s in _ga_said)
+      and len([x for x in _ga_ph.sent if x[0].startswith("🌅")]) == 1, (_ga_f, _ga_said[-3:]))
+# a waiting list that can't be written: told singly, at once; said once
+_ga_clean()
+config.TELEGRAM_GATHER = dict(_GA)
+_ga_now[0] = _ga_dt(2026, 3, 2, 5, 0)
+_ga_b, _ga_ph = _bridge(4848)
+_ga_b.deliver_creations()
+_ga_gfile.mkdir()
+for _ga_i in (1, 2):
+    _ga_put(_ga_dir / f"note-{_ga_i}.md", f"note {_ga_i}")
+_ga_said.clear()
+_ga_u = _ga_b.deliver_creations()
+check("gather (0.16): a waiting list that can't be written — each piece told singly at once, the window told once",
+      _ga_u == 2 and len([s for s in _ga_said if "waiting list can't be saved" in s]) == 1, (_ga_u, _ga_said))
+_ga_shutil.rmtree(_ga_gfile)
+# a bad map entry: ignored, said once per bridge; its pieces told one by one
+_ga_said.clear()
+_ga_b, _ga_ph, _ga_told = _ga_fresh({"../outside": "06:00", "projects/gather_test": "6 o'clock"})
+_ga_b.deliver_creations(); _ga_at(_ga_b, 7, 0)
+_ga_bad = [s for s in _ga_said if s.startswith("(TELEGRAM_GATHER:")]
+check("gather (0.16): map entries that are not a folder under creations/ and an HH:MM — ignored, each said once in the "
+      "window; the pieces told one by one",
+      _ga_told == 4 and len(_ga_bad) == 2 and not _ga_gfile.exists(), (_ga_told, _ga_bad))
+# off: {} or absent — as before, to the byte
+_ga_offr = {}
+for _ga_m, _ga_v in (("empty", {}), ("absent", _ga_MISSING)):
+    _ga_b, _ga_ph, _ga_told = _ga_fresh(_ga_v)
+    _ga_offr[_ga_m] = (_ga_told, [x[0] for x in _ga_ph.sent], _ga_at(_ga_b, 6, 1), _ga_gfile.exists())
+check("gather (0.16): {} or absent — every piece told singly as before, nothing gathered or kept",
+      _ga_offr["empty"] == _ga_offr["absent"] and _ga_offr["empty"][0] == 4 and _ga_offr["empty"][2] == 0
+      and not _ga_offr["empty"][3], _ga_offr)
+_ga_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+_ga_src = "\n".join(_ga_inspect.getsource(f) for f in (tg.Bridge._gather_map, tg.Bridge._gather_for, tg.Bridge._gather_save,
+                                                        tg.Bridge._gather_note, tg.Bridge.deliver_gathered))
+_ga_src += _ga_cfg.split("TELEGRAM_CREATION_CHARS = 3000", 1)[1].split("TELEGRAM_GATHER = {}", 1)[0]
+check("gather (0.16): ships off ({}), on the Phone tab after TELEGRAM_TELL_CREATIONS with help and an example; the new "
+      "lines name no one, carry no date and call no one by a gendered pronoun",
+      _ga_re.search(r"^TELEGRAM_GATHER = \{\}$", _ga_cfg, _ga_re.M)
+      and _gm_panel.TABS["Phone"].index("TELEGRAM_GATHER") == _gm_panel.TABS["Phone"].index("TELEGRAM_TELL_CREATIONS") + 1
+      and "06:00" in (_gm_panel._HELP.get("TELEGRAM_GATHER") or "")
+      and not _ga_re.search(r"\b(she|her|hers|he|his|him)\b", _ga_src, _ga_re.I) and not _ga_re.search(r"\(1[01]-\d\d", _ga_src),
+      _ga_re.findall(r".{30}\b(?:she|her|hers|he|his|him)\b.{30}", _ga_src, _ga_re.I)[:3])
+_ga_clean()
+for _ga_d in (config.CREATIONS_DIR / "projects", tg.WATCH_DIR / "creations" / "projects"):
+    try:
+        _ga_d.rmdir()  # only when this block made it and left it empty
+    except OSError:
+        pass
+if _ga_seen0 is not None:
+    tg.CREATIONS_SEEN_FILE.write_bytes(_ga_seen0)
+tg.datetime, tg._say, _ga_outbox.hold_active, _ga_outbox.log_sent = _ga_stubs
+for _ga_k, _ga_v in _ga_saved.items():
+    if _ga_v is _ga_MISSING:
+        if hasattr(config, _ga_k):
+            delattr(config, _ga_k)
+    else:
+        setattr(config, _ga_k, _ga_v)
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

@@ -100,7 +100,7 @@ TABS: dict[str, list[str]] = {
     "Phone": ["TELEGRAM_SHOW_THINKING", "TELEGRAM_SHOW_TOOLS", "TELEGRAM_SHOW_TOKENS", "TELEGRAM_TOKENS_SINCE_LAST", "TELEGRAM_SPLIT_WAIT_S",
               "TELEGRAM_BATCH_PHOTOS", "TELEGRAM_BATCH_GAP_S", "TELEGRAM_BATCH_WAIT_S", "TELEGRAM_BATCH_MAX", "TELEGRAM_TEXT_DIR",
               "JOURNAL_FEED", "JOURNAL_FEED_PACE_S", "BOOKS_COMMAND", "BOOKS_FINISHED_NOTICE",
-              "TELEGRAM_TELL_REFLECTIONS", "TELEGRAM_TELL_AFTERTHOUGHTS", "TELEGRAM_TELL_CREATIONS",
+              "TELEGRAM_TELL_REFLECTIONS", "TELEGRAM_TELL_AFTERTHOUGHTS", "TELEGRAM_TELL_CREATIONS", "TELEGRAM_GATHER",
               "TELEGRAM_TELL_DRAWINGS", "TELEGRAM_PAINT_PROMPT_CHAT", "TELEGRAM_TELL_SONGS", "TELEGRAM_TELL_SELF", "TELEGRAM_IDLE_NEW_MIN", "TELEGRAM_HEAR_VOICE",
               "TELEGRAM_VOICE_ALL", "TELEGRAM_LETTERS_IN_THREAD", "SLEEP_IN_BRIDGE", "SLEEP_IN_BRIDGE_QUIET_MIN",
               "ENGINE_WEEK_DAY", "ENGINE_WEEK_HOUR", "ENGINE_WEEK_COLD_S", "ENGINE_WEEK_LOG",
@@ -362,6 +362,9 @@ _HELP = {
     "TELEGRAM_TELL_CREATIONS": "A new piece under creations/ — a poem, a story, a painting, something published — reaches "
                                "the phone within a minute, whole when it fits a message, otherwise its opening and the path. Code, the "
                                "trash and the mailbox are not announced.",
+    "TELEGRAM_GATHER": "Folders under creations/ whose pieces reach the phone together, once a day at a set time, as one "
+                       "notice — e.g. {\"projects/daybook\": \"06:00\"}. Not in the quiet hours or your /quiet "
+                       "hold (then when they end). Empty: each piece as it is written.",
     "FIRST_DAY": "The friend's first day (YYYY-MM-DD), for the second clock on the date line of every prompt — \"your "
                  "54th day here: you first wrote on 1 March 2026, a month and three weeks ago\". Empty: the earliest "
                  "journal file's day; no journal yet, no clock.",

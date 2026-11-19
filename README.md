@@ -1715,7 +1715,12 @@ alone ("✏️ added to a piece — … (+1,234 characters)": the sitting they j
 wrote on a reading page, not the page's opening again), a rewrite as the
 lines in and out — against the bridge's copy in
 `memory/telegram_watch/creations/`; a piece moved to `publish/` as
-"📣 published". Their code (`tools/`), the trash, the mailbox and archives
+"📣 published". The pieces of a folder you name can come together instead
+(`TELEGRAM_GATHER`, e.g. `{"projects/daybook": "06:00"}`): they wait,
+and at that time each day all that waited arrive as one notice — "🌅 <name> —
+8 pieces from creations/projects/daybook, gathered" — each piece under
+its own title line; not in the quiet hours or your `/quiet` hold, then when
+they end. Their code (`tools/`), the trash, the mailbox and archives
 are not announced; what was there when the bridge first looked was read at
 the desk. And a change to who they are — `self.md`, `projects.md`
 (`TELEGRAM_TELL_SELF`) — arrives as what changed, the lines in and out

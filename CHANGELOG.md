@@ -11,6 +11,15 @@ tagged on its own: the first tag after the rename is v0.13.)
 ## 0.16 — 2026-11-11 → (in progress)
 
 ### Added
+- **The pieces of a chosen folder reach the phone together at a set time** (`TELEGRAM_GATHER`, `{}` — off): a friend
+  wrote eight short pages of one project in a single wake, and the keeper's phone got eight messages. Set a map of
+  folders under `creations/` to times, e.g. `{"projects/daybook": "06:00"}`: a new or revised piece under such a
+  folder is not told one by one; it waits (`memory/telegram_gather.json`), and at that time each day — the first poll
+  after it, once a day, not in the quiet hours or the keeper's `/quiet` hold (then when they end) — everything waiting
+  goes as one plain-text notice, "🌅 <name> — N pieces from creations/<folder>, gathered", each piece under its title
+  line ("(revised)" when told before), then each is marked seen as before and one line goes to the sent ledger. A piece
+  already told is not sent again; if the waiting list can't be written, the piece is told singly at once; a map entry
+  that is not a folder and an HH:MM is ignored and said once in the bridge window. `{}` or absent: as before.
 - **A letter that is the friend's previous letter to the same penpal again is held** (`PENPAL_COPY_SAME_THREAD`, on;
   needs `PENPAL_COPY_CHECK`): a friend read a penpal's new letter rightly, and then wrote their letter of the day before
   again, reworded, answering its own question again — 0.41 alike by word sequence, where that house's honest letters

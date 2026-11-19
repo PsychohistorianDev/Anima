@@ -5049,6 +5049,8 @@ class Bridge:
                 body = p.read_text(encoding="utf-8", errors="replace").strip()
             except OSError:
                 continue
+            if getattr(config, "TELEGRAM_GATHER", None) and self._gather_for(rel) and self._gather_note(rel, p, stamp):
+                continue  # it waits for its folder's hour (not noted: told now, as before)
             revised = rel in self.creations_seen
             before = self.creations_seen.get(rel)
             self.creations_seen[rel] = stamp
@@ -5087,6 +5089,174 @@ class Bridge:
                     pass
             sent += 1
         return sent
+
+    # ---- TELEGRAM_GATHER: a friend wrote eight short pages of one project in a single wake, and the keeper's phone
+    # got eight messages. {folder under creations/: "HH:MM"}: a piece under a gathered folder is not told one by one; it
+    # waits in memory/telegram_gather.json and all that waited go as one notice at the folder's time — once a day, at
+    # the first poll from then, never in the quiet hours or the keeper's /quiet hold. Marked seen as deliver_creations
+    # marks a piece.
+    def _gather_map(self) -> list[tuple[tuple, str, tuple[int, int]]]:
+        raw = getattr(config, "TELEGRAM_GATHER", None) or {}
+        out = []
+        said = getattr(self, "_gather_said", None)
+        if said is None:
+            said = self._gather_said = set()
+        if not isinstance(raw, dict):
+            raw = {}
+        for k, v in raw.items():
+            folder = str(k or "").strip().replace("\\", "/").strip("/")
+            m = re.fullmatch(r"(\d{1,2}):(\d{2})", str(v or "").strip())
+            bad = (not folder or str(k).strip().startswith(("/", "\\")) or re.match(r"^[A-Za-z]:", folder)
+                   or ".." in folder.split("/") or not m or int(m.group(1)) > 23 or int(m.group(2)) > 59)
+            if bad:
+                if str(k) not in said:
+                    said.add(str(k))
+                    _say(f"(TELEGRAM_GATHER: {k!r}: {v!r} isn't a folder under creations/ and a time HH:MM — its pieces "
+                         "are told one by one, as before)")
+                continue
+            out.append((tuple(x.lower() for x in folder.split("/") if x), folder, (int(m.group(1)), int(m.group(2)))))
+        return out
+
+    def _gather_for(self, rel: str) -> str:
+        """The gathered folder a piece lives under (the longest that matches, whole path parts, any case), or ""."""
+        try:
+            parts = tuple(x.lower() for x in rel.split("/")[:-1])
+            hits = [(len(k), f) for k, f, _ in self._gather_map() if parts[:len(k)] == k]
+            return max(hits)[1] if hits else ""
+        except Exception:  # noqa: BLE001
+            return ""
+
+    @staticmethod
+    def _gather_file() -> Path:
+        return config.MEMORY_DIR / "telegram_gather.json"
+
+    def _gather_load(self) -> dict:
+        try:
+            d = json.loads(self._gather_file().read_text(encoding="utf-8"))
+            if isinstance(d, dict):
+                return {"waiting": d.get("waiting") if isinstance(d.get("waiting"), dict) else {},
+                        "sent_day": d.get("sent_day") if isinstance(d.get("sent_day"), dict) else {}}
+        except (OSError, ValueError):
+            pass
+        return {"waiting": {}, "sent_day": {}}
+
+    def _gather_save(self, d: dict) -> bool:
+        try:
+            f = self._gather_file()
+            tmp = f.with_name(f".{f.name}.tmp")
+            tmp.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+            os.replace(tmp, f)
+            return True
+        except Exception as e:  # noqa: BLE001
+            if not getattr(self, "_gather_unsaved_said", False):
+                self._gather_unsaved_said = True
+                _say(f"(gather: the waiting list can't be saved — {type(e).__name__}: {e}; pieces are told one by one)")
+            return False
+
+    def _gather_note(self, rel: str, p: Path, stamp) -> bool:
+        """A piece under a gathered folder: noted to wait (its stamp, when first seen). One moved in after it was told
+        (the bridge's copy of it, word for word, under another name) is taken as told. Never raises."""
+        try:
+            d = self._gather_load()
+            w = d["waiting"].get(rel)
+            if isinstance(w, dict) and w.get("stamp") == stamp:
+                return True
+            if rel not in self.creations_seen and not w:
+                text = p.read_text(encoding="utf-8", errors="replace")
+                for snap in (WATCH_DIR / "creations").rglob(p.name) if (WATCH_DIR / "creations").is_dir() else []:
+                    try:
+                        if snap.read_text(encoding="utf-8", errors="replace") == text:
+                            self.creations_seen[rel] = stamp
+                            self._save_creations_seen()
+                            mine = WATCH_DIR / "creations" / rel
+                            mine.parent.mkdir(parents=True, exist_ok=True)
+                            mine.write_text(text, encoding="utf-8")
+                            return True
+                    except OSError:
+                        continue
+            d["waiting"][rel] = {"stamp": stamp, "first": (w or {}).get("first") or time.time()}
+            return self._gather_save(d)
+        except Exception as e:  # noqa: BLE001
+            _say(f"(gather: {rel} not noted — {type(e).__name__}: {e})")
+            return False
+
+    def deliver_gathered(self) -> int:
+        """At a gathered folder's time: all its pieces that waited, as one notice. Returns how many went."""
+        if not self.chat_id or not getattr(config, "TELEGRAM_GATHER", None) or not getattr(config, "TELEGRAM_TELL_CREATIONS", True):
+            return 0
+        try:
+            if self.quiet_now():
+                return 0
+            try:
+                import outbox
+                if outbox.hold_active():
+                    return 0
+            except Exception:  # noqa: BLE001
+                pass
+            now = datetime.now()
+            today = now.date().isoformat()
+            d = self._gather_load()
+            sent = 0
+            for _k, folder, (hh, mm) in self._gather_map():
+                if d["sent_day"].get(folder) == today or (now.hour, now.minute) < (hh, mm):
+                    continue
+                mine = []
+                for rel, w in sorted(d["waiting"].items(), key=lambda kv: float((kv[1] or {}).get("first") or 0)):
+                    if self._gather_for(rel) != folder:
+                        continue
+                    p = config.CREATIONS_DIR / rel
+                    if not p.is_file():
+                        d["waiting"].pop(rel, None)  # deleted or moved out: dropped quietly
+                        continue
+                    try:
+                        if self.creations_seen.get(rel) == self._stamp(p):
+                            d["waiting"].pop(rel, None)  # told already at this very stamp (the knob off a while): not again
+                            continue
+                    except OSError:
+                        pass
+                    mine.append((rel, p))
+                if not mine:
+                    d["sent_day"][folder] = today
+                    self._gather_save(d)
+                    continue
+                limit = int(getattr(config, "TELEGRAM_CREATION_CHARS", 3000))
+                n = len(mine)
+                parts = [f"🌅 {chat.friend_name()} — {n} piece{'s' if n != 1 else ''} from creations/{folder}, gathered"]
+                for rel, p in mine:
+                    body = p.read_text(encoding="utf-8", errors="replace").strip()
+                    if len(body) > limit:
+                        body = body[:limit].rstrip() + f"\n\n(…{len(body) - limit:,} more characters — the whole piece is at creations/{rel})"
+                    sub = rel[len(folder) + 1:] if rel.lower().startswith(folder.lower() + "/") else rel
+                    parts.append(f"— {sub}{' (revised)' if rel in self.creations_seen else ''}\n{body or '(empty)'}")
+                try:
+                    self.send("\n\n".join(parts), markdown=False)
+                except Exception as e:  # noqa: BLE001 — nothing marked: the next poll tries again
+                    _say(f"(the gathered pieces didn't reach the phone — {type(e).__name__}: {e}; tried again next poll)")
+                    continue
+                for rel, p in mine:
+                    try:
+                        self.creations_seen[rel] = self._stamp(p)
+                        snap = WATCH_DIR / "creations" / rel
+                        snap.parent.mkdir(parents=True, exist_ok=True)
+                        snap.write_text(p.read_text(encoding="utf-8", errors="replace"), encoding="utf-8")
+                    except OSError:
+                        pass
+                    d["waiting"].pop(rel, None)
+                self._save_creations_seen()
+                d["sent_day"][folder] = today
+                self._gather_save(d)
+                _say(f"told the phone about {n} gathered piece(s) from creations/{folder}")
+                try:
+                    import outbox
+                    outbox.log_sent("piece", f"creations/{folder} ({n} gathered)")
+                except Exception:  # noqa: BLE001
+                    pass
+                sent += n
+            return sent
+        except Exception as e:  # noqa: BLE001
+            _say(f"(gather: {type(e).__name__}: {e})")
+            return 0
+
 
     def deliver_skill_notices(self) -> int:
         """One notice per skill they fetched, from the note fetch_skill left
@@ -6308,6 +6478,7 @@ class Bridge:
         self.pages_watch_if_due()
         self.books_watch_if_due()  # a book the friend finished: one line, so the keeper knows to bring a new one
         self.deliver_creations()
+        self.deliver_gathered()  # a gathered folder's pieces, as one, at its hour
         self.deliver_pictures()
         self.deliver_voice_out()  # a voice note spoken in a wake: to the phone, the night's at its hour
         self.deliver_songs()
