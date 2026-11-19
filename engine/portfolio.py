@@ -47,7 +47,7 @@ UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like
 CHART = "https://query1.finance.yahoo.com/v8/finance/chart/{sym}?range={rng}&interval=1d&events=div%2Csplits"
 TIMEOUT_S = 6          # one fetch; the feed's "down" memory below keeps a view from waiting on it twice
 FEED_DOWN_S = 60       # after a failure, the next fetches this long use the cache at once
-KINDS = ("buy", "sell", "deposit", "withdraw", "dividend", "fee", "split")
+KINDS = ("buy", "sell", "deposit", "withdraw", "dividend", "fee", "split", "convert")
 MONEY_KINDS = ("deposit", "withdraw", "dividend", "fee")
 BOOKS = {"paper": "paper.json", "real": "book.json"}
 PENDING_LAPSE_H = 24
@@ -60,6 +60,11 @@ MINOR = {"ILA": ("ILS", 100.0, "agorot", "shekels"), "GBp": ("GBP", 100.0, "penc
 # words a currency is typed as, besides its code
 CURRENCY_WORDS = {"$": "USD", "DOLLARS": "USD", "DOLLAR": "USD", "€": "EUR", "EURO": "EUR", "EUROS": "EUR",
                   "£": "GBP", "POUNDS": "GBP", "POUND": "GBP", "₪": "ILS", "SHEKELS": "ILS", "SHEKEL": "ILS", "NIS": "ILS"}
+# a currency's word in a sentence ("dollar cash is below zero while there are euros"); any other is said by its code
+CUR_WORD = {"USD": "dollar", "EUR": "euro", "GBP": "pound", "ILS": "shekel"}
+# a conversion whose rate is more than this many times away from the fetched rate for that pair (either way) is
+# refused as a typo; no fetched rate — no check
+CONVERT_BAND = 2.0
 # a home currency's exchange suffix, tried after the symbol as typed and upper-cased (never a silent swap)
 SUFFIX = {"ILS": ".TA", "GBP": ".L", "ZAR": ".JO"}
 
@@ -384,6 +389,13 @@ def _bad_field(r: dict) -> str:
         date.fromisoformat(str(r.get("date")))
     except ValueError:
         return f"date {r.get('date')!r}"
+    if r.get("kind") == "convert":  # money moved between two currencies' cash
+        if not re.fullmatch(r"[A-Z]{3}", str(r.get("currency") or "")) \
+                or not re.fullmatch(r"[A-Z]{3}", str(r.get("to_currency") or "")) or r.get("currency") == r.get("to_currency"):
+            return f"currencies {r.get('currency')!r} → {r.get('to_currency')!r}"
+        v = r.get("to_amount")
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v or abs(v) == float("inf"):
+            return f"to_amount {v!r}"
     optional = {"fx", "fee"} | ({"price"} if r.get("kind") == "split" else set())
     for f in ("qty", "price", "fee", "fx"):
         v = r.get(f)
@@ -991,6 +1003,60 @@ def make_record(kind: str, symbol: str = "", qty=None, price=None, day=None, fee
     return rec, ""
 
 
+def pair_rate(from_ccy: str, to_ccy: str, until: float | None = None) -> dict:
+    """Units of to_ccy per one from_ccy now, from the home currency's rates (rate()): {"ok", "per"} or {"ok": False,
+    "error"}. Never raises."""
+    rf, rt = rate(from_ccy, until=until), rate(to_ccy, until=until)
+    if not (rf.get("ok") and rt.get("ok")) or not rt.get("rate"):
+        return {"ok": False, "error": (rf if not rf.get("ok") else rt).get("error") or "no rate"}
+    return {"ok": True, "per": float(rf["rate"]) / float(rt["rate"])}
+
+
+def conv_shown(from_ccy: str, to_ccy: str, per: float) -> tuple[float, str]:
+    """A conversion's rate as it is said: home per the other currency when one side is home, else to per from."""
+    h = home()
+    if from_ccy == h and per:
+        return 1.0 / per, f"{sym(h)}/{sym(to_ccy)}"
+    return per, f"{sym(to_ccy)}/{sym(from_ccy)}"
+
+
+def make_convert(from_ccy: str, from_amt, to_ccy: str, to_amt, day=None, fee=None, fee_ccy: str | None = None,
+                 why: str = "", by: str = "keeper") -> tuple[dict | None, str]:
+    """A conversion: from_amt of one currency's cash became to_amt of another's (what the broker really gave). Its
+    rate is to_amt/from_amt; one more than CONVERT_BAND times away from the fetched rate for the pair is refused as a
+    typo (no fetched rate: not checked). Nothing written."""
+    fc, tc = currency_of(from_ccy), currency_of(to_ccy)
+    if not fc or not tc:
+        return None, "a conversion is between two currencies — give each by its three-letter code"
+    if fc == tc:
+        return None, f"a conversion is between two currencies — both are {fc}"
+    a, b = num(from_amt), num(to_amt)
+    if a is None or a <= 0:
+        return None, f"the amount converted “{from_amt}” isn't a number above zero"
+    if b is None or b <= 0:
+        return None, f"the amount that arrived “{to_amt}” isn't a number above zero"
+    d = parse_date(day) if not isinstance(day, date) else day
+    if d is None:
+        return None, f"the date “{day}” isn't one — YYYY-MM-DD, today or yesterday"
+    if d > date.today():
+        return None, "that date hasn't come yet"
+    f = num(fee) if fee not in (None, "") else 0.0
+    if f is None or f < 0:
+        return None, f"the fee “{fee}” isn't a number"
+    fcc = currency_of(fee_ccy or fc)
+    if fcc not in (fc, tc):
+        return None, f"the fee is in {fc} or {tc}"
+    per = b / a
+    known = pair_rate(fc, tc)
+    if known.get("ok") and known["per"] > 0 and not (1 / CONVERT_BAND <= per / known["per"] <= CONVERT_BAND):
+        shown, label = conv_shown(fc, tc, per)
+        now_, _ = conv_shown(fc, tc, known["per"])
+        return None, f"that is a rate of {shown:.4f} {label}, and today's is {now_:.4f} — check the two amounts"
+    return {"date": d.isoformat(), "kind": "convert", "symbol": "", "qty": 1.0, "price": round(a, 6), "currency": fc,
+            "to_amount": round(b, 6), "to_currency": tc, "fx": round(per, 6), "fx_source": "the conversion itself",
+            "fee": round(f, 6), "fee_currency": fcc, "why": " ".join(str(why or "").split())[:200], "by": by}, ""
+
+
 def _div_fits(records: list[dict], rec: dict) -> str:
     """A dividend comes from a holding: refused when the symbol was never held on or before its date."""
     if any(r.get("kind") == "buy" and r.get("symbol") == rec["symbol"] and str(r.get("date")) <= rec["date"]
@@ -1074,6 +1140,11 @@ def record_line(r: dict) -> str:
         s = f"{r['symbol']} split {float(r['qty']):g}-for-1 on {when}"
     elif k == "dividend":
         s = f"dividend from {r['symbol']}: {money(float(r['price']), cur)} on {when}"
+    elif k == "convert":
+        a, b, tc = float(r["price"]), float(r.get("to_amount") or 0), r.get("to_currency") or ""
+        shown, label = conv_shown(cur, tc, b / a if a and b else 0.0)
+        fee = f" + fee {money(float(r['fee']), r.get('fee_currency') or cur)}" if float(r.get("fee") or 0) else ""
+        return f"converted {money(a, cur)} to {money(b, tc)} (at {shown:.4f} {label}) on {when}{fee}" + why
     else:
         s = {"deposit": "deposited", "withdraw": "withdrew", "fee": "a fee of"}[k] + f" {money(float(r['price']), cur)} on {when}{fee}"
     if r.get("fx"):
@@ -1157,7 +1228,18 @@ def correct(rid: int, field: str, value, which: str | None = None) -> tuple[dict
         return None, f"no record #{rid}"
     if old.get("struck"):
         return None, f"#{rid} is struck — nothing to correct"
-    key = {"date": "day", "rate": "fx", "amount": "price"}.get(field, field)
+    key = {"date": "day", "rate": "fx", "amount": "price", "sent": "price", "arrived": "to", "from": "price"}.get(field, field)
+    if old["kind"] == "convert":
+        if key not in ("price", "to", "day", "fee", "why"):
+            return None, f"“{field}” isn't a field of a conversion that can be corrected (sent, arrived, date, fee, why)"
+        c = {"price": old.get("price"), "to": old.get("to_amount"), "day": old.get("date"), "fee": old.get("fee"),
+             "why": old.get("why")}
+        c[key] = value
+        rec, why = make_convert(old.get("currency"), c["price"], old.get("to_currency"), c["to"], c["day"], c["fee"],
+                                old.get("fee_currency"), c["why"] or "", by=old.get("by", "keeper"))
+        if rec is None:
+            return None, why
+        return _replace(rid, old, rec, which)
     if key not in ("qty", "price", "day", "fee", "why", "fx"):
         return None, f"“{field}” isn't a field that can be corrected"
     args = {"symbol": old.get("symbol") or old.get("currency"), "qty": old.get("qty"), "price": old.get("price"),
@@ -1178,6 +1260,11 @@ def correct(rid: int, field: str, value, which: str | None = None) -> tuple[dict
         for k_ in ("fx_ccy", "fx_home"):
             if old.get(k_):
                 rec[k_] = old[k_]
+    return _replace(rid, old, rec, which)
+
+
+def _replace(rid: int, old: dict, rec: dict, which: str) -> tuple[dict | None, str]:
+    """Under the lock: the book read again; the old record struck and the new one kept in its place."""
     try:
         with _locked():
             try:
@@ -1207,6 +1294,7 @@ def correct(rid: int, field: str, value, which: str | None = None) -> tuple[dict
 
 
 _LATER_IN_DAY = ("sell", "withdraw")
+_FIRST_IN_DAY = ("deposit", "convert")
 
 
 def _place(r: dict) -> int:
@@ -1218,10 +1306,12 @@ def _place(r: dict) -> int:
 
 
 def live(records: list[dict]) -> list[dict]:
-    """The records not struck, in the book's order: date; within a day buys, deposits, splits, dividends and fees
-    before sells and withdrawals; then each record's place (its id, or for a correction the id it replaced)."""
+    """The records not struck, in the book's order: date; within a day deposits and conversions first, then buys,
+    splits, dividends and fees, then sells and withdrawals; then each record's place (its id, or for a correction the
+    id it replaced)."""
     return sorted([r for r in records if not r.get("struck")],
-                  key=lambda r: (str(r.get("date")), 1 if r.get("kind") in _LATER_IN_DAY else 0, _place(r)))
+                  key=lambda r: (str(r.get("date")), 2 if r.get("kind") in _LATER_IN_DAY else 0 if r.get("kind") in _FIRST_IN_DAY
+                                 else 1, _place(r)))
 
 
 def replay(records: list[dict]) -> dict:
@@ -1271,6 +1361,16 @@ def replay(records: list[dict]) -> dict:
                 put_unknown_fx = True
         elif k == "fee":
             cash[cur] = cash.get(cur, 0.0) - p
+        elif k == "convert":  # one currency's cash to another's; "put in" unchanged
+            try:
+                to = float(r.get("to_amount") or 0)
+            except (TypeError, ValueError):
+                to = 0.0
+            tc = r.get("to_currency") or cur
+            cash[cur] = cash.get(cur, 0.0) - p
+            cash[tc] = cash.get(tc, 0.0) + to
+            fc = r.get("fee_currency") or cur
+            cash[fc] = cash.get(fc, 0.0) - fee
     for hd in pos.values():
         if abs(hd["qty"]) < 1e-9:  # float dust is zero — never a "realised $0.00" ghost
             hd["qty"] = 0.0
@@ -1279,6 +1379,85 @@ def replay(records: list[dict]) -> dict:
             hd["realised"] = 0.0
         # a holding below zero (a hand-edited book) stays below zero: the statement says so, never "sold out"
     return {"positions": pos, "cash": cash, "put": put, "put_home": put_home, "put_unknown_fx": put_unknown_fx}
+
+
+# ---- a conversion offered after a buy -----------------------------------------------------------------------------
+def shortfall(which: str) -> dict | None:
+    """After a buy: a currency's cash below zero while another has cash — {"cur", "short", "other", "have"} (the
+    other: the home currency when it has cash, else the one with the most); None otherwise."""
+    try:
+        cash = replay(load(which)["records"])["cash"]
+    except BookUnreadable:
+        return None
+    for cur, v in cash.items():
+        if v < -1e-9:
+            have = {c: w for c, w in cash.items() if c != cur and w > 1e-9}
+            if have:
+                other = home() if home() in have else max(have, key=lambda c: have[c])
+                return {"cur": cur, "short": round(-v, 2), "other": other, "have": round(have[other], 2)}
+    return None
+
+
+def convert_present(which: str, from_ccy: str, from_amt, to_ccy: str, to_amt, day) -> tuple[dict | None, str, float]:
+    """The one-tap convert, under the lock: the PRESENT shortfall of the currency it fills is read again. ("gone")
+    when that cash is no longer below zero; ("changed", present shortfall) when it is another amount than the button
+    said — nothing kept then; else the conversion kept ("kept")."""
+    tc = currency_of(to_ccy)
+    want = float(num(to_amt) or 0)
+    rec, no = make_convert(from_ccy, from_amt, tc, to_amt, day, by="keeper")  # the feed asked before the lock
+    try:
+        with _locked():
+            try:
+                cash = replay(load(which)["records"])["cash"]
+            except BookUnreadable as e:
+                return None, str(e), 0.0
+            v = cash.get(tc, 0.0)
+            if v >= -1e-9:
+                return None, "gone", 0.0
+            short = round(-v, 2)
+            if abs(short - want) > 0.005:
+                return None, "changed", short
+            if rec is None:
+                return None, no, short
+            got, no = _add_locked(rec, which)
+            return (got, "kept", short) if got else (None, no, short)
+    except BookBusy as e:
+        return None, str(e), 0.0
+
+
+def live_offer(which: str, mid: int | None = None) -> int:
+    """The message id of the one live convert offer in a book (0: none); with mid, it is set (and the old one returned)."""
+    if mid is None:
+        return int((state().get("cv_live") or {}).get(which) or 0)
+    try:
+        with _locked():
+            s = state()
+            old = int((s.get("cv_live") or {}).get(which) or 0)
+            s.setdefault("cv_live", {})[which] = int(mid)
+            _write("state.json", s)
+            return old
+    except BookBusy:
+        return 0
+
+
+def offer_once(which: str, cur: str, short: float) -> bool:
+    """True the first time this shortfall (book, currency, amount) is offered; it is never offered twice."""
+    key = f"{which}:{cur}:{short:.2f}"
+    try:
+        with _locked():
+            s = state()
+            seen = s.get("convert_offered") or []
+            if key in seen:
+                return False
+            s["convert_offered"] = (seen + [key])[-50:]
+            return _write("state.json", s)
+    except BookBusy:
+        return False
+
+
+def cur_word(cur: str, plural: bool = False) -> str:
+    w = CUR_WORD.get(cur)
+    return (w + "s" if plural else w) if w else (f"{cur} in cash" if plural else cur)
 
 
 # ---- splits from the feed ----------------------------------------------------------------------------------------
@@ -1309,7 +1488,7 @@ def apply_splits(which: str | None = None, quotes: dict | None = None) -> list[s
 
 
 # ---- the statement -----------------------------------------------------------------------------------------------
-def block(which: str | None = None, compact: bool = False, refresh: bool = False) -> str:
+def block(which: str | None = None, compact: bool = False, refresh: bool = False, for_friend: bool = False) -> str:
     """The book as it stands, in plain text: each holding (count, average cost, price with date and source, value,
     gain, share), cash, totals in the home currency (and in dollars when home isn't the dollar) at the stated rates,
     put in — worth. PAPER on every line of the paper book."""
@@ -1320,10 +1499,10 @@ def block(which: str | None = None, compact: bool = False, refresh: bool = False
         return f"({e})"
     tag = "PAPER " if which == "paper" else ""
     # this look's own time for fetching, passed down — a slow feed never holds a look much longer
-    return _block(which, book, tag, compact, refresh, time.time() + LOOK_BUDGET_S)
+    return _block(which, book, tag, compact, refresh, time.time() + LOOK_BUDGET_S, for_friend)
 
 
-def _block(which, book, tag, compact, refresh, until=None) -> str:
+def _block(which, book, tag, compact, refresh, until=None, for_friend=False) -> str:
     h = home()
     quotes = {}
     rp = replay(book["records"])
@@ -1437,7 +1616,13 @@ def _block(which, book, tag, compact, refresh, until=None) -> str:
     lines.append("cash  " + (" · ".join(cash_bits) if cash_bits else "none"))
     for cur, v in rp["cash"].items():
         if v < -1e-9:
-            lines.append(f"  {cur} below zero: more was bought than deposited — a deposit may be missing")
+            other = [c for c, w in rp["cash"].items() if c != cur and w > 1e-9]
+            if other:  # the broker may have converted: say so, and how to record it
+                lines.append(f"  ⚠ {cur_word(cur)} cash is below zero while there are {cur_word(other[0], True)} — if money "
+                             "was converted, record the conversion "
+                             + ("(your keeper records a conversion on their phone)" if for_friend else "(/trade → Record → Convert)"))
+            else:
+                lines.append(f"  {cur} below zero: more was bought than deposited — a deposit may be missing")
     if held and not mix_ok:
         lines.append("mix: not given — " + ("cash is below zero" if below else "the total isn't above zero"
                                              if total_known else "a price or the rate is missing"))

@@ -5337,11 +5337,27 @@ class Bridge:
             return "(the book stays closed while a guest is here)"
 
     @staticmethod
-    def _parlor_guest() -> str:
-        """The desk page's guest, asked of the parlor itself (parlor.HOST:parlor.PORT); "" when it isn't running."""
+    def _parlor_addr() -> tuple[str, int]:
+        """The desk page's own HOST and PORT, read from parlor.py's text — importing parlor would start its session
+        (and let its seat go)."""
         try:
-            import parlor
-            req = urllib.request.Request(f"http://{parlor.HOST}:{parlor.PORT}/guest", data=b"{}",
+            import ast
+            tree = ast.parse((Path(__file__).resolve().parent / "parlor.py").read_text(encoding="utf-8"))
+            for node in tree.body:
+                if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Tuple) \
+                        and [getattr(t, "id", "") for t in node.targets[0].elts] == ["HOST", "PORT"]:
+                    host, port = ast.literal_eval(node.value)
+                    return str(host), int(port)
+        except Exception:  # noqa: BLE001
+            pass
+        return "127.0.0.1", 8765
+
+    @classmethod
+    def _parlor_guest(cls) -> str:
+        """The desk page's guest, asked of the parlor itself (its HOST:PORT); "" when it isn't running."""
+        try:
+            host, port = cls._parlor_addr()
+            req = urllib.request.Request(f"http://{host}:{port}/guest", data=b"{}",
                                          headers={"Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=2) as r:
                 return str(json.loads(r.read().decode("utf-8")).get("guest") or "")
@@ -5467,6 +5483,9 @@ class Bridge:
     def _trade_next(self, flow: dict) -> None:
         import portfolio as pf
         k = flow["kind"]
+        if k == "convert":
+            self._convert_next(flow)
+            return
         if k in ("deposit", "withdraw") and not flow.get("currency"):
             self._trade_ask(flow, f"{k.capitalize()} — in which currency? Tap one, or reply with its code",
                             [[(f"{pf.sym(c)} {c}" if pf.sym(c) != c else c, f"tr:c:{c}") for c in self._tr_currencies()],
@@ -5504,6 +5523,98 @@ class Bridge:
             flow["rec"] = rec
             self._trade_ask(flow, f"{pf.record_line(rec)}\nKeep it?", [[("✅ Keep", "tr:y"), self._TR_CANCEL]])
 
+    def _tr_cur_rows(self, tag: str, leave_out: str = "") -> list:
+        import portfolio as pf
+        return [[(f"{pf.sym(c)} {c}" if pf.sym(c) != c else c, f"tr:{tag}:{c}") for c in self._tr_currencies() if c != leave_out]]
+
+    def _convert_next(self, flow: dict) -> None:
+        """💱 Convert: from which currency → to which → how much → how much arrived (today's rate, or the keeper's
+        number — what the broker really gave) → date → Keep."""
+        import portfolio as pf
+        if not flow.get("currency"):
+            self._trade_ask(flow, "💱 Convert — from which currency? Tap one, or reply with its code",
+                            self._tr_cur_rows("c") + [[self._TR_CANCEL]])
+            return
+        fc = flow["currency"]
+        if not flow.get("to_currency"):
+            self._trade_ask(flow, f"💱 {fc} → which currency? Tap one, or reply with its code",
+                            self._tr_cur_rows("c2", fc) + [[self._TR_CANCEL]])
+            return
+        tc = flow["to_currency"]
+        if flow.get("price") is None:
+            pre = f" ({pf.money(flow['to_amt'], tc)} arrived)" if flow.get("to_amt") else ""
+            self._trade_ask(flow, f"How much {fc} was converted{pre}? Reply to this message")
+        elif flow.get("to_amt") is None:
+            r = pf.pair_rate(fc, tc)
+            rows = []
+            if r.get("ok"):
+                amt = flow["price"] * r["per"]
+                flow["rate_amt"] = round(amt, 2)
+                shown, label = pf.conv_shown(fc, tc, r["per"])
+                rows.append([(f"at today's rate {shown:.4f} {label}: {pf.money(amt, tc)}"[:60], "tr:a:r")])
+            self._trade_ask(flow, f"How much {tc} arrived? Tap the rate, or reply with what the broker gave",
+                            rows + [[self._TR_CANCEL]])
+        elif flow.get("date") is None:
+            self._trade_ask(flow, "When? Tap one, or reply with a date (YYYY-MM-DD)", self._tr_day_rows(flow))
+        else:
+            rec, no = pf.make_convert(fc, flow["price"], tc, flow["to_amt"], flow["date"], by="keeper")
+            if rec is None:
+                self._trade = None
+                self._tr_send(f"(not possible: {no} — nothing was kept; /trade starts again)")
+                return
+            flow["rec"] = rec
+            self._trade_ask(flow, f"{pf.record_line(rec)}\nKeep it?", [[("✅ Keep", "tr:y"), self._TR_CANCEL]])
+
+    def _convert_offer(self, which: str, got: dict | None) -> None:
+        """After a kept buy leaves one currency's cash below zero while another has cash: one message, the engine's —
+        convert exactly the shortfall at today's rate, type what was converted, or leave it. Once per shortfall; one
+        live offer per book."""
+        import portfolio as pf
+        try:
+            if not got or got.get("kind") != "buy":
+                return
+            sf = pf.shortfall(which)
+            if not sf or sf["cur"] != got.get("currency") or not pf.offer_once(which, sf["cur"], sf["short"]):
+                return
+            text, rows = self._cv_body(which, sf, got["date"])
+            mid = self._tr_send(text, rows)
+            if mid:
+                old = pf.live_offer(which, mid)  # one live offer per book: the older one's buttons go
+                if old and old != mid:
+                    try:
+                        self.api("editMessageText", chat_id=self.chat_id, message_id=old,
+                                 text="(replaced by a newer one below)")
+                    except Exception as e:  # noqa: BLE001
+                        _say(f"convert offer: the older one wasn't replaced ({type(e).__name__}: {e})")
+        except Exception as e:  # noqa: BLE001
+            _say(f"convert offer: {type(e).__name__}: {e}")
+
+    def _cv_body(self, which: str, sf: dict, day: str) -> tuple[str, list]:
+        """The offer's words and buttons for a shortfall {"cur", "short", "other", "have"} (the rate asked now)."""
+        import portfolio as pf
+        cur, other = sf["cur"], sf["other"]
+        r = pf.pair_rate(other, cur)
+        b = self._tr_b(which)
+        rows = []
+        if r.get("ok") and r["per"] > 0:
+            need = round(sf["short"] / r["per"], 2)
+            shown, _ = pf.conv_shown(other, cur, r["per"])
+            rows.append([(f"💱 Convert {pf.money(need, other)} → {pf.money(sf['short'], cur)} (today's rate "
+                          f"{shown:.4f})", f"tr:cv:{b}:{other}:{cur}:{need:.2f}:{sf['short']:.2f}:{day}")])
+        rows.append([("✍️ I'll type what was converted", f"tr:ct:{b}:{other}:{cur}:{sf['short']:.2f}")])
+        rows.append([("Leave it", f"tr:cl:{b}")])
+        w = pf.cur_word(cur)
+        return (f"{self._tr_paper(which)}{w[:1].upper() + w[1:]} cash is now -{pf.money(sf['short'], cur)}, and there are "
+                f"{pf.money(sf['have'], other)}. Did the broker convert {pf.cur_word(other, True)} for this?", rows)
+
+    @staticmethod
+    def _tr_is_convert(rid: int) -> bool:
+        import portfolio as pf
+        try:
+            return any(int(r["id"]) == rid and r.get("kind") == "convert" for r in pf.load()["records"])
+        except Exception:  # noqa: BLE001
+            return False
+
     def _tr_currencies(self) -> list:
         """The deposit's currency buttons: the dollar, the home currency, and the others the open book holds — at most
         four."""
@@ -5534,6 +5645,30 @@ class Bridge:
                           if got else f"(not corrected: {no})")
             return
         k = flow["kind"]
+        if k == "convert":
+            if not flow.get("currency") or not flow.get("to_currency"):
+                c = pf.currency_of(text)
+                if not c or c == flow.get("currency"):
+                    self._trade_ask(flow, f"“{text}” isn't a currency for this — its three-letter code (USD, EUR …), or "
+                                          "tap one", self._tr_cur_rows("c2" if flow.get("currency") else "c",
+                                                                       flow.get("currency") or "") + [[self._TR_CANCEL]])
+                    return
+                flow["to_currency" if flow.get("currency") else "currency"] = c
+            elif flow.get("price") is None or flow.get("to_amt") is None:
+                v = pf.num(text)
+                if v is None or v <= 0:
+                    self._trade_ask(flow, f"“{text}” isn't an amount — reply with a number (30,200, 9184.50)")
+                    return
+                flow["price" if flow.get("price") is None else "to_amt"] = v
+            elif flow.get("date") is None:
+                d_ = pf.parse_date(text)
+                if d_ is None or d_ > date.today():
+                    self._trade_ask(flow, f"“{text}” isn't a date that has come — YYYY-MM-DD, today or yesterday",
+                                    self._tr_day_rows(flow))
+                    return
+                flow["date"] = d_.isoformat()
+            self._convert_next(flow)
+            return
         if k in ("deposit", "withdraw") and not flow.get("currency"):
             c = pf.currency_of(text)
             if not c:
@@ -5553,7 +5688,8 @@ class Bridge:
             if not got["same"]:
                 flow["maybe"] = q
                 self._trade_ask(flow, f"“{text}” isn't known as typed. Did you mean {pf.quote_line(q)}?",
-                                [[(f"Yes, {q['symbol']}", "tr:s:y")], [self._TR_CANCEL]])
+                                [[(f"Yes, {q['symbol']}", f"tr:s:{self._tr_b(flow.get('book') or pf.open_book())}")],
+                                 [self._TR_CANCEL]])
                 return
             flow["symbol"], flow["quote"] = q["symbol"], q
             self._tr_send(self._tr_paper(flow.get("book")) + pf.quote_line(q))
@@ -5605,8 +5741,8 @@ class Bridge:
         d = str(cq.get("data") or "").split(":")
         k = d[1] if len(d) > 1 else ""
         flow = getattr(self, "_trade", None)
-        if k in ("fi", "fs", "fy", "fc", "ff"):  # a record's button carries its book: tr:<k>:<p|r>:<id>…
-            if len(d) < 4 or d[2] != self._tr_b(pf.open_book()):
+        if k in ("fi", "fs", "fy", "fc", "ff", "cv", "ct", "cl"):  # a record's button carries its book: tr:<k>:<p|r>:…
+            if len(d) < (3 if k == "cl" else 4) or d[2] != self._tr_b(pf.open_book()):
                 self._tr_send("(that button is from the other book — nothing was done)")
                 return
             d = d[:2] + d[3:]
@@ -5620,17 +5756,58 @@ class Bridge:
             self._trade = {"began": time.time(), "t": time.time(), "prompt": 0, "book": pf.open_book()}
             self._trade_ask(self._trade, "➕ Record — what kind?",
                             [[("Buy", "tr:k:buy"), ("Sell", "tr:k:sell"), ("Dividend", "tr:k:dividend")],
-                             [("Deposit", "tr:k:deposit"), ("Withdraw", "tr:k:withdraw")], [self._TR_CANCEL]])
+                             [("Deposit", "tr:k:deposit"), ("Withdraw", "tr:k:withdraw"), ("💱 Convert", "tr:k:convert")],
+                             [self._TR_CANCEL]])
+        elif k == "cv" and len(d) > 6:  # convert exactly the shortfall, dated as the buy
+            which = pf.open_book()
+            got, how, short = pf.convert_present(which, d[2], d[4], d[3], d[5], d[6])  # the PRESENT shortfall, under the lock
+            if how == "gone":
+                self._tr_send("(the shortfall is no longer there — nothing was kept)")
+            elif how == "changed":  # never a different amount than the button said: the message shows the new one first
+                sf = pf.shortfall(which)
+                mid = int(msg.get("message_id") or 0)
+                if not sf:
+                    self._tr_send("(the shortfall is no longer there — nothing was kept)")
+                    return
+                text_, rows = self._cv_body(which, sf, d[6])
+                try:
+                    self.api("editMessageText", chat_id=self.chat_id, message_id=mid,
+                             text=f"(the shortfall changed — nothing was kept yet)\n{text_}", reply_markup=self._pp_markup(rows))
+                    pf.live_offer(which, mid)
+                except Exception as e:  # noqa: BLE001
+                    _say(f"convert offer: not re-shown ({type(e).__name__}: {e})")
+                    self._tr_send(f"(the shortfall changed — nothing was kept yet)\n{text_}", rows)
+            elif got:
+                self._tr_send(f"{self._tr_paper(which)}✓ kept #{got['id']}: {pf.record_line(got)}")
+            else:
+                self._tr_send(f"(not kept: {how})")
+        elif k == "ct" and len(d) > 4:  # the Convert flow, with the pair and what arrived already known
+            if flow:
+                self._tr_send("(the record you were making is let go — a new one begins)")
+            self._trade = {"began": time.time(), "t": time.time(), "prompt": 0, "book": pf.open_book(), "kind": "convert",
+                           "currency": d[2], "to_currency": d[3], "to_amt": float(d[4])}
+            self._convert_next(self._trade)
+        elif k == "cl":
+            self._tr_send("(left as it is)")
+        elif k == "a" and flow and flow.get("kind") == "convert" and flow.get("rate_amt"):
+            flow["t"] = time.time()
+            flow["to_amt"] = flow["rate_amt"]
+            self._convert_next(flow)
         elif k == "x":
             self._trade = None
             self._tr_send("(cancelled — nothing was kept)")
-        elif k in ("k", "c", "s", "p", "d", "e", "w", "y") and flow and not flow.get("fix"):
+        elif k in ("k", "c", "c2", "s", "p", "d", "e", "w", "y") and flow and not flow.get("fix"):
             flow["t"] = time.time()
             if k == "k" and len(d) > 2 and "kind" not in flow:
                 flow["kind"] = d[2]
             elif k == "c" and len(d) > 2:
                 flow["currency"] = d[2]
+            elif k == "c2" and len(d) > 2 and d[2] != flow.get("currency"):
+                flow["to_currency"] = d[2]
             elif k == "s" and flow.get("maybe"):
+                if len(d) > 2 and d[2] in ("p", "r") and d[2] != self._tr_b(flow.get("book") or pf.open_book()):
+                    self._tr_send("(that button is from the other book — nothing was done)")
+                    return
                 flow["symbol"], flow["quote"] = flow["maybe"]["symbol"], flow.pop("maybe")
                 self._tr_send(self._tr_paper(flow.get("book")) + pf.quote_line(flow["quote"]))
             elif k == "p" and (flow.get("quote") or {}).get("close"):
@@ -5647,11 +5824,21 @@ class Bridge:
                 self._trade = None
                 self._tr_send(f"{self._tr_paper(flow.get('book'))}✓ kept #{got['id']}: {pf.record_line(got)}" if got
                               else f"(not kept: {no})")
+                self._convert_offer(flow.get("book") or pf.open_book(), got)
                 return
             if "kind" in flow:
                 self._trade_next(flow)
         elif k in ("pk", "pd") and len(d) > 2:
-            self._tr_send(pf.resolve_pending(int(d[2]), keep=(k == "pk")))
+            x = next((i for i in pf.pending() if int(i.get("pid") or 0) == int(d[2])), None)
+            said = pf.resolve_pending(int(d[2]), keep=(k == "pk"))
+            self._tr_send(said)
+            if k == "pk" and x and "✓ kept #" in said:
+                which = x.get("book") or "paper"
+                try:
+                    kept = max(pf.load(which)["records"], key=lambda r: int(r["id"]))
+                except (pf.BookUnreadable, ValueError):
+                    kept = None
+                self._convert_offer(which, kept)
         elif k == "f":
             try:
                 rs = sorted(pf.load()["records"], key=lambda r: int(r["id"]), reverse=True)[:10]
@@ -5675,6 +5862,11 @@ class Bridge:
         elif k == "fy" and len(d) > 2:
             got, no = pf.strike(int(d[2]))
             self._tr_send(f"{self._tr_paper()}✂️ struck #{d[2]}: {pf.record_line(got)}" if got else f"(not struck: {no})")
+        elif k == "fc" and len(d) > 2 and self._tr_is_convert(int(d[2])):
+            b = self._tr_b(pf.open_book())
+            self._tr_send(f"{self._tr_paper()}Correct which part of #{d[2]}?",
+                          [[("sent", f"tr:ff:{b}:{d[2]}:sent"), ("arrived", f"tr:ff:{b}:{d[2]}:arrived"),
+                            ("date", f"tr:ff:{b}:{d[2]}:date")], [self._TR_CANCEL]])
         elif k == "fc" and len(d) > 2:
             b = self._tr_b(pf.open_book())
             self._tr_send(f"{self._tr_paper()}Correct which field of #{d[2]}?",

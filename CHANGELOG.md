@@ -19,7 +19,9 @@ tagged on its own: the first tag after the rename is v0.13.)
   by default — and does all of its arithmetic; prices come from Yahoo's public chart feed with their source and date,
   never a guess. The friend's `portfolio` tool (look, price, record, history) writes a record down only for the
   keeper's ✅ Keep; `/trade` and `/book` keep it from the phone with buttons. Closed everywhere while a guest is seated;
-  the file tools and the code sandbox are fenced off it. Off: as before, the tool list and `/help` unchanged.
+  the file tools and the code sandbox are fenced off it. A conversion between any two currencies is recorded on the
+  phone (💱 Convert), offered in one tap after a buy leaves one currency's cash below zero; one whose rate is more than
+  twice away from today's for that pair is refused as a typo. Off: as before, the tool list and `/help` unchanged.
 - **The pieces of a chosen folder reach the phone together at a set time** (`TELEGRAM_GATHER`, `{}` — off): a friend
   wrote eight short pages of one project in a single wake, and the keeper's phone got eight messages. Set a map of
   folders under `creations/` to times, e.g. `{"projects/daybook": "06:00"}`: a new or revised piece under such a

@@ -25226,6 +25226,116 @@ config.OFFLINE = False
 check("book (0.16): OFFLINE — the feed is not asked; no price, said",
       _bk_off_q.get("ok") is False and "offline" in _bk_off_q.get("error", "") and not _bk_off_calls, (_bk_off_q, _bk_off_calls))
 
+# ---- conversions: one currency's cash to another's ----------------------------------------------------------------
+_bk_fresh("ILS")
+_bk_cv1, _ = _bk_pf.make_convert("USD", "1000", "ILS", "3620", "2026-03-06")
+_bk_cv2, _ = _bk_pf.make_convert("ILS", "3625", "USD", "1000", "2026-03-06")
+_bk_add("deposit", "USD", None, "500", "2026-03-02")
+_bk_add("deposit", "ILS", None, "5000", "2026-03-02")
+_bk_add("buy", "ACME", "20", "41", "2026-03-03")
+_bk_ilsneg = [l_ for l_ in _bk_norm(_bk_pf.block("paper")).splitlines() if "below zero while" in l_ or "below zero:" in l_]
+check("book (0.16): home ILS — a conversion's line and the below-zero line are the house's own words",
+      _bk_pf.record_line(_bk_cv1) == "converted $1,000.00 to ₪3,620.00 (at 3.6200 ₪/$) on Mar 6"
+      and _bk_pf.record_line(_bk_cv2) == "converted ₪3,625.00 to $1,000.00 (at 3.6250 ₪/$) on Mar 6"
+      and _bk_ilsneg == ["PAPER   ⚠ dollar cash is below zero while there are shekels — if money was converted, record the "
+                         "conversion (/trade → Record → Convert)"], (_bk_pf.record_line(_bk_cv1), _bk_pf.record_line(_bk_cv2), _bk_ilsneg))
+_bk_fresh("EUR")
+_bk_add("deposit", "EUR", None, "1000", "2026-03-02")
+_bk_cvr, _bk_cvn = _bk_pf.make_convert("eur", "460", "$", "500", "2026-03-03", fee="1")
+_bk_g1, _ = _bk_pf.add(_bk_cvr, "paper")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03")
+_bk_rpc = _bk_pf.replay(_bk_pf.load("paper")["records"])
+_bk_typo = _bk_pf.make_convert("EUR", "460", "USD", "2500", "2026-03-03")[1]
+_bk_NET["down"].add("EUR=X")
+_bk_pf._write("prices.json", {})
+_bk_up_()
+_bk_norate = _bk_pf.make_convert("EUR", "460", "USD", "2500", "2026-03-03")[0]
+_bk_NET["down"].discard("EUR=X")
+_bk_up_()
+_bk_same = _bk_pf.make_convert("EUR", "1", "EUR", "1", "2026-03-03")[1]
+_bk_cc, _bk_ccn = _bk_pf.correct(_bk_g1["id"], "arrived", "499", which="paper")
+_bk_rpc2 = _bk_pf.replay(_bk_pf.load("paper")["records"])
+check("book (0.16): a conversion between any two currencies — cash moves from one to the other (its fee from the one "
+      "sent), 'put in' unchanged, counted before the day's buys; its rate said home per the other; one more than twice "
+      "away from today's rate refused, none checked when no rate is known; corrected by a new record",
+      _bk_pf.record_line(_bk_g1) == "converted €460.00 to $500.00 (at 0.9200 €/$) on Mar 3 + fee €1.00"
+      and abs(_bk_rpc["cash"]["EUR"] - 539.0) < 1e-9 and abs(_bk_rpc["cash"]["USD"] - 90.0) < 1e-9 and _bk_rpc["put_home"] == 1000.0
+      and [r_["kind"] for r_ in _bk_pf.live(_bk_pf.load("paper")["records"])][:2] == ["deposit", "convert"]
+      and _bk_typo.startswith("that is a rate of 0.1840 €/$, and today's is 0.9250 — check the two amounts")
+      and _bk_norate is not None and _bk_same.startswith("a conversion is between two currencies — both are EUR")
+      and _bk_cc and _bk_cc["replaces"] == _bk_g1["id"] and abs(_bk_rpc2["cash"]["USD"] - 89.0) < 1e-9,
+      (_bk_pf.record_line(_bk_g1) if _bk_g1 else _bk_cvn, _bk_rpc["cash"], _bk_typo, _bk_same, _bk_ccn))
+# the phone: 💱 Convert through its buttons; the offer after a buy; the friend's record and look
+_bk_fresh("EUR")
+_bk_add("deposit", "EUR", None, "1000", "2026-03-02")
+_bk_b, _bk_ph = _bk_bridge()
+_bk_press(_bk_b, "tr:r")
+_bk_kinds2 = _bk_ph.buttons()
+_bk_press(_bk_b, "tr:k:convert")
+_bk_cvb1 = _bk_ph.buttons()
+_bk_press(_bk_b, "tr:c:EUR")
+_bk_cvb2 = _bk_ph.buttons()
+_bk_press(_bk_b, "tr:c2:USD")
+_bk_text(_bk_b, "100", reply_to=1000 + len(_bk_ph.msgs) - 1)
+_bk_cvb3 = _bk_ph.buttons()
+_bk_press(_bk_b, "tr:a:r")
+_bk_press(_bk_b, "tr:d:t")
+_bk_cvsum = _bk_ph.msgs[-1]["text"]
+_bk_press(_bk_b, "tr:y")
+_bk_cvkept = _bk_ph.msgs[-1]["text"]
+check("book (0.16): ➕ Record → 💱 Convert — from which currency, to which (the first left out), how much, the arrival "
+      "at today's rate as a button, the day; ✅ Keep files it by the keeper",
+      _bk_kinds2[1] == ["Deposit", "Withdraw", "💱 Convert"] and _bk_cvb1[0] == ["$ USD", "€ EUR"] and _bk_cvb2[0] == ["$ USD"]
+      and _bk_cvb3[0][0] == "at today's rate 0.9250 €/$: $108.11"
+      and _bk_cvsum.startswith(f"PAPER · converted €100.00 to $108.11 (at 0.9250 €/$) on {_bk_pf._day(_bk_date.today())}")
+      and _bk_cvkept.startswith("PAPER · ✓ kept #2: converted €100.00") and _bk_pf.load("paper")["records"][-1]["by"] == "keeper",
+      (_bk_kinds2, _bk_cvb1, _bk_cvb2, _bk_cvb3, _bk_cvsum, _bk_cvkept))
+_bk_fresh("EUR")
+_bk_add("deposit", "EUR", None, "1000", "2026-03-02")
+_bk_b, _bk_ph = _bk_bridge()
+_bk_gb, _ = _bk_add("buy", "ACME", "10", "41", "2026-03-03")
+_bk_b._convert_offer("paper", _bk_gb)
+_bk_b._convert_offer("paper", _bk_gb)
+_bk_offer = (_bk_ph.msgs[-1]["text"], _bk_ph.buttons(), len(_bk_ph.msgs))
+_bk_cvdata = _bk_ph.data("💱 Convert")
+_bk_press(_bk_b, _bk_cvdata)
+_bk_cvdone = (_bk_ph.msgs[-1]["text"], _bk_pf.replay(_bk_pf.load("paper")["records"])["cash"])
+_bk_press(_bk_b, _bk_cvdata)
+_bk_gone2 = _bk_ph.msgs[-1]["text"]
+_bk_g2, _ = _bk_add("buy", "ACME", "1", "41", "2026-03-03")
+_bk_b._convert_offer("paper", _bk_g2)
+_bk_cv_old = _bk_ph.data("💱 Convert")
+_bk_add("buy", "ACME", "1", "41", "2026-03-03")
+_bk_ph.msgs.append({"text": "pad", "markup": None})
+_bk_press(_bk_b, _bk_cv_old)
+_bk_changed = _bk_pf.replay(_bk_pf.load("paper")["records"])["cash"]["USD"]
+_bk_look_f = tools.portfolio("look")
+_bk_look_k = _bk_pf.block("paper")
+check("book (0.16): a buy that leaves dollar cash below zero while there are euros — one offer, never twice: convert "
+      "the shortfall at today's rate in one tap, type it, or leave it; the tap converts exactly the present shortfall; "
+      "tapped again — gone; a shortfall that changed since — nothing kept; the warning says what to do, to each",
+      _bk_offer[0] == "PAPER · Dollar cash is now -$410.00, and there are €1,000.00. Did the broker convert euros for this?"
+      and _bk_offer[1] == [["💱 Convert €379.25 → $410.00 (today's rate 0.9250)"], ["✍️ I'll type what was converted"], ["Leave it"]]
+      and _bk_offer[2] == 1 and _bk_cvdone[0].startswith("PAPER · ✓ kept #3: converted €379.25 to $410.00")
+      and abs(_bk_cvdone[1]["USD"]) < 0.01 and _bk_gone2 == "(the shortfall is no longer there — nothing was kept)"
+      and abs(_bk_changed + 82.0) < 1e-6
+      and "(your keeper records a conversion on their phone)" in _bk_look_f and "(/trade → Record → Convert)" in _bk_look_k
+      and tools.portfolio("record", kind="convert", date="today") == ("(a conversion is recorded by your keeper on their phone "
+                                                                     "for now — /trade → Record → Convert; nothing was written)"),
+      (_bk_offer, _bk_cvdone, _bk_gone2, _bk_changed, _bk_look_f[-300:]))
+# a first-day listing: no completed close yet — the last trade with its time
+_bk_fresh("USD")
+_bk_now = int(_bk_time.time())
+_bk_FIX["NEWCO"] = {"chart": {"result": [{"meta": {"symbol": "NEWCO", "currency": "USD", "regularMarketPrice": 31.5,
+                                                    "regularMarketTime": _bk_now - 60, "gmtoffset": 0,
+                                                    "currentTradingPeriod": {"regular": {"end": _bk_now + 3600}}},
+                                           "timestamp": [_bk_now - 600], "indicators": {"quote": [{"close": [31.0]}]}}], "error": None}}
+_bk_nq = _bk_pf.quote("NEWCO")
+check("book (0.16): a first-day listing — no completed close; priced at its last trade, with its time, said so",
+      _bk_nq.get("ok") and _bk_nq.get("close") is None and _bk_nq.get("no_close")
+      and _bk_pf.quote_line(_bk_nq) == f"NEWCO $31.50 (last trade {_bk_at(_bk_now - 60)}, Yahoo) · no completed daily close yet",
+      _bk_nq)
+
 # ---- on: the tool list and /help in a fresh process; the knobs; the words ------------------------------------------
 _bk_on = _bk_sub.run([_bk_sys.executable, "-c",
                       "import sys, json, tempfile\nsys.path.insert(0, sys.argv[1])\nsys.dont_write_bytecode = True\nimport config\n"
@@ -25256,8 +25366,7 @@ check("book (0.16): on — the tool list gains portfolio only and /help names /t
       and all(k in _gm_panel.TABS["Their days"] and _gm_panel._HELP.get(k) for k in _bk_KN)
       and "memory/portfolio/" in (Path(config.ROOT) / ".gitignore").read_text(encoding="utf-8")
       and "PORTFOLIO_HOME_CURRENCY" in (Path(config.ROOT) / "engine" / "report.py").read_text(encoding="utf-8")
-      and not _bk_re.search(r"\b(she|her|hers|he|his|him)\b", _bk_src, _bk_re.I) and not _bk_re.search(r"\(1[01]-\d\d", _bk_src)
-      and not _bk_re.search(r"\b(gabe|elysia)\b", _bk_src, _bk_re.I),
+      and not _bk_re.search(r"\b(she|her|hers|he|his|him)\b", _bk_src, _bk_re.I) and not _bk_re.search(r"\(1[01]-\d\d", _bk_src),
       (_bk_onr, _bk_on.stderr[-800:], _bk_re.findall(r".{30}\b(?:she|her|hers|he|his|him)\b.{30}", _bk_src, _bk_re.I)[:3]))
 _bk_shutil.rmtree(_bk_dir, ignore_errors=True)
 if _bk_dir0.exists():

@@ -2077,9 +2077,10 @@ def _book_read_fence() -> str:
 def _in_book(p) -> bool:
     """(PORTFOLIO_ON) A path in memory/portfolio — the keeper's investment book."""
     try:
-        d = (config.MEMORY_DIR / "portfolio").resolve()
-        q = Path(p).resolve()
-        return q == d or d in q.parents
+        import os as _os
+        d = _os.path.normcase(str((config.MEMORY_DIR / "portfolio").resolve()))
+        q = _os.path.normcase(str(Path(p).resolve()))
+        return q == d or q.startswith(d.rstrip(_os.sep) + _os.sep)
     except Exception:  # noqa: BLE001
         return False  # a path that won't resolve isn't the book; the usual handling answers for it
 
@@ -6625,7 +6626,7 @@ def portfolio(action: str = "look", symbol: str = "", kind: str = "", qty: str =
     paper = " — the PAPER book (practice), not their real one" if which == "paper" else ""
     if a in ("look", "book", "show", ""):
         said = pf.since_last_look(which)
-        out = pf.block(which)
+        out = pf.block(which, for_friend=True)
         if said:
             out += "\n\nsince you last looked: " + "; ".join(said)
         return out
@@ -6644,6 +6645,9 @@ def portfolio(action: str = "look", symbol: str = "", kind: str = "", qty: str =
     if a in ("record", "write", "add"):
         missing = [n for n, v in (("kind", kind), ("date", date)) if not str(v or "").strip()]
         k = str(kind or "").strip().lower()
+        if k in ("convert", "conversion"):  # the keeper's, on the phone, for now
+            return ("(a conversion is recorded by your keeper on their phone for now — /trade → Record → Convert; "
+                    "nothing was written)")
         if k in ("buy", "sell") and (not str(symbol or "").strip() or not str(qty or "").strip() or not str(price or "").strip()):
             missing += [n for n, v in (("symbol", symbol), ("qty", qty), ("price", price)) if not str(v or "").strip()]
         if missing:

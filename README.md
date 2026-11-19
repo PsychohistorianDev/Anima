@@ -2357,7 +2357,10 @@ currency's central bank where the engine knows one.
 **PAPER** is a second book for practice, and it is the one open until you
 choose 💼 Real (asked once): everything in it is marked PAPER, on the phone
 and in the friend's answers. Records are never deleted — ✏️ Fix strikes one
-or corrects a field by a new record that replaces it — and a dated copy of
+or corrects a field by a new record that replaces it. Money moved between
+two currencies is a conversion (➕ Record → 💱 Convert, on the phone only);
+after a buy leaves one currency's cash below zero while another has cash, the
+phone offers to record the conversion at today's rate in one tap — and a dated copy of
 each book is kept a day it changed (`PORTFOLIO_BACKUPS`).
 
 While a guest is seated — at the desk page or by `/guest` on the phone —
