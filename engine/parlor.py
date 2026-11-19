@@ -60,11 +60,23 @@ class Session:
         self.playback = live_voice.Playback()
         self.generation = 0
         self.guest = ""  # a guest at the keeper's desk: their name, or "" — the page seats and unseats them
+        if getattr(config, "PORTFOLIO_ON", False):  # a fresh parlor has no one seated: its seat is let go
+            try:
+                import portfolio as pf
+                pf.seat("parlor", "")
+            except Exception as e:  # noqa: BLE001
+                print(f"  (book seat: {type(e).__name__}: {e})", flush=True)
 
     def seat(self, name) -> dict:
         """Seat a guest (a name) or let them go (""). None asks without changing."""
         if name is not None:
             self.guest = " ".join(str(name).split())[:40]
+            if getattr(config, "PORTFOLIO_ON", False):  # the book stays closed while a guest is here
+                try:
+                    import portfolio as pf
+                    pf.seat("parlor", self.guest)
+                except Exception as e:  # noqa: BLE001
+                    print(f"  (book seat: {type(e).__name__}: {e})", flush=True)
         return {"ok": True, "guest": self.guest, "label": self.guest_label(),
                 "named": bool(getattr(config, "PARLOR_GUEST_NAMED", True))}
 
@@ -97,6 +109,13 @@ class Session:
                 if carried:
                     self.history, self.reflected_upto = carried, len(carried)  # the pauses start past them
                     print(f"({chat.carry_line(carried)})")
+            if getattr(config, "PORTFOLIO_ON", False) and getattr(config, "PORTFOLIO_GUEST_SCRUB", False):
+                try:  # a guest seated: the book's earlier answers in this visit are set aside
+                    import portfolio as pf
+                    if self.guest or pf.guest_here():
+                        pf.scrub(self.history)
+                except Exception as e:  # noqa: BLE001
+                    print(f"  (book scrub: {type(e).__name__}: {e})", flush=True)
             _pp_turn(self.guest_label())  # a guest's turn can't write out a penpal's letter in pictures
             try:
                 beginning = len(self.history)

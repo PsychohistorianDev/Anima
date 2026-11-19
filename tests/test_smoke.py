@@ -24563,6 +24563,715 @@ for _ga_k, _ga_v in _ga_saved.items():
     else:
         setattr(config, _ga_k, _ga_v)
 
+# PORTFOLIO_ON (0.16): the keeper's investment book — the feed faked, the phone faked, nothing leaves the suite
+import json as _bk_json
+import os as _bk_os
+import re as _bk_re
+import shutil as _bk_shutil
+import subprocess as _bk_sub
+import sys as _bk_sys
+import time as _bk_time
+import inspect as _bk_inspect
+import urllib.parse as _bk_up
+from datetime import date as _bk_date, datetime as _bk_dt, timedelta as _bk_td, timezone as _bk_tz
+import portfolio as _bk_pf
+import penpal as _bk_pp
+_bk_KEYS = ("PORTFOLIO_ON", "PORTFOLIO_HOME_CURRENCY", "PORTFOLIO_PRICE_CACHE_MIN", "PORTFOLIO_JUMP", "PORTFOLIO_BACKUPS",
+            "PORTFOLIO_GUEST_SCRUB", "OFFLINE", "TELEGRAM_QUIET_HOURS")
+_bk_MISSING = object()
+_bk_saved = {k: getattr(config, k, _bk_MISSING) for k in _bk_KEYS}
+_bk_stubs = (_bk_pf._http_get, tg._say)
+_bk_dir = config.MEMORY_DIR / "portfolio"
+_bk_dir0 = config.MEMORY_DIR / "portfolio-before-bk"
+if _bk_dir.exists():
+    _bk_dir.rename(_bk_dir0)
+_bk_FN = chat.friend_name()
+_bk_D = [_bk_date(2026, 3, 2) + _bk_td(days=i) for i in range(5)]
+
+
+def _bk_ts(d):
+    return int(_bk_dt(d.year, d.month, d.day, 20, tzinfo=_bk_tz.utc).timestamp())
+
+
+def _bk_chart(s, cur, closes, name="", splits=None, divs=None):
+    tss = [_bk_ts(d) for d in _bk_D]
+    meta = {"symbol": s, "currency": cur, "exchangeName": "X", "regularMarketPrice": closes[-1],
+            "regularMarketTime": tss[-1] + 3600, "gmtoffset": 0,
+            "currentTradingPeriod": {"regular": {"end": tss[-1] + 3600}}}
+    if name:
+        meta["longName"] = name
+    r = {"meta": meta, "timestamp": tss, "indicators": {"quote": [{"close": list(closes)}]}}
+    ev = {}
+    if splits:
+        ev["splits"] = {str(_bk_ts(d)): {"date": _bk_ts(d), "numerator": n, "denominator": m, "splitRatio": f"{n}:{m}"}
+                        for d, n, m in splits}
+    if divs:
+        ev["dividends"] = {str(_bk_ts(d)): {"date": _bk_ts(d), "amount": a} for d, a in divs}
+    if ev:
+        r["events"] = ev
+    return {"chart": {"result": [r], "error": None}}
+
+
+_bk_FIX = {
+    "ACME": _bk_chart("ACME", "USD", [40.0, 41.0, 42.0, 41.5, 43.25], "Acme Widgets"),
+    "KLMN.TA": _bk_chart("KLMN.TA", "ILA", [2500.0, 2510.0, 2520.0, 2530.0, 2545.0], "Klmn"),
+    "BRAM.L": _bk_chart("BRAM.L", "GBp", [410.0, 412.0, 415.0, 414.0, 418.0], "Bramble"),
+    "VELD.JO": _bk_chart("VELD.JO", "ZAc", [9000.0, 9010.0, 9020.0, 9030.0, 9050.0]),
+    "NORD": _bk_chart("NORD", "EUR", [20.0, 20.1, 20.2, 20.3, 20.4], "Nord"),
+    "JUMP": _bk_chart("JUMP", "USD", [10.0, 10.0, 10.0, 10.0, 15.0]),
+    "SPLT": _bk_chart("SPLT", "USD", [100.0, 100.0, 100.0, 50.0, 51.0], splits=[(_bk_D[3], 2, 1)], divs=[(_bk_D[1], 0.25)]),
+    "ILS=X": _bk_chart("ILS=X", "ILS", [3.61, 3.62, 3.60, 3.63, 3.625]),
+    "EUR=X": _bk_chart("EUR=X", "EUR", [0.92, 0.921, 0.919, 0.92, 0.925]),
+    "GBP=X": _bk_chart("GBP=X", "GBP", [0.79, 0.791, 0.789, 0.79, 0.8]),
+}
+_bk_NET = {"calls": [], "down": set(), "timeout": set(), "boi": True}
+
+
+class _BkHTTP(Exception):
+    def __init__(self, code):
+        self.code = code
+
+
+def _bk_get(url, timeout=6):
+    _bk_NET["calls"].append(url)
+    if "boi.org.il" in url:
+        if not _bk_NET["boi"]:
+            raise OSError("down")
+        return {"exchangeRates": [{"key": "EUR", "currentExchangeRate": 3.9},
+                                  {"key": "USD", "currentExchangeRate": 3.618, "lastUpdate": "2026-03-06T13:20:06Z"}]}
+    m = _bk_re.search(r"/chart/([^?]+)\?", url)
+    s_ = _bk_up.unquote(m.group(1)) if m else ""
+    if s_ in _bk_NET["timeout"]:
+        raise TimeoutError("timed out")
+    if s_ in _bk_NET["down"] or s_ not in _bk_FIX:
+        raise _BkHTTP(404)
+    return _bk_json.loads(_bk_json.dumps(_bk_FIX[s_]))
+
+
+_bk_SAID = []
+_bk_pf._http_get = _bk_get
+tg._say = lambda s_: _bk_SAID.append(str(s_))
+config.OFFLINE, config.TELEGRAM_QUIET_HOURS = False, (6, 6)
+config.PORTFOLIO_PRICE_CACHE_MIN, config.PORTFOLIO_JUMP, config.PORTFOLIO_BACKUPS = 30, 0.25, 30
+config.PORTFOLIO_GUEST_SCRUB = False
+
+
+def _bk_fresh(home="USD"):
+    _bk_shutil.rmtree(_bk_dir, ignore_errors=True)
+    config.PORTFOLIO_HOME_CURRENCY = home
+    _bk_NET.update(down=set(), timeout=set(), boi=True)
+    _bk_NET["calls"].clear()
+    _bk_pf._FEED.clear()
+    _bk_pf._FEED["down_until"] = 0.0
+    _bk_pf._SEAT_FAILED.clear()
+    _bk_pp.turn_guest = ""
+
+
+def _bk_up_():
+    _bk_pf._FEED.clear()
+    _bk_pf._FEED["down_until"] = 0.0
+
+
+def _bk_add(*a, which="paper", **k):
+    rec, no = _bk_pf.make_record(*a, which=which, **k)
+    if rec is None:
+        return None, no
+    return _bk_pf.add(rec, which)
+
+
+def _bk_norm(t):
+    return _bk_re.sub(r"(the paper book|the book), \w{3} \d+ \d\d:\d\d", r"\1, NOW", t)
+
+
+def _bk_local(iso):
+    t = _bk_dt.fromisoformat(iso).astimezone()
+    return f"{t:%b} {t.day} {t:%H:%M}"
+
+
+def _bk_at(ts):
+    t = _bk_dt.fromtimestamp(ts)
+    return f"{t:%b} {t.day} {t:%H:%M}"
+
+
+# ---- off: the template as it was --------------------------------------------------------------------------------
+config.PORTFOLIO_ON = False
+_bk_names_off = [d["function"]["name"] for d in tools.DEFINITIONS]
+_bk_turns = []
+_bk_b, _bk_ph = _bridge(4343)
+_bk_b.turn = lambda *a, **k: _bk_turns.append(a)
+_bk_b.handle({"update_id": 1, "message": {"message_id": 1, "chat": {"id": 4343}, "date": int(_bk_time.time()), "text": "/trade"}})
+_bk_off = (len(_bk_turns), [x[0][:20] for x in _bk_ph.sent])
+_bk_b.handle({"update_id": 2, "callback_query": {"id": "c", "data": "tr:m", "message": {"chat": {"id": 4343}, "message_id": 1}}})
+del config.PORTFOLIO_ON
+_bk_b.handle({"update_id": 3, "message": {"message_id": 2, "chat": {"id": 4343}, "date": int(_bk_time.time()), "text": "/book"}})
+config.PORTFOLIO_ON = False
+check("book (0.16): off or absent — no portfolio tool, /trade and /book go to the friend as words, a tr: button "
+      "does nothing of the book, /help names neither, nothing written under memory/portfolio",
+      "portfolio" not in _bk_names_off and "portfolio" not in tools._BUILTIN_IMPL and _bk_off[0] == 1 and len(_bk_turns) == 2
+      and "/trade" not in tg.HELP and "/book —" not in tg.HELP and not _bk_dir.exists()
+      and "_book_read_fence" not in tools._sandbox_prelude() and "PermissionError(\"your keeper" not in tools._sandbox_prelude()
+      and not tools._names_book("open('memory/portfolio/book.json')"), (_bk_off, _bk_turns))
+config.PORTFOLIO_ON = True
+
+# ---- the feed ----------------------------------------------------------------------------------------------------
+_bk_fresh()
+_bk_q = _bk_pf.quote("ACME")
+_bk_r = {"acme": (_bk_q["close"], _bk_q["close_date"], _bk_pf.quote_line(_bk_q))}
+_bk_n0 = len(_bk_NET["calls"]); _bk_pf.quote("ACME"); _bk_r["cached"] = len(_bk_NET["calls"]) == _bk_n0
+for _bk_s, _bk_k in (("BRAM.L", "bram"), ("VELD.JO", "veld"), ("KLMN.TA", "klmn")):
+    _bk_q = _bk_pf.quote(_bk_s)
+    _bk_r[_bk_k] = (_bk_q["close"], _bk_q["currency"], _bk_q["minor"], _bk_pf.quote_line(_bk_q))
+_bk_NET["down"].add("ACME")
+_bk_q = _bk_pf.quote("ACME", refresh=True); _bk_r["stale"] = (_bk_q.get("ok"), _bk_q.get("stale"), _bk_q.get("close"), _bk_pf.quote_line(_bk_q))
+_bk_NET["timeout"].add("NORD"); _bk_q = _bk_pf.quote("NORD"); _bk_r["timeout"] = (_bk_q.get("ok"), _bk_q.get("error"))
+_bk_up_(); _bk_q = _bk_pf.quote("NOPE"); _bk_r["unknown"] = (_bk_q.get("ok"), _bk_q.get("unknown"))
+_bk_up_(); _bk_r["jump"] = _bk_pf.quote_line(_bk_pf.quote("JUMP"))
+_bk_q = _bk_pf.quote("SPLT"); _bk_r["splt"] = (_bk_q.get("jump"), [s_["ratio"] for s_ in _bk_q.get("splits") or []])
+_bk_fresh("USD"); _bk_f = _bk_pf.find("bram"); _bk_r["find_usd"] = (_bk_f["ok"], _bk_f["tried"])
+_bk_fresh("GBP"); _bk_f = _bk_pf.find("bram"); _bk_r["find_gbp"] = (_bk_f["ok"], _bk_f["tried"], _bk_f.get("same"), _bk_f["quote"]["symbol"])
+check("book (0.16): a price is the last completed close with its date and source; minor units — pence, cents, agorot — "
+      "turned into pounds, rand, shekels and said; the cache asks once in 30 minutes",
+      _bk_r["acme"][:2] == (43.25, "2026-03-06") and _bk_r["acme"][2].startswith("Acme Widgets · ACME $43.25 (close Mar 6, Yahoo)")
+      and _bk_r["bram"][:3] == (4.18, "GBP", "pence") and "BRAM.L £4.18 (close Mar 6, Yahoo; quoted in pence)" in _bk_r["bram"][3]
+      and _bk_r["veld"][:3] == (90.5, "ZAR", "cents") and "VELD.JO 90.50 ZAR (close Mar 6, Yahoo; quoted in cents)" in _bk_r["veld"][3]
+      and _bk_r["klmn"][:3] == (25.45, "ILS", "agorot") and _bk_r["cached"], _bk_r)
+check("book (0.16): a failed fetch — the cached price with its date and '(could not be fetched now)'; nothing cached — no "
+      "price, said; a symbol the feed doesn't know — unknown; a jump with no split — ⚠; a split between the closes — no ⚠",
+      _bk_r["stale"][:3] == (True, True, 43.25) and "(could not be fetched now)" in _bk_r["stale"][3]
+      and _bk_r["timeout"][0] is False and "in time" in _bk_r["timeout"][1] and _bk_r["unknown"] == (False, True)
+      and "⚠ check this — 50% from the close of Mar 5" in _bk_r["jump"] and _bk_r["splt"] == (False, [2.0]), _bk_r)
+check("book (0.16): another form of a symbol is tried only with the home currency's exchange suffix, and never swapped "
+      "silently — none for USD; .L for GBP (found, 'not the same')",
+      _bk_r["find_usd"] == (False, ["bram", "BRAM"]) and _bk_r["find_gbp"] == (True, ["bram", "BRAM", "BRAM.L"], False, "BRAM.L"),
+      (_bk_r["find_usd"], _bk_r["find_gbp"]))
+
+# ---- the home currency ------------------------------------------------------------------------------------------
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "2000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03", "1")
+_bk_NET["calls"].clear()
+_bk_usd = _bk_norm(_bk_pf.block("paper"))
+_bk_usd_calls = list(_bk_NET["calls"])
+_bk_hist_usd = _bk_pf.history("paper")
+check("book (0.16): home USD and only dollars — no rate asked or shown, the total in dollars alone, no rate on a record",
+      not any("=X" in u or "boi.org" in u for u in _bk_usd_calls) and "\nPAPER   at " not in _bk_usd
+      and "\nPAPER total $2,021.50\nPAPER put in $2,000.00 — worth $2,021.50" in _bk_usd and "rate" not in _bk_hist_usd,
+      (_bk_usd, _bk_usd_calls, _bk_hist_usd))
+_bk_fresh("EUR")
+_bk_add("deposit", "EUR", None, "1000", "2026-03-02")
+_bk_add("deposit", "USD", None, "500", "2026-03-02")
+_bk_add("buy", "NORD", "10", "20", "2026-03-03")
+_bk_add("buy", "ACME", "5", "41", "2026-03-03")
+_bk_NET["calls"].clear()
+_bk_eur = _bk_norm(_bk_pf.block("paper"))
+_bk_eur_calls = list(_bk_NET["calls"])
+_bk_eur_h = _bk_pf.history("paper")
+check("book (0.16): home EUR — holdings in euros and dollars; the dollar's rate from Yahoo EUR=X, dated; totals and "
+      "'put in — worth' in euros with dollars beside; a dollar deposit put in at its day's rate; no central bank asked",
+      "\nPAPER cash  $295.00 · €800.00" in _bk_eur and "PAPER total €1,476.91 · $1,596.66" in _bk_eur
+      and f"PAPER   at 0.9250 €/$ (Yahoo EUR=X, {_bk_at(_bk_ts(_bk_D[4]) + 3600)})" in _bk_eur
+      and "PAPER put in €1,460.00 — worth €1,476.91" in _bk_eur and not any("boi.org" in u for u in _bk_eur_calls)
+      and "deposited $500.00 on Mar 2 (rate 0.9200 €/$)" in _bk_eur_h and "bought 10 NORD at €20.00 on Mar 3 = €200.00 (rate 0.9210 €/$)" in _bk_eur_h,
+      (_bk_eur, _bk_eur_h))
+_bk_fresh("USD")
+_bk_add("deposit", "GBP", None, "100", "2026-03-02")
+_bk_add("buy", "BRAM.L", "10", "4.12", "2026-03-03")
+_bk_gbp = _bk_norm(_bk_pf.block("paper", compact=True))
+_bk_pence = _bk_pf.make_record("buy", "BRAM.L", "1", "418", "2026-03-06", which="paper")[1]
+check("book (0.16): home USD with a London holding — the pound's rate worked out from GBP=X; the compact block says "
+      "pence; a price typed in pence is refused, asked in pounds",
+      "PAPER   £4.18 · Mar 6 · Yahoo · pence" in _bk_gbp and "PAPER total $125.75\n" in _bk_gbp
+      and "PAPER put in $126.58\nPAPER   worth $125.75" in _bk_gbp
+      and f"PAPER   at 1.2500 $/£ · Yahoo · {_bk_at(_bk_ts(_bk_D[4]) + 3600)}" in _bk_gbp
+      and _bk_pence == "418.00 looks like pence — BRAM.L closed at £4.18 (Mar 6); give the price in pounds", (_bk_gbp, _bk_pence))
+
+# ---- home ILS: what the house this came from gives for the same records (its answers, pinned) --------------------
+_bk_fresh("ILS")
+_bk_lines = []
+for _bk_a in (("deposit", "ILS", None, "20000", "2026-03-02", "0", "the first money"),
+              ("deposit", "USD", None, "5000", "2026-03-02", "0", ""),
+              ("buy", "ACME", "30", "41.10", "2026-03-03", "1.5", "a start"),
+              ("buy", "KLMN.TA", "200", "25.15", "2026-03-04", "12", ""),
+              ("sell", "ACME", "10", "42.80", "2026-03-05", "1", "half-ish"),
+              ("dividend", "ACME", None, "6.40", "2026-03-05", "", ""),
+              ("fee", "USD", None, "3", "2026-03-05", "", ""),
+              ("withdraw", "ILS", None, "1500", "2026-03-06", "0", "")):
+    _bk_g, _bk_no = _bk_add(*_bk_a)
+    _bk_lines.append(_bk_pf.record_line(_bk_g) if _bk_g else "NOT " + _bk_no)
+_bk_ils = {"records": _bk_lines, "acme": _bk_pf.quote_line(_bk_pf.quote("ACME")), "klmn": _bk_pf.quote_line(_bk_pf.quote("KLMN.TA")),
+           "block": _bk_norm(_bk_pf.block("paper")), "compact": _bk_norm(_bk_pf.block("paper", compact=True)),
+           "agorot": _bk_pf.make_record("buy", "KLMN.TA", "5", "2540", "2026-03-06", which="paper")[1]}
+_bk_LAST, _bk_BOI = _bk_at(_bk_ts(_bk_D[4]) + 3600), _bk_local("2026-03-06T13:20:06+00:00")
+_bk_HOUSE = {
+    "records": ["deposited ₪20,000.00 on Mar 2 (rate 3.6100 ₪/$) — “the first money”",
+                "deposited $5,000.00 on Mar 2 (rate 3.6100 ₪/$)",
+                "bought 30 ACME at $41.10 on Mar 3 = $1,233.00 + fee $1.50 (rate 3.6200 ₪/$) — “a start”",
+                "bought 200 KLMN.TA at ₪25.15 on Mar 4 = ₪5,030.00 + fee ₪12.00 (rate 3.6000 ₪/$)",
+                "sold 10 ACME at $42.80 on Mar 5 = $428.00 + fee $1.00 (rate 3.6300 ₪/$) — “half-ish”",
+                "dividend from ACME: $6.40 on Mar 5 (rate 3.6300 ₪/$)",
+                "a fee of $3.00 on Mar 5 (rate 3.6300 ₪/$)",
+                "withdrew ₪1,500.00 on Mar 6 (rate 3.6250 ₪/$)"],
+    "acme": f"Acme Widgets · ACME $43.25 (close Mar 6, Yahoo) · last $43.25 at {_bk_LAST}",
+    "klmn": f"Klmn · KLMN.TA ₪25.45 (close Mar 6, Yahoo; quoted in agorot) · last ₪25.45 at {_bk_LAST}",
+    "block": ("PAPER the paper book, NOW\nPAPER ACME: 20 at an average $41.15 (cost $823.00)\nPAPER   $43.25 (close Mar 6, "
+              "Yahoo)\nPAPER   worth $865.00  +$42.00 +5.1%  8% of the book\nPAPER   realised $15.50\nPAPER   dividends $6.40\n"
+              "PAPER KLMN.TA: 200 at an average ₪25.21 (cost ₪5,042.00)\nPAPER   ₪25.45 (close Mar 6, Yahoo; in agorot)\n"
+              "PAPER   worth ₪5,090.00  +₪48.00 +1.0%  14% of the book\nPAPER cash  $4,195.90 · ₪13,458.00\n"
+              "PAPER total ₪36,858.34 · $10,187.49\n"
+              f"PAPER   at 3.6180 ₪/$ (Bank of Israel, {_bk_BOI})\nPAPER put in ₪36,550.00 — worth ₪36,858.34"),
+    "compact": ("PAPER the paper book, NOW\nPAPER ACME  20 @ $41.15\nPAPER   $43.25 · Mar 6 · Yahoo\nPAPER   $865.00 +$42.00 "
+                "+5.1% 8%\nPAPER   realised $15.50\nPAPER   dividends $6.40\nPAPER KLMN.TA  200 @ ₪25.21\nPAPER   ₪25.45 · "
+                "Mar 6 · Yahoo · agorot\nPAPER   ₪5,090.00 +₪48.00 +1.0% 14%\nPAPER cash  $4,195.90 · ₪13,458.00\nPAPER "
+                f"total ₪36,858.34 · $10,187.49\nPAPER   at 3.6180 ₪/$ · BoI · {_bk_BOI}\nPAPER put in ₪36,550.00\nPAPER   "
+                "worth ₪36,858.34"),
+    "agorot": "2,540.00 looks like agorot — KLMN.TA closed at ₪25.45 (Mar 6); give the price in shekels"}
+_bk_NET["boi"] = False
+_bk_pf._write("prices.json", {k: v for k, v in (_bk_pf._read("prices.json", {}) or {}).items() if not k.startswith("__fx__")})
+_bk_fall = _bk_pf.rate("USD")
+check("book (0.16): home ILS — every record line, quote, the block and the compact block are the house's own answers "
+      "for the same records, to the character (the central bank first; Yahoo ILS=X when it doesn't answer)",
+      _bk_ils == _bk_HOUSE and _bk_pf.rate_line(_bk_fall).startswith("3.6250 ₪/$ (Yahoo ILS=X, "),
+      [(k, _bk_ils[k], _bk_HOUSE[k]) for k in _bk_HOUSE if _bk_ils[k] != _bk_HOUSE[k]][:2] or _bk_fall)
+
+# ---- the records -------------------------------------------------------------------------------------------------
+_bk_fresh("USD")
+_bk_add("deposit", "$", None, "1,000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "40", "2026-03-03", "2")
+_bk_rp = _bk_pf.replay(_bk_pf.load("paper")["records"])
+_bk_rec = {
+    "over": _bk_pf.make_record("sell", "ACME", "11", "42", "2026-03-04", which="paper")[1],
+    "early": _bk_pf.make_record("sell", "ACME", "1", "42", "2026-03-02", which="paper")[1],
+    "div": _bk_pf.make_record("dividend", "NORD", None, "3", "2026-03-04", which="paper")[1],
+    "cur": _bk_pf.make_record("deposit", "money", None, "3", "2026-03-04", which="paper")[1],
+    "num": _bk_pf.make_record("buy", "ACME", "lots", "40", "2026-03-04", which="paper")[1],
+    "comma": _bk_pf.num("1,25"), "future": _bk_pf.make_record("deposit", "USD", None, "3", (_bk_date.today() + _bk_td(days=2)).isoformat())[1],
+    "rate": _bk_pf.make_record("deposit", "USD", None, "3", "2026-03-04", fx="0.9", which="paper")[1]}
+_bk_g, _ = _bk_add("sell", "ACME", "4", "45", "2026-03-04", "1")
+_bk_strike = _bk_pf.strike(2, "paper")[1]
+_bk_cor, _bk_cno = _bk_pf.correct(2, "price", "39", which="paper")
+_bk_hist = _bk_pf.history("paper")
+check("book (0.16): replay to the cent — fees in the cost, a sell takes the average out and books the gain; a sell over "
+      "the holding, before the first buy, a dividend never held, a currency that isn't one, a count that isn't a number, "
+      "'1,25', a future day and a rate a dollar book doesn't need — each refused plainly",
+      _bk_rp["positions"]["ACME"]["qty"] == 10 and abs(_bk_rp["positions"]["ACME"]["cost"] - 402.0) < 1e-9
+      and abs(_bk_rp["cash"]["USD"] - 598.0) < 1e-9 and _bk_g and abs(_bk_g["price"] - 45) < 1e-9
+      and "that sells 11 ACME on Mar 4, but on Mar 4 the book held 10 ACME" in _bk_rec["over"]
+      and "the book held 0 ACME; the first buy is Mar 3" in _bk_rec["early"] and "never held NORD" in _bk_rec["div"]
+      and "three-letter code" in _bk_rec["cur"] and "isn't a number of shares" in _bk_rec["num"] and _bk_rec["comma"] is None
+      and _bk_rec["future"] == "that date hasn't come yet" and "a rate isn't needed" in _bk_rec["rate"], _bk_rec)
+check("book (0.16): a strike that would oversell is refused; a correction is a new record replacing the old, struck, "
+      "both in the history",
+      _bk_strike.startswith("striking #2 would leave #3 sold 4 ACME") and _bk_cor and _bk_cor["replaces"] == 2
+      and "#2 [struck] bought 10 ACME" in _bk_hist and f"#{_bk_cor['id']} bought 10 ACME at $39.00" in _bk_hist
+      and "(replaces #2)" in _bk_hist and "— by keeper" in _bk_hist, (_bk_strike, _bk_cno, _bk_hist))
+# a split from the feed, a jump in the book, cash below zero
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "100", "2026-03-02")
+_bk_add("buy", "SPLT", "2", "100", "2026-03-02")
+_bk_add("buy", "JUMP", "10", "10", "2026-03-02")
+_bk_sp = _bk_norm(_bk_pf.block("paper"))
+_bk_sp2 = _bk_norm(_bk_pf.block("paper"))
+check("book (0.16): a split the feed reports after the first buy — recorded by the engine, said once; the feed's dividend "
+      "only mentioned; a jump — ⚠ and the total says a price is in doubt; cash below zero said plainly, no mix",
+      "SPLT split 2-for-1 on Mar 5: counts adjusted" in _bk_sp and "SPLT: 4 at an average $50.00" in _bk_sp
+      and "counts adjusted" not in _bk_sp2 and "the feed shows a dividend on Mar 3 — record it if you received it" in _bk_sp
+      and "1 price is in doubt (⚠)" in _bk_sp and "USD below zero: more was bought than deposited" in _bk_sp
+      and "mix: not given — cash is below zero" in _bk_sp and "% of the book" not in _bk_sp, _bk_sp)
+# a corrupt book, a bad field, backups
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "100", "2026-03-02")
+(_bk_dir / "paper.json").write_text("{not json", encoding="utf-8")
+_bk_cor1 = _bk_pf.block("paper")
+_bk_cor2 = _bk_add("deposit", "USD", None, "5", "2026-03-02")
+_bk_aside = sorted(p_.name for p_ in _bk_dir.glob("paper.broken-*.json"))
+_bk_gone = not (_bk_dir / "paper.json").exists()
+_bk_fresh("USD")
+(_bk_dir).mkdir(parents=True, exist_ok=True)
+(_bk_dir / "paper.json").write_text(_bk_json.dumps({"records": [{"id": 1, "date": "2026-03-02", "kind": "buy", "symbol": "ACME",
+                                                               "qty": "ten", "price": 1.0, "fee": 0.0}], "next_id": 2}), encoding="utf-8")
+_bk_bad = _bk_pf.block("paper")
+_bk_fresh("USD")
+(_bk_dir / "backups").mkdir(parents=True)
+for _bk_i in range(31):
+    (_bk_dir / "backups" / f"paper-2025-01-{_bk_i + 1:02d}.json").write_text("{}", encoding="utf-8")
+_bk_add("deposit", "USD", None, "100", "2026-03-02")
+_bk_bk = sorted(p_.name for p_ in (_bk_dir / "backups").glob("paper-*.json"))
+check("book (0.16): a book that doesn't parse is set aside, said, never written over (a new record refused); a record "
+      "with a field that isn't a number makes it unreadable, named; one dated backup a day, the newest 30 kept",
+      "it was set aside as paper.broken-" in _bk_cor1 and _bk_cor2[0] is None and len(_bk_aside) == 1
+      and _bk_gone and "record #1 has qty 'ten'" in _bk_bad and "cash" not in _bk_bad
+      and len(_bk_bk) == 30 and _bk_bk[-1] == f"paper-{_bk_date.today().isoformat()}.json", (_bk_cor1, _bk_cor2, _bk_aside, _bk_bad, len(_bk_bk), _bk_bk[-2:]))
+
+# ---- the friend's tool -------------------------------------------------------------------------------------------
+_bk_fresh("EUR")
+_bk_t = {"look0": tools.portfolio("look")}
+_bk_t["price"] = tools.portfolio("price", symbol="NORD")
+_bk_t["price_bad"] = tools.portfolio("price", symbol="NOPE")
+_bk_t["record"] = tools.portfolio("record", kind="deposit", symbol="eur", price="250", date="2026-03-02", why="savings")
+_bk_t["record_bad"] = tools.portfolio("record", kind="buy", symbol="ACME")
+_bk_t["action_bad"] = tools.portfolio("trade")
+_bk_t["history"] = tools.portfolio("history")
+_bk_t["file"] = tools.read_file("memory/portfolio/pending.json")
+_bk_t["file_abs"] = tools.read_file(str((_bk_dir / "pending.json").resolve()))
+_bk_pp.turn_guest = "Wren"
+_bk_t["guest_turn"] = tools.portfolio("look")
+_bk_pp.turn_guest = ""
+_bk_pf.seat("parlor", "Wren")
+_bk_t["seated"] = tools.portfolio("look")
+_bk_pf.seat("parlor", "")
+check("book (0.16): the friend's tool — look gives the PAPER block; price the quote line, an unknown one refused with "
+      "'you don't know'; record only writes it down for the keeper's Keep and says to read it back; missing arguments "
+      "and unknown actions refused; history; the files refused by any path; a guest's turn and a guest seated refused",
+      _bk_t["look0"].startswith("PAPER the paper book,") and "(nothing recorded yet)" in _bk_t["look0"]
+      and _bk_t["price"].startswith("Nord · NORD €20.40 (close Mar 6, Yahoo)")
+      and _bk_t["price_bad"].startswith("(refused: no price for “NOPE” — tried NOPE") and "You don't know its price — say so" in _bk_t["price_bad"]
+      and _bk_t["record"] == ("written down for your keeper to keep — the PAPER book (practice), not their real one: deposited "
+                             "€250.00 on Mar 2 (rate 0.9200 €/$) — “savings”. It is kept only when your keeper taps Keep on their "
+                             "phone — read it back to them.")
+      and _bk_t["record_bad"].startswith("(bad arguments: record needs date, qty, price —") and _bk_t["action_bad"].startswith("(bad arguments")
+      and _bk_t["history"] == "PAPER (nothing recorded yet)"
+      and _bk_t["file"].startswith("(refused: that is your keeper's investment book") and _bk_t["file_abs"] == _bk_t["file"]
+      and _bk_t["guest_turn"].startswith("(refused: not in a guest's turn") and _bk_t["seated"].startswith("(refused: a guest is seated"),
+      _bk_t)
+
+# ---- the phone ---------------------------------------------------------------------------------------------------
+
+
+class _BkPhone:
+    def __init__(self):
+        self.msgs = []
+
+    def __call__(self, method, patience=30, **p):
+        if method == "sendMessage":
+            mk = _bk_json.loads(p["reply_markup"]) if p.get("reply_markup") else None
+            self.msgs.append({"text": str(p.get("text") or ""), "markup": mk})
+            return {"message_id": 1000 + len(self.msgs) - 1}
+        return {}
+
+    def buttons(self, i=-1):
+        m = self.msgs[i].get("markup") or {}
+        return [[b_["text"] for b_ in r] for r in m.get("inline_keyboard") or []]
+
+    def data(self, label):
+        for m in reversed(self.msgs):
+            for r in (m.get("markup") or {}).get("inline_keyboard") or []:
+                for b_ in r:
+                    if b_["text"] == label or b_["text"].startswith(label):
+                        return b_["callback_data"]
+        return ""
+
+
+def _bk_bridge():
+    b_ = tg.Bridge("TOKEN", 4343)
+    ph_ = _BkPhone()
+    b_.api = ph_
+    b_.turn = lambda *a, **k: _bk_turns.append(a)
+    b_._parlor_guest = staticmethod(lambda: "")
+    return b_, ph_
+
+
+def _bk_text(b_, words, reply_to=None):
+    m = {"message_id": 5000, "chat": {"id": 4343}, "date": int(_bk_time.time()), "text": words}
+    if reply_to is not None:
+        m["reply_to_message"] = {"message_id": reply_to}
+    b_.handle({"update_id": 1, "message": m})
+
+
+def _bk_press(b_, data):
+    b_.handle({"update_id": 2, "callback_query": {"id": "c", "data": data, "message": {"chat": {"id": 4343}, "message_id": 1}}})
+
+
+# the friend's record on the phone: Keep, Drop, and what the friend's next look says
+_bk_fresh("EUR")
+tools.portfolio("look")
+tools.portfolio("record", kind="deposit", symbol="EUR", price="300", date="2026-03-02")
+tools.portfolio("record", kind="deposit", symbol="USD", price="50", date="2026-03-02")
+_bk_b, _bk_ph = _bk_bridge()
+_bk_turns.clear()
+_bk_b.trade_tick()
+_bk_b.trade_tick()
+_bk_pend = [m["text"] for m in _bk_ph.msgs]
+_bk_press(_bk_b, _bk_ph.msgs[0]["markup"]["inline_keyboard"][0][0]["callback_data"])
+_bk_press(_bk_b, _bk_ph.msgs[1]["markup"]["inline_keyboard"][0][1]["callback_data"])
+_bk_kd = [m["text"] for m in _bk_ph.msgs[2:]]
+_bk_look = tools.portfolio("look")
+_bk_bk1 = _bk_pf.load("paper")["records"]
+check("book (0.16): the friend's records reach the phone once each, with ✅ Keep / ✖ Drop; Keep files it by the friend, "
+      "Drop lets it go; the friend's next look says both, once",
+      len(_bk_pend) == 2 and _bk_pend[0] == (f"PAPER · ✍️ {_bk_FN} wrote this down from what you told them: deposited €300.00 "
+                                             "on Mar 2 (rate 0.9200 €/$)\nKeep it in the book?")
+      and _bk_kd[0].startswith("PAPER · ✓ kept #1: deposited €300.00") and _bk_kd[1].startswith("✖ dropped: deposited $50.00")
+      and [r_["by"] for r_ in _bk_bk1] == ["friend"] and "your keeper kept: deposited €300.00" in _bk_look
+      and "your keeper dropped: deposited $50.00" in _bk_look and "since you last looked" not in tools.portfolio("look"),
+      (_bk_pend, _bk_kd, _bk_look[-300:]))
+# the menu, the book, a record made on the phone
+_bk_fresh("EUR")
+_bk_b, _bk_ph = _bk_bridge()
+_bk_turns.clear()
+_bk_text(_bk_b, "/trade")
+_bk_menu = (_bk_ph.msgs[-1]["text"], _bk_ph.buttons())
+_bk_press(_bk_b, "tr:b")
+_bk_view = _bk_ph.msgs[-1]["text"]
+_bk_press(_bk_b, "tr:r")
+_bk_kinds = _bk_ph.buttons()
+_bk_press(_bk_b, "tr:k:deposit")
+_bk_curs = _bk_ph.buttons()
+_bk_press(_bk_b, "tr:c:EUR")
+_bk_text(_bk_b, "1,500", reply_to=1000 + len(_bk_ph.msgs) - 1)
+_bk_press(_bk_b, "tr:d:t")
+_bk_press(_bk_b, "tr:e:0")
+_bk_press(_bk_b, "tr:w:-")
+_bk_sum = _bk_ph.msgs[-1]["text"]
+_bk_press(_bk_b, "tr:y")
+_bk_kept = _bk_ph.msgs[-1]["text"]
+_bk_press(_bk_b, "tr:r")
+_bk_press(_bk_b, "tr:k:buy")
+_bk_text(_bk_b, "nord", reply_to=1000 + len(_bk_ph.msgs) - 1)
+_bk_conf = (_bk_ph.msgs[-2]["text"], _bk_ph.msgs[-1]["text"])
+_bk_text(_bk_b, "hello there")
+_bk_press(_bk_b, "tr:x")
+_bk_text(_bk_b, "/book")
+_bk_alias = _bk_ph.msgs[-1]["text"]
+_bk_press(_bk_b, "tr:o:real")
+_bk_real = _bk_ph.msgs[-1]["text"]
+_bk_press(_bk_b, "tr:oy")
+_bk_open = (_bk_pf.open_book(), _bk_ph.msgs[-1]["text"])
+_bk_press(_bk_b, "tr:o:paper")
+check("book (0.16): /trade — the menu (PAPER open), 📒 Book as the compact block, ➕ Record through its buttons and "
+      "replies (the home currency among the currencies), ✅ Keep files it by the keeper; another form of a symbol asked, "
+      "not swapped; a message outside the flow goes to the friend; /book; 💼 Real asked once, then open",
+      _bk_menu == ("📒 the book — the PAPER book (practice) is open", [["📒 Book", "➕ Record"], ["✏️ Fix", "🧪 Paper ✓", "💼 Real"]])
+      and _bk_view.startswith("<pre>PAPER the paper book,") and _bk_kinds[0] == ["Buy", "Sell", "Dividend"]
+      and _bk_curs[0] == ["$ USD", "€ EUR"] and _bk_sum.startswith(f"PAPER · deposited €1,500.00 on {_bk_pf._day(_bk_date.today())}")
+      and _bk_kept.startswith("PAPER · ✓ kept #1: deposited €1,500.00") and _bk_pf.load("paper")["records"][0]["by"] == "keeper",
+      (_bk_menu, _bk_curs, _bk_sum, _bk_kept))
+check("book (0.16): …the flow's other answers: a lower-case symbol is found upper-cased (no exchange suffix for EUR), "
+      "its quote shown, then how many; an unrelated message is the friend's; /book shows the book; 💼 Real is asked "
+      "once and then open",
+      _bk_conf == ("PAPER · Nord · NORD €20.40 (close Mar 6, Yahoo) · last €20.40 at " + _bk_at(_bk_ts(_bk_D[4]) + 3600),
+                   "PAPER · How many shares? Reply to this message") and len(_bk_turns) == 1 and _bk_alias.startswith("<pre>PAPER the paper book")
+      and _bk_real == "The real book is empty — records from now on are real: sure?" and _bk_open == ("real", "📒 the book — the REAL book is open")
+      and _bk_pf.open_book() == "paper", (_bk_conf, _bk_turns, _bk_real, _bk_open))
+# a guest seated: the phone's book closed, the friend's records wait
+_bk_fresh("USD")
+tools.portfolio("record", kind="deposit", symbol="USD", price="10", date="2026-03-02")
+_bk_b, _bk_ph = _bk_bridge()
+_bk_turns.clear()
+_bk_b.guest_command("Wren")
+for _bk_w in ("/trade", "/book"):
+    _bk_text(_bk_b, _bk_w)
+_bk_press(_bk_b, "tr:b")
+_bk_b.trade_tick()
+_bk_closed = [m["text"] for m in _bk_ph.msgs]
+_bk_text(_bk_b, "/trade unseat")
+_bk_own = _bk_ph.msgs[-1]["text"]
+_bk_b.guest_command("off")
+_bk_b.trade_tick()
+_bk_after = [m["text"] for m in _bk_ph.msgs[len(_bk_closed) + 1:]]
+check("book (0.16): a guest seated on the phone — /trade, /book and every button answer that the book is closed (who, "
+      "where, how to open it); the friend's record waits; /trade unseat not while the guest sits here; let go — it comes",
+      len(_bk_closed) == 3 and all(t_ == "(the book stays closed while a guest is here — Wren, on the phone; it opens when they "
+                                        "are let go: /guest off here)" for t_ in _bk_closed)
+      and "/guest off" in _bk_own and len(_bk_after) == 1 and "wrote this down" in _bk_after[0] and not _bk_turns,
+      (_bk_closed, _bk_own, _bk_after))
+# lapsed and the quiet hours
+_bk_fresh("USD")
+tools.portfolio("look")
+tools.portfolio("record", kind="deposit", symbol="USD", price="10", date="2026-03-02")
+_bk_b, _bk_ph = _bk_bridge()
+config.TELEGRAM_QUIET_HOURS = (_bk_dt.now().hour, (_bk_dt.now().hour + 1) % 24)
+_bk_b.trade_tick()
+_bk_quiet = len(_bk_ph.msgs)
+config.TELEGRAM_QUIET_HOURS = (6, 6)
+_bk_lap = _bk_pf.lapse_pending(now=_bk_time.time() + 25 * 3600)
+_bk_lapl = tools.portfolio("look")
+check("book (0.16): the friend's records wait out the quiet hours; one that waited a day lapses, said to both",
+      _bk_quiet == 0 and len(_bk_lap) == 1 and _bk_lap[0].startswith("⌛ lapsed — not kept: deposited $10.00")
+      and "lapsed (not kept — your keeper didn't tap Keep within a day): deposited $10.00" in _bk_lapl and not _bk_pf.pending(),
+      (_bk_quiet, _bk_lap, _bk_lapl[-200:]))
+
+# ---- the fence ---------------------------------------------------------------------------------------------------
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "10", "2026-03-02")
+_bk_fe = {"named": tools.run_python("print(open('memory/portfolio/paper.json').read())"),
+          "hidden": tools.run_python("import os\nm = 'mem' + 'ory'\nprint(open(os.path.join(" + repr(str(config.MEMORY_DIR.parent)) + ", m, 'port' + 'folio', 'paper.json')).read())"),
+          "list": tools.run_python("import os\nprint(os.listdir(" + repr(str(config.MEMORY_DIR)) + " + '/port' + 'folio'))"),
+          "ok": tools.run_python("print(6 * 7)"),
+          "forge": tools.create_tool("peek_book", "x", "def run(**k):\n    return open('memory\\\\portfolio\\\\paper.json').read()\n"),
+          "own": tools._names_book("open('creations/portfolio/notes.md')")}
+check("book (0.16): the code fence — code naming memory/portfolio is refused; a name built at run time meets the read "
+      "fence (PermissionError) for open and listdir; other code runs; a forged tool naming it is refused; a folder of "
+      "the friend's own called portfolio is theirs",
+      _bk_fe["named"].startswith("(refused: that code names your keeper's investment book") and "PermissionError" in _bk_fe["hidden"]
+      and "PermissionError" in _bk_fe["list"] and _bk_fe["ok"].strip().endswith("42") and _bk_fe["forge"].startswith("(refused: that code names")
+      and not _bk_fe["own"], _bk_fe)
+
+# ---- the house lock, across processes ----------------------------------------------------------------------------
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "1", "2026-03-02", which="real")
+_bk_child = ("import sys\nsys.path.insert(0, sys.argv[1])\nsys.dont_write_bytecode = True\nimport config\nfrom pathlib import Path\n"
+             "config.MEMORY_DIR = Path(sys.argv[2])\nconfig.OFFLINE = True\nimport portfolio as pf\nn = 0\n"
+             "for i in range(20):\n"
+             "    r = {'date': '2026-03-02', 'kind': 'deposit', 'symbol': '', 'qty': 1.0, 'price': 1.0, 'currency': 'USD',\n"
+             "         'fx': None, 'fx_source': '', 'fee': 0.0, 'why': '', 'by': 'keeper'}\n"
+             "    g, no = pf.add(r, 'real')\n    n += bool(g)\nprint(n)\n")
+_bk_procs = [_bk_sub.Popen([_bk_sys.executable, "-c", _bk_child, str(Path(config.ROOT) / "engine"), str(config.MEMORY_DIR)],
+                           stdout=_bk_sub.PIPE, stderr=_bk_sub.PIPE, text=True) for _ in range(3)]
+_bk_outs = [p_.communicate(timeout=120) for p_ in _bk_procs]
+_bk_ids = [r_["id"] for r_ in _bk_pf.load("real")["records"]]
+_bk_left = sorted(p_.name for p_ in _bk_dir.iterdir() if p_.name.startswith(".") and p_.name != ".lock") + (
+    [".lock"] if (_bk_dir / ".lock").exists() else [])
+(_bk_dir / ".lock").write_text(f"99999 {_bk_time.time() - 60:.3f}", encoding="ascii")
+_bk_stale = _bk_add("deposit", "USD", None, "1", "2026-03-02", which="real")[0] is not None
+(_bk_dir / ".lock").write_text(f"99998 {_bk_time.time():.3f}", encoding="ascii")
+_bk_w0 = _bk_pf.LOCK_WAIT_S
+_bk_pf.LOCK_WAIT_S = 0.2
+_bk_busy = _bk_add("deposit", "USD", None, "1", "2026-03-02", which="real")
+_bk_pf.LOCK_WAIT_S = _bk_w0
+(_bk_dir / ".lock").unlink()
+_bk_log = (_bk_dir / "lock.log").read_text(encoding="utf-8") if (_bk_dir / "lock.log").exists() else ""
+check("book (0.16): the house lock — 3 processes × 20 records: 61 records, ids unique, no temp file or lock left; a stale "
+      "lock is taken over and said; one that can't be had refuses, nothing written",
+      [o_[0].strip() for o_ in _bk_outs] == ["20", "20", "20"] and len(_bk_ids) == 61 and len(set(_bk_ids)) == 61 and not _bk_left
+      and _bk_stale and "took over a lock left by pid 99999" in _bk_log and _bk_busy == (None, "the book is busy — nothing was kept, try again")
+      and len(_bk_pf.load("real")["records"]) == 62, (_bk_outs, len(_bk_ids), _bk_left, _bk_busy))
+
+# ---- fix on the phone; the doors' seats; the scrub; what the friend is told since -------------------------------
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "500", "2026-03-02")
+_bk_add("buy", "ACME", "5", "41", "2026-03-03")
+_bk_b, _bk_ph = _bk_bridge()
+_bk_press(_bk_b, "tr:f")
+_bk_fix = (_bk_ph.msgs[-1]["text"], _bk_ph.buttons())
+_bk_press(_bk_b, "tr:fi:p:2")
+_bk_press(_bk_b, "tr:fs:p:2")
+_bk_press(_bk_b, "tr:fy:r:2")
+_bk_other = _bk_ph.msgs[-1]["text"]
+_bk_press(_bk_b, "tr:fy:p:2")
+_bk_struck = _bk_ph.msgs[-1]["text"]
+_bk_press(_bk_b, "tr:ff:p:1:price")
+_bk_text(_bk_b, "600", reply_to=1000 + len(_bk_ph.msgs) - 1)
+_bk_fixed = _bk_ph.msgs[-1]["text"]
+check("book (0.16): ✏️ Fix on the phone — the last records with buttons that carry their book; ✂️ Strike asked, then "
+      "struck and kept in the history; a button from the other book does nothing; a field corrected by a reply",
+      _bk_fix[0] == "PAPER · ✏️ Fix — which record?" and _bk_fix[1][0][0].startswith("#2 bought 5 ACME") and _bk_fix[1][-1] == ["✖ Cancel"]
+      and _bk_other == "(that button is from the other book — nothing was done)" and _bk_struck.startswith("PAPER · ✂️ struck #2: bought 5 ACME")
+      and _bk_fixed.startswith("PAPER · ✓ #3 replaces #1: deposited $600.00") and "#2 [struck]" in _bk_pf.history("paper"),
+      (_bk_fix, _bk_other, _bk_struck, _bk_fixed))
+_bk_fresh("USD")
+_bk_pf.seat("telegram", "Ann")
+_bk_pf.seat("parlor", "Bob")
+_bk_seats = dict(_bk_pf.seats())
+_bk_pf.seat("telegram", "")
+_bk_seat2 = (dict(_bk_pf.seats()), _bk_pf.closed_line())
+_bk_pf.seat("parlor", "")
+(_bk_dir / "seated.json").write_text("[broken", encoding="utf-8")
+_bk_unr = (_bk_pf.guest_here(), _bk_pf.closed_line())
+_bk_b, _bk_ph = _bk_bridge()
+_bk_text(_bk_b, "/trade unseat")
+_bk_mend = (_bk_ph.msgs[-1]["text"], _bk_pf.seats())
+_bk_ps = parlor.Session()
+_bk_ps.seat("Cleo")
+_bk_pseat = dict(_bk_pf.seats())
+_bk_ps.seat("")
+check("book (0.16): the seats — each door its own key in the seat file, cleared only by itself; closed says who, where "
+      "and how to open; an unreadable seat file keeps the book closed and says how to mend it; /trade unseat rewrites it "
+      "from the doors as they are; the desk page seats its guest",
+      _bk_seats == {"telegram": "Ann", "parlor": "Bob"} and _bk_seat2[0] == {"parlor": "Bob"}
+      and _bk_seat2[1] == "(the book stays closed while a guest is here — Bob, at the desk page; it opens when they are let go: the page's seat)"
+      and _bk_unr[0] == "someone" and "/trade unseat clears it" in _bk_unr[1]
+      and _bk_mend == ("(the seat file is mended — no one is seated; the book is open)", {}) and _bk_pseat == {"parlor": "Cleo"}
+      and _bk_pf.seats() == {}, (_bk_seats, _bk_seat2, _bk_unr, _bk_mend, _bk_pseat))
+_bk_hist0 = [{"role": "user", "content": "how is the book?"},
+             {"role": "tool", "tool_name": "portfolio", "content": "PAPER total $10.00"},
+             {"role": "assistant", "content": "ten dollars"}]
+_bk_h1 = _bk_json.loads(_bk_json.dumps(_bk_hist0))
+_bk_b, _bk_ph = _bk_bridge()
+_bk_b.history = _bk_h1
+_bk_b.guest = "Wren"
+_bk_b._pf_scrub()
+_bk_noscrub = _bk_h1 == _bk_hist0
+config.PORTFOLIO_GUEST_SCRUB = True
+_bk_b._pf_scrub()
+config.PORTFOLIO_GUEST_SCRUB = False
+_bk_b.guest = ""
+check("book (0.16): PORTFOLIO_GUEST_SCRUB off — a guest's turn leaves the visit as it is; on — the book's earlier "
+      "answers are set aside, nothing else",
+      _bk_noscrub and _bk_h1[1]["content"] == _bk_pf.SCRUBBED and _bk_h1[0] == _bk_hist0[0] and _bk_h1[2] == _bk_hist0[2], _bk_h1)
+_bk_fresh("USD")
+_bk_first = tools.portfolio("look")
+for _bk_i in range(15):
+    _bk_add("deposit", "USD", None, str(_bk_i + 1), "2026-03-02")
+_bk_since = tools.portfolio("look").split("since you last looked: ", 1)[-1]
+for _bk_i in range(20):
+    _bk_add("deposit", "USD", None, "1", "2026-03-02")
+_bk_h = _bk_pf.history("paper")
+_bk_hb = _bk_pf.history("paper", before=5)
+(_bk_dir / "state.json").write_text("{nope", encoding="utf-8")
+_bk_b, _bk_ph = _bk_bridge()
+_bk_text(_bk_b, "/trade")
+_bk_bad_state = [m["text"] for m in _bk_ph.msgs]
+check("book (0.16): the first look starts from now; then the keeper's records since, ten and how many more; history "
+      "the newest 30 with a before= hint; a state file that can't be read — said, PAPER shown",
+      "since you last looked" not in _bk_first and _bk_since.count("; ") == 10 and "and 5 more — history shows them" in _bk_since
+      and _bk_since.startswith("your keeper recorded #6: deposited $6.00")
+      and sum(1 for l_ in _bk_h.splitlines() if l_.startswith("PAPER #")) == 30 and "ask history with before=6" in _bk_h
+      and _bk_hb.startswith("PAPER #4 deposited") and _bk_bad_state[0] == "(could not read which book was open — showing PAPER; tap Real to switch)"
+      and _bk_bad_state[1].startswith("📒 the book — the PAPER book"), (_bk_since, _bk_h[-120:], _bk_hb[:60], _bk_bad_state))
+_bk_fresh("USD")
+config.OFFLINE = True
+_bk_off_q = _bk_pf.quote("ACME")
+_bk_off_calls = list(_bk_NET["calls"])
+config.OFFLINE = False
+check("book (0.16): OFFLINE — the feed is not asked; no price, said",
+      _bk_off_q.get("ok") is False and "offline" in _bk_off_q.get("error", "") and not _bk_off_calls, (_bk_off_q, _bk_off_calls))
+
+# ---- on: the tool list and /help in a fresh process; the knobs; the words ------------------------------------------
+_bk_on = _bk_sub.run([_bk_sys.executable, "-c",
+                      "import sys, json, tempfile\nsys.path.insert(0, sys.argv[1])\nsys.dont_write_bytecode = True\nimport config\n"
+                      "from pathlib import Path\nconfig.MEMORY_DIR = Path(tempfile.mkdtemp())\nconfig.OFFLINE = True\n"
+                      "config.PORTFOLIO_ON = True\nimport tools, telegram\n"
+                      "print(json.dumps([[d['function']['name'] for d in tools.DEFINITIONS], '/trade — your investment book' in telegram.HELP]))\n",
+                      str(Path(config.ROOT) / "engine")], capture_output=True, text=True, timeout=180)
+try:
+    _bk_onr = _bk_json.loads(_bk_on.stdout.strip().splitlines()[-1])
+except Exception:  # noqa: BLE001
+    _bk_onr = [[], False]
+_bk_desc = tools._portfolio_definition()["function"]
+_bk_cfg = (Path(config.ROOT) / "engine" / "config.py").read_text(encoding="utf-8")
+_bk_src = (Path(config.ROOT) / "engine" / "portfolio.py").read_text(encoding="utf-8") + "\n".join(
+    _bk_inspect.getsource(f_) for f_ in (tools.portfolio, tools._portfolio_definition, tools._book_read_fence, tools._names_book,
+                                         tg.Bridge.trade_take, tg.Bridge.trade_callback, tg.Bridge.trade_tick, tg.Bridge._trade_next,
+                                         tg.Bridge._trade_answer, tg.Bridge._pf_seat, tg.Bridge._pf_scrub))
+_bk_src += _bk_cfg.split("# ---- the investment book", 1)[1].split("PORTFOLIO_GUEST_SCRUB = False", 1)[0]
+_bk_KN = ("PORTFOLIO_ON", "PORTFOLIO_HOME_CURRENCY", "PORTFOLIO_PRICE_CACHE_MIN", "PORTFOLIO_JUMP", "PORTFOLIO_BACKUPS",
+          "PORTFOLIO_GUEST_SCRUB")
+check("book (0.16): on — the tool list gains portfolio only and /help names /trade; its description says 'your keeper', "
+      "promises no money moves and no account; the knobs ship off (USD home) on Their days with help; the never-ship "
+      "lists name memory/portfolio; the new lines name no one, carry no date and call no one by a gendered pronoun",
+      set(_bk_onr[0]) - set(_bk_names_off) == {"portfolio"} and _bk_onr[1] is True
+      and _bk_desc["description"].startswith("Your keeper's investment book, which you keep with them.")
+      and "You move no money and have no access to any account." in _bk_desc["description"]
+      and all(_bk_re.search(rf"^{k} = {v}$", _bk_cfg, _bk_re.M) for k, v in zip(_bk_KN, ("False", '"USD"', "30", "0.25", "30", "False")))
+      and all(k in _gm_panel.TABS["Their days"] and _gm_panel._HELP.get(k) for k in _bk_KN)
+      and "memory/portfolio/" in (Path(config.ROOT) / ".gitignore").read_text(encoding="utf-8")
+      and "PORTFOLIO_HOME_CURRENCY" in (Path(config.ROOT) / "engine" / "report.py").read_text(encoding="utf-8")
+      and not _bk_re.search(r"\b(she|her|hers|he|his|him)\b", _bk_src, _bk_re.I) and not _bk_re.search(r"\(1[01]-\d\d", _bk_src)
+      and not _bk_re.search(r"\b(gabe|elysia)\b", _bk_src, _bk_re.I),
+      (_bk_onr, _bk_on.stderr[-800:], _bk_re.findall(r".{30}\b(?:she|her|hers|he|his|him)\b.{30}", _bk_src, _bk_re.I)[:3]))
+_bk_shutil.rmtree(_bk_dir, ignore_errors=True)
+if _bk_dir0.exists():
+    _bk_dir0.rename(_bk_dir)
+_bk_pp.turn_guest = ""
+_bk_pf._SEAT_FAILED.clear()
+_bk_pf._http_get, tg._say = _bk_stubs
+for _bk_k, _bk_v in _bk_saved.items():
+    if _bk_v is _bk_MISSING:
+        if hasattr(config, _bk_k):
+            delattr(config, _bk_k)
+    else:
+        setattr(config, _bk_k, _bk_v)
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

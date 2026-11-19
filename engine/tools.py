@@ -2040,7 +2040,78 @@ def _sandbox_prelude() -> str:
         "    if hasattr(_os, _fn):\n"
         "        setattr(_os, _fn, _mk(getattr(_os, _fn)))\n"
         "del _b, _fn, _mk\n"
+    ) + (_book_read_fence() if getattr(config, "PORTFOLIO_ON", False) else "")
+
+
+def _book_read_fence() -> str:
+    """(PORTFOLIO_ON) Reads of memory/portfolio from the friend's code raise PermissionError: open/io.open and the
+    directory listings. A fence, not a wall — os.open, a subprocess or ctypes still get past it."""
+    book = str((config.MEMORY_DIR / "portfolio").resolve())
+    return (
+        "import builtins as _b, io as _io, os as _os\n"
+        f"_BOOK = _os.path.normcase(_os.path.realpath({book!r}))\n"
+        "def _bk(path):\n"
+        "    try:\n"
+        "        p = _os.fsdecode(path)\n"
+        "    except TypeError:\n"
+        "        return\n"
+        "    p = _os.path.normcase(_os.path.realpath(p if _os.path.isabs(p) else _os.path.join(_os.getcwd(), p)))\n"
+        "    if p == _BOOK or p.startswith(_BOOK + _os.sep):\n"
+        "        raise PermissionError(\"your keeper's investment book is read through the portfolio tool, not code\")\n"
+        "def _fence(_orig):\n"
+        "    def _w(file=None, *a, **k):\n"
+        "        if isinstance(file, (str, bytes, _os.PathLike)):\n"
+        "            _bk(file)\n"
+        "        return _orig(file, *a, **k) if file is not None else _orig(*a, **k)\n"
+        "    return _w\n"
+        "_b.open = _fence(_b.open)\n"
+        "open = _b.open\n"
+        "_io.open = _fence(_io.open)\n"
+        "for _fn in ('listdir', 'scandir', 'stat', 'open'):\n"
+        "    if hasattr(_os, _fn):\n"
+        "        setattr(_os, _fn, _fence(getattr(_os, _fn)))\n"
+        "del _b, _io, _fn\n"
     )
+
+
+def _in_book(p) -> bool:
+    """(PORTFOLIO_ON) A path in memory/portfolio — the keeper's investment book."""
+    try:
+        d = (config.MEMORY_DIR / "portfolio").resolve()
+        q = Path(p).resolve()
+        return q == d or d in q.parents
+    except Exception:  # noqa: BLE001
+        return False  # a path that won't resolve isn't the book; the usual handling answers for it
+
+
+_BOOK_FENCE = ("(refused: that code names your keeper's investment book (portfolio) — the portfolio tool reads it, with "
+               "its numbers worked out; code doesn't)")
+_BOOK_FILE = "that is your keeper's investment book — the portfolio tool reads it, with its numbers worked out"
+
+
+def _names_book(code: str) -> bool:
+    """(PORTFOLIO_ON) Code that names the book's own path — memory/portfolio, or its absolute path — after slashes and
+    case are evened. The friend's own folders called portfolio are theirs. A path built at run time is the read
+    fence's to catch: a fence, not a wall."""
+    if not getattr(config, "PORTFOLIO_ON", False):
+        return False
+    c = str(code or "").replace("\\", "/").lower()
+    while "//" in c:
+        c = c.replace("//", "/")
+    if "memory/portfolio" in c:
+        return True
+    try:
+        absolute = str((config.MEMORY_DIR / "portfolio").resolve()).replace("\\", "/").lower()
+        return absolute in c
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _book_guard(p):
+    """(PORTFOLIO_ON) Every file hand: a path in the book is refused, whichever way it was written."""
+    if getattr(config, "PORTFOLIO_ON", False) and _in_book(p):
+        raise ValueError(_BOOK_FILE)
+    return p
 
 
 def _py_env() -> dict:
@@ -2067,6 +2138,8 @@ def run_python(code: str) -> str:
     puts matplotlib — the terminal would have it and run_python not. A
     figure is drawn headless (MPLBACKEND=Agg): a picture is a file for
     look_at, never a window on the keeper's desktop."""
+    if _names_book(code):
+        return _BOOK_FENCE
     before = _pictures_snapshot()
     try:
         proc = subprocess.run(
@@ -2554,12 +2627,12 @@ def _resolve_under_root(source: str):
         if p.is_absolute():
             p = p.resolve()
             if root == p or root in p.parents:
-                return p
+                return _book_guard(p)
         raise ValueError("that path is outside your folder")
     if Path(s).is_absolute():
         p = Path(s).resolve()
         if root == p or root in p.parents:
-            return p
+            return _book_guard(p)
         # a bare leading slash — models often write '/shared/x' meaning
         # 'from the top of my folder'; fall through and treat it that way.
 
@@ -2581,6 +2654,7 @@ def _resolve_under_root(source: str):
             p = alt
     p = _find_moved_in_shared(p)
     p = _near_file(p)
+    _book_guard(p)
     _mark_shared_seen(p)
     return p
 
@@ -6532,6 +6606,62 @@ def touch_later(at: str, waveform: str, seconds: float = 10) -> str:
     return _stone_refusal(code, body)
 
 
+def portfolio(action: str = "look", symbol: str = "", kind: str = "", qty: str = "", price: str = "", date: str = "",
+              fee: str = "", why: str = "") -> str:
+    """(PORTFOLIO_ON; engine/portfolio.py) The keeper's investment book: look, price, record (written down only when
+    the keeper taps Keep on the phone), history. The numbers are the engine's; a guest's turn gets none."""
+    import portfolio as pf
+    try:
+        import penpal as _pp
+        if getattr(_pp, "turn_guest", ""):
+            return "(refused: not in a guest's turn — your keeper's book is theirs alone; nothing of it was read)"
+    except Exception:  # noqa: BLE001
+        pass
+    if pf.guest_here():  # every turn while a guest is seated — the keeper's own /me turn too
+        return ("(refused: a guest is seated — the book stays closed while a guest is here, in every turn, your "
+                "keeper's too; nothing of it was read)")
+    a = str(action or "").strip().lower()
+    which = pf.open_book()
+    paper = " — the PAPER book (practice), not their real one" if which == "paper" else ""
+    if a in ("look", "book", "show", ""):
+        said = pf.since_last_look(which)
+        out = pf.block(which)
+        if said:
+            out += "\n\nsince you last looked: " + "; ".join(said)
+        return out
+    if a in ("price", "quote"):
+        if not str(symbol or "").strip():
+            return "(bad arguments: price needs symbol — the share's or index's symbol as the price feed knows it, like ^GSPC)"
+        got = pf.find(symbol)
+        if not got["ok"]:
+            return (f"(refused: no price for “{symbol}” — tried {', '.join(got['tried']) or 'nothing'}: "
+                    f"{got.get('error') or 'not known'}. You don't know its price — say so)")
+        q = got["quote"]
+        if not got["same"]:
+            return (f"(“{symbol}” isn't known to the feed as asked; {q['symbol']} is: {pf.quote_line(q)} — if that is the "
+                    "one your keeper means, ask them, and use that symbol)")
+        return pf.quote_line(q)
+    if a in ("record", "write", "add"):
+        missing = [n for n, v in (("kind", kind), ("date", date)) if not str(v or "").strip()]
+        k = str(kind or "").strip().lower()
+        if k in ("buy", "sell") and (not str(symbol or "").strip() or not str(qty or "").strip() or not str(price or "").strip()):
+            missing += [n for n, v in (("symbol", symbol), ("qty", qty), ("price", price)) if not str(v or "").strip()]
+        if missing:
+            return ("(bad arguments: record needs " + ", ".join(dict.fromkeys(missing)) + " — kind (buy, sell, deposit, "
+                    "withdraw, dividend, fee), symbol, qty, price, date, and fee and why if there are any; nothing was "
+                    "written)")
+        rec, no = pf.make_record(k, symbol, qty, price, date, fee, why, by="friend", which=which)
+        if rec is None:
+            return f"(refused: {no} — nothing was written)"
+        if pf.add_pending(rec, which) is None:
+            return "(refused: the record couldn't be written down — nothing was kept)"
+        return (f"written down for your keeper to keep{paper}: {pf.record_line(rec)}. It is kept only when your keeper "
+                "taps Keep on their phone — read it back to them.")
+    if a in ("history", "records", "record so far"):
+        return pf.history(which)
+    return "(bad arguments: action is one of look, price, record, history — nothing was done)"
+
+
 _BUILTIN_IMPL = {
     "write_journal": write_journal,
     "remember": remember,
@@ -6816,6 +6946,11 @@ def _run_her_tool(name: str, arguments: dict) -> str:
     path = _HER_TOOLS.get(name)
     if path is None or not path.exists():
         return f"(your tool {name} has gone missing — refresh or reforge it)"
+    try:
+        if _names_book(path.read_text(encoding="utf-8", errors="replace")):
+            return _BOOK_FENCE
+    except OSError:
+        pass
     runner = (
         _sandbox_prelude()
         + "import json,sys\n"
@@ -6851,6 +6986,8 @@ def create_tool(name: str, description: str, code: str, parameters: str = "{}") 
         return f"({name} is one of your built-in limbs — forge under a different name)"
     if "def run" not in (code or ""):
         return "(the code must define run(**kwargs) — that function IS the tool)"
+    if _names_book(code):
+        return _BOOK_FENCE
     try:
         params = json.loads(parameters or "{}")
         if not isinstance(params, dict):
@@ -8241,6 +8378,37 @@ if getattr(config, "WAKE_ASK_REPEAT", False):  # a wake they ask for can repeat
                 "type": "string",
                 "description": "optional: \"day\", \"workdays\" (your keeper's), or weekdays like \"sunday, tuesday\" — the "
                                "wake repeats at the clock time in at"}
+
+def _portfolio_definition() -> dict:
+    """(PORTFOLIO_ON) The portfolio tool as the friend sees it."""
+    return _tool(
+        "portfolio",
+        "Your keeper's investment book, which you keep with them. look: their holdings as they stand — what each cost, "
+        "what it is worth now, the mix, gain or loss, cash, every price with its source and date. price: a quote for one "
+        "symbol. record: a buy, sell, deposit, withdrawal, dividend or fee that your keeper told you about (kind, "
+        "symbol, qty, price, date, fee, why in their words) — it is written down, and kept only when they tap Keep on "
+        "their phone; read it back to them. history: the records so far. Numbers come only from here: a price or a "
+        "total this tool did not give you, you do not know — say so. The arithmetic is the book's, never yours. You "
+        "move no money and have no access to any account. What they hold is their private business.",
+        {"action": {"type": "string", "description": "look, price, record or history"},
+         "symbol": {"type": "string", "description": "the share's or index's symbol as the price feed knows it (a "
+                                                     "ticker, one with its exchange's suffix, or an index like ^GSPC); "
+                                                     "for a deposit, withdrawal or fee: the currency's code (USD, EUR …)"},
+         "kind": {"type": "string", "description": "for record: buy, sell, deposit, withdraw, dividend or fee"},
+         "qty": {"type": "string", "description": "for record: how many shares"},
+         "price": {"type": "string", "description": "for record: the price of one share in its currency's main unit "
+                                                    "(pounds, not pence); for a deposit, withdrawal, dividend or fee: "
+                                                    "the amount"},
+         "date": {"type": "string", "description": "for record: the day it happened — YYYY-MM-DD, today or yesterday"},
+         "fee": {"type": "string", "description": "for record: the fee paid, if there was one"},
+         "why": {"type": "string", "description": "for record: why, in your keeper's words — one line"}},
+        ["action"],
+    )
+
+
+if getattr(config, "PORTFOLIO_ON", False):  # the keeper's investment book (engine/portfolio.py)
+    _BUILTIN_IMPL["portfolio"] = portfolio
+    _BUILTIN_DEFINITIONS.append(_portfolio_definition())
 
 # live tool list = built-ins + whatever they have forged
 DEFINITIONS: list[dict] = in_kit(_BUILTIN_DEFINITIONS)

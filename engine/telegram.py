@@ -193,6 +193,10 @@ if getattr(config, "WORLD_TRIPS_ON", False):
                    + ": ▶ start, ⏸ pause, ▶ resume, ⏹ end (they write their travel journal), 📜 their journal; typed: on, pause, "
                    "resume, off, notes. Mid-trip your words are the place's, /me <text> or // first is you; their > "
                    "lines follow, ready to copy\n")
+# /trade — the keeper's investment book (PORTFOLIO_ON, engine/portfolio.py); the lines are there only with the knob
+if getattr(config, "PORTFOLIO_ON", False):
+    HELP_PHONE += ("/trade — your investment book, with buttons: 📒 Book, ➕ Record, ✏️ Fix, 🧪 Paper / 💼 Real; "
+                   "/trade <symbol> — one holding and its price; /trade unseat — mend the book's guest seat; /book — the book\n")
 
 HELP = (
     "/new — save this conversation and start fresh\n"
@@ -572,6 +576,7 @@ class Bridge:
 
     def keep_guest(self) -> None:
         """Who is seated, written down (or the file taken away when no one is), so a restart finds them."""
+        self._pf_seat()
         try:
             if self.guest:
                 GUEST_FILE.write_text(json.dumps({"guest": self.guest, "since": time.time()}), encoding="utf-8")
@@ -580,10 +585,30 @@ class Bridge:
         except Exception as e:  # noqa: BLE001
             print(f"  (couldn't keep the guest's seat: {e})", flush=True)
 
+    def _pf_seat(self) -> None:
+        """(PORTFOLIO_ON) The book's seat file: closed while a guest sits here."""
+        if getattr(config, "PORTFOLIO_ON", False):
+            try:
+                import portfolio as pf
+                pf.seat("telegram", self.guest)
+            except Exception as e:  # noqa: BLE001
+                _say(f"book seat: {type(e).__name__}: {e}")
+
+    def _pf_scrub(self) -> None:
+        """(PORTFOLIO_ON, PORTFOLIO_GUEST_SCRUB) A guest seated: the book's earlier answers in this visit are set aside."""
+        if getattr(config, "PORTFOLIO_ON", False) and getattr(config, "PORTFOLIO_GUEST_SCRUB", False):
+            try:
+                import portfolio as pf
+                if self.guest or pf.guest_here():
+                    pf.scrub(self.history)
+            except Exception as e:  # noqa: BLE001
+                _say(f"book scrub: {type(e).__name__}: {e}")
+
     def restore_guest(self) -> str:
         """At start: the guest seated before the restart, if they sat down within PARLOR_GUEST_KEEP_HOURS — a line
         for the phone; "" when no one (an older seat is let go, so a forgotten /guest off doesn't make tomorrow's
         messages a guest's)."""
+        self._pf_seat()  # the book's seat as it is now; set again below if the guest is still here
         try:
             if not GUEST_FILE.exists():
                 return ""
@@ -593,6 +618,7 @@ class Bridge:
                 GUEST_FILE.unlink()
                 return ""
             self.guest = str(d["guest"])
+            self._pf_seat()
             return (f"{self.guest_label()} is still at the desk — every message is theirs; /me <text> speaks as you, "
                     "/guest off when they go")
         except Exception as e:  # noqa: BLE001
@@ -1202,6 +1228,7 @@ class Bridge:
             with self.lock:
                 if not self.history:  # an empty room: the last visit's last turns ride at the door
                     self.carry_in()
+                self._pf_scrub()
                 jrun = self._jf_run_start("a turn", carried=self._jf_turn_carried())
                 _pp_turn("" if as_keeper else self.guest_label())  # a guest's turn can't write out a penpal's letter
                 try:
@@ -2123,6 +2150,9 @@ class Bridge:
                 self.game_callback(update["callback_query"])
             elif str((update["callback_query"] or {}).get("data") or "").startswith("wt:"):  # a trip's buttons
                 self.trip_callback(update["callback_query"])
+            elif (str((update["callback_query"] or {}).get("data") or "").startswith("tr:")
+                  and getattr(config, "PORTFOLIO_ON", False)):  # the book's buttons
+                self.trade_callback(update["callback_query"])
             else:
                 self.room_callback(update["callback_query"])
             return
@@ -2144,6 +2174,12 @@ class Bridge:
         if sender != self.chat_id:
             return  # silence for everyone else — not even a "no"
         edited = not update.get("message")  # an edited message is never a letter's part
+        if getattr(config, "PORTFOLIO_ON", False) and not edited:
+            try:  # /trade, /book, and a reply to the book's own prompt: the engine's, never the friend's
+                if self.trade_take(msg, text):
+                    return
+            except Exception as e:  # noqa: BLE001 — never a lost message: it goes on as it would have
+                _say(f"trade: {type(e).__name__}: {e}")
         if getattr(config, "PENPAL_PICTURE_LETTERS", False) and getattr(config, "PENPALS_ON", False):
             try:  # a letter being collected (🖼): the keeper's pastes and pictures are the letter's, not sent until Done
                 if self.penpal_collect_take(msg, text, edited):
@@ -5258,6 +5294,443 @@ class Bridge:
             return 0
 
 
+    # ---- PORTFOLIO_ON: /trade — the keeper's investment book on the phone ------------------------------------------
+    # All of it the engine's: no turn of the friend's, nothing in their history or transcript, no brain call, the
+    # pause's clock untouched. One flow at a time (self._trade); a typed answer is taken only as a reply to the flow's
+    # own prompt; the flow lapses after TRADE_FLOW_MIN minutes.
+    TRADE_FLOW_MIN = 15
+
+    def _tr_send(self, text: str, rows=None, reply: bool = False, pre: bool = False) -> int:
+        """One message; its id (0 when it didn't go). rows: [[(label, data)]]; reply: Telegram's force_reply."""
+        import html as _html
+        params = {"chat_id": self.chat_id, "text": text}
+        if pre:
+            params["text"] = "<pre>" + _html.escape(text) + "</pre>"
+            params["parse_mode"] = "HTML"
+        if rows:
+            params["reply_markup"] = self._pp_markup(rows)
+        elif reply:
+            params["reply_markup"] = json.dumps({"force_reply": True, "input_field_placeholder": "your answer"})
+        try:
+            got = self.api("sendMessage", **params) or {}
+            return int(got.get("message_id") or 0) if isinstance(got, dict) else 0
+        except Exception as e:  # noqa: BLE001
+            _say(f"trade: a message didn't go ({type(e).__name__}: {e})")
+            return 0
+
+    def _tr_paper(self, which: str | None = None) -> str:
+        import portfolio as pf
+        return "PAPER · " if (which or pf.open_book()) == "paper" else ""
+
+    @staticmethod
+    def _tr_b(which: str) -> str:
+        return "r" if which == "real" else "p"
+
+    def _tr_closed(self) -> str:
+        """Closed: who, where, how to open it — or that the seat file can't be read and how to mend it."""
+        try:
+            import portfolio as pf
+            if self.guest and "telegram" not in (pf.seats() or {"telegram": ""}):
+                pf.seat("telegram", self.guest)
+            return pf.closed_line()
+        except Exception:  # noqa: BLE001
+            return "(the book stays closed while a guest is here)"
+
+    @staticmethod
+    def _parlor_guest() -> str:
+        """The desk page's guest, asked of the parlor itself (parlor.HOST:parlor.PORT); "" when it isn't running."""
+        try:
+            import parlor
+            req = urllib.request.Request(f"http://{parlor.HOST}:{parlor.PORT}/guest", data=b"{}",
+                                         headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=2) as r:
+                return str(json.loads(r.read().decode("utf-8")).get("guest") or "")
+        except Exception:  # noqa: BLE001
+            return ""
+
+    def trade_unseat(self) -> None:
+        """/trade unseat — the keeper's: the seat file rewritten from the doors' true state. Not while a guest
+        sits at this phone."""
+        import portfolio as pf
+        if self.guest:
+            self._tr_send(f"({self.guest_label()} is seated here — /guest off lets them go, and the book opens then)")
+            return
+        self._tr_send(pf.unseat_all({"telegram": "", "parlor": self._parlor_guest()}))
+
+    def _tr_guest(self) -> bool:
+        """A guest seated here, or at any door (the book's seat file)."""
+        if self.guest:
+            return True
+        try:
+            import portfolio as pf
+            return bool(pf.guest_here())
+        except Exception:  # noqa: BLE001
+            return True
+
+    def trade_menu(self) -> None:
+        import portfolio as pf
+        paper = pf.open_book() == "paper"
+        if not pf.state_readable():
+            self._tr_send("(could not read which book was open — showing PAPER; tap Real to switch)")
+        self._tr_send(f"📒 the book — {'the PAPER book (practice) is open' if paper else 'the REAL book is open'}",
+                      [[("📒 Book", "tr:b"), ("➕ Record", "tr:r")],
+                       [("✏️ Fix", "tr:f"), ("🧪 Paper ✓" if paper else "🧪 Paper", "tr:o:paper"),
+                        ("💼 Real ✓" if not paper else "💼 Real", "tr:o:real")]])
+
+    def trade_book(self, refresh: bool = False) -> None:
+        import portfolio as pf
+        parts = split_long(pf.block(compact=True, refresh=refresh), 3800)
+        for i, part in enumerate(parts):
+            self._tr_send(part, [[("🔄", "tr:b:r"), ("📒 menu", "tr:m")]] if i == len(parts) - 1 else None, pre=True)
+
+    def trade_take(self, msg: dict, text: str) -> bool:
+        """True when the message was the book's: /trade, /book, or a reply to the flow's own prompt."""
+        import portfolio as pf
+        self._trade_expire()
+        low = text.lower()
+        flow = getattr(self, "_trade", None)
+        rt = (msg.get("reply_to_message") or {}).get("message_id")
+        ours = (low == "/book" or low.startswith("/book@") or low == "/trade" or low.startswith("/trade ")
+                or low.startswith("/trade@") or (flow and rt and int(rt) == int(flow.get("prompt") or -1)))
+        if low.split()[:2] in (["/trade", "unseat"],) or low.startswith("/trade@") and low.split()[1:2] == ["unseat"]:
+            self.trade_unseat()
+            return True
+        if ours and self._tr_guest():  # a guest seated anywhere: nothing of the book shows
+            self._tr_send(self._tr_closed())
+            return True
+        if low == "/book" or low.startswith("/book@"):
+            self.trade_book()
+            return True
+        if low == "/trade" or low.startswith("/trade ") or low.startswith("/trade@"):
+            arg = text.split(None, 1)[1].strip() if len(text.split(None, 1)) > 1 else ""
+            if not arg:
+                self.trade_menu()
+            elif arg.lower() in ("cancel", "stop"):
+                self._trade = None
+                self._tr_send("(nothing is being recorded now)")
+            else:
+                self.trade_symbol(arg)
+            return True
+        flow = getattr(self, "_trade", None)
+        rt = (msg.get("reply_to_message") or {}).get("message_id")
+        if not flow or not rt or int(rt) != int(flow.get("prompt") or -1):
+            return False
+        flow["t"] = time.time()
+        if text.strip().lower() in ("cancel", "/cancel", "stop"):
+            self._trade = None
+            self._tr_send("(cancelled — nothing was kept)")
+            return True
+        self._trade_answer(flow, text.strip())
+        return True
+
+    def trade_symbol(self, arg: str) -> None:
+        import portfolio as pf
+        got = pf.find(arg)
+        if not got["ok"]:
+            self._tr_send(f"(no price for “{arg}” — tried {', '.join(got['tried'])}: {got.get('error')})")
+            return
+        q = got["quote"]
+        lines = [self._tr_paper() + pf.quote_line(q)]
+        if not got["same"]:
+            lines.insert(0, f"(“{arg}” isn't known as typed; this is {q['symbol']}:)")
+        try:
+            rp = pf.replay(pf.load()["records"])
+            h = rp["positions"].get(q["symbol"].upper())
+            if h and h["qty"] > 0:
+                cur = h["currency"]
+                avg = h["cost"] / h["qty"]
+                v = h["qty"] * float(pf.price_of(q) or 0)
+                lines.append(f"{self._tr_paper()}you hold {h['qty']:g} at an average {pf.money(avg, cur)} — worth "
+                             f"{pf.money(v, cur)}, {'+' if v >= h['cost'] else '-'}{pf.money(abs(v - h['cost']), cur)}")
+            else:
+                lines.append(f"{self._tr_paper()}not held in this book")
+        except pf.BookUnreadable as e:
+            lines.append(f"({e})")
+        self._tr_send("\n".join(lines))
+
+    def _trade_expire(self) -> None:
+        flow = getattr(self, "_trade", None)
+        if flow and time.time() - float(flow.get("t") or 0) > self.TRADE_FLOW_MIN * 60:
+            self._trade = None
+            self._tr_send(f"(the record you started at {datetime.fromtimestamp(flow['began']):%H:%M} waited "
+                          f"{self.TRADE_FLOW_MIN} minutes — nothing was kept; /trade starts again)")
+
+    def _trade_ask(self, flow: dict, text: str, rows=None) -> None:
+        """The flow's next question: buttons (a reply to it is taken too) or a force-reply prompt. Every line names the
+        flow's own book (PAPER), the one open when it began."""
+        flow["prompt"] = self._tr_send(self._tr_paper(flow.get("book")) + text, rows=rows, reply=not rows)
+        flow["t"] = time.time()
+        self._trade = flow
+
+    _TR_CANCEL = ("✖ Cancel", "tr:x")
+
+    def _trade_next(self, flow: dict) -> None:
+        import portfolio as pf
+        k = flow["kind"]
+        if k in ("deposit", "withdraw") and not flow.get("currency"):
+            self._trade_ask(flow, f"{k.capitalize()} — in which currency? Tap one, or reply with its code",
+                            [[(f"{pf.sym(c)} {c}" if pf.sym(c) != c else c, f"tr:c:{c}") for c in self._tr_currencies()],
+                             [self._TR_CANCEL]])
+        elif k not in ("deposit", "withdraw") and not flow.get("symbol"):
+            self._trade_ask(flow, "Which symbol? Reply to this message (a ticker, one with its exchange's suffix, or an "
+                                  "index like ^GSPC; “cancel” stops it)")
+        elif k in ("buy", "sell") and flow.get("qty") is None:
+            self._trade_ask(flow, "How many shares? Reply to this message")
+        elif flow.get("price") is None:
+            q = flow.get("quote") or {}
+            if k in ("buy", "sell") and q.get("close"):
+                lab = f"the close of {pf._day(q.get('close_date'))}: {pf.money(float(q['close']), q['currency'])}"
+                self._trade_ask(flow, "Price each? Tap the close, or reply to this message with your price",
+                                [[(lab[:60], "tr:p:c")], [self._TR_CANCEL]])
+            elif k in ("buy", "sell"):
+                self._trade_ask(flow, "Price each? Reply to this message")
+            else:
+                what = "the amount received" if k == "dividend" else "the amount"
+                self._trade_ask(flow, f"{what.capitalize()}? Reply to this message")
+        elif flow.get("date") is None:
+            self._trade_ask(flow, "When? Tap one, or reply with a date (YYYY-MM-DD)", self._tr_day_rows(flow))
+        elif flow.get("fee") is None and k in ("buy", "sell", "deposit", "withdraw", "dividend"):
+            self._trade_ask(flow, "The fee? Tap 0, or reply with it", [[("0", "tr:e:0")], [self._TR_CANCEL]])
+        elif flow.get("why") is None:
+            self._trade_ask(flow, "Why, in one line? Reply to this message, or skip", [[("skip", "tr:w:-")], [self._TR_CANCEL]])
+        else:
+            rec, no = pf.make_record(k, flow.get("symbol") or flow.get("currency") or "", flow.get("qty", 1),
+                                     flow.get("price"), flow.get("date"), flow.get("fee") or 0, flow.get("why") or "",
+                                     currency=flow.get("currency"), by="keeper", which=flow.get("book"))
+            if rec is None:
+                self._trade = None
+                self._tr_send(f"(not possible: {no} — nothing was kept; /trade starts again)")
+                return
+            flow["rec"] = rec
+            self._trade_ask(flow, f"{pf.record_line(rec)}\nKeep it?", [[("✅ Keep", "tr:y"), self._TR_CANCEL]])
+
+    def _tr_currencies(self) -> list:
+        """The deposit's currency buttons: the dollar, the home currency, and the others the open book holds — at most
+        four."""
+        import portfolio as pf
+        out = ["USD", pf.home()]
+        try:
+            out += sorted(c for c in pf.replay(pf.load()["records"])["cash"] if c)
+        except pf.BookUnreadable:
+            pass
+        return list(dict.fromkeys(out))[:4]
+
+    def _tr_day_rows(self, flow: dict) -> list:
+        """Today and Yesterday as they were when the buttons were shown, each with its date."""
+        import portfolio as pf
+        from datetime import date, timedelta
+        t = date.today()
+        y = t - timedelta(days=1)
+        flow["days"] = {"t": t.isoformat(), "y": y.isoformat()}
+        return [[(f"Today · {pf._day(t)}", "tr:d:t"), (f"Yesterday · {pf._day(y)}", "tr:d:y")], [self._TR_CANCEL]]
+
+    def _trade_answer(self, flow: dict, text: str) -> None:
+        import portfolio as pf
+        from datetime import date
+        if flow.get("fix"):  # a correction's new value — in the flow's own book
+            got, no = pf.correct(flow["fix"], flow["field"], text, which=flow.get("book"))
+            self._trade = None
+            self._tr_send(f"{self._tr_paper(flow.get('book'))}✓ #{got['id']} replaces #{flow['fix']}: {pf.record_line(got)}"
+                          if got else f"(not corrected: {no})")
+            return
+        k = flow["kind"]
+        if k in ("deposit", "withdraw") and not flow.get("currency"):
+            c = pf.currency_of(text)
+            if not c:
+                self._trade_ask(flow, f"“{text}” isn't a currency — its three-letter code (USD, EUR …), or tap one",
+                                [[(f"{pf.sym(c_)} {c_}" if pf.sym(c_) != c_ else c_, f"tr:c:{c_}") for c_ in self._tr_currencies()],
+                                 [self._TR_CANCEL]])
+                return
+            flow["currency"] = c
+            self._trade_next(flow)
+            return
+        if k not in ("deposit", "withdraw") and not flow.get("symbol"):
+            got = pf.find(text)
+            if not got["ok"]:
+                self._trade_ask(flow, f"No price for “{text}” — tried {', '.join(got['tried'])}. Another symbol? Reply to this message")
+                return
+            q = got["quote"]
+            if not got["same"]:
+                flow["maybe"] = q
+                self._trade_ask(flow, f"“{text}” isn't known as typed. Did you mean {pf.quote_line(q)}?",
+                                [[(f"Yes, {q['symbol']}", "tr:s:y")], [self._TR_CANCEL]])
+                return
+            flow["symbol"], flow["quote"] = q["symbol"], q
+            self._tr_send(self._tr_paper(flow.get("book")) + pf.quote_line(q))
+            self._trade_next(flow)
+            return
+        if k in ("buy", "sell") and flow.get("qty") is None:
+            v = pf.num(text)
+            if v is None or v <= 0:
+                self._trade_ask(flow, f"“{text}” isn't a number of shares — how many? Reply to this message")
+                return
+            flow["qty"] = v
+        elif flow.get("price") is None:
+            v = pf.num(text)
+            if v is None or v <= 0:
+                self._trade_ask(flow, f"“{text}” isn't a price — reply with a number (1,250.50, 133.3, $210)")
+                return
+            flow["price"] = v
+        elif flow.get("date") is None:
+            d = pf.parse_date(text)
+            if d is None or d > date.today():
+                self._trade_ask(flow, f"“{text}” isn't a date that has come — YYYY-MM-DD, today or yesterday",
+                                self._tr_day_rows(flow))
+                return
+            flow["date"] = d.isoformat()
+        elif flow.get("fee") is None:
+            v = pf.num(text)
+            if v is None or v < 0:
+                self._trade_ask(flow, f"“{text}” isn't a fee — a number, or tap 0", [[("0", "tr:e:0")], [self._TR_CANCEL]])
+                return
+            flow["fee"] = v
+        elif flow.get("why") is None:
+            flow["why"] = text
+        self._trade_next(flow)
+
+    def trade_callback(self, cq: dict) -> None:
+        import portfolio as pf
+        from datetime import date, timedelta
+        try:
+            self.api("answerCallbackQuery", callback_query_id=cq.get("id"))
+        except Exception:  # noqa: BLE001
+            pass
+        msg = cq.get("message") or {}
+        if not self.chat_id or int((msg.get("chat") or {}).get("id") or 0) != self.chat_id:
+            return
+        if self._tr_guest():  # every button: closed while a guest is here
+            self._tr_send(self._tr_closed())
+            return
+        self._trade_expire()
+        d = str(cq.get("data") or "").split(":")
+        k = d[1] if len(d) > 1 else ""
+        flow = getattr(self, "_trade", None)
+        if k in ("fi", "fs", "fy", "fc", "ff"):  # a record's button carries its book: tr:<k>:<p|r>:<id>…
+            if len(d) < 4 or d[2] != self._tr_b(pf.open_book()):
+                self._tr_send("(that button is from the other book — nothing was done)")
+                return
+            d = d[:2] + d[3:]
+        if k == "m":
+            self.trade_menu()
+        elif k == "b":
+            self.trade_book(refresh=len(d) > 2)
+        elif k == "r":
+            if flow:
+                self._tr_send("(the record you were making is let go — a new one begins)")
+            self._trade = {"began": time.time(), "t": time.time(), "prompt": 0, "book": pf.open_book()}
+            self._trade_ask(self._trade, "➕ Record — what kind?",
+                            [[("Buy", "tr:k:buy"), ("Sell", "tr:k:sell"), ("Dividend", "tr:k:dividend")],
+                             [("Deposit", "tr:k:deposit"), ("Withdraw", "tr:k:withdraw")], [self._TR_CANCEL]])
+        elif k == "x":
+            self._trade = None
+            self._tr_send("(cancelled — nothing was kept)")
+        elif k in ("k", "c", "s", "p", "d", "e", "w", "y") and flow and not flow.get("fix"):
+            flow["t"] = time.time()
+            if k == "k" and len(d) > 2 and "kind" not in flow:
+                flow["kind"] = d[2]
+            elif k == "c" and len(d) > 2:
+                flow["currency"] = d[2]
+            elif k == "s" and flow.get("maybe"):
+                flow["symbol"], flow["quote"] = flow["maybe"]["symbol"], flow.pop("maybe")
+                self._tr_send(self._tr_paper(flow.get("book")) + pf.quote_line(flow["quote"]))
+            elif k == "p" and (flow.get("quote") or {}).get("close"):
+                flow["price"] = float(flow["quote"]["close"])
+            elif k == "d" and len(d) > 2:
+                flow["date"] = (flow.get("days") or {}).get(d[2]) or \
+                    (date.today() - timedelta(days=1 if d[2] == "y" else 0)).isoformat()
+            elif k == "e":
+                flow["fee"] = 0.0
+            elif k == "w":
+                flow["why"] = ""
+            elif k == "y" and flow.get("rec"):
+                got, no = pf.add(flow["rec"], flow.get("book"))  # into the book it began in
+                self._trade = None
+                self._tr_send(f"{self._tr_paper(flow.get('book'))}✓ kept #{got['id']}: {pf.record_line(got)}" if got
+                              else f"(not kept: {no})")
+                return
+            if "kind" in flow:
+                self._trade_next(flow)
+        elif k in ("pk", "pd") and len(d) > 2:
+            self._tr_send(pf.resolve_pending(int(d[2]), keep=(k == "pk")))
+        elif k == "f":
+            try:
+                rs = sorted(pf.load()["records"], key=lambda r: int(r["id"]), reverse=True)[:10]
+            except pf.BookUnreadable as e:
+                self._tr_send(f"({e})")
+                return
+            if not rs:
+                self._tr_send(self._tr_paper() + "(nothing recorded yet)")
+                return
+            b = self._tr_b(pf.open_book())
+            rows = [[((f"#{r['id']}{' ✂' if r.get('struck') else ''} " + pf.record_line(r))[:60], f"tr:fi:{b}:{r['id']}")] for r in rs]
+            self._tr_send(self._tr_paper() + "✏️ Fix — which record?", rows + [[self._TR_CANCEL]])
+        elif k == "fi" and len(d) > 2:
+            b = self._tr_b(pf.open_book())
+            self._tr_send(f"{self._tr_paper()}#{d[2]} — strike it, or correct one field?",
+                          [[("✂️ Strike", f"tr:fs:{b}:{d[2]}"), ("✏️ Correct", f"tr:fc:{b}:{d[2]}")], [self._TR_CANCEL]])
+        elif k == "fs" and len(d) > 2:
+            b = self._tr_b(pf.open_book())
+            self._tr_send(f"{self._tr_paper()}Strike #{d[2]}? It stays in the history, struck.",
+                          [[("✂️ Yes, strike it", f"tr:fy:{b}:{d[2]}")], [self._TR_CANCEL]])
+        elif k == "fy" and len(d) > 2:
+            got, no = pf.strike(int(d[2]))
+            self._tr_send(f"{self._tr_paper()}✂️ struck #{d[2]}: {pf.record_line(got)}" if got else f"(not struck: {no})")
+        elif k == "fc" and len(d) > 2:
+            b = self._tr_b(pf.open_book())
+            self._tr_send(f"{self._tr_paper()}Correct which field of #{d[2]}?",
+                          [[("qty", f"tr:ff:{b}:{d[2]}:qty"), ("price", f"tr:ff:{b}:{d[2]}:price"), ("date", f"tr:ff:{b}:{d[2]}:date")],
+                           [("fee", f"tr:ff:{b}:{d[2]}:fee"), ("why", f"tr:ff:{b}:{d[2]}:why"), ("rate", f"tr:ff:{b}:{d[2]}:rate")],
+                           [self._TR_CANCEL]])
+        elif k == "ff" and len(d) > 3:
+            self._trade = {"began": time.time(), "t": time.time(), "fix": int(d[2]), "field": d[3], "prompt": 0,
+                           "book": pf.open_book()}
+            self._trade_ask(self._trade, f"The new {d[3]} for #{d[2]}? Reply to this message (“cancel” stops it)")
+        elif k == "o" and len(d) > 2:
+            if flow and d[2] != (flow.get("book") or pf.open_book()):  # a flow belongs to its book
+                self._trade = None
+                self._tr_send(f"(the record you were making was for the {'PAPER' if flow.get('book') == 'paper' else 'REAL'} "
+                              "book — let go when you switched; nothing was kept)")
+            if d[2] == "real" and not pf.state().get("real_ok"):
+                self._tr_send("The real book is empty — records from now on are real: sure?",
+                              [[("💼 Yes, the real book", "tr:oy")], [self._TR_CANCEL]])
+                return
+            pf.set_open(d[2])
+            self.trade_menu()
+        elif k == "oy":
+            if flow and flow.get("book") != "real":
+                self._trade = None
+                self._tr_send("(the record you were making was for the PAPER book — let go when you switched; nothing was kept)")
+            s = pf.state()
+            s["real_ok"] = True
+            pf.save_state(s)
+            pf.set_open("real")
+            self.trade_menu()
+
+    def trade_tick(self) -> None:
+        """At the poll: the friend's records waiting for the keeper's Keep, each its own message; the ones that waited a
+        day, lapsed and said; a flow that waited too long, let go. Never raises."""
+        if not self.chat_id or not getattr(config, "PORTFOLIO_ON", False):
+            return
+        try:
+            import portfolio as pf
+            self._trade_expire()
+            if self._tr_guest():  # nothing of the book reaches the phone while a guest is here; it waits for them to go
+                return
+            if self.quiet_now():  # the friend's records wait out the quiet hours, and lapse after them
+                return
+            for line in pf.lapse_pending():
+                self.notice(line)
+            for x in pf.pending():  # read without the lock; each sent outside it, then marked told by its id
+                if x.get("told"):
+                    continue
+                tag = "PAPER · " if x.get("book") == "paper" else ""
+                if self._tr_send(f"{tag}✍️ {chat.friend_name()} wrote this down from what you told them: "
+                                 f"{pf.record_line(x['rec'])}\nKeep it in the book?",
+                                 [[("✅ Keep", f"tr:pk:{x['pid']}"), ("✖ Drop", f"tr:pd:{x['pid']}")]]):
+                    pf.mark_told(int(x["pid"]))
+        except Exception as e:  # noqa: BLE001
+            _say(f"trade: {type(e).__name__}: {e}")
+
     def deliver_skill_notices(self) -> int:
         """One notice per skill they fetched, from the note fetch_skill left
         beside its SKILL.md — on the shelf: "📚 … fetched a skill — name:
@@ -6479,6 +6952,7 @@ class Bridge:
         self.books_watch_if_due()  # a book the friend finished: one line, so the keeper knows to bring a new one
         self.deliver_creations()
         self.deliver_gathered()  # a gathered folder's pieces, as one, at its hour
+        self.trade_tick()  # the friend's records, for the keeper's Keep; lapses; a flow that waited too long
         self.deliver_pictures()
         self.deliver_voice_out()  # a voice note spoken in a wake: to the phone, the night's at its hour
         self.deliver_songs()

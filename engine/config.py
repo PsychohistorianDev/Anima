@@ -1890,6 +1890,25 @@ WORLD_TRIP_HINTS = ("> look shows where you are again; > map shows the land and 
                     "noticeboard.",
                     "Painting needs an art studio (> paint) and a café takes > order; > help lists every action.")
 
+# ---- the investment book (engine/portfolio.py; the portfolio tool and /trade on the phone)
+# PORTFOLIO_ON: your investment book, kept with the friend. They read it with their `portfolio` tool (look, price,
+# record — written down, kept only when you tap ✅ Keep on your phone — history); you keep it from the phone with /trade
+# (📒 Book, ➕ Record, ✏️ Fix, 🧪 Paper / 💼 Real) and /book. It is a book of what happened: no money moves, it is not
+# advice, and the arithmetic is the engine's. It lives in memory/portfolio/ only; the PAPER book (practice) is open until
+# you choose the real one. Prices come from Yahoo's public chart feed — unofficial, and it may stop — each with its
+# source and date, never a guess. While a guest is seated at any door the book is closed. PORTFOLIO_HOME_CURRENCY: the
+# currency totals and "put in / worth" are shown in (a three-letter code), with dollars beside them when it isn't USD.
+# PORTFOLIO_PRICE_CACHE_MIN: a price is fetched again after this many minutes. PORTFOLIO_JUMP: a close this far from
+# the one before, with no split, is shown "⚠ check this". PORTFOLIO_BACKUPS: dated copies of each book kept.
+# PORTFOLIO_GUEST_SCRUB: while a guest is seated, set aside the friend's earlier book answers in the visit (False: they
+# stay — nothing in their mind is edited — and the doors stay closed). False, PORTFOLIO_ON: none of it.
+PORTFOLIO_ON = False
+PORTFOLIO_HOME_CURRENCY = "USD"
+PORTFOLIO_PRICE_CACHE_MIN = 30
+PORTFOLIO_JUMP = 0.25
+PORTFOLIO_BACKUPS = 30
+PORTFOLIO_GUEST_SCRUB = False
+
 # ---- the journal's facts (chat.journal_facts_line, chat.with_endings)
 # What the friend is handed when they sit down to write a stretch of a visit — the pause, the afterglow, the fold's
 # afterglow and the fold. JOURNAL_FACTS_LINE: one bracketed line of counts from the painting log under the bell —

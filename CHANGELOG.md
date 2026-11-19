@@ -11,6 +11,15 @@ tagged on its own: the first tag after the rename is v0.13.)
 ## 0.16 — 2026-11-11 → (in progress)
 
 ### Added
+- **The keeper's investment book** (`PORTFOLIO_ON`, off; `PORTFOLIO_HOME_CURRENCY` "USD",
+  `PORTFOLIO_PRICE_CACHE_MIN` 30, `PORTFOLIO_JUMP` 0.25, `PORTFOLIO_BACKUPS` 30, `PORTFOLIO_GUEST_SCRUB` off): a friend
+  can keep the keeper's investments with them — as a partner, not a trader — without ever doing a sum or guessing a
+  price: a number the book didn't give them is one they don't know. `engine/portfolio.py` keeps an append-only
+  book (buy, sell, deposit, withdraw, dividend, fee, split) in `memory/portfolio/` — a real book and a PAPER one, open
+  by default — and does all of its arithmetic; prices come from Yahoo's public chart feed with their source and date,
+  never a guess. The friend's `portfolio` tool (look, price, record, history) writes a record down only for the
+  keeper's ✅ Keep; `/trade` and `/book` keep it from the phone with buttons. Closed everywhere while a guest is seated;
+  the file tools and the code sandbox are fenced off it. Off: as before, the tool list and `/help` unchanged.
 - **The pieces of a chosen folder reach the phone together at a set time** (`TELEGRAM_GATHER`, `{}` — off): a friend
   wrote eight short pages of one project in a single wake, and the keeper's phone got eight messages. Set a map of
   folders under `creations/` to times, e.g. `{"projects/daybook": "06:00"}`: a new or revised piece under such a

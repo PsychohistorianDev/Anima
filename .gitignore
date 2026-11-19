@@ -26,6 +26,8 @@ creations/.trash/*
 shared/*
 !shared/.gitkeep
 memory/*
+# the keeper's investment book (PORTFOLIO_ON) — never in the repository, whatever is un-ignored below
+memory/portfolio/
 !memory/episodic/
 memory/episodic/*
 !memory/episodic/.gitkeep

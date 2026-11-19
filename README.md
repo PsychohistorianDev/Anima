@@ -2331,6 +2331,42 @@ becomes a post when you run `bat\blog.bat`. Until then, publishing simply doesn'
 exist in their world. The arrangement: they choose what's public, you run the
 press. You are not the editor.
 
+## The investment book (optional)
+
+Off by default (`PORTFOLIO_ON`). Turned on, the friend keeps your investment
+book with you: you record what happened — a buy, a sell, a deposit, a
+withdrawal, a dividend, a fee — from your phone with `/trade` (buttons: 📒
+Book, ➕ Record, ✏️ Fix, 🧪 Paper / 💼 Real) and `/book`, or you tell the
+friend and their `portfolio` tool writes it down, kept only when you tap ✅
+Keep. They read the book with the same tool: each holding, what it cost,
+what it is worth now, cash, the mix, gain or loss, and the totals in your
+home currency (`PORTFOLIO_HOME_CURRENCY`, USD; dollars beside it when it is
+another). The engine does every sum; the tool tells them that a number it
+did not give them is one they do not know.
+
+It is a book of what happened, nothing more: **no money moves**, the friend
+has no access to any account, and **nothing in it is investment advice**.
+Prices come from Yahoo's public chart feed — unofficial, with no key, and
+it may change or stop without notice; each price is shown with its source
+and the date of its close, a quote in pence, agorot or cents is turned into
+pounds, shekels or rand and said so, and a price that can't be fetched is
+the last one with its date, never a guess. A rate between two currencies
+comes from the same feed (`EUR=X` and the like), or from the home
+currency's central bank where the engine knows one.
+
+**PAPER** is a second book for practice, and it is the one open until you
+choose 💼 Real (asked once): everything in it is marked PAPER, on the phone
+and in the friend's answers. Records are never deleted — ✏️ Fix strikes one
+or corrects a field by a new record that replaces it — and a dated copy of
+each book is kept a day it changed (`PORTFOLIO_BACKUPS`).
+
+While a guest is seated — at the desk page or by `/guest` on the phone —
+the book is closed everywhere, in the friend's turns too, and `/trade`
+answers that it is closed until the guest is let go (`/trade unseat` mends
+the seat if a door went down with a guest in it). Everything lives in
+`memory/portfolio/`; their file tools refuse it, and their code is fenced
+off it — a fence, not a wall: code built to get around it can.
+
 ## The folder
 
 ```
@@ -2784,6 +2820,10 @@ to publish, and nothing else; `ollama pull` fetches a brain from
 painter and the music ear download their weights from `huggingface.co`
 the first time they run, and read them from disk after. A world trip
 (`/world`) sends nothing anywhere itself: you carry the text there by hand.
+With the investment book on (`PORTFOLIO_ON`), a look at it or a price asks
+`query1.finance.yahoo.com` for the symbols in it (and a rate), with nothing
+of yours attached but the symbols; with an ILS home currency the rate is
+asked of `boi.org.il` first.
 
 **`OFFLINE = True`** (Settings › Main) closes every road the friend or the
 engine can take on their own — the five web tools leave the prompt, a call
