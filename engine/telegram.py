@@ -5320,6 +5320,8 @@ class Bridge:
 
     def _tr_paper(self, which: str | None = None) -> str:
         import portfolio as pf
+        if not pf.paper_on():  # one book: nothing is PAPER
+            return ""
         return "PAPER · " if (which or pf.open_book()) == "paper" else ""
 
     @staticmethod
@@ -5385,6 +5387,12 @@ class Bridge:
 
     def trade_menu(self) -> None:
         import portfolio as pf
+        if not pf.paper_on():  # one book: no Paper / Real
+            news = pf.adoption_news("phone")
+            if news:
+                self._tr_send(f"({news})")
+            self._tr_send("📒 the book", [[("📒 Book", "tr:b"), ("➕ Record", "tr:r")], [("✏️ Fix", "tr:f")]])
+            return
         paper = pf.open_book() == "paper"
         if not pf.state_readable():
             self._tr_send("(could not read which book was open — showing PAPER; tap Real to switch)")
@@ -5741,6 +5749,10 @@ class Bridge:
         d = str(cq.get("data") or "").split(":")
         k = d[1] if len(d) > 1 else ""
         flow = getattr(self, "_trade", None)
+        if not pf.paper_on() and (k in ("o", "oy") or (k in ("fi", "fs", "fy", "fc", "ff", "cv", "ct", "cl", "s")
+                                                         and len(d) > 2 and d[2] == "p")):
+            self._tr_send("(the practice book is gone — this is the book now; open /trade again)")  # a stale button
+            return
         if k in ("fi", "fs", "fy", "fc", "ff", "cv", "ct", "cl"):  # a record's button carries its book: tr:<k>:<p|r>:…
             if len(d) < (3 if k == "cl" else 4) or d[2] != self._tr_b(pf.open_book()):
                 self._tr_send("(that button is from the other book — nothing was done)")
@@ -5833,7 +5845,7 @@ class Bridge:
             said = pf.resolve_pending(int(d[2]), keep=(k == "pk"))
             self._tr_send(said)
             if k == "pk" and x and "✓ kept #" in said:
-                which = x.get("book") or "paper"
+                which = (x.get("book") or "paper") if pf.paper_on() else "real"
                 try:
                     kept = max(pf.load(which)["records"], key=lambda r: int(r["id"]))
                 except (pf.BookUnreadable, ValueError):
@@ -5910,12 +5922,16 @@ class Bridge:
                 return
             if self.quiet_now():  # the friend's records wait out the quiet hours, and lapse after them
                 return
+            if not pf.paper_on():  # the practice book adopted: said once, at the first poll after it happened
+                news = pf.adoption_news("phone", standing=False)
+                if news:
+                    self._tr_send(f"({news})")
             for line in pf.lapse_pending():
                 self.notice(line)
             for x in pf.pending():  # read without the lock; each sent outside it, then marked told by its id
                 if x.get("told"):
                     continue
-                tag = "PAPER · " if x.get("book") == "paper" else ""
+                tag = "PAPER · " if x.get("book") == "paper" and pf.paper_on() else ""
                 if self._tr_send(f"{tag}✍️ {chat.friend_name()} wrote this down from what you told them: "
                                  f"{pf.record_line(x['rec'])}\nKeep it in the book?",
                                  [[("✅ Keep", f"tr:pk:{x['pid']}"), ("✖ Drop", f"tr:pd:{x['pid']}")]]):

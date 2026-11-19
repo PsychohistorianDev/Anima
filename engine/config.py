@@ -1908,6 +1908,11 @@ PORTFOLIO_PRICE_CACHE_MIN = 30
 PORTFOLIO_JUMP = 0.25
 PORTFOLIO_BACKUPS = 30
 PORTFOLIO_GUEST_SCRUB = False
+# PORTFOLIO_PAPER: True — a PAPER book for practice beside the real one (🧪 Paper / 💼 Real on the phone). False — one
+# book, the real one: no Paper/Real buttons, no PAPER on any line; at its first use the engine carries a practice book's
+# records over into the real one unchanged when the real one has none (paper.json is renamed paper.adopted-<stamp>.json,
+# never deleted; said once on your phone and once to the friend). Both with records: nothing merged, said.
+PORTFOLIO_PAPER = True
 
 # ---- the journal's facts (chat.journal_facts_line, chat.with_endings)
 # What the friend is handed when they sit down to write a stretch of a visit — the pause, the afterglow, the fold's

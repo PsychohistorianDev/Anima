@@ -6627,6 +6627,9 @@ def portfolio(action: str = "look", symbol: str = "", kind: str = "", qty: str =
     if a in ("look", "book", "show", ""):
         said = pf.since_last_look(which)
         out = pf.block(which, for_friend=True)
+        news = pf.adoption_news("friend")
+        if news:
+            out += "\n\n" + news
         if said:
             out += "\n\nsince you last looked: " + "; ".join(said)
         return out

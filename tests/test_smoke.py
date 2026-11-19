@@ -24576,7 +24576,7 @@ import urllib.parse as _bk_up
 from datetime import date as _bk_date, datetime as _bk_dt, timedelta as _bk_td, timezone as _bk_tz
 import portfolio as _bk_pf
 import penpal as _bk_pp
-_bk_KEYS = ("PORTFOLIO_ON", "PORTFOLIO_HOME_CURRENCY", "PORTFOLIO_PRICE_CACHE_MIN", "PORTFOLIO_JUMP", "PORTFOLIO_BACKUPS",
+_bk_KEYS = ("PORTFOLIO_ON", "PORTFOLIO_PAPER", "PORTFOLIO_HOME_CURRENCY", "PORTFOLIO_PRICE_CACHE_MIN", "PORTFOLIO_JUMP", "PORTFOLIO_BACKUPS",
             "PORTFOLIO_GUEST_SCRUB", "OFFLINE", "TELEGRAM_QUIET_HOURS")
 _bk_MISSING = object()
 _bk_saved = {k: getattr(config, k, _bk_MISSING) for k in _bk_KEYS}
@@ -25335,6 +25335,86 @@ check("book (0.16): a first-day listing — no completed close; priced at its la
       _bk_nq.get("ok") and _bk_nq.get("close") is None and _bk_nq.get("no_close")
       and _bk_pf.quote_line(_bk_nq) == f"NEWCO $31.50 (last trade {_bk_at(_bk_now - 60)}, Yahoo) · no completed daily close yet",
       _bk_nq)
+
+# ---- PORTFOLIO_PAPER off: one book, the real one; a practice book adopted once -------------------------------------
+_bk_pp0 = getattr(config, "PORTFOLIO_PAPER", _bk_MISSING)
+_bk_menus = {}
+for _bk_m in ("true", "absent"):
+    _bk_fresh("USD")
+    if _bk_m == "true":
+        config.PORTFOLIO_PAPER = True
+    elif hasattr(config, "PORTFOLIO_PAPER"):
+        del config.PORTFOLIO_PAPER
+    _bk_b, _bk_ph = _bk_bridge()
+    _bk_text(_bk_b, "/trade")
+    _bk_menus[_bk_m] = (_bk_ph.msgs[-1]["text"], _bk_ph.buttons(), _bk_pf.open_book())
+_bk_fresh("USD")
+config.PORTFOLIO_PAPER = True
+tools.portfolio("look")
+_bk_add("deposit", "USD", None, "700", "2026-03-02")
+_bk_add("buy", "ACME", "4", "41", "2026-03-03")
+tools.portfolio("look")
+tools.portfolio("record", kind="deposit", symbol="USD", price="20", date="2026-03-04")
+config.PORTFOLIO_PAPER = False
+_bk_pf._ADOPT_LOOKED[0] = False
+_bk_b, _bk_ph = _bk_bridge()
+_bk_text(_bk_b, "/trade")
+_bk_one = [(m["text"], (m.get("markup") or {}).get("inline_keyboard")) for m in _bk_ph.msgs]
+_bk_text(_bk_b, "/trade")
+_bk_one2 = [m["text"] for m in _bk_ph.msgs[len(_bk_one):]]
+_bk_adopted = (sorted(p_.name for p_ in _bk_dir.glob("paper*.json")), [r_["id"] for r_ in _bk_pf.load("real")["records"]],
+               [x["book"] for x in _bk_pf.pending()], _bk_pf.open_book())
+_bk_flook = tools.portfolio("look")
+_bk_flook2 = tools.portfolio("look")
+_bk_b.trade_tick()
+_bk_pendmsg = _bk_ph.msgs[-1]["text"]
+_bk_press(_bk_b, "tr:o:paper")
+_bk_stale = _bk_ph.msgs[-1]["text"]
+_bk_press(_bk_b, "tr:b")
+_bk_view1 = _bk_ph.msgs[-1]["text"]
+check("book (0.16): PORTFOLIO_PAPER True or absent — the practice book as before; off — one book: a practice book with "
+      "records, the real one empty, is carried over unchanged (ids and all; paper.json kept as paper.adopted-…), its "
+      "pending records retagged; said once on the phone and once to the friend, nothing replayed as news; no Paper/Real, "
+      "no PAPER; an old Paper button answers that the practice book is gone",
+      _bk_menus["true"] == _bk_menus["absent"] and _bk_menus["true"][2] == "paper" and "💼 Real" in _bk_menus["true"][1][1]
+      and _bk_one[0][0] == "(the practice book is now the book — 2 records carried over, nothing changed in them)"
+      and _bk_one[1] == ("📒 the book", [[{"text": "📒 Book", "callback_data": "tr:b"}, {"text": "➕ Record", "callback_data": "tr:r"}],
+                                         [{"text": "✏️ Fix", "callback_data": "tr:f"}]])
+      and _bk_one2 == ["📒 the book"] and len(_bk_adopted[0]) == 1 and _bk_adopted[0][0].startswith("paper.adopted-")
+      and _bk_adopted[1:] == ([1, 2], ["real"], "real")
+      and _bk_flook.endswith("the practice book is now the book: the same records, no longer marked PAPER")
+      and "since you last looked" not in _bk_flook and "PAPER" not in _bk_flook2 and "no longer marked" not in _bk_flook2
+      and _bk_pendmsg.startswith(f"✍️ {_bk_FN} wrote this down") and _bk_stale == "(the practice book is gone — this is the book now; open /trade again)"
+      and _bk_view1.startswith("<pre>the book,") and "PAPER" not in _bk_view1,
+      (_bk_menus, _bk_one, _bk_one2, _bk_adopted, _bk_flook[-200:], _bk_pendmsg, _bk_stale))
+_bk_fresh("USD")
+config.PORTFOLIO_PAPER = True
+_bk_add("deposit", "USD", None, "5", "2026-03-02", which="paper")
+_bk_add("deposit", "USD", None, "9", "2026-03-02", which="real")
+config.PORTFOLIO_PAPER = False
+_bk_pf._ADOPT_LOOKED[0] = False
+_bk_b, _bk_ph = _bk_bridge()
+_bk_text(_bk_b, "/trade")
+_bk_text(_bk_b, "/trade")
+_bk_both = ([m["text"] for m in _bk_ph.msgs], (_bk_dir / "paper.json").exists(), len(_bk_pf.load("real")["records"]))
+_bk_fresh("USD")
+_bk_dir.mkdir(parents=True)
+(_bk_dir / "paper.json").write_text("{broken", encoding="utf-8")
+_bk_pf._ADOPT_LOOKED[0] = False
+_bk_b, _bk_ph = _bk_bridge()
+_bk_text(_bk_b, "/trade")
+_bk_unr2 = ([m["text"] for m in _bk_ph.msgs], (_bk_dir / "paper.json").exists())
+check("book (0.16): PORTFOLIO_PAPER off — both books with records: nothing merged, said at each /trade; a practice "
+      "book that can't be read: nothing moved, said",
+      _bk_both == (["(both the practice book and the book have records — they were not merged; this is the book)", "📒 the book"] * 2, True, 1)
+      and _bk_unr2 == (["(the practice book's file could not be read — nothing was moved; this is the book)", "📒 the book"], True),
+      (_bk_both, _bk_unr2))
+_bk_pf._ADOPT_LOOKED[0] = False
+if _bk_pp0 is _bk_MISSING:
+    if hasattr(config, "PORTFOLIO_PAPER"):
+        del config.PORTFOLIO_PAPER
+else:
+    config.PORTFOLIO_PAPER = _bk_pp0
 
 # ---- on: the tool list and /help in a fresh process; the knobs; the words ------------------------------------------
 _bk_on = _bk_sub.run([_bk_sys.executable, "-c",

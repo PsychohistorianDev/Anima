@@ -357,12 +357,135 @@ def save_state(s: dict) -> bool:
         return False
 
 
+def paper_on() -> bool:
+    """PORTFOLIO_PAPER: absent or True — the practice book and the real one; False — one book, the real one."""
+    return bool(getattr(config, "PORTFOLIO_PAPER", True))
+
+
 def open_book() -> str:
+    if not paper_on():  # one book: whatever state.json says (a stale "paper" is ignored)
+        _maybe_adopt()
+        return "real"
     b = str(state().get("open") or "paper")
     return b if b in BOOKS else "paper"
 
 
+_ADOPT_LOOKED = [False]
+
+
+def _maybe_adopt() -> None:
+    """Once per process: if a practice book is lying there, adopt() decides (under the lock)."""
+    if _ADOPT_LOOKED[0]:
+        return
+    _ADOPT_LOOKED[0] = True
+    try:
+        if (folder() / BOOKS["paper"]).exists():
+            adopt()
+    except Exception as e:  # noqa: BLE001
+        _log(f"adoption: {type(e).__name__}: {e}")
+
+
+ADOPT_PHONE = "the practice book is now the book — {n} record{s} carried over, nothing changed in them"
+ADOPT_FRIEND = "the practice book is now the book: the same records, no longer marked PAPER"
+ADOPT_BOTH = "both the practice book and the book have records — they were not merged; this is the book"
+ADOPT_UNREADABLE = "the practice book's file could not be read — nothing was moved; this is the book"
+
+
+def adopt() -> str:
+    """(PORTFOLIO_PAPER False) The practice book's records become the book's, unchanged (ids, dates, by, fx, why), when
+    the book has none — book.json written, paper.json renamed paper.adopted-<stamp>.json (never deleted), pending
+    records retagged real, the friend's last-seen id carried so their next look doesn't list them as news. Both books
+    with records: nothing merged. An unreadable paper.json: nothing moved. Under the lock; safe twice and from two
+    processes (the second finds it done). Returns "adopted", "both", "unreadable", "busy" or "" (nothing to do)."""
+    try:
+        with _locked():
+            f = folder() / BOOKS["paper"]
+            if not f.exists():
+                return ""
+            try:
+                d = json.loads(f.read_text(encoding="utf-8"))
+                if not isinstance(d, dict) or not isinstance(d.get("records"), list) or \
+                        not all(isinstance(r, dict) and not _bad_field(r) for r in d["records"]):
+                    raise ValueError("not a book")
+            except (OSError, ValueError):
+                _note_state("adopt_problem", "unreadable")
+                _log("adoption: paper.json could not be read — nothing was moved")
+                return "unreadable"
+            if not d["records"]:
+                return ""
+            real = folder() / BOOKS["real"]
+            if real.exists():
+                try:
+                    rd = json.loads(real.read_text(encoding="utf-8"))
+                    has = bool(rd.get("records")) if isinstance(rd, dict) else True
+                except (OSError, ValueError):
+                    has = True  # an unreadable book is not written over
+                if has:
+                    _note_state("adopt_problem", "both")
+                    _log("adoption: both books have records — nothing was merged")
+                    return "both"
+            if not _save_locked("real", d):
+                _log("adoption: the book couldn't be written — nothing was moved")
+                return ""
+            os.replace(f, f.with_name(f"paper.adopted-{datetime.now():%Y%m%d-%H%M%S}.json"))
+            items = pending()
+            if any(x.get("book") == "paper" for x in items):
+                for x in items:
+                    if x.get("book") == "paper":
+                        x["book"] = "real"
+                _save_pending(items)
+            s_ = state()
+            ids = s_.get("last_id") if isinstance(s_.get("last_id"), dict) else {}
+            if "paper" in ids:
+                ids["real"] = ids["paper"]
+            s_["last_id"] = ids
+            s_["open"] = "real"
+            s_["adopted"] = {"n": len(d["records"]), "at": time.time(), "phone": False, "friend": False}
+            s_.pop("adopt_problem", None)
+            _write("state.json", s_)
+            _log(f"adoption: the practice book is now the book — {len(d['records'])} records carried over unchanged")
+            return "adopted"
+    except BookBusy:
+        _ADOPT_LOOKED[0] = False  # tried again at the next use
+        return "busy"
+
+
+def _note_state(key: str, value) -> None:
+    s_ = state()
+    s_[key] = value
+    _write("state.json", s_)
+
+
+def adoption_news(who: str, standing: bool = True) -> str:
+    """The adoption said once to "phone" or to "friend"; for the phone, a standing problem (both books, an unreadable
+    practice book) is said each time. "" when there is nothing to say."""
+    if paper_on():
+        return ""
+    _maybe_adopt()
+    s_ = state()
+    a = s_.get("adopted") if isinstance(s_.get("adopted"), dict) else None
+    if a and not a.get(who):
+        try:
+            with _locked():
+                s2 = state()
+                a2 = s2.get("adopted") if isinstance(s2.get("adopted"), dict) else None
+                if not a2 or a2.get(who):
+                    return ""
+                a2[who] = True
+                _write("state.json", s2)
+        except BookBusy:
+            return ""
+        n = int(a.get("n") or 0)
+        return ADOPT_PHONE.format(n=n, s="" if n == 1 else "s") if who == "phone" else ADOPT_FRIEND
+    if who == "phone" and standing and (folder() / BOOKS["paper"]).exists():
+        prob = s_.get("adopt_problem")
+        return ADOPT_BOTH if prob == "both" else ADOPT_UNREADABLE if prob == "unreadable" else ""
+    return ""
+
+
 def set_open(which: str) -> bool:
+    if not paper_on():
+        which = "real"
     try:
         with _locked():
             s = state()
@@ -698,7 +821,7 @@ def quote(symbol: str, refresh: bool = False, until: float | None = None) -> dic
 
 def _held_symbols() -> set:
     keep = set()
-    for which in BOOKS:
+    for which in (BOOKS if paper_on() else ("real",)):
         try:
             keep |= {str(r.get("symbol") or "").upper() for r in load(which)["records"]}
         except BookUnreadable:
@@ -1748,12 +1871,13 @@ def resolve_pending(pid: int, keep: bool) -> str:
                 return "(that record isn't waiting any more)"
             items = [i for i in items if i is not x]
             if keep:
-                got, why = _add_locked(x["rec"], x.get("book") or "paper")
+                bk = (x.get("book") or "paper") if paper_on() else "real"
+                got, why = _add_locked(x["rec"], bk)
                 if got is None:
                     return f"(not kept — {why})"
                 _save_pending(items)
                 _note_locked(f"your keeper kept: {record_line(got)}")  # the friend's look says it, once
-                return ("PAPER · " if x.get("book") == "paper" else "") + f"✓ kept #{got['id']}: {record_line(got)}"
+                return ("PAPER · " if bk == "paper" else "") + f"✓ kept #{got['id']}: {record_line(got)}"
             _save_pending(items)
             _note_locked(f"your keeper dropped: {record_line(x['rec'])}")
             return f"✖ dropped: {record_line(x['rec'])}"
