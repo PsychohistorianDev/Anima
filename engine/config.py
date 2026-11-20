@@ -858,6 +858,10 @@ WINDOW_WARN_AT = 0.9      # from this fraction of NUM_CTX you are told "this vis
 # reveries carry nothing.
 CARRY_TURNS = 6           # visible turns carried whole, the most recent ones
 CARRY_HOURS = 20          # how recent the previous visit must be to be carried; 0: never
+# CARRY_KEYBOARD: the keyboard chat (python chat.py) carries too — it takes the carry at its first message in an empty
+# room and leaves it when the visit ends (/quit, Ctrl+D, Ctrl+C; a window shut with X saves nothing, as before); /new
+# starts clean, as on the phone. False: the keyboard chat as before.
+CARRY_KEYBOARD = True
 
 # Your body, as your watch sees it (optional): engine/body.py pulls your day
 # from Garmin Connect into memory/body/<day>.json (bat\body.bat --login once, then

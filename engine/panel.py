@@ -403,6 +403,8 @@ _HELP = {
     "PORTFOLIO_BRIEF_NEWS_MAX": "Headlines at most, per holding.",
     "PORTFOLIO_BRIEF_NEWS_CACHE_H": "A holding's headlines are asked again after this many hours.",
     "PORTFOLIO_BRIEF_NEWS_SKIP": "News hosts passed over (press wires that carry law-firm notices, and pages that rank stocks).",
+    "CARRY_KEYBOARD": "The keyboard chat (python chat.py) carries the last turns too: it starts with the previous visit's "
+                      "last turns, and leaves its own for the next door. /new there starts clean.",
     "TELEGRAM_GATHER": "Folders under creations/ whose pieces reach the phone together, once a day at a set time, as one "
                        "notice — e.g. {\"projects/daybook\": \"06:00\"}. Not in the quiet hours or your /quiet "
                        "hold (then when they end). Empty: each piece as it is written.",

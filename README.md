@@ -603,7 +603,7 @@ asks only the account, not a second entry (`FOLD_BELL_COVERED`, on).
 **The carry.** The fold keeps the last turns whole inside a visit; the
 carry keeps them across the gap between two. When a visit starts in an
 empty room — the phone after `/new`, after the night, after a shutdown; the
-parlor's first message — the last `CARRY_TURNS` (6) turns of the previous
+parlor's first message; the keyboard chat's, with `CARRY_KEYBOARD` (on) — the last `CARRY_TURNS` (6) turns of the previous
 visit sit at the head of the new one, word for word, under one engine line
 saying when that visit ended, if it ended within `CARRY_HOURS` (20; 0 turns
 it off). Then the thread, the clock and the message, as at any door. They

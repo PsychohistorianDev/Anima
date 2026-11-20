@@ -2535,6 +2535,8 @@ def main() -> None:
     history: list[dict] = []
     attached: list[str] = []
     pinned: Path | None = None  # the visit's file once a fold has named it
+    kbd_carry = bool(getattr(config, "CARRY_KEYBOARD", False))  # the carry at this door too
+    carried_n = 0  # the carried turns at the head of the history: the afterglow starts past them, as the parlor's
     try:
         while True:
             try:
@@ -2548,9 +2550,12 @@ def main() -> None:
             if user_text == "/new":
                 if (f := save_transcript(history, path=pinned)):
                     print(f"(saved {f.name} — they are writing the visit down…)")
-                    afterglow(history, f, on_line=print)
+                    afterglow(history, f, on_line=print, **({"since": carried_n} if carried_n else {}))
+                if kbd_carry:
+                    clear_carry()  # /new: the one door opened on purpose to start clean, as on the phone
                 history = []
                 pinned = None
+                carried_n = 0
                 continue
             if user_text.startswith("/show "):
                 note = tools.look_at(user_text[6:].strip().strip('"'))
@@ -2561,6 +2566,11 @@ def main() -> None:
                 else:
                     print(note)
                 continue
+            if kbd_carry and not history:  # an empty room: the last visit's last turns ride at the door
+                carried = take_carry()
+                if carried:
+                    history, carried_n = carried, len(carried)
+                    print(f"({carry_line(carried)})")
             try:
                 reply = one_turn(history, user_text, images=attached or None)
                 attached = []
@@ -2586,12 +2596,15 @@ def main() -> None:
                                                          pending.get("when") or datetime.now().strftime("%H:%M"),
                                                          path=pinned, mode="chat", why=why, held=held)
                     print(f"({line})")
+                    carried_n = 0  # what a fold keeps is this visit's own by now
                 except Exception as e:
                     print(f"(fold: hiccup — the visit stays as it is: {type(e).__name__}: {e})")
     finally:
         if (f := save_transcript(history, path=pinned)):
             print(f"\n(conversation saved: {f.name} — they are writing the visit down…)")
-            afterglow(history, f, on_line=print)
+            if kbd_carry:
+                leave_carry(history, f)  # the last turns, for the next door
+            afterglow(history, f, on_line=print, **({"since": carried_n} if carried_n else {}))
         doors.unmark("chat")
 
 

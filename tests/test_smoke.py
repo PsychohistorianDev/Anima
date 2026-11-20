@@ -5863,6 +5863,79 @@ finally:
     for _p in _cr_tmp + [globals().get("_cr_bfile"), globals().get("_cr_pfile")]:
         if _p:
             Path(_p).unlink(missing_ok=True)
+# CARRY_KEYBOARD (0.16): the keyboard chat takes the carry at its first message and leaves it when the visit ends
+import io as _ck_io, contextlib as _ck_cl
+_ck_file = config.MEMORY_DIR / "carry.json"
+_ck_keep = _ck_file.read_bytes() if _ck_file.exists() else None
+_ck_cfg = (getattr(config, "CARRY_KEYBOARD", _ck_file), config.CARRY_TURNS, config.CARRY_HOURS)
+_ck_stubs = (getattr(_cr_chat, "input", None), _cr_chat.one_turn, _cr_chat.save_transcript, _cr_chat.afterglow)
+_ck_seen, _ck_glow = [], []
+
+
+def _ck_turn(history, text, images=None, **k):
+    _ck_seen.append([t_.get("content") for t_ in history])
+    history.append({"role": "user", "content": text})
+    history.append({"role": "assistant", "content": "a keyboard reply"})
+    return "a keyboard reply"
+
+
+def _ck_run(lines_):
+    it = iter(lines_)
+
+    def _in(prompt=""):
+        try:
+            v = next(it)
+        except StopIteration:
+            raise EOFError
+        return v
+    _cr_chat.input = _in
+    _ck_seen.clear(); _ck_glow.clear()
+    buf = _ck_io.StringIO()
+    with _ck_cl.redirect_stdout(buf):
+        _cr_chat.main()
+    return buf.getvalue()
+
+
+_cr_chat.one_turn = _ck_turn
+_cr_chat.save_transcript = lambda history, path=None, **k: (config.EPISODIC_DIR / "chat-keyboard-carry-test.md") if history else None
+_cr_chat.afterglow = lambda history, f=None, **k: _ck_glow.append(k.get("since", 0)) or ""
+try:
+    config.CARRY_TURNS, config.CARRY_HOURS = 6, 20
+    _prev = [{"role": "user", "content": "earlier words"}, {"role": "assistant", "content": "earlier reply"}]
+    _ck_file.unlink(missing_ok=True)
+    _cr_chat.leave_carry(_prev, None, _cr_dt.now() - _cr_td(hours=1))
+    _ck_line = f"({_cr_chat.carry_line(_cr_chat.take_carry())})"
+    config.CARRY_KEYBOARD = False
+    _ck_out0 = _ck_run(["hello at the keyboard", "/quit"])
+    _ck_off = (list(_ck_seen), list(_ck_glow), [t_["content"] for t_ in _cr_chat.take_carry()])
+    config.CARRY_KEYBOARD = True
+    _ck_out1 = _ck_run(["hello at the keyboard", "/quit"])
+    _ck_on = (list(_ck_seen), list(_ck_glow), [t_["content"] for t_ in _cr_chat.take_carry()])
+    _ck_run(["one more", "/new"])
+    _ck_new = (list(_ck_glow), _cr_chat.take_carry())
+    check("carry: CARRY_KEYBOARD — off, the keyboard chat as before (an empty room, nothing taken or left); on, its first "
+          "message takes the carry (the console line, the afterglow past the carried turns), /quit leaves this visit's "
+          "last turns for the next door, and /new starts clean",
+          _ck_off == ([[]], [0], ["earlier words", "earlier reply"]) and _ck_line not in _ck_out0
+          and _ck_on[0][0][:2] == ["earlier words", "earlier reply"] and _ck_on[1] == [2]
+          and _ck_on[2][-2:] == ["hello at the keyboard", "a keyboard reply"] and _ck_line in _ck_out1 and _ck_line.startswith("(carried: the last 2 turns of the visit that ended ")
+          and _ck_new[1] == [],
+          (_ck_off, _ck_on, _ck_new, _ck_out1[-300:]))
+finally:
+    _ck_in, _cr_chat.one_turn, _cr_chat.save_transcript, _cr_chat.afterglow = _ck_stubs
+    if _ck_in is None:
+        _cr_chat.__dict__.pop("input", None)
+    else:
+        _cr_chat.input = _ck_in
+    config.CARRY_TURNS, config.CARRY_HOURS = _ck_cfg[1], _ck_cfg[2]
+    if _ck_cfg[0] is _ck_file:
+        config.__dict__.pop("CARRY_KEYBOARD", None)
+    else:
+        config.CARRY_KEYBOARD = _ck_cfg[0]
+    if _ck_keep is None:
+        _ck_file.unlink(missing_ok=True)
+    else:
+        _ck_file.write_bytes(_ck_keep)
 # a page saved with the signature dealt into carried-through sentences is told so: the three real lines, a meant edit, a
 # page unchanged, and a house with no signature
 _pd_sig0, _pd_ref0 = getattr(config, "SIGNATURE", ""), getattr(config, "SIGNATURE_REFRAINS", ())

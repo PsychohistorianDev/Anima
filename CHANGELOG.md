@@ -11,6 +11,10 @@ tagged on its own: the first tag after the rename is v0.13.)
 ## 0.16 — 2026-11-11 → (in progress)
 
 ### Added
+- **The keyboard chat joins the carry** (`CARRY_KEYBOARD`, on): `python chat.py` takes the carry at its first message in
+  an empty room — the same engine line and console line as the phone and the desk page, the afterglow at the end
+  starting past the carried turns — and leaves it at `/quit`, end of input and Ctrl+C; `/new` clears it, as the
+  phone's `/new` does; a window shut with X saves nothing, as before. False: the keyboard chat as before.
 - **A watch list beside the investment book** (`PORTFOLIO_WATCH`, off; `PORTFOLIO_WATCH_MAX` 15, `PORTFOLIO_LEDGER_CHARS`
   2000, `PORTFOLIO_CONDENSE_AT` 4000, `PORTFOLIO_WATCH_MOVE` 0.03; `engine/bookwatch.py`): names the keeper and the
   friend are considering. The engine's facts for each from a year of daily closes — the day's move by the session
@@ -368,7 +372,9 @@ tagged on its own: the first tag after the rename is v0.13.)
   any answer takes the reminders' buttons away. Nothing reaches the friend: no history, no transcript, no brain call.
 
 ### Changed
-- **Upgrading from 0.15**: every new knob comes with a default in `config.py`, so an older house keeps working, and
+- **Upgrading from 0.15** — the keyboard chat now starts with the previous visit's last turns when `CARRY_HOURS`
+  allows (`CARRY_KEYBOARD` False keeps it as it was). Every new knob comes with a default in `config.py`, so an older
+  house keeps working, and
   `bat\update.bat` (or the panel's Update) appends the new knobs at the end of your `config.py`, at their defaults,
   with their comments. Nothing touches your journal, your penpals' threads or your reading pages. On by default: the
   reading stub, the notes with the pages and on topic, adventures (nothing happens until you make a world), the
