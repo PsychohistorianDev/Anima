@@ -7852,7 +7852,7 @@ check("heartbeat: a wake sets the brain down when it is done (BRAIN_REST_AFTER_W
       _rw_on is True and _rw_unl == [(config.CHAT_MODEL, True)] and _rw_off is False and len(_rw_unl) == 1 and _rw0 is True
       and "finally:\n            rest_after_wake()" in _rw_src and _rw_src.count("    rest_after_wake()\n") == 3  # the desk's wake too (0.16)
       and "                rest_after_wake()\n            try:\n                stopped, asked = (_rest_with_desk(minutes * 60) if" in _rw_src
-      and "            _presence.mark_waking(False)\n            rest_after_wake()\n        return True" in _rw_src
+      and "            _presence.mark_waking(False)\n            if test:\n                bookdesk.test_ended(start)\n            rest_after_wake()\n        return True" in _rw_src
       and "BRAIN_REST_AFTER_WAKE" in Path(heartbeat.__file__).with_name("panel.py").read_text(encoding="utf-8"), (_rw_on, _rw_unl, _rw_off))
 check("telegram: /afterglow — the pause runs now though the keeper was just talking (the bell rung, the stretch read, the phone told), the brain is set down "
       "and the visit stays open; again with nothing new only sets the brain down; the quiet's pause then finds nothing (either/or); no visit — the card freed",
@@ -25899,6 +25899,100 @@ check("book (0.16): a headline that is only a quote page — the security's name
       _bk_pf.quote_page("Acme Widgets, Inc. Ordinary Shares - Class A (ACME) Stock Price", "Acme Widgets", "ACME")
       and not _bk_pf.quote_page("Acme Widgets opens a second plant by the river", "Acme Widgets", "ACME"))
 
+# /trade test: a test run of the desk wake, asked from the phone
+config.PORTFOLIO_DESK_WAKE = ""
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "1000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03")
+_bk_b, _bk_ph = _bk_bridge()
+_bk_text(_bk_b, "/trade test")
+_bk_t_off = (_bk_ph.msgs[-1]["text"], (_bk_dir / "desk_test.json").exists(), _bk_hb._desk_turn())
+config.PORTFOLIO_DESK_WAKE = "05:30"
+_bk_clock[0] = _bk_T(14, 0)
+_bk_text(_bk_b, "/trade test")
+_bk_ta1 = _bk_ph.msgs[-1]["text"]
+_bk_text(_bk_b, "/trade test")
+_bk_ta2 = _bk_ph.msgs[-1]["text"]
+_bk_tw = []
+
+
+def _bk_test_wake(**k):
+    _bk_tw.append(k.get("desk", ""))
+    _bk_tw.append(tools.portfolio("brief", text="A test reading: nothing to do."))
+    return ""
+
+
+_bk_hb.wake = _bk_test_wake
+_bk_tturn = _bk_hb._desk_turn()
+_bk_tday = _bk_dday.isoformat()
+_bk_tj = [e.get("type") for e in _bk_bd.entries()]
+_bk_n0 = len(_bk_ph.msgs)
+_bk_b.desk_tick()
+_bk_b.desk_tick()
+_bk_trep = [m["text"] for m in _bk_ph.msgs[_bk_n0:]]
+check("book (0.16): /trade test — off with the desk \"\" (a symbol, as before; nothing asked, no wake); on: asked once, "
+      "the heartbeat runs the real desk wake outside the morning, the bell saying it is a test; nothing of it counts as "
+      "the day's morning; the phone gets each step once — the bell given, the reading as the test run's message, the end",
+      not _bk_t_off[0].startswith("🧪") and _bk_t_off[1] is False and _bk_t_off[2] is False
+      and _bk_ta1.startswith("🧪 desk test asked — the heartbeat picks it up within about a minute.")
+      and _bk_ta2.startswith("🧪 a desk test is asked already (14:00)")
+      and _bk_tturn is True and _bk_tw[0].startswith(f"The desk — {_bk_bd.day_label(_bk_dday)}, 14:00 — a test run your keeper asked "
+                                                    "for, outside the morning. This wake is the house's, for the morning brief your keeper set up.")
+      and _bk_tw[1].startswith("filed — it goes to your keeper's phone")
+      and "test_morning" in _bk_tj and "test_reading" in _bk_tj and "morning" not in _bk_tj and "reading" not in _bk_tj
+      and _bk_bd.morning(_bk_tday) is None and not (_bk_dir / "desk_test.json").exists()
+      and len(_bk_trep) == 3 and _bk_trep[0] == "🧪 the desk bell was given at 14:00 (numbers fetched: 1 holding, 0 yardsticks, 0 watched movers)"
+      and _bk_trep[1].startswith("📊 The desk — test run, 14:00\n") and _bk_trep[1].endswith(f"— {_bk_FN}'s reading —\nA test reading: nothing to do.")
+      and _bk_trep[2] == f"🧪 test wake ended 14:00 — {_bk_FN}'s reading was filed at 14:00 and sent",
+      (_bk_t_off, _bk_ta1, _bk_ta2, _bk_tturn, _bk_tw[:2], _bk_tj, _bk_trep))
+# blocked by a visit; not picked up; lapsed; a corrupt request; a guest
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "1000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03")
+_bk_b, _bk_ph = _bk_bridge()
+_bk_clock[0] = _bk_T(15, 0)
+_bk_text(_bk_b, "/trade test")
+chat.visit_live = lambda *a, **k: True
+_bk_tw.clear()
+_bk_tblk = _bk_hb._desk_turn()
+_bk_n0 = len(_bk_ph.msgs)
+_bk_b.desk_tick(); _bk_b.desk_tick()
+_bk_twait = [m["text"] for m in _bk_ph.msgs[_bk_n0:]]
+chat.visit_live = lambda *a, **k: False
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "1000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03")
+_bk_b, _bk_ph = _bk_bridge()
+_bk_clock[0] = _bk_T(16, 0)
+_bk_text(_bk_b, "/trade test")
+_bk_n0 = len(_bk_ph.msgs)
+_bk_clock[0] = _bk_T(16, 4)
+_bk_b.desk_tick(); _bk_b.desk_tick()
+_bk_clock[0] = _bk_T(16, 31)
+_bk_b.desk_tick(); _bk_b.desk_tick()
+_bk_tlapse = [m["text"] for m in _bk_ph.msgs[_bk_n0:]]
+_bk_dir.mkdir(parents=True, exist_ok=True)
+(_bk_dir / "desk_test.json").write_text("{broken", encoding="utf-8")
+_bk_tw.clear()
+_bk_tbad = (_bk_hb._desk_turn(), list(_bk_tw), (_bk_dir / "desk_test.json").exists())
+_bk_text(_bk_b, "/trade test")
+_bk_b.guest_command("Wren")
+_bk_n0 = len(_bk_ph.msgs)
+_bk_tg_turn = _bk_hb._desk_turn()
+_bk_b.desk_tick()
+_bk_tguest = [m["text"] for m in _bk_ph.msgs[_bk_n0:]]
+_bk_b.guest_command("off")
+_bk_clock[0] = _bk_T(5, 31)
+check("book (0.16): /trade test held back — a live visit: said once, with what starts it; not picked up in 3 minutes: said "
+      "once; 30 minutes: it did not start, said, cleared; a request that can't be read never starts a wake; a guest "
+      "seated: no wake, only the plain status lines",
+      _bk_tblk is False and len(_bk_twait) == 1 and _bk_twait[0].startswith("🧪 the heartbeat saw the request; waiting — a visit is open (")
+      and _bk_tlapse == ["🧪 not picked up yet — is the heartbeat running?",
+                         "🧪 the test did not start: the heartbeat did not pick it up in 30 minutes — is it running?"]
+      and _bk_tbad == (False, [], False)
+      and _bk_tg_turn is False and _bk_tguest[0] == "🧪 the heartbeat saw the request; waiting — a guest is seated (/guest off)"
+      and all(t_.startswith("🧪 ") for t_ in _bk_tguest),
+      (_bk_twait, _bk_tlapse, _bk_tbad, _bk_tg_turn, _bk_tguest))
 # the regular wake never starts within 20 minutes after a desk wake
 _bk_ft = [1000.0]
 _bk_rstubs = (_bk_hb._rest_or_asked, _bk_hb._desk_turn, _bk_hb.time)

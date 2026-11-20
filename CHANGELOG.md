@@ -60,8 +60,12 @@ tagged on its own: the first tag after the rename is v0.13.)
   holding's day is the session of its latest price: shares bought that day from their buy price, held before it from
   the close before, sold that day up to the sale price. A last trade newer than the feed's daily bars, the market not
   open now, is that session's close, said ("from the last trade — the day's bar isn't in the feed yet"). Headlines that
-  are only a security's quote page are dropped; four more hosts in `PORTFOLIO_BRIEF_NEWS_SKIP`. Off: as before, the
-  tool list and `/help` unchanged.
+  are only a security's quote page are dropped; four more hosts in `PORTFOLIO_BRIEF_NEWS_SKIP`. `/trade test`: a test
+  run of the desk wake, asked from the phone and run by the heartbeat within a minute — the real path, outside the
+  morning (the bell says it is a test), never counted as the day's morning; blocked by a guest, the pause, a game or a
+  live visit (said, with what to do), a dead feed retried each minute; each step reported once — asked, the bell
+  given, the reading as "📊 The desk — test run", the wake's end — and said when it isn't picked up (3 minutes) or
+  doesn't start (30). Off: as before, the tool list and `/help` unchanged.
 - **The pieces of a chosen folder reach the phone together at a set time** (`TELEGRAM_GATHER`, `{}` — off): a friend
   wrote eight short pages of one project in a single wake, and the keeper's phone got eight messages. Set a map of
   folders under `creations/` to times, e.g. `{"projects/daybook": "06:00"}`: a new or revised piece under such a

@@ -1870,29 +1870,35 @@ def _desk_turn() -> bool:
                 _DESK_SAID[0] = True
                 print(f"[{datetime.now():%H:%M}] {bad}")
             return False
-        if not bookdesk.due():
-            return False
-        if getattr(config, "HEARTBEAT_YIELD_TO_VISIT", True) and chat.visit_live():
-            return False
-        try:
-            import gameguard
-            if gameguard.playing()[0]:
+        test = False
+        if bookdesk.test_asked():  # a test run the keeper asked for (/trade test): one file check, nothing more without one
+            why_ = _desk_blocked()
+            test = bookdesk.test_take(blocked=why_, **_desk_blocked_detail(why_))
+        if not test:
+            if not bookdesk.due():
                 return False
-        except Exception:  # noqa: BLE001
-            pass
+            if _desk_blocked():
+                return False
         t = bookdesk.now()
-        m = bookdesk.for_wake(t)  # the morning already sent, if fresh; else fresh numbers; else the usual check
+        m = bookdesk.for_wake(t, test=test)  # the morning already sent, if fresh; else fresh numbers; else the usual check
         if not m:
-            print(f"[{datetime.now():%H:%M}] the desk: no wake this morning (" + ("nothing new from the feed" if bookdesk._of_day(
-                t.date().isoformat(), "quiet") else "prices could not be fetched") + ")")
+            print(f"[{datetime.now():%H:%M}] the desk: " + ("the test did not start" if test else "no wake this morning (" + (
+                "nothing new from the feed" if bookdesk._of_day(t.date().isoformat(), "quiet") else "prices could not be fetched") + ")"))
             return False
-        print(f"[{datetime.now():%H:%M}] the desk's wake — the morning brief")
+        print(f"[{datetime.now():%H:%M}] the desk's wake — " + ("a test run the keeper asked for" if test else "the morning brief"))
+        if test:
+            start = bookdesk.test_started(m, t)
+        else:
+            start = None
+            bookdesk.end_unfinished("ended by the morning's wake", t)  # a test killed mid-wake: ended, said
         import presence as _presence
         _presence.mark_waking(True)
         try:
             wake(desk=bookdesk.bell(m, t))
         finally:
             _presence.mark_waking(False)
+            if test:
+                bookdesk.test_ended(start)
             rest_after_wake()
         return True
     except KeyboardInterrupt:
@@ -1900,6 +1906,35 @@ def _desk_turn() -> bool:
     except Exception as e:  # noqa: BLE001
         print(f"[the desk's wake failed] {type(e).__name__}: {e}")
         return False
+
+
+def _desk_blocked() -> str:
+    """What keeps the desk's wake waiting now: a live visit, a game — "" when nothing does."""
+    if getattr(config, "HEARTBEAT_YIELD_TO_VISIT", True) and chat.visit_live():
+        return "a visit is open"
+    try:
+        import gameguard
+        if gameguard.playing()[0]:
+            return "a game is open"
+    except Exception:  # noqa: BLE001
+        pass
+    return ""
+
+
+def _desk_blocked_detail(why: str) -> dict:
+    """For the keeper's phone while a test waits: the visit rule's own numbers (HEARTBEAT_YIELD_MIN, the minutes left
+    since the last turn touched the visit marker), or the game guard's reason."""
+    try:
+        if why == "a visit is open":
+            n = float(getattr(config, "HEARTBEAT_YIELD_MIN", 30))
+            age = (time.time() - chat.VISIT_FILE.stat().st_mtime) / 60
+            return {"yield_min": n, "left": max(1, int(n - age + 0.999))}
+        if why == "a game is open":
+            import gameguard
+            return {"game": str(gameguard.playing()[1] or "")}
+    except Exception:  # noqa: BLE001
+        pass
+    return {}
 
 
 _DESK_SAID = [False]

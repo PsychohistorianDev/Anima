@@ -18,6 +18,7 @@ blocked; the friend's words go out exactly as written.
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from datetime import date, datetime, timedelta
@@ -146,7 +147,7 @@ def last_readings(n: int = 3, before: str | None = None) -> list[dict]:
     """The friend's last n readings, one per day (each day's latest), newest last."""
     by_day: dict[str, dict] = {}
     for e in entries():
-        if e.get("type") == "reading" and (before is None or str(e.get("day")) < before):
+        if e.get("type") in ("reading", "test_reading") and (before is None or str(e.get("day")) < before):
             by_day[str(e.get("day"))] = e
     return [by_day[d] for d in sorted(by_day)][-n:]
 
@@ -210,11 +211,14 @@ def woke(day: str) -> bool:
     return any(e.get("type") == "woke" or (e.get("type") == "morning" and e.get("by") == "heartbeat") for e in _of_day(day))
 
 
-def for_wake(at: datetime | None = None) -> dict | None:
+def for_wake(at: datetime | None = None, test: bool = False) -> dict | None:
     """The morning the desk wake reads: one the bridge already sent, if under 60 minutes old; else fresh numbers,
     kept as that morning's (the journal keeps both); else — no morning yet — the usual check for something new. The
-    wake is marked, once a day."""
+    wake is marked, once a day. test: a test run the keeper asked for — fresh numbers, kept as the test's, never the
+    day's."""
     t = at or now()
+    if test:
+        return prepare(t, test=True)
     day = t.date().isoformat()
     m = morning(day)
     if m is not None:
@@ -239,30 +243,50 @@ def numbers_sent_at(day: str) -> str:
     return str(ms[0].get("at") or "") if ms else ""
 
 
-def prepare(at: datetime | None = None, by: str = "heartbeat", force: bool = False, adhoc: bool = False) -> dict | None:
+def prepare(at: datetime | None = None, by: str = "heartbeat", force: bool = False, adhoc: bool = False,
+            test: bool = False) -> dict | None:
     """The morning's numbers fetched and kept: the morning entry, or None (and the day marked "quiet" — nothing new — or
-    "nofeed" — prices could not be fetched). force: made even with nothing new (a reading waits for its numbers)."""
+    "nofeed" — prices could not be fetched). force: made even with nothing new (a reading waits for its numbers).
+    test: a test run's numbers — a "test_morning", never the day's morning, its closes or its tries; the friend's adds
+    not marked as told; a failure kept as the test's ("test_fail")."""
     t = at or now()
     day = t.date().isoformat()
     syms = _symbols()
     if not syms:
+        if test:
+            _test_clear()
+            _append({"type": "test_fail", "day": day, "t": time.time(), "why": "the book holds nothing to read"})
         return None
-    closes, fetched = {}, 0
+    closes, fetched, ok = {}, 0, []
     for s in syms:
         q = pf.quote(s, until=time.time() + pf.BRIEF_PRICE_S)
         if q.get("ok") and not q.get("stale"):
             fetched += 1
+            ok.append(s)
         if q.get("ok") and q.get("close_date"):
             closes[s] = q["close_date"]
     if not fetched:
-        _append({"type": "nofeed", "day": day, "t": time.time(), "by": by})
+        if test:  # the request kept: tried again each minute until it lapses; said on the phone at once
+            _test_mark("prices could not be fetched")
+        else:
+            _append({"type": "nofeed", "day": day, "t": time.time(), "by": by})
         return None
+    if test:
+        force = True
     last = _last_closes()
     new = any(str(c) > str(last.get(s, "")) for s, c in closes.items())
     if not new and not force:
         _append({"type": "quiet", "day": day, "t": time.time(), "by": by})
         return None
     text = pf.brief(pf.open_book(), t)
+    if test:
+        block = "\n".join(text.splitlines()[1:]).strip("\n")
+        idx = {str(x) for x in (getattr(config, "PORTFOLIO_INDICES", None) or [])}
+        m = {"type": "test_morning", "day": day, "t": time.time(), "at": t.strftime("%H:%M"), "made": t.isoformat(timespec="seconds"),
+             "by": by, "block": block, "closes": closes,
+             "counts": {"holdings": len([s for s in ok if s not in idx]), "yardsticks": len([s for s in ok if s in idx]),
+                        "movers": _watch_movers(block)}}
+        return m if _append(m) else None
     if getattr(config, "PORTFOLIO_WATCH", False):  # the friend's adds were in this morning's numbers: not said again
         try:
             import bookwatch
@@ -283,10 +307,14 @@ def bell(m: dict, at: datetime | None = None) -> str:
     """The words the friend reads at the desk wake — the block is the one kept for the morning: what they read is what
     the keeper gets."""
     t = at or now()
-    went = numbers_sent_at(m["day"])
-    lines = [f"The desk — {day_label(t)}, {t:%H:%M}. This wake is the house's, for the morning brief your keeper set "
-             "up." + (f" The numbers went to their phone at {went} already; your reading follows them." if went else ""),
-             "", "The numbers, from the book:", m["block"]]
+    if m.get("type") == "test_morning":  # a test run: said so, first
+        first = (f"The desk — {day_label(t)}, {t:%H:%M} — a test run your keeper asked for, outside the morning. This "
+                 "wake is the house's, for the morning brief your keeper set up.")
+    else:
+        went = numbers_sent_at(m["day"])
+        first = (f"The desk — {day_label(t)}, {t:%H:%M}. This wake is the house's, for the morning brief your keeper set "
+                 "up." + (f" The numbers went to their phone at {went} already; your reading follows them." if went else ""))
+    lines = [first, "", "The numbers, from the book:", m["block"]]
     if getattr(config, "PORTFOLIO_WATCH", False):  # notes that have outgrown a ledger: one plain line each
         try:
             import bookwatch
@@ -385,10 +413,16 @@ def file(text: str, at: datetime | None = None) -> str:
         return "(bad arguments: brief needs text — your reading, in your own words; nothing was filed)"
     t = at or now()
     day = t.date().isoformat()
-    m = morning(day)
+    tw = _test_wake()  # filed in a test wake: the test's reading, with the test's numbers — never the day's
+    if tw:
+        m = tw[1]
+    else:
+        m = morning(day)
     found = figures(words, (m or {}).get("block") or "")
-    if not _append({"type": "reading", "day": day, "t": time.time(), "at": t.strftime("%H:%M"), "text": words,
-                    "figures": found}):
+    e = {"type": "reading", "day": day, "t": time.time(), "at": t.strftime("%H:%M"), "text": words, "figures": found}
+    if tw:
+        e.update(type="test_reading", start_t=tw[0].get("t"), morning_t=tw[1].get("t"))
+    if not _append(e):
         return "(the book is busy — nothing was filed, try again)"
     # the heartbeat can't know whether the bridge is running: one wording, true either way
     return "filed — it goes to your keeper's phone with the numbers" + (f"\n({figures_line(found)})" if found else "")
@@ -513,3 +547,265 @@ def today_reading(at: datetime | None = None) -> str:
     if not r:
         return ""
     return f"{_friend()}'s reading this morning ({r.get('at')}): {r['text']}"
+
+
+# ---- a test run of the desk wake, asked from the keeper's phone --------------------------------------------------
+# A keeper may not be awake at the desk's hour to see whether it works. /trade test writes a request (desk_test.json); the heartbeat's minute tick starts the same desk wake with test=True: no window, no
+# "something new", no once-a-day — but a guest, the pause, a live visit or a game still block it. Nothing of a test
+# counts as the day's morning, its "woke", its "sent" or the last morning's closes. The bridge reports each step once.
+TEST = "desk_test.json"
+TEST_MIN = 30         # a request lapses after this
+TEST_NUDGE_MIN = 3    # not picked up by then: said once
+NOT_PICKED = "the heartbeat did not pick it up in 30 minutes — is it running?"
+WAKING = "desk_test_wake.json"  # the heartbeat's CURRENT wake is a test: {pid, t, start_t} — set at its start, cleared in finally
+WAKING_MIN = 90       # older than this: stale
+TAKEN_S = 300         # a request taken by another heartbeat process: left to it this long
+TEST_PLAIN = ("test_wait", "test_nudge", "test_fail")  # status lines with nothing of the book in them
+
+
+def _watch_movers(block: str) -> int:
+    """The watched movers in a block: the ▲/▼ lines of its "watching" section."""
+    n, inside = 0, False
+    for line in block.splitlines():
+        if line.strip() == "watching":
+            inside = True
+            continue
+        if inside:
+            if not line.strip():
+                break
+            if line.lstrip().startswith(("▲", "▼")):
+                n += 1
+    return n
+
+
+def test_asked() -> bool:
+    """A test request on file — the heartbeat's one cheap check."""
+    try:
+        return (pf.folder() / TEST).exists()
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _test_req() -> dict | None:
+    r = pf._read(TEST, None)
+    return r if isinstance(r, dict) else ({} if test_asked() else None)
+
+
+def _age_min(req: dict, t: datetime) -> float:
+    try:
+        return (t - datetime.fromisoformat(str(req.get("asked")))).total_seconds() / 60
+    except (TypeError, ValueError):
+        return 1e9  # unreadable: lapsed
+
+
+def _test_clear() -> None:
+    try:
+        (pf.folder() / TEST).unlink()
+    except OSError:
+        pass
+
+
+def _lapse(req: dict, t: datetime) -> None:
+    _test_clear()
+    _append({"type": "test_fail", "day": t.date().isoformat(), "t": time.time(), "why": str(req.get("why") or NOT_PICKED),
+             "asked": req.get("asked")})
+
+
+def ask_test(at: datetime | None = None) -> str:
+    """/trade test: the request written (under the book's lock), answered at once. One at a time."""
+    if not on():
+        return f"(the desk is off — {bad_knob() or 'the book is off'}; no test was asked)"
+    t = at or now()
+    try:
+        with pf._locked():
+            req = _test_req()
+            if req is not None:
+                age = _age_min(req, t)
+                if 0 <= age < TEST_MIN:
+                    when = str(req.get("asked") or "")[11:16]
+                    return (f"🧪 a desk test is asked already ({when}) — the heartbeat picks it up within about a minute; "
+                            "nothing new was asked. I'll report here.")
+                _lapse(req, t)
+            if not pf._write(TEST, {"asked": t.isoformat(timespec="seconds"), "t": time.time()}):
+                return "(the book is busy — nothing was asked, try again)"
+    except pf.BookBusy:
+        return "(the book is busy — nothing was asked, try again)"
+    return ("🧪 desk test asked — the heartbeat picks it up within about a minute. It needs: the heartbeat running, no visit "
+            "or game open, no guest. I'll report here.")
+
+
+def _test_mark(why: str, **detail) -> None:
+    """The heartbeat saw the request and can't start now: the reason (and its detail) kept in it, the time it saw it."""
+    try:
+        with pf._locked():
+            req = _test_req()
+            if req is not None:
+                pf._write(TEST, dict({k: v for k, v in req.items() if k not in ("left", "game", "taken_by", "taken_t")},
+                                     seen=time.time(), why=why, **detail))
+    except pf.BookBusy:
+        pass
+
+
+def test_take(at: datetime | None = None, blocked: str = "", **detail) -> bool:
+    """The heartbeat, a request on file: True — start the test wake now (the request is cleared when it starts);
+    False — blocked (kept, with why, until it lapses) or lapsed (cleared, kept in the journal for the report)."""
+    if not on():
+        return False
+    t = at or now()
+    try:
+        with pf._locked():
+            req = _test_req()
+            if req is None:
+                return False
+            age = _age_min(req, t)
+            if not (-5 <= age < TEST_MIN):
+                _lapse(req, t)
+                return False
+            taken = req.get("taken_by")
+            if taken and taken != os.getpid() and time.time() - float(req.get("taken_t") or 0) < TAKEN_S:
+                return False  # another heartbeat process has it: one test wake, never two
+            why = ("the desk is paused" if paused() else "a guest is seated" if pf.guest_here() else blocked)
+            if why:
+                _test_mark(why, **(detail if why == blocked else {}))
+                return False
+            return pf._write(TEST, dict(req, taken_by=os.getpid(), taken_t=time.time()))
+    except pf.BookBusy:
+        return False
+
+
+def end_unfinished(why: str, at: datetime | None = None) -> None:
+    """A test wake killed mid-wake left no end mark: ended now, said ("ended by the morning's wake"); the
+    running-test marker cleared. Called when a real desk wake (or another test) starts. Never raises."""
+    try:
+        t = at or now()
+        es = entries()
+        ended = {e.get("start_t") for e in es if e.get("type") == "test_end"}
+        for st in [e for e in es if e.get("type") == "test_start" and e.get("t") not in ended]:
+            _append({"type": "test_end", "day": t.date().isoformat(), "t": time.time(), "at": t.strftime("%H:%M"),
+                     "start_t": st.get("t"), "why": why})
+        (pf.folder() / WAKING).unlink(missing_ok=True)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def test_started(m: dict, at: datetime | None = None) -> dict:
+    t = at or now()
+    end_unfinished("ended by the next test", t)
+    _test_clear()
+    e = {"type": "test_start", "day": t.date().isoformat(), "t": time.time(), "at": t.strftime("%H:%M"),
+         "morning_t": m.get("t"), "counts": m.get("counts") or {}}
+    _append(e)
+    pf._write(WAKING, {"pid": os.getpid(), "t": time.time(), "start_t": e["t"]})
+    return e
+
+
+def test_ended(start: dict | None, at: datetime | None = None) -> None:
+    t = at or now()
+    try:
+        (pf.folder() / WAKING).unlink(missing_ok=True)
+    except OSError:
+        pass
+    _append({"type": "test_end", "day": t.date().isoformat(), "t": time.time(), "at": t.strftime("%H:%M"),
+             "start_t": (start or {}).get("t")})
+
+
+def _test_wake() -> tuple[dict, dict] | None:
+    """The test wake this process is in now: (its start, its numbers), or None. Only while the heartbeat's CURRENT
+    wake is that test — the marker is this process's (a visit's tool runs elsewhere: an ordinary reading), under
+    WAKING_MIN old, its start not ended."""
+    w = pf._read(WAKING, None)
+    if not isinstance(w, dict):
+        return None
+    try:
+        if int(w.get("pid")) != os.getpid() or time.time() - float(w.get("t")) > WAKING_MIN * 60:
+            return None
+    except (TypeError, ValueError):
+        return None
+    es = entries()
+    if any(e.get("type") == "test_end" and e.get("start_t") == w.get("start_t") for e in es):
+        return None
+    st = next((e for e in es if e.get("type") == "test_start" and e.get("t") == w.get("start_t")), None)
+    m = next((e for e in es if e.get("type") == "test_morning" and e.get("t") == (st or {}).get("morning_t")), None) if st else None
+    return (st, m) if st and m else None
+
+
+def _wait_hint(req: dict) -> str:
+    """What starts it — in the keeper's words, from the heartbeat's own rule."""
+    why = str(req.get("why") or "")
+    if why == "a visit is open":
+        n, left = req.get("yield_min"), req.get("left")
+        if not isinstance(n, (int, float)):
+            return "(the test starts once the visit is over)"
+        rest = TEST_MIN - _age_min(req, now())
+        more = ""
+        if isinstance(left, (int, float)) and left > 0:
+            more = (f" — about {left} more" + (", longer than this test waits" if left >= rest else ""))
+        return (f"(the test starts once the visit has been quiet for {n:g} minutes — no message between you{more}; "
+                f"/new ends the visit sooner, once {_friend()} has written it down)")
+    if why == "a game is open":
+        return f"({req.get('game') or 'the game guard holds the brain'}; /gaming off lets the test start)"
+    if why == "a guest is seated":
+        return "(/guest off)"
+    if why == "the desk is paused":
+        return "(/trade resume)"
+    if why == "prices could not be fetched":
+        return f"(it tries again each minute until the {TEST_MIN} minutes run out)"
+    return ""
+
+
+def _n(k: int, one: str, many: str) -> str:
+    return f"{k} {one if k == 1 else many}"
+
+
+def test_outbox(at: datetime | None = None) -> list[tuple[str, dict]]:
+    """The test's report for the keeper's phone — engine-only messages, each once (marked by sent()): the bell given,
+    the reading as the desk's message, the wake's end, a test that did not start; the request not picked up after
+    TEST_NUDGE_MIN (once), and lapsed after TEST_MIN (the bridge sees that even with the heartbeat off)."""
+    if not on():
+        return []
+    t = at or now()
+    es = entries()
+    done = {(x.get("what"), x.get("key")) for x in es if x.get("type") == "sent" and str(x.get("what") or "").startswith("test")}
+    out = []
+    if test_asked():
+        try:
+            with pf._locked():
+                req = _test_req()
+                if req is not None:
+                    age = _age_min(req, t)
+                    if not (-5 <= age < TEST_MIN):
+                        _lapse(req, t)
+                        es = entries()
+                    elif req.get("seen") and req.get("why"):
+                        key = f"{req.get('asked')}|{req.get('why')}"
+                        if ("test_wait", key) not in done:  # once per reason
+                            out.append((f"🧪 the heartbeat saw the request; waiting — {req.get('why')} {_wait_hint(req)}",
+                                        {"what": "test_wait", "key": key}))
+                    elif age >= TEST_NUDGE_MIN and ("test_nudge", req.get("asked")) not in done:
+                        out.append(("🧪 not picked up yet — is the heartbeat running?", {"what": "test_nudge", "key": req.get("asked")}))
+        except pf.BookBusy:
+            pass
+    mornings = {e.get("t"): e for e in es if e.get("type") == "test_morning"}
+    for e in es:
+        k = e.get("type")
+        if k == "test_start" and ("test_start", e.get("t")) not in done:
+            c = e.get("counts") or {}
+            out.append((f"🧪 the desk bell was given at {e.get('at')} (numbers fetched: {_n(int(c.get('holdings') or 0), 'holding', 'holdings')}, "
+                        f"{_n(int(c.get('yardsticks') or 0), 'yardstick', 'yardsticks')}, "
+                        f"{_n(int(c.get('movers') or 0), 'watched mover', 'watched movers')})", {"what": "test_start", "key": e.get("t")}))
+        elif k == "test_reading" and ("test_reading", e.get("t")) not in done:
+            m = mornings.get(e.get("morning_t")) or {}
+            lines = [f"📊 The desk — test run, {e.get('at')}", m.get("block") or "", ""] + _reading_part(e, False)
+            out.append(("\n".join(lines), {"what": "test_reading", "key": e.get("t")}))
+        elif k == "test_end" and ("test_end", e.get("t")) not in done:
+            rs = [r for r in es if r.get("type") == "test_reading" and r.get("start_t") == e.get("start_t")]
+            if any(("test_reading", r.get("t")) not in done for r in rs):
+                continue  # the reading goes first; the end follows it
+            said = (f"{_friend()}'s reading was filed at {rs[0].get('at')} and sent" if len(rs) == 1 else
+                    f"{_friend()}'s readings were filed at {', '.join(str(r.get('at')) for r in rs)} and sent" if rs else
+                    "no reading was filed in this wake")
+            out.append((f"🧪 test wake ended {e.get('at')}" + (f" ({e.get('why')})" if e.get("why") else "") + f" — {said}",
+                        {"what": "test_end", "key": e.get("t")}))
+        elif k == "test_fail" and ("test_fail", e.get("t")) not in done:
+            out.append((f"🧪 the test did not start: {e.get('why')}", {"what": "test_fail", "key": e.get("t")}))
+    return out

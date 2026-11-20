@@ -206,6 +206,7 @@ if getattr(config, "PORTFOLIO_ON", False):
             import bookdesk as _bd
             if _bd.on():
                 HELP_PHONE += "/trade pause · /trade resume — the morning desk wake and its message\n"
+                HELP_PHONE += "/trade test — a test run of the desk wake now, while you watch; reported here\n"
         except Exception:  # noqa: BLE001
             pass
 
@@ -5631,6 +5632,13 @@ class Bridge:
         if ours and self._tr_guest():  # a guest seated anywhere: nothing of the book shows
             self._tr_send(self._tr_closed())
             return True
+        if str(getattr(config, "PORTFOLIO_DESK_WAKE", "") or "").strip() and low.split()[:2] == ["/trade", "test"]:
+            if self._tr_guest():  # a test run of the desk wake: the keeper's, closed while a guest is seated
+                self._tr_send(self._tr_closed())
+                return True
+            import bookdesk
+            self._tr_send(bookdesk.ask_test())
+            return True
         if str(getattr(config, "PORTFOLIO_DESK_WAKE", "") or "").strip() and low.split()[:2] in (["/trade", "pause"], ["/trade", "resume"]):
             if self._tr_guest():
                 self._tr_send(self._tr_closed())
@@ -6188,9 +6196,12 @@ class Bridge:
             return
         try:
             import bookdesk
-            if self._tr_guest():
+            guest = self._tr_guest()
+            if guest and not bookdesk.test_asked():
                 return
-            for text_, mark in bookdesk.outbox():
+            # and a test run's report — while a guest is seated, only its plain status lines (nothing of the book)
+            for text_, mark in ([] if guest else bookdesk.outbox()) + [x for x in bookdesk.test_outbox()
+                                                                      if not guest or x[1].get("what") in bookdesk.TEST_PLAIN]:
                 parts = split_long(text_, 3800)
                 done = bookdesk.parts_sent(mark)  # each part marked as it goes: a failed part two never re-sends one
                 for i, part in enumerate(parts):
