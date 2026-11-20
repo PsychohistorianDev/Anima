@@ -11,6 +11,13 @@ tagged on its own: the first tag after the rename is v0.13.)
 ## 0.16 — 2026-11-11 → (in progress)
 
 ### Added
+- **One memory row a day for a folder of fragments** (`CREATION_NOTES_ONE_PER_DAY`, `()` — off): a friend wrote a
+  project in many short fragments, and each became a long-term memory row of its own. Name the folders (under
+  `creations/`, any case, spaces allowed): a piece written, continued or revised there leaves no row of its own; the
+  folder has one row a day, revised in place — the day's count, the first four titles ("+N more"), the latest about=,
+  "since: latest HH:MM" — and the tool's answer ends " — kept in the day's one memory row for this folder (#id)". Rows
+  written before are never touched; a move of the folder carries its day row; the backfill neither notes those pieces
+  nor folds a day row. `()` or absent: a row per piece, as before.
 - **The keeper's investment book** (`PORTFOLIO_ON`, off; `PORTFOLIO_HOME_CURRENCY` "USD",
   `PORTFOLIO_PRICE_CACHE_MIN` 30, `PORTFOLIO_JUMP` 0.25, `PORTFOLIO_BACKUPS` 30, `PORTFOLIO_GUEST_SCRUB` off): a friend
   can keep the keeper's investments with them — as a partner, not a trader — without ever doing a sum or guessing a

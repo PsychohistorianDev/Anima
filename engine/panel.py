@@ -384,6 +384,9 @@ _HELP = {
                            "they read the Brief's numbers and file a reading for you. Empty: none of it.",
     "PORTFOLIO_DESK_SEND": "The latest the desk's numbers and reading reach your phone (sooner once the reading is filed); "
                            "after the desk wake.",
+    "CREATION_NOTES_ONE_PER_DAY": "Folders under creations/ whose pieces share ONE memory row a day (revised in place: the "
+                                  "count, the first titles, the latest about=) instead of a row each — e.g. "
+                                  "(\"projects/serial/chapters\",). Empty: a row per piece.",
     "PORTFOLIO_DESK_UNTIL": "The end of the desk's morning: the numbers alone go only until then, and a late desk wake may "
                             "start until then; after it, only a reading they file.",
     "PORTFOLIO_INDICES": "The morning brief's yardsticks — symbols as the price feed knows them, e.g. [\"^GSPC\"].",

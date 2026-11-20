@@ -8111,6 +8111,39 @@ check("made: --letters lists the old letter rows and --letters --write lets them
       _still and memory.get(_old_letter) is None and "would let go" in _buf3.getvalue() and f"creations/{tg.MAIL_DIR.name}/old_letter.md" in _buf3.getvalue()
       and "noted in your memory" not in _dr and not memory.find_text("creations/drafts/unshelved.md", kind="creation"), (_buf3.getvalue()[-200:], _dr))
 sys.argv = ["test_smoke.py"]
+# CREATION_NOTES_ONE_PER_DAY (0.16): a folder of fragments keeps one memory row a day, revised in place
+_od0 = getattr(config, "CREATION_NOTES_ONE_PER_DAY", ())
+_od_dir = "projects/tin lantern/parts"
+_od_prev = tools.dispatch("write_creation", {"path": f"{_od_dir}/part-0.md", "content": "**Part Zero**\n\nwritten before the knob."})
+_od_prev_rows = [dict(r) for r in memory.find_text(f"creations/{_od_dir}/part-0.md", kind="creation")]
+config.CREATION_NOTES_ONE_PER_DAY = ("Projects/Tin Lantern/parts",)
+_od1 = tools.dispatch("write_creation", {"path": f"{_od_dir}/part-1.md", "content": "**The Wick**\n\nfirst part.", "about": "a serial in parts"})
+_od2 = tools.dispatch("write_creation", {"path": f"{_od_dir}/part-2.md", "content": "**The Glass**\n\nsecond part."})
+_od3 = tools.dispatch("append_creation", {"path": f"{_od_dir}/part-0.md", "content": "and continued with the knob on."})
+_od_rows = [r for r in memory.find_text(f"creations/{_od_dir} — ", kind="creation") if tools.is_day_row(r["text"])]
+_od_own = memory.find_text(f"creations/{_od_dir}/part-1.md", kind="creation")
+_od_prev_after = [dict(r) for r in memory.find_text(f"creations/{_od_dir}/part-0.md", kind="creation") if not tools.is_day_row(r["text"])]
+_od_out = tools.dispatch("write_creation", {"path": "poems/outside_the_folder.md", "content": "**Outside**\n\na poem.", "about": "a poem"})
+_od_today = _dtnow.now().strftime("%Y-%m-%d")
+_buf4 = _io.StringIO()
+with _cl.redirect_stdout(_buf4):
+    sys.argv = ["backfill_creations.py"]; backfill_creations.main()
+    sys.argv = ["backfill_creations.py", "--tidy"]; backfill_creations.main()
+sys.argv = ["test_smoke.py"]
+config.CREATION_NOTES_ONE_PER_DAY = _od0
+check("made: CREATION_NOTES_ONE_PER_DAY — pieces under a listed folder (a name with a space, any case) leave no row of "
+      "their own: the folder keeps one row a day, revised in place — the count, the titles, the latest about=, the "
+      "latest time; the result says which row; a row from before is never touched; outside the folder as before; the "
+      "backfill neither notes the pieces nor folds the day row",
+      len(_od_rows) == 1 and not _od_own and _od_rows[0]["text"].startswith("[wrote ")
+      and f"] creations/{_od_dir} — 3 pieces on {_od_today}: " in _od_rows[0]["text"]
+      and "“The Wick”" in _od_rows[0]["text"] and "“The Glass”" in _od_rows[0]["text"] and "“Part Zero”" in _od_rows[0]["text"]
+      and " — about: a serial in parts — since: latest " in _od_rows[0]["text"]
+      and _od1.endswith(f" — kept in the day's one memory row for this folder (#{_od_rows[0]['id']})")
+      and _od2.endswith(f" — kept in the day's one memory row for this folder (#{_od_rows[0]['id']})")
+      and _od_prev_after == _od_prev_rows and len(_od_prev_rows) == 1
+      and "noted in your memory (#" in _od_out and _od_dir not in _buf4.getvalue(),
+      (_od1, _od2, _od3, [r["text"] for r in _od_rows], _od_prev_after == _od_prev_rows, _buf4.getvalue()[-300:]))
 # a row's date on the shelf is the newest stamp in its text, not the row's created time (the backfilled rows)
 _old_row = memory.add("creation", "[wrote 2026-08-30 17:22] creations/poems/kettle_song_test.md — 16 lines, opens “The kettle hums an old tune;”")
 _old_touched = memory.add("creation", "[wrote 2026-08-30 17:22] creations/poems/touched_lately_test.md — 16 lines, opens “The kettle hums an old tune;” — since: revised " + _dtnow.now().strftime("%Y-%m-%d %H:%M"))

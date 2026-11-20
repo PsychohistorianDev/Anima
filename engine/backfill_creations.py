@@ -60,6 +60,8 @@ def tidy(write: bool) -> int:
     from collections import defaultdict
     by_path: dict[str, list[dict]] = defaultdict(list)
     for r in memory.recent(kind="creation", n=100000):
+        if tools.is_day_row(r["text"]):
+            continue  # a folder's day row (CREATION_NOTES_ONE_PER_DAY): one a day by design, never folded
         m = re.search(r"\] (creations/\S+?)(?: \(| —)", r["text"])
         if m:
             by_path[m.group(1)].append(r)
@@ -193,6 +195,8 @@ def main() -> None:
         rel = q.resolve().relative_to(config.CREATIONS_DIR.resolve()).as_posix()
         if memory.find_text(f"creations/{rel}", kind="creation"):
             continue
+        if tools._day_folder(rel):
+            continue  # a folder of fragments (CREATION_NOTES_ONE_PER_DAY) has its day rows, never a row per piece
         content = q.read_text(encoding="utf-8", errors="replace")
         when = datetime.fromtimestamp(q.stat().st_mtime)
         verb = "published" if rel.startswith("publish/") else "wrote"

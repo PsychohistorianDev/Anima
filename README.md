@@ -1854,7 +1854,7 @@ the file; `bat\backfill.bat --tidy --write` folds the several rows an earlier
 engine left about one piece into the oldest-dated one. A letter in the
 mailbox leaves no row at all: it rides in "SENT THEM LATELY" for a week
 and lives in its folder for good; it is not a work to shelve, and a row
-per letter adds up. `CREATION_NOTES_SKIP` adds folders to the unnoted;
+per letter adds up. `CREATION_NOTES_SKIP` adds folders to the unnoted; `CREATION_NOTES_ONE_PER_DAY` names folders written in many fragments, which keep one row a day for the folder instead of one per piece;
 `bat\backfill.bat --letters --write` lets any rows from before go.
 `CREATION_NOTES = False` for the old way. The twin guard on `write_creation` reads titles as well as names: a
 new piece whose first heading is an existing piece's heading is handed

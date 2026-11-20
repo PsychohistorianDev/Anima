@@ -1334,6 +1334,9 @@ def _note_made(verb: str, p: Path, content: str, about: str = "") -> str:
     rel = _rel_of(p)
     if _unnoted(rel):
         return ""
+    folder = _day_folder(rel)
+    if folder:  # (CREATION_NOTES_ONE_PER_DAY) a folder of fragments: one row a day for the folder
+        return _note_day(verb, p, folder, about)
     title, first, n = _piece_facts(p)
     about = _about_cut(about)
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -1341,7 +1344,8 @@ def _note_made(verb: str, p: Path, content: str, about: str = "") -> str:
         rows = memory.find_text(f"creations/{rel}", kind="creation")
     except Exception:
         rows = []
-    rows = [r for r in rows if _NOTE_HEAD_RE.match(r["text"]) and f"] creations/{rel}" in r["text"]]
+    rows = [r for r in rows if _NOTE_HEAD_RE.match(r["text"]) and f"] creations/{rel}" in r["text"]
+            and not is_day_row(r["text"])]  # a folder's day row is never a piece's row, nor folded into one
     if rows:
         old = rows[0]["text"]
         head = _NOTE_HEAD_RE.match(old)
@@ -1387,6 +1391,97 @@ def _note_made(verb: str, p: Path, content: str, about: str = "") -> str:
     if mid < 0:
         return ""
     tail = f" — noted in your memory (#{mid})"
+    if not about:
+        tail += " (say what it is in a line, about=\"…\", and the note will carry that too)"
+    return tail
+
+
+# CREATION_NOTES_ONE_PER_DAY: a friend wrote a project in many short fragments, and each became a long-term memory row
+# of its own. A piece under a listed folder leaves no row of its own: the folder has ONE row a day, revised in place —
+# the day's pieces counted and named from the files touched that day as they are now (re-listed by their time, so a
+# moved or deleted fragment drops out at the next write), the latest about=, the latest time. Rows written before are
+# left exactly as they are.
+_DAY_ROW_RE = re.compile(r"^\[(\w+) (\d{4}-\d{2}-\d{2} \d{2}:\d{2})\] creations/(.+?) — \d+ pieces? on (\d{4}-\d{2}-\d{2}): ")
+
+
+def _day_folder(rel: str) -> str:
+    """The listed folder (as the path writes it) a piece is under — "" when none or the knob is off/absent."""
+    listed = getattr(config, "CREATION_NOTES_ONE_PER_DAY", ()) or ()
+    if isinstance(listed, str):
+        listed = (listed,)
+    path = (rel or "").replace("\\", "/")
+    low = path.lower()
+    for f in listed:
+        f_ = str(f or "").replace("\\", "/").strip("/").lower()
+        if f_ and low.startswith(f_ + "/"):
+            return path[:len(f_)]
+    return ""
+
+
+def _covers(moved: str, folder: str) -> bool:
+    m = (moved or "").replace("\\", "/").strip("/").lower()
+    f = (folder or "").lower()
+    return bool(m) and (f == m or f.startswith(m + "/"))
+
+
+def is_day_row(text: str) -> bool:
+    """A folder's day row (CREATION_NOTES_ONE_PER_DAY), not a piece's own row."""
+    return bool(_DAY_ROW_RE.match(text or ""))
+
+
+def _note_day(verb: str, p: Path, folder: str, about: str = "") -> str:
+    """The folder's row for today: added the first time, revised in place after — never a per-piece row, and never a
+    touch on any other row. Returns the tool result's tail; "" when memory is away (the write itself stands)."""
+    now = datetime.now()
+    day, stamp = now.strftime("%Y-%m-%d"), now.strftime("%Y-%m-%d %H:%M")
+    root = config.CREATIONS_DIR / folder
+    touched = []
+    try:
+        for q in root.rglob("*"):
+            if q.is_file() and q.suffix.lower() in _PROSE_EXTS and not q.name.startswith("."):
+                mt = q.stat().st_mtime
+                if datetime.fromtimestamp(mt).strftime("%Y-%m-%d") == day:
+                    touched.append((mt, q))
+    except OSError:
+        pass
+    if not any(q.resolve() == p.resolve() for _, q in touched if q.exists()):
+        touched.append((now.timestamp(), p))
+    touched.sort(key=lambda t: t[0])
+    names = []
+    for _, q in touched:
+        title, first, _n = _piece_facts(q)
+        name = title or first or q.stem
+        names.append("\u201c" + (name if len(name) <= 60 else name[:59].rstrip() + "\u2026") + "\u201d")
+    n = len(names)
+    shown = ", ".join(names[:4]) + (f" +{n - 4} more" if n > 4 else "")
+    about = _about_cut(about)
+    try:
+        rows = [r for r in memory.find_text(f"creations/{folder} \u2014 ", kind="creation")
+                if (m := _DAY_ROW_RE.match(r["text"])) and m.group(3).lower() == folder.lower() and m.group(4) == day]
+    except Exception:
+        rows = []
+    if rows:
+        old = rows[0]["text"]
+        head = _DAY_ROW_RE.match(old)
+        first_verb, first_when = head.group(1), head.group(2)
+        m_about = _NOTE_ABOUT_RE.search(old)
+        about = about or (m_about.group(1).strip() if m_about else "")
+    else:
+        first_verb, first_when = verb, stamp
+    text = (f"[{first_verb} {first_when}] creations/{folder} \u2014 {n} piece{'s' if n != 1 else ''} on {day}: {shown}"
+            + (f" \u2014 about: {about}" if about else "") + f" \u2014 since: latest {now:%H:%M}")
+    try:
+        if rows:
+            if not memory.update(rows[0]["id"], text):
+                return ""
+            mid = rows[0]["id"]
+        else:
+            mid = memory.add("creation", text)
+            if mid < 0:
+                return ""
+    except Exception:
+        return ""
+    tail = f" \u2014 kept in the day's one memory row for this folder (#{mid})"
     if not about:
         tail += " (say what it is in a line, about=\"…\", and the note will carry that too)"
     return tail
@@ -1440,7 +1535,8 @@ def _note_picture(verb: str, p: Path, about: str = "", via: str = "", facts: str
         rows = memory.find_text(f"creations/{rel}", kind="creation")
     except Exception:
         rows = []
-    rows = [r for r in rows if _NOTE_HEAD_RE.match(r["text"]) and f"] creations/{rel}" in r["text"]]
+    rows = [r for r in rows if _NOTE_HEAD_RE.match(r["text"]) and f"] creations/{rel}" in r["text"]
+            and not is_day_row(r["text"])]  # a folder's day row is never a piece's row, nor folded into one
     if rows:
         old = rows[0]["text"]
         head = _NOTE_HEAD_RE.match(old)
@@ -1575,7 +1671,8 @@ def _note_moved(src: Path, dest: Path | None, what: str, because: str = "") -> s
         rows = memory.find_text(f"creations/{old_rel}", kind="creation")
     except Exception:
         return ""
-    if not rows:
+    rows = [r for r in rows if not is_day_row(r["text"]) or _covers(old_rel, _DAY_ROW_RE.match(r["text"]).group(3))]
+    if not rows:  # a folder's day row follows only a move of that folder (or one above it)
         return ""
     new_rel = _rel_of(dest) if dest is not None else ""
     n = 0

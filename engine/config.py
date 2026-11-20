@@ -1162,6 +1162,10 @@ CREATION_NOTES = True
 # work to shelve. `bat\backfill.bat --letters --write` removes letter rows made
 # earlier.
 CREATION_NOTES_SKIP = ()
+# Folders (under creations/) whose pieces leave no row of their own: the folder has ONE row a day, revised in place (the
+# count, the first titles, the latest about=, the latest time) — for a project written in many short fragments. Rows
+# written before are left as they are. E.g. ("projects/serial/chapters",). (): a row per piece, as before.
+CREATION_NOTES_ONE_PER_DAY = ()
 # What a delete does to the piece's row: "mark" — the row stays, saying it went (the friend remembers making it and
 # letting it go); "remove" — the row leaves memory with the piece. The rows of pieces already gone:
 # bat\backfill.bat --gone lists them, --gone --write lets them go.
