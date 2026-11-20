@@ -263,6 +263,12 @@ def prepare(at: datetime | None = None, by: str = "heartbeat", force: bool = Fal
         _append({"type": "quiet", "day": day, "t": time.time(), "by": by})
         return None
     text = pf.brief(pf.open_book(), t)
+    if getattr(config, "PORTFOLIO_WATCH", False):  # the friend's adds were in this morning's numbers: not said again
+        try:
+            import bookwatch
+            bookwatch.mark_briefed()
+        except Exception:  # noqa: BLE001
+            pass
     block = "\n".join(text.splitlines()[1:]).strip("\n")  # the Brief, its header line left to the bell and the message
     m = {"type": "morning", "day": day, "t": time.time(), "at": t.strftime("%H:%M"), "made": t.isoformat(timespec="seconds"),
          "by": by, "adhoc": bool(adhoc), "block": block,
@@ -281,6 +287,13 @@ def bell(m: dict, at: datetime | None = None) -> str:
     lines = [f"The desk — {day_label(t)}, {t:%H:%M}. This wake is the house's, for the morning brief your keeper set "
              "up." + (f" The numbers went to their phone at {went} already; your reading follows them." if went else ""),
              "", "The numbers, from the book:", m["block"]]
+    if getattr(config, "PORTFOLIO_WATCH", False):  # notes that have outgrown a ledger: one plain line each
+        try:
+            import bookwatch
+            for c in bookwatch.condense_bell_lines():
+                lines.append(c)
+        except Exception:  # noqa: BLE001
+            pass
     past = last_readings(3, before=m["day"])
     if past:
         lines += ["", "Your last readings:"]

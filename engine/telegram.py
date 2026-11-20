@@ -198,6 +198,9 @@ if getattr(config, "PORTFOLIO_ON", False):
     HELP_PHONE += ("/trade — your investment book, with buttons: 📒 Book, ➕ Record, ✏️ Fix, 🧪 Paper / 💼 Real; "
                    "/trade <symbol> — one holding and its price; /trade unseat — mend the book's guest seat; /book — the book\n")
     HELP_PHONE += "/brief — the morning brief: the book's day, the yardsticks, the rates (and headlines, if on)\n"
+    if getattr(config, "PORTFOLIO_WATCH", False):  # the watch list
+        HELP_PHONE += ("/watch — the watch list: the names you and " + chat.friend_name() + " are considering, their facts, "
+                       "the notes; alerts at the close\n")
     if str(getattr(config, "PORTFOLIO_DESK_WAKE", "") or "").strip():  # the desk (bookdesk.py), when its times are real
         try:
             import bookdesk as _bd
@@ -5414,7 +5417,7 @@ class Bridge:
             if news:
                 self._tr_send(f"({news})")
             self._tr_send("📒 the book", [[("📒 Book", "tr:b"), ("➕ Record", "tr:r")], [("✏️ Fix", "tr:f")],
-                                         [("🌅 Brief", f"tr:bf:{self._tr_b(pf.open_book())}")]])
+                                         [("🌅 Brief", f"tr:bf:{self._tr_b(pf.open_book())}")] + self._watch_btn()])
             return
         paper = pf.open_book() == "paper"
         if not pf.state_readable():
@@ -5423,10 +5426,164 @@ class Bridge:
                       [[("📒 Book", "tr:b"), ("➕ Record", "tr:r")],
                        [("✏️ Fix", "tr:f"), ("🧪 Paper ✓" if paper else "🧪 Paper", "tr:o:paper"),
                         ("💼 Real ✓" if not paper else "💼 Real", "tr:o:real")],
-                       [("🌅 Brief", f"tr:bf:{self._tr_b(pf.open_book())}")]])
+                       [("🌅 Brief", f"tr:bf:{self._tr_b(pf.open_book())}")] + self._watch_btn()])
+
+    # ---- PORTFOLIO_WATCH: 👁 Watch — the names the keeper and the friend are considering ------------------------------
+    @staticmethod
+    def _watch_on() -> bool:
+        return bool(getattr(config, "PORTFOLIO_WATCH", False)) and bool(getattr(config, "PORTFOLIO_ON", False))
+
+    def _watch_bought(self, rec) -> str:
+        """A buy of a watched name, kept: the name leaves the watch list — said on the kept line."""
+        if not self._watch_on():
+            return ""
+        try:
+            import bookwatch
+            return bookwatch.on_buy(rec)
+        except Exception:  # noqa: BLE001
+            return ""
+
+    def _watch_btn(self) -> list:
+        import portfolio as pf
+        return [("👁 Watch", f"tr:wl:{self._tr_b(pf.open_book())}")] if self._watch_on() else []
+
+    def _alerts_now(self) -> None:
+        """Fresh closes in hand (Book, Watch opened): an alert that crossed, said once as its own message."""
+        if not self._watch_on():
+            return
+        try:
+            import bookwatch
+            for line in bookwatch.check_alerts():
+                self._tr_send(line)
+        except Exception as e:  # noqa: BLE001
+            _say(f"watch alerts: {type(e).__name__}: {e}")
+
+    def trade_watch(self) -> None:
+        """The list: name, price, the day's move, since added, 🔔 with its level, "added by <friend>" until opened."""
+        import bookwatch
+        import portfolio as pf
+        self._alerts_now()
+        b = self._tr_b(pf.open_book())
+        try:
+            names = bookwatch.watching(bookwatch.load())
+        except bookwatch.WatchUnreadable as e:
+            self._tr_send(f"({e})")
+            return
+        lines = bookwatch.list_lines()
+        head = f"👁 Watch — {len(names)} name{'s' if len(names) != 1 else ''} (at most {bookwatch.cap()})"
+        rows, row = [], []
+        for e in names:
+            row.append((e["symbol"], f"tr:wn:{b}:{e['symbol']}"))
+            if len(row) == 3:
+                rows.append(row)
+                row = []
+        if row:
+            rows.append(row)
+        rows.append([("➕ Add", f"tr:wa:{b}"), ("📒 menu", "tr:m")])
+        self._tr_send("\n".join([head] + (lines or ["(nothing watched yet — ➕ Add puts a name on the list)"])), rows)
+
+    def trade_watch_name(self, sym: str) -> None:
+        import bookwatch
+        import portfolio as pf
+        b = self._tr_b(pf.open_book())
+        if bookwatch.entry(sym) is None and not bookwatch._known(sym):
+            self._tr_send(f"({sym} isn't on the watch list)")
+            return
+        text_ = bookwatch.name_view(sym, last_notes=3, cut=300)
+        bookwatch.mark_seen(sym)
+        rows = ([[("🔔 Alert", f"tr:wA:{b}:{sym}"), ("✖ Drop", f"tr:wd:{b}:{sym}")]] if bookwatch.entry(sym) else []) + \
+               [[("← list", f"tr:wl:{b}")]]
+        for i, part in enumerate(split_long(text_, 3800)):
+            self._tr_send(part, rows if i == len(split_long(text_, 3800)) - 1 else None)
+
+    def _watch_answer(self, flow: dict, text: str) -> None:
+        """A reply to the watch flow's own prompt: the symbol to add, its why, or an alert's price."""
+        import bookwatch
+        import portfolio as pf
+        b = self._tr_b(flow.get("book") or pf.open_book())
+        if flow["w"] == "add" and not flow.get("sym"):
+            got = pf.find(text)
+            if not got["ok"]:
+                self._trade_ask(flow, f"No price for “{text}” — tried {', '.join(got['tried'])}. Another symbol? Reply to this message")
+                return
+            q = got["quote"]
+            if not got["same"]:
+                flow["maybe"] = q["symbol"]
+                self._trade_ask(flow, f"“{text}” isn't known as typed. Did you mean {pf.quote_line(q)}?",
+                                [[(f"Yes, {q['symbol']}"[:60], f"tr:wk:{b}")], [self._TR_CANCEL]])
+                return
+            flow["sym"] = q["symbol"]
+            self._tr_send(pf.quote_line(q))
+            self._trade_ask(flow, "Why watch it, in one line? Reply to this message, or skip", [[("skip", f"tr:ws:{b}")], [self._TR_CANCEL]])
+            return
+        if flow["w"] == "add":
+            self._watch_add_done(flow, text)
+            return
+        if flow["w"] == "alert":
+            got, no = bookwatch.set_alert(flow["sym"], flow["kind"], text)
+            if got is None and "isn't a price" in no:
+                self._trade_ask(flow, f"“{text}” isn't a price — reply with a number ({flow['kind']} what?)")
+                return
+            self._trade = None
+            self._tr_send(f"🔔 {flow['sym']}: an alert when a day closes {flow['kind']} "
+                          f"{pf.money(float(got['alert']['value']), got.get('currency') or '')} — checked at the close, once"
+                          if got else f"(no alert set: {no})")
+
+    def _watch_add_done(self, flow: dict, why: str) -> None:
+        import bookwatch
+        import portfolio as pf
+        self._trade = None
+        e, no, offer = bookwatch.add(flow["sym"], why, by="keeper", confirmed=True)
+        if e is None:
+            self._tr_send(f"(not added: {no or 'the feed offers another symbol'})")
+            return
+        self._tr_send(f"👁 watching {e['symbol']}" + (f" ({e['name']})" if e.get("name") else "")
+                      + f" — added at {pf.money(float(e['price']), e['currency'])} ({e['price_said']})"
+                      + (f" — why: {e['why']}" if e.get("why") else ""))
+
+    def _watch_callback(self, k: str, d: list, flow) -> None:
+        """👁 Watch's buttons (the book tag already checked and taken out of d)."""
+        import bookwatch
+        import portfolio as pf
+        b = self._tr_b(pf.open_book())
+        sym = d[2] if len(d) > 2 else ""
+        if k == "wl":
+            self.trade_watch()
+        elif k == "wa":
+            if flow:
+                self._tr_send("(the record you were making is let go — a new one begins)")
+            self._trade = {"began": time.time(), "t": time.time(), "prompt": 0, "book": pf.open_book(), "w": "add"}
+            self._trade_ask(self._trade, "👁 Add — which symbol? Reply to this message (a ticker, one with its exchange's "
+                                         "suffix, or an index like ^GSPC; “cancel” stops it)")
+        elif k == "wk" and flow and flow.get("w") == "add" and flow.get("maybe"):
+            flow["sym"], flow["t"] = flow.pop("maybe"), time.time()
+            self._tr_send(pf.quote_line(pf.quote(flow["sym"])))
+            self._trade_ask(flow, "Why watch it, in one line? Reply to this message, or skip", [[("skip", f"tr:ws:{b}")], [self._TR_CANCEL]])
+        elif k == "ws" and flow and flow.get("w") == "add" and flow.get("sym"):
+            self._watch_add_done(flow, "")
+        elif k == "wn" and sym:
+            self.trade_watch_name(sym)
+        elif k == "wA" and sym:
+            self._tr_send(f"🔔 {sym} — an alert at the close: below or above a price?",
+                          [[("Below", f"tr:wB:{b}:{sym}"), ("Above", f"tr:wU:{b}:{sym}")], [("Clear", f"tr:wC:{b}:{sym}"), self._TR_CANCEL]])
+        elif k in ("wB", "wU") and sym:
+            kind = "below" if k == "wB" else "above"
+            self._trade = {"began": time.time(), "t": time.time(), "prompt": 0, "book": pf.open_book(), "w": "alert",
+                           "sym": sym, "kind": kind}
+            self._trade_ask(self._trade, f"{sym}: {kind} what price? Reply to this message with a number")
+        elif k == "wC" and sym:
+            got, no = bookwatch.clear_alert(sym)
+            self._tr_send(f"(no alert on {sym} now)" if got else f"(nothing changed: {no})")
+        elif k == "wd" and sym:
+            self._tr_send(f"Drop {sym} from the watch list? {chat.friend_name()}'s notes and ledger stay in the record.",
+                          [[("✖ Yes, drop it", f"tr:wy:{b}:{sym}")], [self._TR_CANCEL]])
+        elif k == "wy" and sym:
+            got, no = bookwatch.drop(sym)
+            self._tr_send(f"✖ {sym} is off the watch list — kept in the record, marked dropped" if got else f"(not dropped: {no})")
 
     def trade_book(self, refresh: bool = False) -> None:
         import portfolio as pf
+        self._alerts_now()
         parts = split_long(pf.block(compact=True, refresh=refresh), 3800)
         for i, part in enumerate(parts):
             self._tr_send(part, [[("🔄", "tr:b:r"), ("📒 menu", "tr:m")]] if i == len(parts) - 1 else None, pre=True)
@@ -5465,6 +5622,7 @@ class Bridge:
         flow = getattr(self, "_trade", None)
         rt = (msg.get("reply_to_message") or {}).get("message_id")
         ours = (low == "/book" or low.startswith("/book@") or low == "/brief" or low.startswith("/brief@")
+                or (self._watch_on() and (low == "/watch" or low.startswith("/watch@")))
                 or low == "/trade" or low.startswith("/trade ")
                 or low.startswith("/trade@") or (flow and rt and int(rt) == int(flow.get("prompt") or -1)))
         if low.split()[:2] in (["/trade", "unseat"],) or low.startswith("/trade@") and low.split()[1:2] == ["unseat"]:
@@ -5489,6 +5647,9 @@ class Bridge:
             return True
         if low == "/book" or low.startswith("/book@"):
             self.trade_book()
+            return True
+        if self._watch_on() and (low == "/watch" or low.startswith("/watch@")):
+            self.trade_watch()
             return True
         if low == "/trade" or low.startswith("/trade ") or low.startswith("/trade@"):
             arg = text.split(None, 1)[1].strip() if len(text.split(None, 1)) > 1 else ""
@@ -5533,6 +5694,12 @@ class Bridge:
                              f"{pf.money(v, cur)}, {'+' if v >= h['cost'] else '-'}{pf.money(abs(v - h['cost']), cur)}")
             else:
                 lines.append(f"{self._tr_paper()}not held in this book")
+                if self._watch_on():  # a watched name: its view
+                    import bookwatch
+                    if bookwatch.entry(q["symbol"]) is not None:
+                        self._tr_send("\n".join(lines))
+                        self.trade_watch_name(bookwatch._sym(q["symbol"]))
+                        return
         except pf.BookUnreadable as e:
             lines.append(f"({e})")
         self._tr_send("\n".join(lines))
@@ -5710,6 +5877,9 @@ class Bridge:
 
     def _trade_answer(self, flow: dict, text: str) -> None:
         import portfolio as pf
+        if flow.get("w"):  # the watch list's flows
+            self._watch_answer(flow, text)
+            return
         from datetime import date
         if flow.get("fix"):  # a correction's new value — in the flow's own book
             got, no = pf.correct(flow["fix"], flow["field"], text, which=flow.get("book"))
@@ -5815,16 +5985,22 @@ class Bridge:
         d = str(cq.get("data") or "").split(":")
         k = d[1] if len(d) > 1 else ""
         flow = getattr(self, "_trade", None)
-        if not pf.paper_on() and (k in ("o", "oy") or (k in ("fi", "fs", "fy", "fc", "ff", "cv", "ct", "cl", "s", "bf")
+        if not pf.paper_on() and (k in ("o", "oy") or (k in ("fi", "fs", "fy", "fc", "ff", "cv", "ct", "cl", "s", "bf",
+                                                                 "wl", "wa", "wn", "wA", "wB", "wU", "wC", "wd", "wy", "wk", "ws")
                                                          and len(d) > 2 and d[2] == "p")):
             self._tr_send("(the practice book is gone — this is the book now; open /trade again)")  # a stale button
             return
-        if k in ("fi", "fs", "fy", "fc", "ff", "cv", "ct", "cl", "bf"):  # a button carries its book: tr:<k>:<p|r>:…
-            if len(d) < (3 if k in ("cl", "bf") else 4) or d[2] != self._tr_b(pf.open_book()):
+        if k in ("fi", "fs", "fy", "fc", "ff", "cv", "ct", "cl", "bf", "wl", "wa", "wn", "wA", "wB", "wU", "wC", "wd", "wy", "wk",
+                 "ws"):  # a button carries its book: tr:<k>:<p|r>:…
+            if len(d) < (3 if k in ("cl", "bf", "wl", "wa", "wk", "ws") else 4) or d[2] != self._tr_b(pf.open_book()):
                 self._tr_send("(that button is from the other book — nothing was done)")
                 return
             d = d[:2] + d[3:]
-        if k == "bf":
+        if k in ("wl", "wa", "wn", "wA", "wB", "wU", "wC", "wd", "wy", "wk", "ws") and not self._watch_on():
+            self._tr_send("(the watch list is off — PORTFOLIO_WATCH)")
+        elif k in ("wl", "wa", "wn", "wA", "wB", "wU", "wC", "wd", "wy", "wk", "ws"):
+            self._watch_callback(k, d, flow)
+        elif k == "bf":
             self.trade_brief()
         elif k == "m":
             self.trade_menu()
@@ -5903,7 +6079,8 @@ class Bridge:
                 got, no = pf.add(flow["rec"], flow.get("book"))  # into the book it began in
                 self._trade = None
                 self._tr_send(f"{self._tr_paper(flow.get('book'))}✓ kept #{got['id']}: {pf.record_line(got)}"
-                              f"{pf.paid_clause(pf.auto_for(flow.get('book') or pf.open_book(), got['id']))}" if got
+                              f"{pf.paid_clause(pf.auto_for(flow.get('book') or pf.open_book(), got['id']))}"
+                              f"{self._watch_bought(got)}" if got
                               else f"(not kept: {no})")
                 self._convert_offer(flow.get("book") or pf.open_book(), got)
                 return
@@ -5915,6 +6092,12 @@ class Bridge:
             m_ = re.search(r"✓ kept #(\d+)", said)
             if m_ and x:
                 said += pf.paid_clause(pf.auto_for((x.get("book") or "paper") if pf.paper_on() else "real", int(m_.group(1))))
+                try:
+                    kept_ = next((r for r in pf.load((x.get("book") or "paper") if pf.paper_on() else "real")["records"]
+                                  if int(r["id"]) == int(m_.group(1))), None)
+                except pf.BookUnreadable:
+                    kept_ = None
+                said += self._watch_bought(kept_)
             self._tr_send(said)
             if k == "pk" and x and "✓ kept #" in said:
                 which = (x.get("book") or "paper") if pf.paper_on() else "real"
@@ -5953,6 +6136,13 @@ class Bridge:
                     also = f" (its automatic conversion #{c_['id']} struck with it)" if c_ else ""
                 except pf.BookUnreadable:
                     also = ""
+            if got and self._watch_on():
+                try:
+                    import bookwatch
+                    if bookwatch.was_bought(got):
+                        also += f" ({got.get('symbol')}: it is no longer on the watch list — add it again if you want)"
+                except Exception:  # noqa: BLE001
+                    pass
             self._tr_send(f"{self._tr_paper()}✂️ struck #{d[2]}: {pf.record_line(got)}{also}" if got else f"(not struck: {no})")
         elif k == "fc" and len(d) > 2 and self._tr_is_convert(int(d[2])):
             b = self._tr_b(pf.open_book())

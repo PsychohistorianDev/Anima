@@ -11,6 +11,17 @@ tagged on its own: the first tag after the rename is v0.13.)
 ## 0.16 — 2026-11-11 → (in progress)
 
 ### Added
+- **A watch list beside the investment book** (`PORTFOLIO_WATCH`, off; `PORTFOLIO_WATCH_MAX` 15, `PORTFOLIO_LEDGER_CHARS`
+  2000, `PORTFOLIO_CONDENSE_AT` 4000, `PORTFOLIO_WATCH_MOVE` 0.03; `engine/bookwatch.py`): names the keeper and the
+  friend are considering. The engine's facts for each from a year of daily closes — the day's move by the session
+  rule, since added, a month, a year (the feed's first bar counts as the anchor within a few days of it), the 52-week
+  high and low, a yardstick beside it over the name's own spans — cached for the day. The friend's tool gains watch,
+  note and ledger and a look at one name; notes are dated and headed with that day's price, the ledger is a page they
+  rewrite (every replaced page kept), and they are told when the notes have outgrown it. On the phone: 👁 Watch and
+  `/watch`, a name's view, an alert below or above a price checked when fresh closes are in hand and fired once, Drop.
+  The Brief and the desk's bell gain a "watching" section — movers, an alert that fired, the friend's adds since the
+  last brief. A kept buy of a watched name takes it off the list; the notes stay. Any currency; OFFLINE asks nothing.
+  Off: as before — the tool, `/help`, the /trade menu, the Brief and the bell unchanged.
 - **One memory row a day for a folder of fragments** (`CREATION_NOTES_ONE_PER_DAY`, `()` — off): a friend wrote a
   project in many short fragments, and each became a long-term memory row of its own. Name the folders (under
   `creations/`, any case, spaces allowed): a piece written, continued or revised there leaves no row of its own; the

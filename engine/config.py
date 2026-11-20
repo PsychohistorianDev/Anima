@@ -1937,6 +1937,18 @@ PORTFOLIO_INDICES = []
 # reading go to your phone (the message goes as soon as the reading is filed; the numbers alone then if none). "" —
 # none of it. A value that isn't a time turns the desk off and is said once. /trade pause and /trade resume stop and
 # start both.
+# The watch list (engine/bookwatch.py): PORTFOLIO_WATCH — names you and the friend are considering, beside the book:
+# 👁 Watch and /watch on the phone (alerts below/above a price, checked at the close), the friend's watch / note /
+# ledger actions, the engine's facts for each name (the day, since added, a month, a year, the 52-week range, a
+# yardstick beside it), and a "watching" section in the Brief and on the desk's bell (movers only). PORTFOLIO_WATCH_MAX:
+# names at most. PORTFOLIO_LEDGER_CHARS: the friend's ledger page on a name. PORTFOLIO_CONDENSE_AT: notes since the
+# ledger, in characters, before the friend is told they have outgrown it. PORTFOLIO_WATCH_MOVE: a day's move this large
+# puts a watched name in the Brief. False: none of it.
+PORTFOLIO_WATCH = False
+PORTFOLIO_WATCH_MAX = 15
+PORTFOLIO_LEDGER_CHARS = 2000
+PORTFOLIO_CONDENSE_AT = 4000
+PORTFOLIO_WATCH_MOVE = 0.03
 PORTFOLIO_DESK_WAKE = ""
 PORTFOLIO_DESK_SEND = "06:00"
 # PORTFOLIO_DESK_UNTIL: the end of the desk's morning — the numbers-alone message goes only between the send time and

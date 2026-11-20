@@ -124,7 +124,8 @@ TABS: dict[str, list[str]] = {
                    "ADVENTURES_ON", "ADVENTURE_DIR", "ADVENTURE_STATE_CHARS", "ADVENTURE_STATE_WARN", "ADVENTURE_INVENTORY_CHARS", "ADVENTURE_RECAP_ON_OPEN", "ADVENTURE_FOLD_AT",
                    "WORLD_TRIPS_ON", "WORLD_TRIP_NAME", "WORLD_TRIP_DIR", "WORLD_TRIP_PAGE", "WORLD_TRIP_PAGE_CHARS", "WORLD_TRIP_PAGE_WARN", "WORLD_TRIP_PAGE_TARGET", "WORLD_TRIP_ACTIONS", "WORLD_TRIP_COPY_LINES", "WORLD_TRIP_JOURNAL_POINTER", "WORLD_TRIP_FOLD_AT", "WORLD_TRIP_RULES", "WORLD_TRIP_HINTS",
                    "PORTFOLIO_ON", "PORTFOLIO_HOME_CURRENCY", "PORTFOLIO_PRICE_CACHE_MIN", "PORTFOLIO_JUMP", "PORTFOLIO_BACKUPS", "PORTFOLIO_GUEST_SCRUB", "PORTFOLIO_PAPER", "PORTFOLIO_AUTO_CONVERT",
-                   "PORTFOLIO_DESK_WAKE", "PORTFOLIO_DESK_SEND", "PORTFOLIO_DESK_UNTIL", "PORTFOLIO_INDICES", "PORTFOLIO_BRIEF_MOVE", "PORTFOLIO_BRIEF_NEWS", "PORTFOLIO_BRIEF_NEWS_MAX", "PORTFOLIO_BRIEF_NEWS_CACHE_H", "PORTFOLIO_BRIEF_NEWS_SKIP"],
+                   "PORTFOLIO_DESK_WAKE", "PORTFOLIO_DESK_SEND", "PORTFOLIO_DESK_UNTIL", "PORTFOLIO_INDICES", "PORTFOLIO_BRIEF_MOVE", "PORTFOLIO_BRIEF_NEWS", "PORTFOLIO_BRIEF_NEWS_MAX", "PORTFOLIO_BRIEF_NEWS_CACHE_H", "PORTFOLIO_BRIEF_NEWS_SKIP",
+                   "PORTFOLIO_WATCH", "PORTFOLIO_WATCH_MAX", "PORTFOLIO_LEDGER_CHARS", "PORTFOLIO_CONDENSE_AT", "PORTFOLIO_WATCH_MOVE"],
     "Penpals": ["PENPALS_ON", "PENPAL_DIR", "PENPAL_PRIVATE_WORDS", "PENPAL_CONTEXT_LETTERS", "PENPAL_LETTER_CHARS", "PENPAL_JOIN_MIN", "PENPAL_NEXT_PART_S", "PENPAL_ARRIVAL_TURN", "PENPAL_TURN_AFTER_MIN", "PENPAL_TURN_ON_TIME", "PENPAL_CONDENSE", "PENPAL_CONDENSE_PER_NIGHT", "PENPAL_CONDENSE_CHARS", "PENPAL_DESK", "PENPAL_DESK_HOUR", "PENPAL_WAITING_REMIND", "PENPAL_WAITING_REMIND_H", "PENPAL_WAITING_REMIND_EVERY_H", "PENPAL_WATCH_S", "PENPAL_PICTURE_LETTERS", "PENPAL_PICTURES_SEEN_MIN", "PENPAL_WRITE_GUARD", "PENPAL_WRITE_GUARD_MIN", "PENPAL_WHO_HELP", "PENPAL_WHO_FROM_GREETING", "PENPAL_LETTER_MEANS_WRITE", "PENPAL_NOTE_WORDS_ONLY", "PENPAL_KEPT_BACK_OUT_OF_READ", "PENPAL_NO_RESEND_KEPT_BACK", "PENPAL_OTHER_THREAD_WORDS", "PENPAL_HELD_TO_PHONE", "PENPAL_OTHER_THREAD_THEIRS", "PENPAL_OTHER_THREAD_PLAIN", "PENPAL_LETTER_THINK", "PENPAL_LETTER_THINK_RETRIES", "PENPAL_COPY_CHECK", "PENPAL_COPY_DAYS", "PENPAL_COPY_SAME_THREAD", "FRIENDS_ON", "FRIENDS_TITLE", "FRIENDS_MAX", "FRIEND_PAGE_CHARS", "FRIENDS_SUGGEST_AFTER", "FRIENDS_QUIET_DAYS"],
     "Blog": ["BLOG_SUBTITLE", "BLOG_REMOTE"],  # BLOG_TITLE is on Main, with the names
 }
@@ -389,6 +390,12 @@ _HELP = {
                                   "(\"projects/serial/chapters\",). Empty: a row per piece.",
     "PORTFOLIO_DESK_UNTIL": "The end of the desk's morning: the numbers alone go only until then, and a late desk wake may "
                             "start until then; after it, only a reading they file.",
+    "PORTFOLIO_WATCH": "A watch list beside the book: names you and they are considering — 👁 Watch and /watch on your "
+                       "phone (alerts at the close), their notes and a ledger per name, movers in the Brief.",
+    "PORTFOLIO_WATCH_MAX": "Names on the watch list at most.",
+    "PORTFOLIO_LEDGER_CHARS": "The longest a ledger page on a watched name may be, in characters.",
+    "PORTFOLIO_CONDENSE_AT": "Notes since the ledger, in characters, before they are asked to fold them into it.",
+    "PORTFOLIO_WATCH_MOVE": "A day's move this large (0.03 = 3%) puts a watched name in the Brief.",
     "PORTFOLIO_INDICES": "The morning brief's yardsticks — symbols as the price feed knows them, e.g. [\"^GSPC\"].",
     "PORTFOLIO_BRIEF_MOVE": "A day's move this large (0.03 = 3%) puts a holding ▲/▼ at the top of the brief.",
     "PORTFOLIO_BRIEF_NEWS": "A few headlines that name a holding, in the brief (Brave's news search; the key as for web "

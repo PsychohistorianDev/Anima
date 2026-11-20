@@ -2360,7 +2360,14 @@ and in the friend's answers (`PORTFOLIO_PAPER` off keeps one book, the real
 one, carrying a practice book's records over into it once). 🌅 Brief (or
 `/brief`) is the book's day on one screen — each holding's move, the
 yardsticks you name (`PORTFOLIO_INDICES`), the rates, the warnings, and with
-`PORTFOLIO_BRIEF_NEWS` a few headlines naming a holding. The desk
+`PORTFOLIO_BRIEF_NEWS` a few headlines naming a holding. The watch list
+(`PORTFOLIO_WATCH`, off by default) keeps names you and the friend are
+considering beside the book: 👁 Watch or `/watch` on your phone (add, an alert
+below or above a price checked at the close, drop), the friend's own adds,
+dated notes and a ledger per name, each name's facts from a year of closes, and
+movers in the Brief; a buy of a watched name takes it off the list. It asks the
+price feed for the watched symbols, and with headlines on asks the news search
+for the names of the ones that moved. The desk
 (`PORTFOLIO_DESK_WAKE`, off by default) gives the friend a wake of its own at
 that time on a morning with a new close: they read the Brief's numbers and file
 a reading, and the numbers with the reading come to your phone (by

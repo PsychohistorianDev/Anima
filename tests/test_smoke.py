@@ -25932,6 +25932,192 @@ for _bk_k, _bk_v in _bk_dsaved.items():
     else:
         setattr(config, _bk_k, _bk_v)
 
+# ---- PORTFOLIO_WATCH: the watch list (bookwatch.py) ---------------------------------------------------------------
+import bookwatch as _bk_bw
+_bk_wkeys = ("PORTFOLIO_WATCH", "PORTFOLIO_WATCH_MAX", "PORTFOLIO_LEDGER_CHARS", "PORTFOLIO_CONDENSE_AT", "PORTFOLIO_WATCH_MOVE",
+             "PORTFOLIO_INDICES")
+_bk_wsaved = {k: getattr(config, k, _bk_MISSING) for k in _bk_wkeys}
+_bk_YEAR = {}
+
+
+def _bk_year(s_, cur, first, last, f):
+    ds, d_ = [], first
+    while d_ <= last:
+        if d_.weekday() < 5:
+            ds.append(d_)
+        d_ += _bk_td(days=1)
+    tss = [_bk_ts(x) for x in ds]
+    meta = {"symbol": s_, "currency": cur, "regularMarketPrice": f(len(ds) - 1), "regularMarketTime": tss[-1] + 3600,
+            "gmtoffset": 0, "currentTradingPeriod": {"regular": {"end": tss[-1] + 3600}}}
+    return {"chart": {"result": [{"meta": meta, "timestamp": tss, "indicators": {"quote": [{"close": [f(i) for i in range(len(ds))]}]}}],
+                      "error": None}}
+
+
+_bk_YEAR["NORD"] = _bk_year("NORD", "EUR", _bk_date(2025, 3, 3), _bk_D[4], lambda i: round(16.0 + i * 0.0168, 4) if i < 261 else 20.4)
+_bk_YEAR["^GSPC"] = _bk_year("^GSPC", "USD", _bk_date(2025, 3, 3), _bk_D[4], lambda i: round(4500.0 + i * 2.2, 2))
+_bk_YEAR["JUMP"] = _bk_year("JUMP", "USD", _bk_date(2025, 3, 10), _bk_D[4], lambda i: 10.0)  # its year starts a week late
+_bk_YEAR["BRAM.L"] = _bk_year("BRAM.L", "GBp", _bk_date(2026, 2, 2), _bk_D[4], lambda i: 400.0 + i)
+_bk_FIX["^GSPC"] = _bk_chart("^GSPC", "USD", [5000.0, 5010.0, 5020.0, 5030.0, 5080.3])
+_bk_get0 = _bk_pf._http_get
+
+
+def _bk_get_w(url, timeout=6):
+    m_ = _bk_re.search(r"/chart/([^?]+)\?range=1y", url)
+    if m_ and _bk_up.unquote(m_.group(1)) in _bk_YEAR:
+        _bk_NET["calls"].append(url)
+        if config.OFFLINE:
+            raise OSError("offline")
+        return _bk_json.loads(_bk_json.dumps(_bk_YEAR[_bk_up.unquote(m_.group(1))]))
+    return _bk_get0(url, timeout)
+
+
+_bk_pf._http_get = _bk_get_w
+config.PORTFOLIO_WATCH = False
+_bk_fresh("USD")
+_bk_woff = (tools.portfolio("watch", symbol="NORD"), _bk_json.dumps(tools._portfolio_definition(), sort_keys=True) == _bk_def_off)
+_bk_b, _bk_ph = _bk_bridge()
+_bk_turns.clear()
+_bk_text(_bk_b, "/watch")
+_bk_text(_bk_b, "/trade")
+_bk_woff += (len(_bk_turns), _bk_ph.buttons()[-1])
+config.PORTFOLIO_WATCH, config.PORTFOLIO_WATCH_MAX, config.PORTFOLIO_LEDGER_CHARS = True, 15, 2000
+config.PORTFOLIO_CONDENSE_AT, config.PORTFOLIO_WATCH_MOVE, config.PORTFOLIO_INDICES = 4000, 0.03, ["^GSPC"]
+_bk_wdef = tools._portfolio_definition()["function"]
+check("book (0.16): PORTFOLIO_WATCH off — the tool as before (watch is no action), /watch is the friend's, no 👁 on /trade; on "
+      "— the tool gains watch, note, ledger and a look at one name, in the friend's second person",
+      _bk_woff[0].startswith("(bad arguments: action is one of look, price, record, history — nothing was done)") and _bk_woff[1]
+      and _bk_woff[2] == 1 and _bk_woff[3] == ["🌅 Brief"]
+      and "watch: a name you and your keeper are considering (symbol, why) — it joins the watch list, and your keeper is told in "
+          "the next brief. note: a dated note of yours on a watched or held name (symbol, text) — the book heads it with that "
+          "day's price; nothing is ever cut. ledger: your condensed page on a name (symbol, text, at most 2,000 characters): why "
+          "it interests you, the case against, what would make it a buy, what is still open — you rewrite it when your notes "
+          "have outgrown it. look with a symbol: that name's facts, your ledger and your notes since it (all=\"yes\": every "
+          "note). Dropping a name or setting an alert is your keeper's, on their phone. " in _bk_wdef["description"]
+      and _bk_wdef["parameters"]["properties"]["action"]["description"] == "look, price, record, history, watch, note or ledger"
+      and "all" in _bk_wdef["parameters"]["properties"]
+      and _bk_wdef["parameters"]["properties"]["text"]["description"] == "for note and ledger: your words, kept exactly as you write them",
+      (_bk_woff, _bk_wdef["description"][:300]))
+# the friend adds, notes, writes a ledger; the facts; the folder's name
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "1000", "2026-03-02")
+_bk_w1 = tools.portfolio("watch", symbol="NORD", why="steady and cheap")
+_bk_w2 = tools.portfolio("watch", symbol="NORD")
+_bk_n1 = tools.portfolio("note", symbol="NORD", text="First look: steady margins.")
+_bk_nx = tools.portfolio("note", symbol="ZZZZ", text="no")
+_bk_l1 = tools.portfolio("ledger", symbol="NORD", text="Why: steady.\r\nAgainst: slow.\nBuy if: below 18.")
+_bk_l2 = tools.portfolio("ledger", symbol="NORD", text="Rewritten page.")
+_bk_lbig = tools.portfolio("ledger", symbol="NORD", text="x" * 2001)
+_bk_wdir = _bk_dir / "names" / "n_NORD"
+_bk_hist = [_bk_json.loads(l_) for l_ in (_bk_wdir / "ledger_history.jsonl").read_text(encoding="utf-8").splitlines()]
+_bk_nview = tools.portfolio("look", symbol="NORD")
+check("book (0.16): the friend's watch — added with its price, date and source, the keeper told in the next brief; once; a "
+      "note headed with the day and price; a name not watched refused; the ledger kept exactly (\\r\\n too), a rewrite "
+      "keeping the old page, a page too long refused; the folder never the raw ticker",
+      _bk_w1 == ("watching NORD (Nord) — added at €20.40 (close Mar 6, Yahoo) — why: steady and cheap. Your keeper is told in the "
+                 "next brief.")
+      and _bk_w2 == "(refused: NORD is on the watch list already)"
+      and _bk_n1 == f"noted on NORD — {_bk_pf._day(_bk_date.today())} · €20.40 (close Mar 6, Yahoo)"
+      and _bk_nx.startswith("(refused: ZZZZ isn't watched or held")
+      and _bk_l1.startswith("ledger written for NORD — ") and "(the page it replaces is kept in the record)" in _bk_l2
+      and _bk_hist[0]["text"] == "Why: steady.\r\nAgainst: slow.\nBuy if: below 18." and _bk_lbig.startswith("(your ledger is 2,001 characters")
+      and (_bk_wdir / "notes.jsonl").exists() and _bk_json.loads((_bk_wdir / "meta.json").read_text())["symbol"] == "NORD"
+      and _bk_bw.folder_name("BRK.B") == "n_BRK_2EB" and _bk_bw.folder_name("^GSPC") == "n__5EGSPC" and _bk_bw.folder_name("con") == "n_CON"
+      and "your ledger (written " in _bk_nview and "Rewritten page." in _bk_nview and ", added by you — steady and cheap" in _bk_nview,
+      (_bk_w1, _bk_w2, _bk_n1, _bk_l1, _bk_l2, _bk_lbig, _bk_nview))
+_bk_f = _bk_bw.facts("NORD")
+_bk_fl = "\n".join(_bk_f["lines"])
+_bk_wj = tools.portfolio("watch", symbol="JUMP")
+_bk_fj = "\n".join(_bk_bw.facts("JUMP")["lines"])
+check("book (0.16): a name's facts from a year of closes — the day, since added, a month and a year with their closes, the "
+      "52-week range, the yardstick beside it over the name's spans; a year that starts a few days after its anchor counts "
+      "from its first bar",
+      "  close Mar 6 €20.40, +0.5% from Mar 5" in _bk_fl and f"since added ({_bk_pf._day(_bk_date.today())}, €20.40): +0.0%" in _bk_fl
+      and "1 month (close Feb 4): " in _bk_fl and "1 year (close Mar 6 2025): " in _bk_fl and "52 weeks: high €20.40 (" in _bk_fl and "low €16.07 (Mar 7 2025)" in _bk_fl
+      and "^GSPC beside it: 1 month " in _bk_fl and " · 1 year " in _bk_fl.split("^GSPC beside it:")[1]
+      and "1 year (close Mar 10 2025): +50.0%" in _bk_fj, (_bk_fl, _bk_fj))
+# the phone: the list, the name, an alert at the close, the Brief's movers, a buy, drop, minor units, a guest, offline
+_bk_b, _bk_ph = _bk_bridge()
+_bk_text(_bk_b, "/watch")
+_bk_wl = (_bk_ph.msgs[-1]["text"], _bk_ph.buttons())
+_bk_press(_bk_b, "tr:wn:p:NORD")
+_bk_wn = (_bk_ph.msgs[-1]["text"], _bk_ph.buttons())
+_bk_text(_bk_b, "/watch")
+_bk_wl2 = _bk_ph.msgs[-1]["text"]
+_bk_press(_bk_b, "tr:wA:p:NORD")
+_bk_press(_bk_b, "tr:wB:p:NORD")
+_bk_text(_bk_b, "21", reply_to=1000 + len(_bk_ph.msgs) - 1)
+_bk_aset = _bk_ph.msgs[-1]["text"]
+_bk_text(_bk_b, "/watch")
+_bk_nofire = [m["text"] for m in _bk_ph.msgs if m["text"].startswith("🔔 NORD closed")]
+_bk_wd = _bk_bw.load()
+next(x for x in _bk_wd["names"] if x["symbol"] == "NORD")["alert"]["set"] = "2026-03-01T12:00:00"
+_bk_bw._save(_bk_wd)
+_bk_text(_bk_b, "/watch")
+_bk_text(_bk_b, "/watch")
+_bk_fired = [m["text"] for m in _bk_ph.msgs if m["text"].startswith("🔔 NORD closed")]
+check("book (0.16): 👁 Watch on the phone — the list (the friend's add marked until opened), the name's view in the "
+      "keeper's words with 🔔 Alert and ✖ Drop; an alert at the close — not on a close from before it was set, then once",
+      _bk_wl[0].startswith(f"👁 Watch — 2 names (at most 15)\nNORD  €20.40 +0.5% · +0.0% since added · added by {_bk_FN}\nJUMP  $15.00")
+      and _bk_wl[1][0] == ["NORD", "JUMP"] and _bk_wl[1][-1] == ["➕ Add", "📒 menu"]
+      and f"{_bk_FN}'s ledger (written " in _bk_wn[0] and f", added by {_bk_FN} — steady and cheap" in _bk_wn[0]
+      and _bk_wn[1][0] == ["🔔 Alert", "✖ Drop"] and "added by" not in _bk_wl2.split("NORD", 1)[1].split("\n")[0]
+      and _bk_aset == "🔔 NORD: an alert when a day closes below €21.00 — checked at the close, once"
+      and _bk_nofire == [] and _bk_fired == ["🔔 NORD closed at €20.40 on Mar 6 — below the alert at €21.00"],
+      (_bk_wl, _bk_wn, _bk_wl2, _bk_aset, _bk_nofire, _bk_fired))
+_bk_wb = _bk_pf.brief("paper")
+_bk_wb2 = _bk_pf.brief("paper")
+_bk_bw.mark_briefed()
+_bk_wb3 = _bk_pf.brief("paper")
+check("book (0.16): the Brief's watching — movers only (▲ beyond the move), the friend's adds since the last brief until a "
+      "kept morning marks them; a name that barely moved not listed",
+      "PAPER watching\nPAPER   ▲ JUMP close Mar 6 $15.00, +50.0% from Mar 5" in _bk_wb
+      and f"PAPER   added by {_bk_FN} since the last brief: NORD — steady and cheap" in _bk_wb and "▲ NORD" not in _bk_wb
+      and f"added by {_bk_FN} since the last brief: NORD" in _bk_wb2 and "since the last brief" not in _bk_wb3, (_bk_wb, _bk_wb3))
+tools.portfolio("record", kind="buy", symbol="NORD", qty="2", price="20.4", date="2026-03-06")
+_bk_b.trade_tick()
+_bk_press(_bk_b, _bk_ph.msgs[-1]["markup"]["inline_keyboard"][0][0]["callback_data"])
+_bk_wbuy = next((m["text"] for m in _bk_ph.msgs if "✓ kept #" in m["text"]), "")
+_bk_press(_bk_b, "tr:wd:p:JUMP")
+_bk_wdrop1 = _bk_ph.msgs[-1]["text"]
+_bk_press(_bk_b, "tr:wy:p:JUMP")
+_bk_wdrop2 = _bk_ph.msgs[-1]["text"]
+_bk_wleft = [x["symbol"] for x in _bk_bw.watching()]
+_bk_wnote_kept = (_bk_wdir / "notes.jsonl").exists()
+check("book (0.16): a kept buy of a watched name takes it off the list, the notes kept; ✖ Drop asks, then keeps the name "
+      "in the record marked dropped",
+      _bk_wbuy.endswith(f" · NORD leaves the watch list — {_bk_FN}'s notes stay with it") and _bk_wnote_kept
+      and _bk_wdrop1 == f"Drop JUMP from the watch list? {_bk_FN}'s notes and ledger stay in the record."
+      and _bk_wdrop2 == "✖ JUMP is off the watch list — kept in the record, marked dropped" and _bk_wleft == []
+      and next(x for x in _bk_bw.load()["names"] if x["symbol"] == "JUMP")["state"].startswith("dropped "),
+      (_bk_wbuy, _bk_wdrop1, _bk_wdrop2, _bk_wleft))
+_bk_fresh("USD")
+_bk_wg = tools.portfolio("watch", symbol="BRAM.L")
+_bk_wgf = "\n".join(_bk_bw.facts("BRAM.L")["lines"])
+_bk_al = _bk_bw.set_alert("BRAM.L", "above", "4.5")[0]
+config.OFFLINE = True
+_bk_woffl = tools.portfolio("watch", symbol="VELD.JO")
+config.OFFLINE = False
+_bk_b, _bk_ph = _bk_bridge()
+_bk_b.guest_command("Wren")
+_bk_text(_bk_b, "/watch")
+_bk_wguest = _bk_ph.msgs[-1]["text"]
+_bk_b.guest_command("off")
+check("book (0.16): a name quoted in pence — added and charted in pounds, its alert in pounds; offline — nothing asked, "
+      "refused plainly; a guest seated — /watch closed",
+      _bk_wg.startswith("watching BRAM.L (Bramble) — added at £4.18 (close Mar 6, Yahoo)")
+      and "52 weeks: high £4.24 (Mar 6)" in _bk_wgf and _bk_al["alert"]["value"] == 4.5
+      and _bk_woffl.startswith("(refused: no price for “VELD.JO”") and "offline" in _bk_woffl
+      and _bk_wguest.startswith("(the book stays closed while a guest is here — Wren"),
+      (_bk_wg, _bk_wgf, _bk_woffl, _bk_wguest))
+_bk_pf._http_get = _bk_get0
+del _bk_FIX["^GSPC"]
+for _bk_k, _bk_v in _bk_wsaved.items():
+    if _bk_v is _bk_MISSING:
+        if hasattr(config, _bk_k):
+            delattr(config, _bk_k)
+    else:
+        setattr(config, _bk_k, _bk_v)
+
 # ---- on: the tool list and /help in a fresh process; the knobs; the words ------------------------------------------
 _bk_on = _bk_sub.run([_bk_sys.executable, "-c",
                       "import sys, json, tempfile\nsys.path.insert(0, sys.argv[1])\nsys.dont_write_bytecode = True\nimport config\n"
@@ -25951,6 +26137,7 @@ _bk_src = (Path(config.ROOT) / "engine" / "portfolio.py").read_text(encoding="ut
                                          tg.Bridge._trade_answer, tg.Bridge._pf_seat, tg.Bridge._pf_scrub))
 _bk_src += _bk_cfg.split("# ---- the investment book", 1)[1].split("PORTFOLIO_GUEST_SCRUB = False", 1)[0]
 _bk_src += (Path(config.ROOT) / "engine" / "bookdesk.py").read_text(encoding="utf-8") + _bk_inspect.getsource(heartbeat._desk_turn)
+_bk_src += (Path(config.ROOT) / "engine" / "bookwatch.py").read_text(encoding="utf-8")
 _bk_KN = ("PORTFOLIO_ON", "PORTFOLIO_HOME_CURRENCY", "PORTFOLIO_PRICE_CACHE_MIN", "PORTFOLIO_JUMP", "PORTFOLIO_BACKUPS",
           "PORTFOLIO_GUEST_SCRUB")
 check("book (0.16): on — the tool list gains portfolio only and /help names /trade; its description says 'your keeper', "

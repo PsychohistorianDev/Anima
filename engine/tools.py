@@ -6705,7 +6705,7 @@ def touch_later(at: str, waveform: str, seconds: float = 10) -> str:
 
 
 def portfolio(action: str = "look", symbol: str = "", kind: str = "", qty: str = "", price: str = "", date: str = "",
-              fee: str = "", why: str = "", text: str = "") -> str:
+              fee: str = "", why: str = "", text: str = "", all: str = "") -> str:
     """(PORTFOLIO_ON; engine/portfolio.py) The keeper's investment book: look, price, record (written down only when
     the keeper taps Keep on the phone), history. The numbers are the engine's; a guest's turn gets none."""
     import portfolio as pf
@@ -6721,6 +6721,13 @@ def portfolio(action: str = "look", symbol: str = "", kind: str = "", qty: str =
     a = str(action or "").strip().lower()
     which = pf.open_book()
     paper = " — the PAPER book (practice), not their real one" if which == "paper" else ""
+    if a in ("look", "book", "show", "") and str(symbol or "").strip() and _watch_on():  # one name
+        import bookwatch
+        s_ = bookwatch._sym(symbol)
+        if not bookwatch._known(s_):
+            return (f"(refused: {s_} isn't watched or held — watch it first, or price asks the feed about any symbol; "
+                    "nothing was read)")
+        return bookwatch.name_view(s_, all_notes=str(all or "").strip().lower() in ("yes", "true", "1", "all"), voice="friend")
     if a in ("look", "book", "show", ""):
         said = pf.since_last_look(which)
         out = pf.block(which, for_friend=True)
@@ -6729,6 +6736,11 @@ def portfolio(action: str = "look", symbol: str = "", kind: str = "", qty: str =
             out += "\n\n" + news
         if said:
             out += "\n\nsince you last looked: " + "; ".join(said)
+        if _watch_on():  # the watch list, short — only when it isn't empty
+            import bookwatch
+            wl = bookwatch.look_list()
+            if wl:
+                out += "\n\n" + wl
         return out
     if a in ("price", "quote"):
         if not str(symbol or "").strip():
@@ -6769,8 +6781,31 @@ def portfolio(action: str = "look", symbol: str = "", kind: str = "", qty: str =
     if a == "brief" and _desk_on():  # the friend's reading for the morning brief, filed beside the book's numbers
         import bookdesk
         return bookdesk.file(text)
+    if a in ("watch", "note", "ledger") and _watch_on():  # the watch list, the friend's notes and ledger
+        import bookwatch
+        if not str(symbol or "").strip():
+            return (f"(bad arguments: {a} needs symbol — the name's symbol as the price feed knows it, like ^GSPC; nothing "
+                    "was written)")
+        if a == "note":
+            return bookwatch.add_note(symbol, text)
+        if a == "ledger":
+            return bookwatch.write_ledger(symbol, text)
+        e, no, offer = bookwatch.add(symbol, why, by="friend")
+        if offer is not None:
+            return (f"(“{symbol}” isn't known to the feed as asked; {offer['symbol']} is: {pf.quote_line(offer)} — if that "
+                    "is the one you mean, ask your keeper, and use that symbol; nothing was added)")
+        if e is None:
+            return f"(refused: {no})"
+        return (f"watching {e['symbol']}" + (f" ({e['name']})" if e.get("name") else "") + f" — added at "
+                f"{pf.money(float(e['price']), e['currency'])} ({e['price_said']})" + (f" — why: {e['why']}" if e.get("why") else "")
+                + ". Your keeper is told in the next brief.")
     return ("(bad arguments: action is one of look, price, record, history" + (", brief" if _desk_on() else "")
-            + " — nothing was done)")
+            + (", watch, note, ledger" if _watch_on() else "") + " — nothing was done)")
+
+
+def _watch_on() -> bool:
+    """PORTFOLIO_WATCH: the watch list, the friend's notes and ledger exist."""
+    return bool(getattr(config, "PORTFOLIO_WATCH", False)) and bool(getattr(config, "PORTFOLIO_ON", False))
 
 
 def _desk_on() -> bool:
@@ -8512,14 +8547,26 @@ def _portfolio_definition() -> dict:
         "their phone; read it back to them. history: the records so far. "
         + ("brief: your reading for the morning brief (text) — filed beside the book's numbers and sent to your keeper "
            "with them. " if _desk_on() else "")
+        + ("watch: a name you and your keeper are considering (symbol, why) — it joins the watch list, and your keeper is "
+           "told in the next brief. note: a dated note of yours on a watched or held name (symbol, text) — the book heads "
+           "it with that day's price; nothing is ever cut. ledger: your condensed page on a name (symbol, text, at most "
+           f"{int(getattr(config, 'PORTFOLIO_LEDGER_CHARS', 2000) or 2000):,} characters): why it interests you, the "
+           "case against, what would make it a buy, what is still open — you rewrite it when your notes have outgrown "
+           "it. look with a symbol: that name's facts, your ledger and your notes since it (all=\"yes\": every note). "
+           "Dropping a name or setting an alert is your keeper's, on their phone. " if _watch_on() else "")
         + "Numbers come only from here: a price or a "
         "total this tool did not give you, you do not know — say so. The arithmetic is the book's, never yours. You "
         "move no money and have no access to any account. What they hold is their private business.",
-        dict({"action": {"type": "string", "description": "look, price, record, history or brief" if _desk_on()
-                         else "look, price, record or history"},
+        dict({"action": {"type": "string", "description": (("look, price, record, history, brief, watch, note or ledger" if _desk_on()
+                                                              else "look, price, record, history, watch, note or ledger")
+                                                             if _watch_on() else
+                                                             "look, price, record, history or brief" if _desk_on()
+                                                             else "look, price, record or history")},
          "symbol": {"type": "string", "description": "the share's or index's symbol as the price feed knows it (a "
                                                      "ticker, one with its exchange's suffix, or an index like ^GSPC); "
-                                                     "for a deposit, withdrawal or fee: the currency's code (USD, EUR …)"},
+                                                     "for a deposit, withdrawal or fee: the currency's code (USD, EUR …)"
+                                                     + ("; for watch, note, ledger, and look at one name: that name"
+                                                        if _watch_on() else "")},
          "kind": {"type": "string", "description": "for record: buy, sell, deposit, withdraw, dividend or fee"},
          "qty": {"type": "string", "description": "for record: how many shares"},
          "price": {"type": "string", "description": "for record: the price of one share in its currency's main unit "
@@ -8527,8 +8574,15 @@ def _portfolio_definition() -> dict:
                                                     "the amount"},
          "date": {"type": "string", "description": "for record: the day it happened — YYYY-MM-DD, today or yesterday"},
          "fee": {"type": "string", "description": "for record: the fee paid, if there was one"},
-         "why": {"type": "string", "description": "for record: why, in your keeper's words — one line"}},
-             **({"text": {"type": "string", "description": "for brief: your reading, in your own words"}} if _desk_on() else {})),
+         "why": {"type": "string", "description": "for record: why, in your keeper's words — one line"
+                                                  + ("; for watch: why the name is worth watching — one line"
+                                                     if _watch_on() else "")}},
+             **({"text": {"type": "string", "description": "; ".join(
+                 (["for brief: your reading, in your own words"] if _desk_on() else [])
+                 + (["for note and ledger: your words, kept exactly as you write them"] if _watch_on() else []))}}
+                if (_desk_on() or _watch_on()) else {}),
+             **({"all": {"type": "string", "description": "for look with a symbol: \"yes\" shows every note, not only "
+                                                          "those since your ledger"}} if _watch_on() else {})),
         ["action"],
     )
 

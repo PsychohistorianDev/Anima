@@ -749,6 +749,16 @@ def _parse_quote(asked: str, res: dict, now: float | None = None) -> dict:
          "exchange": str(meta.get("exchangeName") or "")}
     if done:
         q["close"], q["close_date"] = round(done[-1][1] / div, 6), done[-1][0].isoformat()
+        # when that session ended: the feed's session end on that day, else the last trade of that day, else the
+        # end of that day — for an alert set after a close (it must not fire on it)
+        lt_ = meta.get("regularMarketTime")
+        cd_ = done[-1][0]
+        if isinstance(end, (int, float)) and datetime.fromtimestamp(int(end) + off, timezone.utc).date() == cd_:
+            q["close_end"] = int(end)
+        elif isinstance(lt_, (int, float)) and datetime.fromtimestamp(int(lt_) + off, timezone.utc).date() == cd_:
+            q["close_end"] = int(lt_)
+        else:
+            q["close_end"] = int(datetime(cd_.year, cd_.month, cd_.day, 23, 59, 59, tzinfo=timezone.utc).timestamp()) - off
         if len(done) > 1:
             q["prev_close"], q["prev_date"] = round(done[-2][1] / div, 6), done[-2][0].isoformat()
     # no completed daily bar: no close — a price without its date is not shown
@@ -773,6 +783,7 @@ def _parse_quote(asked: str, res: dict, now: float | None = None) -> dict:
                     q.pop("prev_close", None)
                     q.pop("prev_date", None)
                 q["close"], q["close_date"], q["close_from_trade"] = q["last"], ld.isoformat(), True
+                q["close_end"] = int(lt)
     ev = res.get("events") or {}
     splits = []
     for v in ((ev.get("splits") or {}).values() if isinstance(ev.get("splits"), dict) else []):
@@ -2562,6 +2573,13 @@ def _brief(which: str, now: datetime) -> str:
     if warn:
         out.append("the book says")
         out += ["  " + w for w in warn]
+    if getattr(config, "PORTFOLIO_WATCH", False):  # the watch list: movers only, an alert that fired, the friend's adds
+        try:
+            import bookwatch
+            if bookwatch.on():
+                out += bookwatch.section(bookwatch.check_alerts(), until_all, news=bool(getattr(config, "PORTFOLIO_BRIEF_NEWS", False)))
+        except Exception as e:  # noqa: BLE001 — the brief stands without it
+            out.append(f"watching: not known just now ({type(e).__name__})")
     news = []
     if getattr(config, "PORTFOLIO_BRIEF_NEWS", False) and held:
         if getattr(config, "OFFLINE", False):
