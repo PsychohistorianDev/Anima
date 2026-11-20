@@ -2364,7 +2364,8 @@ yardsticks you name (`PORTFOLIO_INDICES`), the rates, the warnings, and with
 (`PORTFOLIO_DESK_WAKE`, off by default) gives the friend a wake of its own at
 that time on a morning with a new close: they read the Brief's numbers and file
 a reading, and the numbers with the reading come to your phone (by
-`PORTFOLIO_DESK_SEND` at the latest); it fetches only what the Brief does, and
+`PORTFOLIO_DESK_SEND` at the latest, and nothing desk-like after
+`PORTFOLIO_DESK_UNTIL` but a reading they file); it fetches only what the Brief does, and
 `/trade pause` stops it. A holding is valued at
 its last trade when that is newer than its last close (said, the close beside
 it), everywhere alike. Records are never deleted — ✏️ Fix strikes one

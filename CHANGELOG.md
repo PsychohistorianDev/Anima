@@ -36,7 +36,14 @@ tagged on its own: the first tag after the rename is v0.13.)
   bell carries the Brief's numbers and the friend's last three readings; their reading is filed with
   portfolio(action="brief", text=…) and goes to the phone with the numbers (the numbers alone at the send time;
   figures not in the numbers listed under it); a dead feed tried three times; the regular wake waits 20 minutes after
-  it; `/trade pause` · `/trade resume`. Off: as before, the tool list and `/help` unchanged.
+  it; `/trade pause` · `/trade resume`. `PORTFOLIO_DESK_UNTIL` ("10:00") ends the desk's morning: the numbers alone go
+  only between the send time and then, a late desk wake may start until then (numbers sent under an hour before are
+  reused, and the bell says they went), and after it nothing desk-like happens but a reading the friend files. A
+  holding's day is the session of its latest price: shares bought that day from their buy price, held before it from
+  the close before, sold that day up to the sale price. A last trade newer than the feed's daily bars, the market not
+  open now, is that session's close, said ("from the last trade — the day's bar isn't in the feed yet"). Headlines that
+  are only a security's quote page are dropped; four more hosts in `PORTFOLIO_BRIEF_NEWS_SKIP`. Off: as before, the
+  tool list and `/help` unchanged.
 - **The pieces of a chosen folder reach the phone together at a set time** (`TELEGRAM_GATHER`, `{}` — off): a friend
   wrote eight short pages of one project in a single wake, and the keeper's phone got eight messages. Set a map of
   folders under `creations/` to times, e.g. `{"projects/daybook": "06:00"}`: a new or revised piece under such a

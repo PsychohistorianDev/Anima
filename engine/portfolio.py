@@ -756,6 +756,23 @@ def _parse_quote(asked: str, res: dict, now: float | None = None) -> dict:
     lt = meta.get("regularMarketTime")
     if isinstance(last, (int, float)) and isinstance(lt, (int, float)):
         q["last"], q["last_time"] = round(float(last) / div, 6), int(lt)
+        ld = datetime.fromtimestamp(int(lt) + off, timezone.utc).date()
+        q["last_date"] = ld.isoformat()
+        # a last trade newer than the last daily bar, while the market is not open now, IS that session's close (a
+        # feed can be late with the day's bar; its last trade then is called "now" though the session ended)
+        if "close_date" not in q or ld.isoformat() > q["close_date"]:
+            age = now - int(lt)
+            if ld < today_ex:  # an earlier day's last trade, the market not trading it now
+                closed = age > 20 * 60
+            else:  # dated today: the close only once the session has ended (no end in the feed: never — "now")
+                closed = isinstance(end, (int, float)) and now >= end
+            if closed:
+                if "close" in q:
+                    q["prev_close"], q["prev_date"] = q["close"], q["close_date"]
+                else:
+                    q.pop("prev_close", None)
+                    q.pop("prev_date", None)
+                q["close"], q["close_date"], q["close_from_trade"] = q["last"], ld.isoformat(), True
     ev = res.get("events") or {}
     splits = []
     for v in ((ev.get("splits") or {}).values() if isinstance(ev.get("splits"), dict) else []):
@@ -868,7 +885,8 @@ def at_trade(q: dict) -> bool:
     if last is None or not lt:
         return False
     try:
-        return close is None or datetime.fromtimestamp(int(lt)).date().isoformat() > str(q.get("close_date"))
+        ld = q.get("last_date") or datetime.fromtimestamp(int(lt)).date().isoformat()
+        return close is None or str(ld) > str(q.get("close_date"))
     except (TypeError, ValueError, OverflowError, OSError):
         return False
 
@@ -900,6 +918,7 @@ def quote_line(q: dict) -> str:
                 f"{q.get('source', 'Yahoo')}{minor}) · no completed daily close yet")
         return (f"{q['name']} · " if q.get("name") else "") + line + (" · (could not be fetched now)" if q.get("stale") else "")
     bits = [f"{q['symbol']} {money(float(q['close']), cur)} (close {_day(q.get('close_date'))}, {q.get('source', 'Yahoo')}"
+            + ("; from the last trade — the day's bar isn't in the feed yet" if q.get("close_from_trade") else "")
             + minor + ")"]
     if q.get("name"):
         bits[0] = f"{q['name']} · " + bits[0]
@@ -1895,10 +1914,12 @@ def _block(which, book, tag, compact, refresh, until=None, for_friend=False) -> 
                               else " · no completed daily close yet")
                     lines.append(f"  {money(price_of(q), cur)} (last trade {_at(lt)}, {q.get('source', 'Yahoo')}{ag}){beside}{stale}")
             elif compact:
-                src = f"{_day(q.get('close_date'))} · {q.get('source', 'Yahoo')}" + (f" · {mn}" if mn else "")
+                src = f"{_day(q.get('close_date'))} · {q.get('source', 'Yahoo')}" + (f" · {mn}" if mn else "") \
+                    + (" · last trade" if q.get("close_from_trade") else "")
                 lines.append(f"  {money(float(q['close']), cur)} · {src}{stale}" + (" ⚠ check this" if q.get("jump") else ""))
             else:
-                src = f"close {_day(q.get('close_date'))}, {q.get('source', 'Yahoo')}" + (f"; in {mn}" if mn else "")
+                src = f"close {_day(q.get('close_date'))}, {q.get('source', 'Yahoo')}" + (f"; in {mn}" if mn else "") \
+                    + ("; from the last trade — the day's bar isn't in the feed yet" if q.get("close_from_trade") else "")
                 lines.append(f"  {money(float(q['close']), cur)} ({src}){stale}" + (" ⚠ check this" if q.get("jump") else ""))
             v = vals[s_]
             gain = v - hd["cost"]
@@ -2208,7 +2229,9 @@ def _move(q: dict, avg: float | None = None) -> dict:
         base, since = (float(close), f"since the close of {_day(q.get('close_date'))}") if close is not None else (None, "")
     else:
         price = float(close) if close is not None else None
-        said = f"close {_day(q.get('close_date'))} {money(price, cur)}" if price is not None else "no price"
+        said = (f"close {_day(q.get('close_date'))} {money(price, cur)}"
+                + (" (from the last trade — the day's bar isn't in the feed yet)" if q.get("close_from_trade") else "")
+                if price is not None else "no price")
         base, since = ((float(q["prev_close"]), f"from {_day(q.get('prev_date'))}") if q.get("prev_close") else (None, ""))
     first = base is None
     if first and avg:
@@ -2292,7 +2315,7 @@ def _headlines(symbol: str, name: str, until: float) -> list[dict] | None:
             host = urllib.parse.urlparse(str(r.get("url") or "")).hostname or ""
         host = host.lower()
         host = host[4:] if host.startswith("www.") else host
-        if not title or not names_holding(title, query, symbol):
+        if not title or not names_holding(title, query, symbol) or quote_page(title, query, symbol):
             continue
         if any(host == h or host.endswith("." + h) for h in skip):
             continue
@@ -2314,6 +2337,21 @@ def _news_keep(ck: str, entry: dict) -> None:
             _write("news.json", cache)
     except BookBusy:
         pass
+
+
+_QUOTE_WORDS = {"ordinary", "shares", "share", "class", "a", "b", "c", "stock", "stocks", "price", "prices", "quote", "quotes",
+                "common", "inc", "ltd", "pbc", "plc", "corp", "chart", "and", "the", "today", "live", "news", "history", "nyse",
+                "nasdaq", "lse", "adr", "ads", "s"}
+
+
+def quote_page(title: str, name: str, symbol: str) -> bool:
+    """A title that is a security's quote page, not news ("Acme Widgets, Inc. Ordinary Shares - Class A (ACME)"): the
+    title less the company's name, its ticker and quote-page words leaves fewer than 3 words."""
+    drop = {w.lower() for w in re.findall(r"[A-Za-z0-9']+", str(name or ""))}
+    bare = re.sub(r"\.[A-Z]+$", "", str(symbol or "")).lstrip("^").lower()
+    rest = [w for w in re.findall(r"[A-Za-z0-9']+", str(title or ""))
+            if w.lower() not in drop and w.lower() != bare and w.lower() != str(symbol or "").lower() and w.lower() not in _QUOTE_WORDS]
+    return len(rest) < 3
 
 
 def names_holding(title: str, name: str, symbol: str) -> bool:
@@ -2401,19 +2439,30 @@ def _brief(which: str, now: datetime) -> str:
         cur = hd["currency"]
         m = _move(q)  # the share's own move: its latest price against the close before it
         P, C = m["price"], m["base"]
-        lots = [r for r in live(book["records"]) if r.get("symbol") == s_ and str(r.get("date")) == today_iso]
+        # the SESSION of the latest price (its date S): shares held before S move from the close before S; shares
+        # bought on S (or after) from their buy price; shares sold on S up to the sale price — the keeper's real day
+        S = str((q.get("last_date") or (datetime.fromtimestamp(int(q["last_time"])).date().isoformat() if q.get("last_time") else ""))
+                if m.get("newer") else (q.get("close_date") or ""))
+        mine = [r for r in live(book["records"]) if r.get("symbol") == s_]
+        lots = [r for r in mine if S and str(r.get("date")) >= S]
         buys = [(float(r["qty"]), float(r["price"])) for r in lots if r.get("kind") == "buy"]
         sells = [(float(r["qty"]), float(r["price"])) for r in lots if r.get("kind") == "sell"]
         bq, sq = sum(x for x, _ in buys), sum(x for x, _ in sells)
-        before = max(0.0, hd["qty"] - bq + sq)  # held at yesterday's end (a split today aside)
+        try:
+            before = max(0.0, float(replay([r for r in mine if not S or str(r.get("date")) < S])["positions"].get(s_, {}).get("qty") or 0))
+        except Exception:  # noqa: BLE001
+            before = max(0.0, hd["qty"] - bq + sq)
+        bdays = sorted({str(r.get("date")) for r in lots if r.get("kind") == "buy"})
+        when = ("today" if bdays == [today_iso] else "that day" if bdays == [S] else
+                f"on {', '.join(_day(x) for x in bdays)}")
+        sdays = sorted({str(r.get("date")) for r in lots if r.get("kind") == "sell"})
+        swhen = ("today" if sdays == [today_iso] else "that day" if sdays == [S] else f"on {', '.join(_day(x) for x in sdays)}")
         lines.append(f"{s_} ×{hd['qty']:g}")
         amount, parts_left = 0.0, False
         if P is None:
             lines.append(f"  {m['line']}")
             missing.append(s_)
             continue
-        # per lot: held before moves from the close before; bought today from its buy price; sold today up to the
-        # sale price — the keeper's real day, not the share's
         if before > 1e-9:
             if C is None:
                 parts_left = True
@@ -2422,16 +2471,16 @@ def _brief(which: str, now: datetime) -> str:
         amount += sum(x * (P - b) for x, b in buys)
         amount += sum(x * (sp - P) for x, sp in sells)
         share = f"{_pct(m['pct'])} {m['since']}" if m["pct"] is not None else ""
-        sold = (f"; {sq:g} sold today at {money(sum(x * sp for x, sp in sells) / sq, cur)}" if sq else "")
+        sold = (f"; {sq:g} sold {swhen} at {money(sum(x * sp for x, sp in sells) / sq, cur)}" if sq else "")
         if buys and before <= 1e-9:
             bavg = sum(x * b for x, b in buys) / bq
             own = P / bavg - 1
             tail = f"(the share itself is {share})" if share else "(first day — no close before)"
-            lines.append(f"  {m['said']} · bought today at {money(bavg, cur)}: {_pct(own)} · {_signed(amount, cur)} {tail}"
+            lines.append(f"  {m['said']} · bought {when} at {money(bavg, cur)}: {_pct(own)} · {_signed(amount, cur)} {tail}"
                          + (f" ({sold[2:]})" if sold else ""))
         elif buys:
             bavg = sum(x * b for x, b in buys) / bq
-            lines.append(f"  {m['said']} {share} · {_signed(amount, cur)} ({before:g} held before, {bq:g} bought today at "
+            lines.append(f"  {m['said']} {share} · {_signed(amount, cur)} ({before:g} held before, {bq:g} bought {when} at "
                          f"{money(bavg, cur)}{sold})")
         elif parts_left:
             lines.append(f"  {m['said']} — no close before, so its day isn't known; not in the day's sum")
@@ -2453,7 +2502,7 @@ def _brief(which: str, now: datetime) -> str:
         if mv is None and buys:
             mv = P / (sum(x * b for x, b in buys) / bq) - 1
         if mv is not None and abs(mv) >= move_lim:
-            movers.append(f"{'▲' if mv > 0 else '▼'} {s_} {_pct(mv)}" + (" (bought today)" if buys else ""))
+            movers.append(f"{'▲' if mv > 0 else '▼'} {s_} {_pct(mv)}" + (f" (bought {when})" if buys else ""))
     cash_home = 0.0
     for cur, v in rp["cash"].items():
         x = to_home(v, cur)
@@ -2477,7 +2526,7 @@ def _brief(which: str, now: datetime) -> str:
         else:
             out.append("the day: not known — no rate")
         if left_out:
-            out.append(f"  {', '.join(left_out)}: the shares held before today left out — no close before")
+            out.append(f"  {', '.join(left_out)}: the shares held before that day left out — no close before")
     if rp["put_home"] and fx_ok:
         out.append(f"put in {money(rp['put_home'], h0)} — worth {money(worth, h0)}")
     idx = list(getattr(config, "PORTFOLIO_INDICES", None) or [])

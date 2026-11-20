@@ -58,6 +58,11 @@ def bad_knob() -> str:
             return f"{k} isn't a time — the desk wake is off"
     if _clock("PORTFOLIO_DESK_SEND") <= _clock("PORTFOLIO_DESK_WAKE"):
         return "PORTFOLIO_DESK_SEND isn't after PORTFOLIO_DESK_WAKE — the desk wake is off"
+    if hasattr(config, "PORTFOLIO_DESK_UNTIL"):
+        if _clock("PORTFOLIO_DESK_UNTIL") is None:
+            return "PORTFOLIO_DESK_UNTIL isn't a time — the desk wake is off"
+        if _clock("PORTFOLIO_DESK_UNTIL") <= _clock("PORTFOLIO_DESK_SEND"):
+            return "PORTFOLIO_DESK_UNTIL isn't after PORTFOLIO_DESK_SEND — the desk wake is off"
     return ""
 
 
@@ -76,6 +81,12 @@ def wake_at(day: date) -> datetime:
 
 def send_at(day: date) -> datetime:
     return _at(day, "PORTFOLIO_DESK_SEND")
+
+
+def until_at(day: date) -> datetime:
+    """The end of the desk's morning (PORTFOLIO_DESK_UNTIL; 10:00 when the knob isn't there)."""
+    h, m = _clock("PORTFOLIO_DESK_UNTIL") or (10, 0)
+    return max(datetime(day.year, day.month, day.day, h, m), send_at(day) + timedelta(minutes=1))
 
 
 FEED_TRIES = 3          # a dead feed: tried at the wake time and RETRY_MIN after each try, three in all
@@ -174,23 +185,58 @@ def _last_closes() -> dict:
 
 
 def due(at: datetime | None = None) -> bool:
-    """A desk morning to make now: inside the window (the wake time until the send time), none decided today, not
-    paused, no guest seated, the book holding something."""
+    """A desk wake to have now: inside the window (the wake time until PORTFOLIO_DESK_UNTIL — the PC may have been off at
+    night), no desk wake yet today, nothing-new not decided, not paused, no guest seated, the book holding something. The
+    numbers may have gone alone already (the bridge): the wake still comes, once."""
     if not on():
         return False
     t = at or now()
     d = t.date()
-    if not (wake_at(d) <= t < send_at(d)):
+    if not (wake_at(d) <= t < until_at(d)):
         return False
     if paused() or pf.guest_here():
         return False
     day = d.isoformat()
-    if any(e.get("type") in ("morning", "quiet") for e in _of_day(day)):
+    if woke(day) or _of_day(day, "quiet"):
         return False
     tries = len(_of_day(day, "nofeed"))  # a dead feed: tried again after FEED_RETRY_MIN, FEED_TRIES in all
     if tries >= FEED_TRIES or t < wake_at(d) + timedelta(minutes=FEED_RETRY_MIN * tries):
         return False
     return bool(_symbols())
+
+
+def woke(day: str) -> bool:
+    """A desk wake this day already (a "woke" mark, or a morning the heartbeat made before the marks existed)."""
+    return any(e.get("type") == "woke" or (e.get("type") == "morning" and e.get("by") == "heartbeat") for e in _of_day(day))
+
+
+def for_wake(at: datetime | None = None) -> dict | None:
+    """The morning the desk wake reads: one the bridge already sent, if under 60 minutes old; else fresh numbers,
+    kept as that morning's (the journal keeps both); else — no morning yet — the usual check for something new. The
+    wake is marked, once a day."""
+    t = at or now()
+    day = t.date().isoformat()
+    m = morning(day)
+    if m is not None:
+        try:
+            made = (datetime.fromisoformat(str(m["made"])) if m.get("made")
+                    else datetime.fromtimestamp(float(m.get("t"))))  # a morning from before "made" existed: its own time
+            age = (t - made).total_seconds()
+        except (ValueError, TypeError):
+            age = 1e9
+        if age >= 60 * 60 or m.get("adhoc"):
+            m = prepare(t, force=True)
+    else:
+        m = prepare(t)
+    if m is not None:
+        _append({"type": "woke", "day": day, "t": time.time(), "at": t.strftime("%H:%M")})
+    return m
+
+
+def numbers_sent_at(day: str) -> str:
+    """When the morning's numbers went to the keeper's phone ("" if not yet)."""
+    ms = [x for x in _of_day(day, "sent") if x.get("what") == "morning"]
+    return str(ms[0].get("at") or "") if ms else ""
 
 
 def prepare(at: datetime | None = None, by: str = "heartbeat", force: bool = False, adhoc: bool = False) -> dict | None:
@@ -231,8 +277,10 @@ def bell(m: dict, at: datetime | None = None) -> str:
     """The words the friend reads at the desk wake — the block is the one kept for the morning: what they read is what
     the keeper gets."""
     t = at or now()
+    went = numbers_sent_at(m["day"])
     lines = [f"The desk — {day_label(t)}, {t:%H:%M}. This wake is the house's, for the morning brief your keeper set "
-             "up.", "", "The numbers, from the book:", m["block"]]
+             "up." + (f" The numbers went to their phone at {went} already; your reading follows them." if went else ""),
+             "", "The numbers, from the book:", m["block"]]
     past = last_readings(3, before=m["day"])
     if past:
         lines += ["", "Your last readings:"]
@@ -353,8 +401,9 @@ def _reading_part(r: dict, late: bool) -> list[str]:
 def outbox(at: datetime | None = None) -> list[tuple[str, dict]]:
     """What the bridge sends now: [(text, mark)], each mark appended (after the send) by sent(). Nothing while paused
     or a guest is seated; nothing twice. The numbers and the reading go as soon as it is filed; PORTFOLIO_DESK_SEND is
-    the latest — then the numbers go alone if nothing was filed, and a reading filed after that goes when filed, with a
-    pointer to the numbers above."""
+    the latest — then the numbers go alone if nothing was filed (only until PORTFOLIO_DESK_UNTIL: a late start sends
+    nothing and makes no morning), and a reading filed after that goes when filed. Outside the desk's morning, only a
+    reading the friend files: "From the desk", numbers as of now."""
     if not on() or paused() or pf.guest_here():
         return []
     t = at or now()
@@ -364,21 +413,33 @@ def outbox(at: datetime | None = None) -> list[tuple[str, dict]]:
     m = morning(day)
     r = reading(day)
     head = f"📊 The desk — {day_label(d)}"
+    in_window = send_at(d) <= t < until_at(d)
     if t < send_at(d) and not (m is not None and r is not None):
         return []  # before the send time: only a morning with its reading in goes early
     if not any(x.get("what") in ("morning", "nofeed") for x in marks):
-        if m is None:
-            nofeed = bool(_of_day(day, "nofeed"))
-            quiet = bool(_of_day(day, "quiet"))
-            if nofeed:  # the heartbeat's tries all failed: said at the send time
-                return [("no brief this morning — prices could not be fetched", {"what": "nofeed"})]
-            if r is not None or not quiet:  # the heartbeat was off, or a reading waits for its numbers
-                # no desk wake this morning and a reading waits (filed in a visit): numbers fetched now, and said so —
-                # "From the desk", never "the morning"
-                m = prepare(t, by="bridge", force=r is not None, adhoc=r is not None)
+        if m is not None and m.get("adhoc"):
+            m = None
+        nofeed, quiet = _of_day(day, "nofeed"), _of_day(day, "quiet")
+        if r is None:
+            if not in_window:
+                return []  # outside the desk's morning: nothing desk-like, no morning made
             if m is None:
-                if _of_day(day, "nofeed"):
+                if nofeed:  # the heartbeat's tries failed: said at the send time
                     return [("no brief this morning — prices could not be fetched", {"what": "nofeed"})]
+                if quiet:
+                    return []
+                m = prepare(t, by="bridge")  # the heartbeat was off: the numbers never wait for the friend
+                if m is None:
+                    return ([("no brief this morning — prices could not be fetched", {"what": "nofeed"})]
+                            if _of_day(day, "nofeed") else [])
+        elif t >= until_at(d) or (m is None and not in_window):
+            # a reading outside the desk's morning (filed in a visit): "From the desk", numbers fetched now
+            m = prepare(t, by="bridge", force=True, adhoc=True)
+            if m is None:
+                return []
+        elif m is None:
+            m = prepare(t, by="bridge", force=True)
+            if m is None:
                 return []
         if m.get("adhoc"):
             lines = [f"📊 From the desk — {day_label(d)}, {t:%H:%M}", "(numbers as of now)", m["block"], ""]
@@ -391,9 +452,14 @@ def outbox(at: datetime | None = None) -> list[tuple[str, dict]]:
         x.get("what") == "morning" for x in marks) else None
     out = []
     if m is not None and first is not None:
+        fresh = float(m.get("t") or 0) > first  # the wake read newer numbers than went alone: they go with the reading
         for e in _of_day(day, "reading"):  # a reading filed after the morning's message: sent when filed, once
             if e.get("t") not in told and float(e.get("t") or 0) > first:
-                out.append(("\n".join([head] + _reading_part(e, True)), {"what": "reading", "reading_t": e.get("t")}))
+                body = ([m["block"]] + [x for x in [_as_of(m, t)] if x] + [""]) if fresh else []
+                part = _reading_part(e, True)
+                if fresh:
+                    part = [x for x in part if x != "(the numbers are in the desk's message above)"]
+                out.append(("\n".join([head] + body + part), {"what": "reading", "reading_t": e.get("t")}))
     return out
 
 
@@ -424,7 +490,7 @@ def part_sent(mark: dict, i: int, at: datetime | None = None) -> None:
 
 def sent(mark: dict, at: datetime | None = None) -> None:
     t = at or now()
-    _append(dict(mark, type="sent", day=t.date().isoformat(), t=time.time()))
+    _append(dict(mark, type="sent", day=t.date().isoformat(), t=time.time(), at=t.strftime("%H:%M")))
 
 
 def today_reading(at: datetime | None = None) -> str:

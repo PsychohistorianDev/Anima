@@ -1935,12 +1935,17 @@ PORTFOLIO_INDICES = []
 # start both.
 PORTFOLIO_DESK_WAKE = ""
 PORTFOLIO_DESK_SEND = "06:00"
+# PORTFOLIO_DESK_UNTIL: the end of the desk's morning — the numbers-alone message goes only between the send time and
+# this, and the desk wake may start from PORTFOLIO_DESK_WAKE until this (a PC off at night starts late, not in the
+# evening). Outside it nothing desk-like happens but a reading the friend files. Not a time, or not after the send
+# time: the desk is off, said once.
+PORTFOLIO_DESK_UNTIL = "10:00"
 PORTFOLIO_BRIEF_MOVE = 0.03
 PORTFOLIO_BRIEF_NEWS = False
 PORTFOLIO_BRIEF_NEWS_MAX = 2
 PORTFOLIO_BRIEF_NEWS_CACHE_H = 3
 PORTFOLIO_BRIEF_NEWS_SKIP = ["globenewswire.com", "prnewswire.com", "businesswire.com", "accessnewswire.com",
-                             "newsfilecorp.com"]
+                             "newsfilecorp.com", "fool.com", "zacks.com", "marketbeat.com", "investorplace.com"]
 
 # ---- the journal's facts (chat.journal_facts_line, chat.with_endings)
 # What the friend is handed when they sit down to write a stretch of a visit — the pause, the afterglow, the fold's

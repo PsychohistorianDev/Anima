@@ -1881,7 +1881,7 @@ def _desk_turn() -> bool:
         except Exception:  # noqa: BLE001
             pass
         t = bookdesk.now()
-        m = bookdesk.prepare(t)
+        m = bookdesk.for_wake(t)  # the morning already sent, if fresh; else fresh numbers; else the usual check
         if not m:
             print(f"[{datetime.now():%H:%M}] the desk: no wake this morning (" + ("nothing new from the feed" if bookdesk._of_day(
                 t.date().isoformat(), "quiet") else "prices could not be fetched") + ")")

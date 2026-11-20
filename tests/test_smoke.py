@@ -25541,7 +25541,8 @@ check("book (0.16): 🌅 Brief — worth now as the book's total, in euros with 
 # one valuation: a last trade newer than the close
 _bk_now2 = int(_bk_time.time())
 _bk_live = _bk_json.loads(_bk_json.dumps(_bk_FIX["ACME"]))
-_bk_live["chart"]["result"][0]["meta"].update(regularMarketPrice=44.0, regularMarketTime=_bk_now2 - 120)
+_bk_live["chart"]["result"][0]["meta"].update(regularMarketPrice=44.0, regularMarketTime=_bk_now2 - 120,
+                                               currentTradingPeriod={"regular": {"end": _bk_now2 + 3600}})  # the market open
 _bk_FIX0 = _bk_FIX["ACME"]
 _bk_FIX["ACME"] = _bk_live
 _bk_fresh("USD")
@@ -25674,7 +25675,7 @@ _bk_T = lambda h, m: _bk_dt(_bk_dday.year, _bk_dday.month, _bk_dday.day, h, m)
 _bk_clock = [_bk_T(5, 31)]
 _bk_bd.now = lambda: _bk_clock[0]
 _bk_def_on = tools._portfolio_definition()["function"]
-_bk_due = (_bk_bd.due(_bk_T(5, 20)), _bk_bd.due(_bk_T(5, 31)), _bk_bd.due(_bk_T(6, 0)))
+_bk_due = (_bk_bd.due(_bk_T(5, 20)), _bk_bd.due(_bk_T(5, 31)), _bk_bd.due(_bk_T(10, 0)))
 _bk_woke = []
 _bk_hb.wake = lambda **k: _bk_woke.append(k.get("desk", "")) or ""
 _bk_hb.rest_after_wake = lambda: False
@@ -25683,7 +25684,7 @@ _bk_turned = _bk_hb._desk_turn()
 _bk_bell = _bk_woke[0] if _bk_woke else ""
 _bk_m = _bk_bd.morning(_bk_dday.isoformat())
 _bk_again = _bk_bd.due(_bk_T(5, 40))
-check("book (0.16): the desk at 05:30 — due only from the wake time until the send time; the heartbeat fetches the "
+check("book (0.16): the desk at 05:30 — due only from the wake time until PORTFOLIO_DESK_UNTIL; the heartbeat fetches the "
       "numbers, keeps them, and wakes the friend with them on the bell — once that morning; the tool gains the brief "
       "action, its sentence and the text parameter",
       _bk_due == (False, True, False) and _bk_turned is True and len(_bk_woke) == 1 and _bk_m is not None and _bk_again is False
@@ -25749,7 +25750,7 @@ _bk_bd.prepare(_bk_T(5, 31))
 _bk_clock[0] = _bk_T(5, 45)
 _bk_lines = _bk_json.loads(_bk_json.dumps(_bk_bd.entries()))
 (_bk_dir / "desk.jsonl").write_text("", encoding="utf-8")
-_bk_clock[0] = _bk_T(6, 30)
+_bk_clock[0] = _bk_T(10, 30)
 tools.portfolio("brief", text="A thought from a visit.")
 _bk_adhoc = _bk_bd.outbox()
 _bk_fresh("USD")
@@ -25769,11 +25770,11 @@ _bk_NET["down"].discard("ACME")
 _bk_up_()
 check("book (0.16): the desk's phone — before the send time nothing without a reading; at it the numbers alone, the "
       "reading said not come; numbers older than 30 minutes say when; a reading with no desk morning goes as 'From the "
-      "desk' with numbers of now; a dead feed is tried three times ten minutes apart, then said",
+      "desk' with numbers of now (after the desk's morning); a dead feed is tried three times ten minutes apart, then said",
       _bk_early == [] and len(_bk_alone) == 1 and _bk_alone[0][0].startswith(f"📊 The desk — {_bk_bd.day_label(_bk_dday)}\n")
       and _bk_alone[0][0].endswith(f"\n\n(no reading from {_bk_FN} yet this morning)") and "(numbers as of" not in _bk_alone[0][0]
       and "\n(numbers as of 05:31)\n" in _bk_asof[0][0]
-      and _bk_adhoc[0][0].startswith(f"📊 From the desk — {_bk_bd.day_label(_bk_dday)}, 06:30\n(numbers as of now)\n")
+      and _bk_adhoc[0][0].startswith(f"📊 From the desk — {_bk_bd.day_label(_bk_dday)}, 10:30\n(numbers as of now)\n")
       and _bk_adhoc[0][0].endswith("A thought from a visit.")
       and _bk_dead == [None] and _bk_dead_due == (False, True) and _bk_dead_after is False
       and _bk_dead_msg == [("no brief this morning — prices could not be fetched", {"what": "nofeed"})],
@@ -25805,6 +25806,66 @@ check("book (0.16): /trade pause and resume stop and start the desk; a guest sea
       and _bk_p2 == ("(the desk is back — the desk wake and the morning message from the next morning)", True)
       and _bk_guestdue is False and _bk_badm.count("(PORTFOLIO_DESK_WAKE isn't a time — the desk wake is off)") == 1
       and _bk_baddef == _bk_def_off, (_bk_p1, _bk_pmenu, _bk_p2, _bk_guestdue, _bk_badm))
+# the desk's morning ends at PORTFOLIO_DESK_UNTIL; a late desk wake reuses numbers just sent; a bad end time
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "1000", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03")
+_bk_clock[0] = _bk_T(22, 0)
+_bk_late = (_bk_bd.outbox(), _bk_bd.morning(_bk_dday.isoformat()), _bk_bd.due(_bk_T(22, 0)))
+_bk_clock[0] = _bk_T(6, 1)
+_bk_b, _bk_ph = _bk_bridge()
+_bk_b.desk_tick()
+_bk_alone2 = len(_bk_ph.msgs)
+_bk_m0 = _bk_bd.morning(_bk_dday.isoformat())
+_bk_clock[0] = _bk_T(6, 20)
+_bk_woke2 = []
+_bk_hb.wake = lambda **k: _bk_woke2.append(k.get("desk", "")) or ""
+_bk_hb._desk_turn()
+_bk_reuse = (len([e for e in _bk_bd.entries() if e.get("type") == "morning"]), _bk_woke2[0] if _bk_woke2 else "")
+_bk_again2 = _bk_bd.due(_bk_T(6, 40))
+config.PORTFOLIO_DESK_UNTIL = "05:59"
+_bk_badu = (_bk_bd.bad_knob(), _bk_bd.on())
+config.PORTFOLIO_DESK_UNTIL = "10:00"
+check("book (0.16): the desk's morning ends at PORTFOLIO_DESK_UNTIL — a start in the evening sends nothing and makes no "
+      "morning; a desk wake after the numbers went alone reads those numbers (under an hour old) and the bell says they "
+      "went; once a day; an end not after the send time turns the desk off, said",
+      _bk_late == ([], None, False) and _bk_alone2 == 1 and _bk_m0 is not None and _bk_reuse[0] == 1
+      and " The numbers went to their phone at 06:01 already; your reading follows them." in _bk_reuse[1]
+      and _bk_again2 is False
+      and _bk_badu == ("PORTFOLIO_DESK_UNTIL isn't after PORTFOLIO_DESK_SEND — the desk wake is off", False),
+      (_bk_late, _bk_alone2, _bk_reuse[0], _bk_reuse[1][:200], _bk_again2, _bk_badu))
+# a session's close from its last trade; the session rule; quote pages dropped
+_bk_fresh("USD")
+_bk_now3 = int(_bk_time.time())
+_bk_lt = _bk_json.loads(_bk_json.dumps(_bk_FIX["ACME"]))
+_bk_yday = int(_bk_dt.combine(_bk_D[4] + _bk_td(days=3), _bk_dt.min.time()).replace(hour=20, tzinfo=_bk_tz.utc).timestamp())
+_bk_lt["chart"]["result"][0]["meta"].update(regularMarketPrice=45.0, regularMarketTime=_bk_yday)
+_bk_FIX0b = _bk_FIX["ACME"]
+_bk_FIX["ACME"] = _bk_lt
+_bk_qa = _bk_pf.quote("ACME", refresh=True)
+_bk_open = _bk_json.loads(_bk_json.dumps(_bk_FIX0b))
+_bk_open["chart"]["result"][0]["meta"].update(regularMarketPrice=46.0, regularMarketTime=_bk_now3 - 60)
+del _bk_open["chart"]["result"][0]["meta"]["currentTradingPeriod"]
+_bk_FIX["ACME"] = _bk_open
+_bk_qb = _bk_pf.quote("ACME", refresh=True)
+_bk_FIX["ACME"] = _bk_FIX0b
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "1000", "2026-03-02")
+_bk_add("buy", "ACME", "4", "41", "2026-03-03")
+_bk_add("buy", "ACME", "6", "42", "2026-03-06")
+_bk_sess = _bk_pf.brief("paper")
+check("book (0.16): a last trade from a later day than the feed's bars, over 20 minutes old, is that session's close, "
+      "said; one dated today with no session end in the feed is never a close; a holding's day is its latest price's "
+      "session — bought that day from the buy price, held before from the close before",
+      _bk_qa.get("close") == 45.0 and _bk_qa.get("close_from_trade") and _bk_qa.get("prev_close") == 43.25
+      and "(close " in _bk_pf.quote_line(_bk_qa) and "; from the last trade — the day's bar isn't in the feed yet" in _bk_pf.quote_line(_bk_qa)
+      and _bk_qb.get("close") == 43.25 and not _bk_qb.get("close_from_trade") and _bk_pf.at_trade(_bk_qb)
+      and "PAPER   close Mar 6 $43.25 +4.2% from Mar 5 · +$14.50 (4 held before, 6 bought that day at $42.00)" in _bk_sess,
+      (_bk_qa, _bk_qb.get("close"), _bk_sess))
+check("book (0.16): a headline that is only a quote page — the security's name, its ticker and quote words — is dropped",
+      _bk_pf.quote_page("Acme Widgets, Inc. Ordinary Shares - Class A (ACME) Stock Price", "Acme Widgets", "ACME")
+      and not _bk_pf.quote_page("Acme Widgets opens a second plant by the river", "Acme Widgets", "ACME"))
+
 # the regular wake never starts within 20 minutes after a desk wake
 _bk_ft = [1000.0]
 _bk_rstubs = (_bk_hb._rest_or_asked, _bk_hb._desk_turn, _bk_hb.time)

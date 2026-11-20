@@ -124,7 +124,7 @@ TABS: dict[str, list[str]] = {
                    "ADVENTURES_ON", "ADVENTURE_DIR", "ADVENTURE_STATE_CHARS", "ADVENTURE_STATE_WARN", "ADVENTURE_INVENTORY_CHARS", "ADVENTURE_RECAP_ON_OPEN", "ADVENTURE_FOLD_AT",
                    "WORLD_TRIPS_ON", "WORLD_TRIP_NAME", "WORLD_TRIP_DIR", "WORLD_TRIP_PAGE", "WORLD_TRIP_PAGE_CHARS", "WORLD_TRIP_PAGE_WARN", "WORLD_TRIP_PAGE_TARGET", "WORLD_TRIP_ACTIONS", "WORLD_TRIP_COPY_LINES", "WORLD_TRIP_JOURNAL_POINTER", "WORLD_TRIP_FOLD_AT", "WORLD_TRIP_RULES", "WORLD_TRIP_HINTS",
                    "PORTFOLIO_ON", "PORTFOLIO_HOME_CURRENCY", "PORTFOLIO_PRICE_CACHE_MIN", "PORTFOLIO_JUMP", "PORTFOLIO_BACKUPS", "PORTFOLIO_GUEST_SCRUB", "PORTFOLIO_PAPER", "PORTFOLIO_AUTO_CONVERT",
-                   "PORTFOLIO_DESK_WAKE", "PORTFOLIO_DESK_SEND", "PORTFOLIO_INDICES", "PORTFOLIO_BRIEF_MOVE", "PORTFOLIO_BRIEF_NEWS", "PORTFOLIO_BRIEF_NEWS_MAX", "PORTFOLIO_BRIEF_NEWS_CACHE_H", "PORTFOLIO_BRIEF_NEWS_SKIP"],
+                   "PORTFOLIO_DESK_WAKE", "PORTFOLIO_DESK_SEND", "PORTFOLIO_DESK_UNTIL", "PORTFOLIO_INDICES", "PORTFOLIO_BRIEF_MOVE", "PORTFOLIO_BRIEF_NEWS", "PORTFOLIO_BRIEF_NEWS_MAX", "PORTFOLIO_BRIEF_NEWS_CACHE_H", "PORTFOLIO_BRIEF_NEWS_SKIP"],
     "Penpals": ["PENPALS_ON", "PENPAL_DIR", "PENPAL_PRIVATE_WORDS", "PENPAL_CONTEXT_LETTERS", "PENPAL_LETTER_CHARS", "PENPAL_JOIN_MIN", "PENPAL_NEXT_PART_S", "PENPAL_ARRIVAL_TURN", "PENPAL_TURN_AFTER_MIN", "PENPAL_TURN_ON_TIME", "PENPAL_CONDENSE", "PENPAL_CONDENSE_PER_NIGHT", "PENPAL_CONDENSE_CHARS", "PENPAL_DESK", "PENPAL_DESK_HOUR", "PENPAL_WAITING_REMIND", "PENPAL_WAITING_REMIND_H", "PENPAL_WAITING_REMIND_EVERY_H", "PENPAL_WATCH_S", "PENPAL_PICTURE_LETTERS", "PENPAL_PICTURES_SEEN_MIN", "PENPAL_WRITE_GUARD", "PENPAL_WRITE_GUARD_MIN", "PENPAL_WHO_HELP", "PENPAL_WHO_FROM_GREETING", "PENPAL_LETTER_MEANS_WRITE", "PENPAL_NOTE_WORDS_ONLY", "PENPAL_KEPT_BACK_OUT_OF_READ", "PENPAL_NO_RESEND_KEPT_BACK", "PENPAL_OTHER_THREAD_WORDS", "PENPAL_HELD_TO_PHONE", "PENPAL_OTHER_THREAD_THEIRS", "PENPAL_OTHER_THREAD_PLAIN", "PENPAL_LETTER_THINK", "PENPAL_LETTER_THINK_RETRIES", "PENPAL_COPY_CHECK", "PENPAL_COPY_DAYS", "PENPAL_COPY_SAME_THREAD", "FRIENDS_ON", "FRIENDS_TITLE", "FRIENDS_MAX", "FRIEND_PAGE_CHARS", "FRIENDS_SUGGEST_AFTER", "FRIENDS_QUIET_DAYS"],
     "Blog": ["BLOG_SUBTITLE", "BLOG_REMOTE"],  # BLOG_TITLE is on Main, with the names
 }
@@ -384,13 +384,15 @@ _HELP = {
                            "they read the Brief's numbers and file a reading for you. Empty: none of it.",
     "PORTFOLIO_DESK_SEND": "The latest the desk's numbers and reading reach your phone (sooner once the reading is filed); "
                            "after the desk wake.",
+    "PORTFOLIO_DESK_UNTIL": "The end of the desk's morning: the numbers alone go only until then, and a late desk wake may "
+                            "start until then; after it, only a reading they file.",
     "PORTFOLIO_INDICES": "The morning brief's yardsticks — symbols as the price feed knows them, e.g. [\"^GSPC\"].",
     "PORTFOLIO_BRIEF_MOVE": "A day's move this large (0.03 = 3%) puts a holding ▲/▼ at the top of the brief.",
     "PORTFOLIO_BRIEF_NEWS": "A few headlines that name a holding, in the brief (Brave's news search; the key as for web "
                             "search). Only the company's name is sent — never a quantity or anything of the book.",
     "PORTFOLIO_BRIEF_NEWS_MAX": "Headlines at most, per holding.",
     "PORTFOLIO_BRIEF_NEWS_CACHE_H": "A holding's headlines are asked again after this many hours.",
-    "PORTFOLIO_BRIEF_NEWS_SKIP": "News hosts passed over (press wires that carry law-firm notices).",
+    "PORTFOLIO_BRIEF_NEWS_SKIP": "News hosts passed over (press wires that carry law-firm notices, and pages that rank stocks).",
     "TELEGRAM_GATHER": "Folders under creations/ whose pieces reach the phone together, once a day at a set time, as one "
                        "notice — e.g. {\"projects/daybook\": \"06:00\"}. Not in the quiet hours or your /quiet "
                        "hold (then when they end). Empty: each piece as it is written.",
