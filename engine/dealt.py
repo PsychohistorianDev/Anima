@@ -270,6 +270,13 @@ def book_next(seen: set) -> tuple[str, str, str] | None:  # (key, the dealt text
             continue
         p, _found = tools._find_book(name, (".epub",) if kind == "epub" else (".pdf",))
         if not p:
+            try:  # an open book the shelf can't name is said in the measure, never a silent deal of something else
+                import dealt_doors
+                n_ = tools._FIND_HITS[0]
+                dealt_doors._log("book-missing", "none", (f"{n_} files match, none exactly" if n_ > 1 else "no file by that name") + f": {name}",
+                                 keep_key=True)
+            except Exception:  # noqa: BLE001
+                pass
             continue
         key = f"book:{name}:{at}"
         # no "already dealt" lockout for the open book: a book dealt once and set down would be kept by its key

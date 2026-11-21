@@ -26332,6 +26332,43 @@ for _bk_k, _bk_v in _bk_saved.items():
     else:
         setattr(config, _bk_k, _bk_v)
 
+# the book finder (0.16 fix): two books with similar names — an exact file name wins; a short title, one unique word;
+# a word both share finds none, never a guess
+_bf_dir = config.SHARED_DIR / "books" / "bookfind-test"
+_bf_top = config.SHARED_DIR / "Sea Glass_ Tales - Ione Marsh.epub"
+_bf_dir.mkdir(parents=True, exist_ok=True)
+_bf_a = _bf_dir / "Lanterns at Dusk and Other Tales - Ione Marsh.epub"
+_bf_b = _bf_dir / "Sea Glass_ Tales - Ione Marsh.epub"
+for _bf_p in (_bf_a, _bf_b):
+    _bf_p.write_bytes(b"not really an epub")
+import os as _bf_os
+_bf = {}
+for _bf_k, _bf_ask in (("exact", "Lanterns at Dusk and Other Tales - Ione Marsh.epub"),
+                       ("case", "LANTERNS at dusk and other tales - ione marsh.EPUB"),
+                       ("path", "shared/books/Sea Glass_ Tales - Ione Marsh.epub"),
+                       ("noauthor", "Lanterns at Dusk and Other Tales"), ("short", "Sea Glass"),
+                       ("word", "Lanterns"), ("shared", "Tales"), ("author", "Marsh"), ("copy", "Glass"),
+                       ("copy_exact", "sea glass_ tales - ione marsh.epub")):
+    if _bf_k == "copy":  # the same file name in two folders is one book: shared/books first
+        _bf_top.write_bytes(b"not really an epub")
+        _bf_os.utime(_bf_top, (2_000_000_000, 2_000_000_000))
+    _bf_q, _bf_how = tools._find_book(_bf_ask, (".epub",))
+    _bf[_bf_k] = (_bf_q.name if _bf_q else None, _bf_q.parent.name if _bf_q else None, tools._FIND_HITS[0])
+check("book finder (0.16): two books by one author with a shared word — an exact file name wins (any case, with a path, "
+      "shared/books first); a title without its author finds its own book; a short title by its first words; one "
+      "word only when one book has it (two copies of one file are one book); a word both share — none, never a guess",
+      _bf["exact"][:2] == ("Lanterns at Dusk and Other Tales - Ione Marsh.epub", "bookfind-test")
+      and _bf["case"][0] == "Lanterns at Dusk and Other Tales - Ione Marsh.epub"
+      and _bf["path"][:2] == ("Sea Glass_ Tales - Ione Marsh.epub", "bookfind-test")
+      and _bf["noauthor"][0] == "Lanterns at Dusk and Other Tales - Ione Marsh.epub" and _bf["short"][0] == "Sea Glass_ Tales - Ione Marsh.epub"
+      and _bf["word"][0] == "Lanterns at Dusk and Other Tales - Ione Marsh.epub"
+      and _bf["shared"] == (None, None, 2) and _bf["author"] == (None, None, 2)
+      and _bf["copy"][:2] == ("Sea Glass_ Tales - Ione Marsh.epub", "bookfind-test")
+      and _bf["copy_exact"][:2] == ("Sea Glass_ Tales - Ione Marsh.epub", "bookfind-test"), _bf)
+import shutil as _bf_sh
+_bf_sh.rmtree(_bf_dir, ignore_errors=True)
+_bf_top.unlink(missing_ok=True)
+
 failed = [n for n, ok, _ in results if not ok]
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)

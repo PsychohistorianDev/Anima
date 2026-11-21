@@ -5466,15 +5466,57 @@ def _book_words(text: str) -> list[str]:
     return [w for w in re.split(r"[^0-9a-z\u00c0-\u024f]+", t) if w]
 
 
+_FIND_HITS = [0]  # how many books the last fuzzy search matched — for the deal's log when it found none or several
+
+
+def _exact_book(name: str, exts: tuple) -> Path | None:
+    """A bookmark's name is a FILE name: the file with exactly that name (case-blind) anywhere under shared/ —
+    shared/books first; the same name twice, the newest. None when no file has it."""
+    want = str(name or "").rsplit("/", 1)[-1].rsplit("\\", 1)[-1].strip().lower()
+    if not want or not want.endswith(tuple(e.lower() for e in exts)):
+        return None
+    try:
+        hits = [q for q in config.SHARED_DIR.rglob("*") if q.is_file() and q.name.lower() == want]
+        if not hits:
+            return None
+        books = config.SHARED_DIR / "books"
+        return max(hits, key=lambda q: (books in q.parents, q.stat().st_mtime))
+    except OSError:
+        return None
+
+
 def _find_book(source: str, exts: tuple) -> tuple[Path | None, str]:
     """(A book asked for by its title, "The Salt Road; With The Letters…", whose file is
     "The Salt Road_ With T - A. Writer.epub", would otherwise take a wake several steps to find.)
     A book asked for by a name that isn't a file: the one book in shared/ whose file name or own title matches it —
-    the same words from the start, or nearly all of them. (path, how it was found) or (None, "")."""
+    the same words from the start, or nearly all of them. (path, how it was found) or (None, "").
+    (Two books with similar names — two collections by one author, both with "Stories" in the file name — once both
+    matched a bookmark, and two hits are none: every book beat of the wake dealt something else, silently.) A file
+    by exactly that name wins first; among several near hits, the one whose words are exactly these; a short name is
+    "nearly all" of a long one only when it covers 0.8 of the ASK's words; one word only when one book has it."""
+    _FIND_HITS[0] = 0
+    exact = _exact_book(source, exts)
+    if exact is not None:
+        q, how = exact, "by its file name"
+        try:
+            rel = q.resolve().relative_to(config.ROOT.resolve()).as_posix()
+        except ValueError:
+            rel = q.name
+        _FIND_HITS[0] = 1
+        return q, f"(found {how}: {rel} — that path opens it next time)\n"
     want = _book_words(source.rsplit("/", 1)[-1].rsplit("\\", 1)[-1])
-    if len(want) < 2:
+    if len(want) < 2 and not (want and len(want[0]) >= 4):  # one word of four letters or more
         return None, ""
     shelf = [q for q in config.SHARED_DIR.rglob("*") if q.is_file() and q.suffix.lower() in exts]
+
+    def title_of(q: Path) -> str:
+        key = (str(q), q.stat().st_mtime)
+        if key not in _BOOK_TITLES:
+            try:
+                _BOOK_TITLES[key] = _epub_open(q.read_bytes())[0] or ""
+            except Exception:  # noqa: BLE001
+                _BOOK_TITLES[key] = ""
+        return _BOOK_TITLES[key]
 
     def close(have: list[str]) -> bool:
         if not have:
@@ -5487,22 +5529,38 @@ def _find_book(source: str, exts: tuple) -> tuple[Path | None, str]:
         if n >= min(4, len(want), len(have)):
             return True
         common = len(set(want) & set(have))
-        return common >= max(2, int(0.8 * min(len(set(want)), len(set(have)))))
+        return common >= max(2, int(0.8 * len(set(want))))  # nearly all of the ASK's words, never a share of a shorter name
 
     hits = []
+    if len(want) == 1:  # one word: the one book on the whole shelf (EPUBs and PDFs) with it as a word of its name or title
+        books = [q for q in config.SHARED_DIR.rglob("*") if q.is_file() and q.suffix.lower() in (".epub", ".pdf")]
+        for q in books:
+            if want[0] in _book_words(q.stem):
+                hits.append((q, "by its file name"))
+            elif q.suffix.lower() == ".epub" and want[0] in _book_words(title_of(q)):
+                hits.append((q, "by its title"))
+        by_name: dict = {}  # the same file name in two folders is one book: shared/books first, then the newest
+        for q, how in hits:
+            k = q.name.lower()
+            if k not in by_name or ((config.SHARED_DIR / "books") in q.parents, q.stat().st_mtime) > (
+                    (config.SHARED_DIR / "books") in by_name[k][0].parents, by_name[k][0].stat().st_mtime):
+                by_name[k] = (q, how)
+        hits = list(by_name.values())
+        if len(hits) == 1 and hits[0][0].suffix.lower() not in exts:
+            hits = []
+        shelf = []
     for q in shelf:
         if close(_book_words(q.stem)):
             hits.append((q, "by its file name"))
             continue
-        if q.suffix.lower() == ".epub":
-            key = (str(q), q.stat().st_mtime)
-            if key not in _BOOK_TITLES:
-                try:
-                    _BOOK_TITLES[key] = _epub_open(q.read_bytes())[0] or ""
-                except Exception:  # noqa: BLE001
-                    _BOOK_TITLES[key] = ""
-            if close(_book_words(_BOOK_TITLES[key])):
-                hits.append((q, "by its title"))
+        if q.suffix.lower() == ".epub" and close(_book_words(title_of(q))):
+            hits.append((q, "by its title"))
+    if len(hits) > 1:  # the one whose words are exactly these, before the near ones
+        same = [h for h in hits if _book_words(h[0].stem) == want or (h[0].suffix.lower() == ".epub" and _book_words(
+            _BOOK_TITLES.get((str(h[0]), h[0].stat().st_mtime), "")) == want)]
+        if len(same) == 1:
+            hits = same
+    _FIND_HITS[0] = len(hits)
     if len(hits) != 1:
         return None, ""
     q, how = hits[0]

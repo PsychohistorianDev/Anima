@@ -407,6 +407,13 @@ tagged on its own: the first tag after the rename is v0.13.)
   the friend or the keeper reads say "they" throughout. No behaviour changes.
 
 ### Fixed
+- **A bookmark in a shelf with two books of similar names** — two collections by one author, both with "Stories" in the
+  file name — matched both books in the finder, and two matches are none: every "book" beat of the wake dealt
+  something else, silently. Now a file by exactly the bookmark's name wins first (any case, anywhere under `shared/`,
+  `shared/books` first, the newest copy); several words find a book only when it shares 80% of the asked words (at
+  least two) or starts with the same words; one word of four letters or more only when exactly one book on the shelf
+  has it (the same file name in two folders is one book); several matches are still none, never a guess. A bookmark
+  that can't be resolved is logged in the deal's measure as `base=book-missing` with the reason.
 - **A restart after a fold, or a set-down with a full slot folder, cost a cold read** (`RESTART_PREFILL`,
   `BRAIN_KEEP_OLD_IF_NO_ROOM`, both on): a restart right after a fold cut the fold's background read, the half-read
   slot was saved, and the next message read the whole window cold; and a set-down with a window too large for the
