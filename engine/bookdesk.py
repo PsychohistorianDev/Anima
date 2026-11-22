@@ -133,7 +133,8 @@ def _analyst_dir() -> Path | None:
 
 def names_payload() -> dict:
     """What the analyst may know: the symbols held and watched, with their names and currencies — nothing else (no
-    quantities, prices paid, cash, records, notes or ledgers)."""
+    quantities, prices paid, cash, records, notes or ledgers); with PORTFOLIO_ANALYST_AMOUNTS, each holding's quantity
+    and what was paid too (_amounts), and "amounts": true."""
     cache = pf._read("prices.json", {})
     cache = cache if isinstance(cache, dict) else {}
 
@@ -142,12 +143,27 @@ def names_payload() -> dict:
         return {"symbol": str(sym), "name": str(nm or ""), "currency": str(cur or "")}
     # a book or a watch list that can't be read raises: the names.json there stays as it was
     rp = pf.replay(pf.load(pf.open_book())["records"])
-    held = [one(s, "", h.get("currency")) for s, h in sorted(rp["positions"].items()) if h["qty"] > 0]
+    amounts = bool(getattr(config, "PORTFOLIO_ANALYST_AMOUNTS", False))
+    held = [dict(one(s, "", h.get("currency")), **(_amounts(h) if amounts else {}))
+            for s, h in sorted(rp["positions"].items()) if h["qty"] > 0]
     watching = []
     if getattr(config, "PORTFOLIO_WATCH", False):
         import bookwatch
         watching = [one(x.get("symbol"), x.get("name"), x.get("currency")) for x in bookwatch.watching(bookwatch.load())]
-    return {"written": datetime.now().isoformat(timespec="seconds"), "holdings": held, "watching": watching}
+    out = {"written": datetime.now().isoformat(timespec="seconds"), "holdings": held, "watching": watching}
+    if amounts:
+        out["amounts"] = True
+    return out
+
+
+def _amounts(h: dict) -> dict:
+    """PORTFOLIO_ANALYST_AMOUNTS: the shares held and what was paid — the replay's own numbers, in the holding's
+    currency as the book keeps it (its main unit: pounds, not pence — minor-unit quotes are converted on the way in),
+    fees included, splits counted."""
+    q = round(float(h["qty"]), 6)
+    qty = int(q) if q == int(q) else q
+    cost = float(h["cost"])
+    return {"quantity": qty, "paid_per_share": round(cost / float(h["qty"]), 4), "paid_total": round(cost, 2)}
 
 
 def write_names(force: bool = False, every_s: float = 60.0) -> bool:

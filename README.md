@@ -2378,7 +2378,9 @@ time; `PORTFOLIO_DESK_DAYS` chooses the days it works (the first morning after
 skipped days adds each holding's move since the last desk morning). With
 `PORTFOLIO_ANALYST` on, an outside source you choose — a scheduled assistant
 session, a script — reads `names.json` in `PORTFOLIO_ANALYST_DIR` (only the
-symbols, names and currencies: nothing else of the book leaves the house) and
+symbols, names and currencies: nothing else of the book leaves the house —
+unless `PORTFOLIO_ANALYST_AMOUNTS` adds each holding's quantity and what was
+paid, so the source sees how much you hold) and
 leaves a dated note there; the friend reads it on the desk bell, marked as
 outside text, and you get it shortened with 📄 for the whole. `/trade test` runs the desk wake once now, outside the morning, and reports each step to
 your phone. A holding is valued at

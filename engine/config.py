@@ -1981,6 +1981,11 @@ PORTFOLIO_ANALYST_DIR = ""
 PORTFOLIO_ANALYST_CHARS = 6000
 PORTFOLIO_ANALYST_FRESH_H = 12
 PORTFOLIO_ANALYST_SHORT = 1200
+# PORTFOLIO_ANALYST_AMOUNTS: names.json also gives each holding its quantity, the price paid per share (fees in, in the
+# holding's own currency as the book keeps it) and the total paid, and says "amounts": true. With it on, the outside
+# source sees how much you hold of each name and what you paid. Never cash, deposits, records, dates, gains,
+# dividends, notes or ledgers. False: symbols, names and currencies only.
+PORTFOLIO_ANALYST_AMOUNTS = False
 PORTFOLIO_BRIEF_MOVE = 0.03
 PORTFOLIO_BRIEF_NEWS = False
 PORTFOLIO_BRIEF_NEWS_MAX = 2

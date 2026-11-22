@@ -11,6 +11,10 @@ tagged on its own: the first tag after the rename is v0.13.)
 ## 0.16 — 2026-11-11 → (in progress)
 
 ### Added
+- **The analyst's names may carry amounts** (`PORTFOLIO_ANALYST_AMOUNTS`, off): on, `names.json` gives each holding its
+  quantity, `paid_per_share` (fees in, in the holding's own currency as the book keeps it) and `paid_total`, and says
+  `"amounts": true` — the outside source then sees how much the keeper holds and what was paid. Never cash, deposits,
+  records, dates, gains, dividends, notes or ledgers. Off: `names.json` exactly as before.
 - **The desk's next version** (all off): `PORTFOLIO_DESK_HOLD` — the message waits for the send time even when the
   reading is filed earlier; `PORTFOLIO_DESK_DAYS` ("" every day, "workdays", or a day list) — no desk wake and no
   numbers alone on other days, and the first desk morning after skipped days adds each holding's move "since the last

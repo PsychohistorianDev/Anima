@@ -26126,6 +26126,46 @@ check("desk (0.16): the analyst's note — read from its dated file in the analy
       and "(shortened — 📄 the whole note)" in _dn_out[0][0] and "\n│" not in _dn_out[0][0] and _dn_out[0][1].get("note_day") == _dn_day
       and _dn_btn.get("callback_data") == f"tr:dn:{_dn_day}" and _dn_whole.startswith(f"📄 the analyst's note — {_bk_bd.day_label(_dn_day)}, written "),
       (_dn_bell[-900:], _dn_names, _dn_out[:1], _dn_btn, _dn_whole[:120]))
+# PORTFOLIO_ANALYST_AMOUNTS: names.json may carry the quantities and what was paid
+_dn_am0 = getattr(config, "PORTFOLIO_ANALYST_AMOUNTS", _bk_MISSING)
+_bk_fresh("USD")
+_bk_add("deposit", "USD", None, "5000", "2026-03-02")
+_bk_add("deposit", "GBP", None, "100", "2026-03-02")
+_bk_add("buy", "ACME", "10", "41", "2026-03-03", "1")
+_bk_add("buy", "ACME", "10", "43", "2026-03-04", "2")
+_bk_add("sell", "ACME", "5", "44", "2026-03-05")
+_bk_add("buy", "SPLT", "2", "100", "2026-03-02")
+_bk_pf.add({"date": "2026-03-04", "kind": "split", "symbol": "SPLT", "qty": 2.0, "price": None, "currency": "USD", "fx": None,
+            "fx_source": "", "fee": 0.0, "why": "", "by": "engine"}, "paper")
+_bk_add("buy", "JUMP", "10", "10", "2026-03-03")
+_bk_add("sell", "JUMP", "10", "15", "2026-03-05")
+_bk_add("buy", "BRAM.L", "10", "4.12", "2026-03-03")
+_dn_strip = lambda d_: {k: v for k, v in d_.items() if k != "written"}
+config.PORTFOLIO_ANALYST_AMOUNTS = False
+_dn_offp = _dn_strip(_bk_bd.names_payload())
+del config.PORTFOLIO_ANALYST_AMOUNTS
+_dn_absp = _dn_strip(_bk_bd.names_payload())
+config.PORTFOLIO_ANALYST_AMOUNTS = True
+_dn_onp = _bk_bd.names_payload()
+_dn_hold = {h["symbol"]: h for h in _dn_onp["holdings"]}
+check("desk (0.16): PORTFOLIO_ANALYST_AMOUNTS — off or absent, names.json as before (symbol, name, currency); on, each "
+      "holding gains its quantity, paid per share (fees in, after a partial sell, through a split, in the holding's own "
+      "currency — a pence quote in pounds) and the total paid, the file says amounts; a sold-out name is not listed; no "
+      "other key appears",
+      _dn_offp == _dn_absp and all(set(h) == {"symbol", "name", "currency"} for h in _dn_offp["holdings"]) and "amounts" not in _dn_offp
+      and set(_dn_onp) == {"written", "holdings", "watching", "amounts"} and _dn_onp["amounts"] is True
+      and all(set(h) == {"symbol", "name", "currency", "quantity", "paid_per_share", "paid_total"} for h in _dn_onp["holdings"])
+      and sorted(_dn_hold) == ["ACME", "BRAM.L", "SPLT"]
+      and (_dn_hold["ACME"]["quantity"], _dn_hold["ACME"]["paid_per_share"], _dn_hold["ACME"]["paid_total"]) == (15, 42.15, 632.25)
+      and (_dn_hold["SPLT"]["quantity"], _dn_hold["SPLT"]["paid_per_share"], _dn_hold["SPLT"]["paid_total"]) == (4, 50.0, 200.0)
+      and (_dn_hold["BRAM.L"]["currency"], _dn_hold["BRAM.L"]["quantity"], _dn_hold["BRAM.L"]["paid_per_share"],
+           _dn_hold["BRAM.L"]["paid_total"]) == ("GBP", 10, 4.12, 41.2)
+      and [{k: v for k, v in h.items() if k in ("symbol", "name", "currency")} for h in _dn_onp["holdings"]] == _dn_offp["holdings"],
+      (_dn_offp, _dn_onp))
+if _dn_am0 is _bk_MISSING:
+    config.__dict__.pop("PORTFOLIO_ANALYST_AMOUNTS", None)
+else:
+    config.PORTFOLIO_ANALYST_AMOUNTS = _dn_am0
 # HOLD: nothing before the send time, one message at it; no note → said; UTF-16 read; a stale note none
 _dn_house()
 config.PORTFOLIO_DESK_HOLD = True
