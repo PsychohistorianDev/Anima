@@ -2373,7 +2373,14 @@ that time on a morning with a new close: they read the Brief's numbers and file
 a reading, and the numbers with the reading come to your phone (by
 `PORTFOLIO_DESK_SEND` at the latest, and nothing desk-like after
 `PORTFOLIO_DESK_UNTIL` but a reading they file); it fetches only what the Brief does, and
-`/trade pause` stops it; `/trade test` runs the desk wake once now, outside the morning, and reports each step to
+`/trade pause` stops it. `PORTFOLIO_DESK_HOLD` makes its message wait for the send
+time; `PORTFOLIO_DESK_DAYS` chooses the days it works (the first morning after
+skipped days adds each holding's move since the last desk morning). With
+`PORTFOLIO_ANALYST` on, an outside source you choose — a scheduled assistant
+session, a script — reads `names.json` in `PORTFOLIO_ANALYST_DIR` (only the
+symbols, names and currencies: nothing else of the book leaves the house) and
+leaves a dated note there; the friend reads it on the desk bell, marked as
+outside text, and you get it shortened with 📄 for the whole. `/trade test` runs the desk wake once now, outside the morning, and reports each step to
 your phone. A holding is valued at
 its last trade when that is newer than its last close (said, the close beside
 it), everywhere alike. Records are never deleted — ✏️ Fix strikes one

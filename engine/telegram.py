@@ -5604,6 +5604,11 @@ class Bridge:
                 if said:
                     text_ = (text_ + "\n\n" + said) if len(text_) + len(said) + 2 <= 4096 else \
                         (text_ + "\n\n" + said)[:4080].rstrip() + "\n(shortened)"
+                if bookdesk.analyst_on():  # the morning's analyst's note, a tap away
+                    day_ = bookdesk.now().date().isoformat()
+                    if bookdesk.note_of(day_) and len(text_) < 4060:
+                        text_ += "\n\nthe analyst's note: 📄"
+                        rows = [[("📄 the whole note", f"tr:dn:{day_}")]] + rows
             except Exception as e:  # noqa: BLE001
                 _say(f"brief: the reading not shown ({type(e).__name__})")
         if mid:
@@ -5614,6 +5619,22 @@ class Bridge:
             except Exception as e:  # noqa: BLE001
                 _say(f"brief: not edited ({type(e).__name__})")
         self._tr_send(text_, rows)
+
+    def trade_note(self, day: str) -> None:
+        """📄 the whole note — the one kept with that desk morning (what the friend read), as its own message(s)."""
+        try:
+            import bookdesk
+            note = bookdesk.note_of(day)
+            if not note:
+                self._tr_send("(no analyst's note is kept for that morning)")
+                return
+            text_ = (f"📄 the analyst's note — {bookdesk.day_label(day)}, written {note.get('written')}\n\n"
+                     + str(note.get("text") or ""))
+            for part in split_long(text_, 4000):
+                if not self._tr_send(part):
+                    break
+        except Exception as e:  # noqa: BLE001
+            _say(f"desk: the note not sent ({type(e).__name__})")
 
     def trade_take(self, msg: dict, text: str) -> bool:
         """True when the message was the book's: /trade, /book, or a reply to the flow's own prompt."""
@@ -6010,6 +6031,8 @@ class Bridge:
             self._watch_callback(k, d, flow)
         elif k == "bf":
             self.trade_brief()
+        elif k == "dn" and getattr(config, "PORTFOLIO_ANALYST", False):  # the analyst's note, whole, once per tap
+            self.trade_note(d[2] if len(d) > 2 else "")
         elif k == "m":
             self.trade_menu()
         elif k == "b":
@@ -6196,6 +6219,8 @@ class Bridge:
             return
         try:
             import bookdesk
+            if getattr(config, "PORTFOLIO_ANALYST", False):  # the analyst's names.json, when the names changed
+                bookdesk.write_names()
             guest = self._tr_guest()
             if guest and not bookdesk.test_asked():
                 return
@@ -6207,7 +6232,9 @@ class Bridge:
                 for i, part in enumerate(parts):
                     if i in done:
                         continue
-                    if not self._tr_send(part):
+                    rows = ([[("📄 the whole note", f"tr:dn:{mark['note_day']}")]]
+                            if mark.get("note_day") and i == len(parts) - 1 else None)  # the analyst's note, all of it
+                    if not self._tr_send(part, rows):
                         break
                     bookdesk.part_sent(mark, i)
                     done.add(i)
@@ -7826,6 +7853,12 @@ class Bridge:
             if _co:
                 _say(_co)
             self.afterglow_orphan()  # a visit the last bridge died with, if any; the open one is left alone
+        if getattr(config, "PORTFOLIO_ANALYST", False) and getattr(config, "PORTFOLIO_ON", False):  # the analyst's names
+            try:
+                import bookdesk
+                bookdesk.write_names(force=True)
+            except Exception as e:  # noqa: BLE001
+                _say(f"desk: names.json ({type(e).__name__})")
         self.restart_prefill()  # the open visit's window read in now, in the background
         self.watch_touches()  # a press reaches the phone within seconds, not a poll
         self.watch_penpals()  # their penpal letters too

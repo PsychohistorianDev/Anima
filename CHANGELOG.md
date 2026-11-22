@@ -11,6 +11,15 @@ tagged on its own: the first tag after the rename is v0.13.)
 ## 0.16 — 2026-11-11 → (in progress)
 
 ### Added
+- **The desk's next version** (all off): `PORTFOLIO_DESK_HOLD` — the message waits for the send time even when the
+  reading is filed earlier; `PORTFOLIO_DESK_DAYS` ("" every day, "workdays", or a day list) — no desk wake and no
+  numbers alone on other days, and the first desk morning after skipped days adds each holding's move "since the last
+  desk morning"; `PORTFOLIO_ANALYST` with `_DIR`, `_CHARS` 6000, `_FRESH_H` 12, `_SHORT` 1200 — an outside source the
+  keeper chooses reads `names.json` (symbols, names, currencies only) and writes a dated note into that folder; a fresh
+  note counts as something new, sits on the bell as outside text ("│ " lines, a closing line, engine-looking lines made
+  plain), the friend is asked for a reading in three parts (the case for, the case against, their own view), and the
+  phone's message carries it shortened with 📄 for the whole — or "(no analyst's note this morning)", or a late note
+  marked as unread by the friend. UTF-16 notes are read. Off: the desk exactly as before.
 - **The keyboard chat joins the carry** (`CARRY_KEYBOARD`, on): `python chat.py` takes the carry at its first message in
   an empty room — the same engine line and console line as the phone and the desk page, the afterglow at the end
   starting past the carried turns — and leaves it at `/quit`, end of input and Ctrl+C; `/new` clears it, as the

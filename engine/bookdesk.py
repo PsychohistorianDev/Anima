@@ -20,8 +20,10 @@ from __future__ import annotations
 import json
 import os
 import re
+import stat
 import time
 from datetime import date, datetime, timedelta
+from pathlib import Path
 
 import config
 import portfolio as pf
@@ -59,6 +61,8 @@ def bad_knob() -> str:
             return f"{k} isn't a time — the desk wake is off"
     if _clock("PORTFOLIO_DESK_SEND") <= _clock("PORTFOLIO_DESK_WAKE"):
         return "PORTFOLIO_DESK_SEND isn't after PORTFOLIO_DESK_WAKE — the desk wake is off"
+    if _days()[1]:
+        return _days()[1]
     if hasattr(config, "PORTFOLIO_DESK_UNTIL"):
         if _clock("PORTFOLIO_DESK_UNTIL") is None:
             return "PORTFOLIO_DESK_UNTIL isn't a time — the desk wake is off"
@@ -69,6 +73,316 @@ def bad_knob() -> str:
 
 def on() -> bool:
     return set_knob() and not bad_knob() and bool(getattr(config, "PORTFOLIO_ON", False))
+
+
+# ---- the desk's days (PORTFOLIO_DESK_DAYS) -----------------------------------------------------------------------
+def _days() -> tuple[str, str]:
+    """PORTFOLIO_DESK_DAYS as the wake asks keep every= ("" every day, "workdays", or weekday numbers "6,0,1"), and the
+    sentence when it isn't days ("" when it is). ""/"all"/absent: every day, as before."""
+    raw = getattr(config, "PORTFOLIO_DESK_DAYS", "")
+    if isinstance(raw, (list, tuple)):
+        raw = ", ".join(str(x) for x in raw)
+    w = str(raw if raw is not None else "?").strip().lower()
+    if w in ("", "all"):
+        return "", ""
+    try:
+        import wakeask
+        e = wakeask._every(w)
+    except Exception:  # noqa: BLE001
+        e = ""
+    if e == "day":
+        return "", ""
+    if not e:
+        return "", "PORTFOLIO_DESK_DAYS isn't days — the desk wake is off"
+    return e, ""
+
+
+def desk_day(d) -> bool:
+    """A day the desk works: the keeper's work week exactly as the wake asks' every="workdays" (days off respected), or the
+    weekdays named; every day without the knob."""
+    every, bad = _days()
+    if bad:
+        return False
+    if not every:
+        return True
+    try:
+        import wakeask
+        return bool(wakeask._matches(every, d if isinstance(d, date) else date.fromisoformat(str(d))))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def hold_on() -> bool:
+    """PORTFOLIO_DESK_HOLD: the message waits for the send time even when the reading is filed earlier."""
+    return bool(getattr(config, "PORTFOLIO_DESK_HOLD", False))
+
+
+# ---- the analyst's note — an outside source's facts and open questions, read as data -----------------------------
+_NAMES_LAST = [None, 0.0]  # what names.json last said (without its time), when it was last looked at
+_NAMES_ERR = [""]          # the last failure said, so a lasting one is said once
+
+
+def analyst_on() -> bool:
+    return bool(getattr(config, "PORTFOLIO_ANALYST", False)) and bool(getattr(config, "PORTFOLIO_ON", False))
+
+
+def _analyst_dir() -> Path | None:
+    raw = str(getattr(config, "PORTFOLIO_ANALYST_DIR", "") or "").strip()
+    return Path(raw) if raw else None
+
+
+def names_payload() -> dict:
+    """What the analyst may know: the symbols held and watched, with their names and currencies — nothing else (no
+    quantities, prices paid, cash, records, notes or ledgers)."""
+    cache = pf._read("prices.json", {})
+    cache = cache if isinstance(cache, dict) else {}
+
+    def one(sym, name, cur) -> dict:
+        nm = name or (cache.get(str(sym).upper()) or {}).get("name") if isinstance(cache.get(str(sym).upper()), dict) else name
+        return {"symbol": str(sym), "name": str(nm or ""), "currency": str(cur or "")}
+    # a book or a watch list that can't be read raises: the names.json there stays as it was
+    rp = pf.replay(pf.load(pf.open_book())["records"])
+    held = [one(s, "", h.get("currency")) for s, h in sorted(rp["positions"].items()) if h["qty"] > 0]
+    watching = []
+    if getattr(config, "PORTFOLIO_WATCH", False):
+        import bookwatch
+        watching = [one(x.get("symbol"), x.get("name"), x.get("currency")) for x in bookwatch.watching(bookwatch.load())]
+    return {"written": datetime.now().isoformat(timespec="seconds"), "holdings": held, "watching": watching}
+
+
+def write_names(force: bool = False, every_s: float = 60.0) -> bool:
+    """names.json in the analyst's folder (temp + rename), when what it says changed (looked at once a minute at most)
+    or when forced (the bridge's start). The folder made if missing; a failure said in the book's log, never raised."""
+    if not analyst_on():
+        return False
+    if not force and time.time() - _NAMES_LAST[1] < every_s:
+        return False
+    _NAMES_LAST[1] = time.time()
+    try:
+        d = _analyst_dir()
+        if d is None:
+            return False
+        data = names_payload()
+        same = {k: v for k, v in data.items() if k != "written"}
+        if not force and same == _NAMES_LAST[0] and (d / "names.json").exists():
+            return False
+        d.mkdir(parents=True, exist_ok=True)
+        tmp = d / f".names.{os.getpid()}.tmp"
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
+        tmp.replace(d / "names.json")
+        _NAMES_LAST[0] = same
+        _NAMES_ERR[0] = ""
+        return True
+    except Exception as e:  # noqa: BLE001
+        said = f"the analyst's names.json was not written: {type(e).__name__}: {e}"
+        if said != _NAMES_ERR[0]:  # said when the error changes, not every minute
+            _NAMES_ERR[0] = said
+            try:
+                pf._log(said)
+            except Exception:  # noqa: BLE001
+                pass
+        return False
+
+
+_NOTE_NAME = re.compile(r"\d{4}-\d{2}-\d{2}\.md")
+_CTRL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]")
+
+
+def _cut(text: str, cap: int, tail: str) -> str:
+    """Cut at a paragraph (else a line, else a word) under cap, with the tail said."""
+    if len(text) <= cap:
+        return text
+    for sep in ("\n\n", "\n", " "):
+        k = text.rfind(sep, 0, cap)
+        if k >= cap // 3:
+            return text[:k].rstrip() + "\n" + tail
+    return text[:cap].rstrip() + "\n" + tail
+
+
+def clean_note(raw: str) -> str:
+    """An outside model's words as data: reserved tokens made plain (the engine's defang), a line that imitates an engine
+    line made plain ("[engine" → "[ engine"), control characters taken out, capped at PORTFOLIO_ANALYST_CHARS at a
+    paragraph with "(shortened)". Never executed, never read for instructions."""
+    text = str(raw or "").replace("\r\n", "\n").replace("\r", "\n")
+    text = _CTRL.sub("", text)
+    try:
+        import ollama_client
+        text = ollama_client.defang(text)[0]
+    except Exception:  # noqa: BLE001
+        text = text.replace("<", "⟨").replace(">", "⟩")
+    text = re.sub(r"(?im)^(\s*)([\[(［⟦])(\s*)(engine)", lambda m_: f"{m_.group(1)}{m_.group(2)} {m_.group(4)}", text)
+    text = re.sub(r"(?m)^(\s*)\*(\*?\()", lambda m_: f"{m_.group(1)}* {m_.group(2)}", text)  # "*(" / "**(" — the engine's italic asides
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    cap = int(getattr(config, "PORTFOLIO_ANALYST_CHARS", 6000) or 6000)
+    return _cut(text, cap, "(shortened)")
+
+
+def analyst_note(day: str | None = None, at: datetime | None = None) -> dict | None:
+    """The analyst's note for a desk morning: the file named for that morning's date (YYYY-MM-DD.md) in the analyst's
+    folder, written within PORTFOLIO_ANALYST_FRESH_H hours — or, with no day (a test), the newest dated file that fresh
+    and not after today. {"text", "written" (HH:MM), "file"}, or None."""
+    if not analyst_on():
+        return None
+    d = _analyst_dir()
+    if d is None:
+        return None
+    t = at or now()
+    fresh = float(getattr(config, "PORTFOLIO_ANALYST_FRESH_H", 12) or 12) * 3600
+    try:
+        if day:
+            cands = [d / f"{day}.md"]
+        else:
+            cands = sorted((q for q in d.iterdir() if _NOTE_NAME.fullmatch(q.name) and q.name[:10] <= t.date().isoformat()),
+                           key=lambda q: q.name, reverse=True)
+        for q in cands:
+            try:
+                st = os.lstat(q)
+            except OSError:
+                continue
+            if not stat.S_ISREG(st.st_mode):
+                continue  # a symlink, a folder, a pipe: not a note
+            age = time.time() - st.st_mtime
+            if not NOTE_SETTLE_S <= age <= fresh:
+                continue  # still being written (under a minute old: the next tick), or not fresh
+            with open(q, "rb") as fh:
+                data = fh.read(2 * 1024 * 1024)
+            if data[:2] in (b"\xff\xfe", b"\xfe\xff"):  # UTF-16 with its BOM (some shells write it by default)
+                raw = data.decode("utf-16", "replace")
+            elif b"\x00" in data:
+                continue  # binary, not a note
+            else:
+                raw = data.decode("utf-8-sig", "replace")
+            text = clean_note(raw)
+            if len(re.sub(r"\W", "", text)) < 20:
+                continue
+            return {"text": text, "written": datetime.fromtimestamp(st.st_mtime).strftime("%H:%M"), "file": q.name}
+    except OSError:
+        return None
+    return None
+
+
+NOTE_SETTLE_S = 60  # a note modified in the last minute may be half written: taken at a later tick
+
+
+def note_pending(day: str) -> bool:
+    """The day's note file is there but under NOTE_SETTLE_S old: worth looking again at the next tick."""
+    d = _analyst_dir()
+    if not analyst_on() or d is None:
+        return False
+    try:
+        st = os.lstat(d / f"{day}.md")
+        return stat.S_ISREG(st.st_mode) and time.time() - st.st_mtime < NOTE_SETTLE_S
+    except OSError:
+        return False
+
+
+def note_block(note: dict) -> list[str]:
+    """The note on the friend's bell: outside text, and it looks it — every line under "│ ", its end said."""
+    return [f"│ {x}" if x else "│" for x in str(note.get("text") or "").split("\n")] + ["— end of the analyst's note —"]
+
+
+def note_short(note: dict) -> tuple[str, bool]:
+    """The note for the 06:00 message: PORTFOLIO_ANALYST_SHORT characters at a paragraph; (text, shortened)."""
+    text = str((note or {}).get("text") or "")
+    cap = int(getattr(config, "PORTFOLIO_ANALYST_SHORT", 1200) or 1200)
+    if len(text) <= cap:
+        return text, False
+    return _cut(text, cap, "(shortened — 📄 the whole note)"), True
+
+
+def note_of(day: str) -> dict | None:
+    """The note kept with that day's desk morning (the real one first, then a test's)."""
+    for kind in ("morning", "late_note", "test_morning"):
+        ms = [e for e in _of_day(day, kind) if e.get("note")]
+        if ms:
+            return ms[-1]["note"]
+    return None
+
+
+# ---- since the last desk morning, after skipped days ---------------------------------------------------------
+def _gap_lines(day: str) -> list[str]:
+    """The first desk morning after one or more days the desk doesn't work: each holding's move from the close that
+    morning showed to the latest, and their sum — the day's own move covers only the last session."""
+    if not _days()[0]:
+        return []
+    ms = [e for e in entries() if e.get("type") == "morning" and not e.get("adhoc") and str(e.get("day")) < day and e.get("held")]
+    if not ms:
+        return []
+    lm = ms[-1]
+    try:
+        a, b = date.fromisoformat(str(lm["day"])), date.fromisoformat(day)
+    except ValueError:
+        return []
+    if not any(not desk_day(a + timedelta(days=k)) for k in range(1, (b - a).days)):
+        return []
+    try:
+        rp = pf.replay(pf.load(pf.open_book())["records"])
+    except Exception:  # noqa: BLE001
+        return []
+    out, sums = [f"since the last desk morning ({day_label(lm['day'])})"], {}
+    then = lm.get("held") or {}
+    for s_, h in sorted(rp["positions"].items()):
+        if h["qty"] <= 0:
+            continue
+        q = pf.quote(s_, until=time.time() + pf.BRIEF_PRICE_S)
+        P = pf._move(q)["price"] if q.get("ok") else None
+        cur = h["currency"]
+        was = then.get(s_)
+        if P is None:
+            out.append(f"  {s_}: no price now")
+            continue
+        if not was:
+            out.append(f"  {s_} ×{h['qty']:g}: bought since — not in the sum")
+            continue
+        if was[0] is None:
+            out.append(f"  {s_} ×{h['qty']:g}: not in the sum (not priced that morning)")
+            continue
+        p0, q0 = float(was[0]), float(was[1])
+        n = min(q0, h["qty"])
+        amt = n * (P - p0)
+        sums[cur] = sums.get(cur, 0.0) + amt
+        out.append(f"  {s_} ×{h['qty']:g}  {pf.money(p0, cur)} → {pf.money(P, cur)}: {pf._pct(P / p0 - 1)} · {pf._signed(amt, cur)}"
+                   + (f" ({n:g} of them held through)" if abs(n - h["qty"]) > 1e-9 else ""))
+    if sums:
+        out.append("  together " + " · ".join(pf._signed(v, c) for c, v in sorted(sums.items())) + " (prices only)")
+    return out if len(out) > 1 else []
+
+
+def _held_now() -> dict:
+    """{symbol: [price shown, qty, currency]} — kept with a desk morning, for the next one after skipped days."""
+    out = {}
+    try:
+        rp = pf.replay(pf.load(pf.open_book())["records"])
+        for s_, h in rp["positions"].items():
+            if h["qty"] > 0:
+                q = pf.quote(s_, until=time.time() + pf.BRIEF_PRICE_S)
+                P = pf._move(q)["price"] if q.get("ok") else None
+                out[s_] = [P, h["qty"], h["currency"]]  # P None: held, not priced that morning
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
+def _no_session(block: str) -> str:
+    """A morning that came for the analyst's note alone: no new session since the last desk morning — said, and
+    the day's sum not repeated as if new."""
+    out = []
+    for line in block.splitlines():
+        if line.startswith("the day "):
+            out.append("the day: no new session since the last desk morning")
+            continue
+        out.append(line)
+        if line == "the book":
+            out.append("(no new session since the last desk morning — the moves below are the last session's, already shown)")
+    return "\n".join(out)
+
+
+def _with_gap(block: str, gap: list[str]) -> str:
+    if not gap:
+        return block
+    lines = block.splitlines()
+    k = lines.index("yardsticks") if "yardsticks" in lines else len(lines)
+    return "\n".join(lines[:k] + gap + lines[k:])
 
 
 def _at(day: date, knob: str) -> datetime:
@@ -181,7 +495,8 @@ def _symbols() -> list[str]:
 
 
 def _last_closes() -> dict:
-    ms = [e for e in entries() if e.get("type") == "morning"]
+    ms = [e for e in entries() if e.get("type") == "morning"
+          and not (_days()[0] and e.get("adhoc"))]  # with desk days: the last DESK morning's, not a reading's "From the desk"
     return dict(ms[-1].get("closes") or {}) if ms else {}
 
 
@@ -194,6 +509,8 @@ def due(at: datetime | None = None) -> bool:
     t = at or now()
     d = t.date()
     if not (wake_at(d) <= t < until_at(d)):
+        return False
+    if not desk_day(d):  # not a desk day: no desk wake
         return False
     if paused() or pf.guest_here():
         return False
@@ -275,17 +592,28 @@ def prepare(at: datetime | None = None, by: str = "heartbeat", force: bool = Fal
         force = True
     last = _last_closes()
     new = any(str(c) > str(last.get(s, "")) for s, c in closes.items())
+    note_only = False
+    if not new and not force and not adhoc and analyst_on() and analyst_note(day, t):
+        new = note_only = True  # a fresh analyst's note is something new: the desk comes, the session already shown is said
+    if not new and not force and not adhoc and note_pending(day):
+        return None  # a note still being written: the next tick looks again (nothing marked)
     if not new and not force:
         _append({"type": "quiet", "day": day, "t": time.time(), "by": by})
         return None
     text = pf.brief(pf.open_book(), t)
+    extra = {}
+    gap = [] if adhoc else _gap_lines(day)
+    if _days()[0] and not adhoc:
+        extra["held"] = _held_now()
+    if analyst_on() and not adhoc:
+        extra["note"] = analyst_note(None if test else day, t)
     if test:
-        block = "\n".join(text.splitlines()[1:]).strip("\n")
+        block = _with_gap("\n".join(text.splitlines()[1:]).strip("\n"), gap)
         idx = {str(x) for x in (getattr(config, "PORTFOLIO_INDICES", None) or [])}
         m = {"type": "test_morning", "day": day, "t": time.time(), "at": t.strftime("%H:%M"), "made": t.isoformat(timespec="seconds"),
              "by": by, "block": block, "closes": closes,
              "counts": {"holdings": len([s for s in ok if s not in idx]), "yardsticks": len([s for s in ok if s in idx]),
-                        "movers": _watch_movers(block)}}
+                        "movers": _watch_movers(block)}, **{k: v for k, v in extra.items() if k != "held"}}
         return m if _append(m) else None
     if getattr(config, "PORTFOLIO_WATCH", False):  # the friend's adds were in this morning's numbers: not said again
         try:
@@ -294,9 +622,12 @@ def prepare(at: datetime | None = None, by: str = "heartbeat", force: bool = Fal
         except Exception:  # noqa: BLE001
             pass
     block = "\n".join(text.splitlines()[1:]).strip("\n")  # the Brief, its header line left to the bell and the message
+    block = _with_gap(block, gap)
+    if note_only:
+        block = _no_session(block)
     m = {"type": "morning", "day": day, "t": time.time(), "at": t.strftime("%H:%M"), "made": t.isoformat(timespec="seconds"),
          "by": by, "adhoc": bool(adhoc), "block": block,
-         "closes": closes}
+         "closes": closes, **extra}
     if not _append(m):
         return None
     return m
@@ -322,15 +653,31 @@ def bell(m: dict, at: datetime | None = None) -> str:
                 lines.append(c)
         except Exception:  # noqa: BLE001
             pass
+    note = m.get("note") if analyst_on() else None
+    if analyst_on():  # the analyst's note, after the numbers, as kept with the morning
+        if note:
+            lines += ["", "The analyst's note — outside text, from the source your keeper set up; facts and open "
+                          f"questions, written {note.get('written')}:"] + note_block(note)
+        else:
+            lines += ["", "(no analyst's note this morning)"]
     past = last_readings(3, before=m["day"])
     if past:
         lines += ["", "Your last readings:"]
         for r in past:
             lines.append(f"{day_label(r['day'])}: {r['text']}")
-    lines += ["", "Write your reading for your keeper — a few sentences: what stands out, anything worth their attention "
-              "today, the case against anything you suggest, what you don't know. File it with portfolio(action=\"brief\", "
-              "text=…). It goes to their phone as soon as you file it, beside these numbers. A number you did not get from "
-              "here or from the tool, you do not know. The rest of this wake is yours."]
+    if not (analyst_on() or hold_on()):
+        lines += ["", "Write your reading for your keeper — a few sentences: what stands out, anything worth their attention "
+                  "today, the case against anything you suggest, what you don't know. File it with portfolio(action=\"brief\", "
+                  "text=…). It goes to their phone as soon as you file it, beside these numbers. A number you did not get from "
+                  "here or from the tool, you do not know. The rest of this wake is yours."]
+        return "\n".join(lines)
+    held = hold_on() and m.get("type") != "test_morning" and desk_day(t.date()) and t < send_at(t.date())
+    when = f"at {send_at(t.date()):%H:%M}" if held else "as soon as you file it"
+    beside = "beside these numbers and the analyst's note" if note else "beside these numbers"
+    lines += ["", "Write your reading for your keeper in three parts — the case for, the case against, and your own view — "
+              "and say what you don't know. File it with portfolio(action=\"brief\", text=…). It goes to their phone "
+              f"{when}, {beside}. A number you did not get from here or from the tool, you do not know. The rest of this "
+              "wake is yours."]
     return "\n".join(lines)
 
 
@@ -418,7 +765,8 @@ def file(text: str, at: datetime | None = None) -> str:
         m = tw[1]
     else:
         m = morning(day)
-    found = figures(words, (m or {}).get("block") or "")
+    found = figures(words, ((m or {}).get("block") or "") + ("\n" + str(((m or {}).get("note") or {}).get("text") or "")
+                                                             if analyst_on() and (m or {}).get("note") else ""))
     e = {"type": "reading", "day": day, "t": time.time(), "at": t.strftime("%H:%M"), "text": words, "figures": found}
     if tw:
         e.update(type="test_reading", start_t=tw[0].get("t"), morning_t=tw[1].get("t"))
@@ -460,9 +808,10 @@ def outbox(at: datetime | None = None) -> list[tuple[str, dict]]:
     m = morning(day)
     r = reading(day)
     head = f"📊 The desk — {day_label(d)}"
-    in_window = send_at(d) <= t < until_at(d)
-    if t < send_at(d) and not (m is not None and r is not None):
-        return []  # before the send time: only a morning with its reading in goes early
+    desk_today = desk_day(d)  # not a desk day: only a reading the friend files, "From the desk"
+    in_window = desk_today and send_at(d) <= t < until_at(d)
+    if desk_today and t < send_at(d) and (hold_on() or not (m is not None and r is not None)):
+        return []  # before the send time: only a morning with its reading in goes early (held: nothing goes early)
     if not any(x.get("what") in ("morning", "nofeed") for x in marks):
         if m is not None and m.get("adhoc"):
             m = None
@@ -479,7 +828,7 @@ def outbox(at: datetime | None = None) -> list[tuple[str, dict]]:
                 if m is None:
                     return ([("no brief this morning — prices could not be fetched", {"what": "nofeed"})]
                             if _of_day(day, "nofeed") else [])
-        elif t >= until_at(d) or (m is None and not in_window):
+        elif t >= until_at(d) or (m is None and not in_window) or not desk_today:
             # a reading outside the desk's morning (filed in a visit): "From the desk", numbers fetched now
             m = prepare(t, by="bridge", force=True, adhoc=True)
             if m is None:
@@ -488,12 +837,28 @@ def outbox(at: datetime | None = None) -> list[tuple[str, dict]]:
             m = prepare(t, by="bridge", force=True)
             if m is None:
                 return []
+        mark = {"what": "morning", "reading_t": (r or {}).get("t")}
         if m.get("adhoc"):
             lines = [f"📊 From the desk — {day_label(d)}, {t:%H:%M}", "(numbers as of now)", m["block"], ""]
         else:
             lines = [head, m["block"]] + [x for x in [_as_of(m, t)] if x] + [""]
+            if analyst_on():  # the analyst's note, shortened, the whole of it a tap away
+                note, late = m.get("note"), ""
+                if not note:  # one that came after the friend's wake, before this message: said as unread by them
+                    note = next((e["note"] for e in _of_day(day, "late_note") if e.get("note")), None) or analyst_note(day, t)
+                    if note and not _of_day(day, "late_note"):
+                        _append({"type": "late_note", "day": day, "t": time.time(), "note": note})
+                    late = (f"(it arrived at {note.get('written')}, after {_friend()}'s wake — {_friend()} has not read it)"
+                            if note else "")
+                if note:
+                    short, cut = note_short(note)
+                    lines += ["— the analyst's note —"] + ([late] if late else []) + [short, ""]
+                    if cut:
+                        mark["note_day"] = day
+                else:
+                    lines += ["(no analyst's note this morning)", ""]
         lines += _reading_part(r, False) if r else [f"(no reading from {_friend()} yet this morning)"]
-        return [("\n".join(lines), {"what": "morning", "reading_t": (r or {}).get("t")})]
+        return [("\n".join(lines), mark)]
     told = {x.get("reading_t") for x in marks if x.get("reading_t")}
     first = min(float(x.get("t") or 0) for x in marks if x.get("what") == "morning") if any(
         x.get("what") == "morning" for x in marks) else None
@@ -795,8 +1160,15 @@ def test_outbox(at: datetime | None = None) -> list[tuple[str, dict]]:
                         f"{_n(int(c.get('movers') or 0), 'watched mover', 'watched movers')})", {"what": "test_start", "key": e.get("t")}))
         elif k == "test_reading" and ("test_reading", e.get("t")) not in done:
             m = mornings.get(e.get("morning_t")) or {}
-            lines = [f"📊 The desk — test run, {e.get('at')}", m.get("block") or "", ""] + _reading_part(e, False)
-            out.append(("\n".join(lines), {"what": "test_reading", "key": e.get("t")}))
+            lines = [f"📊 The desk — test run, {e.get('at')}", m.get("block") or "", ""]
+            tmark = {"what": "test_reading", "key": e.get("t")}
+            if analyst_on() and m.get("note"):
+                short, cut = note_short(m["note"])
+                lines += ["— the analyst's note —", short, ""]
+                if cut:
+                    tmark["note_day"] = m.get("day")
+            lines += _reading_part(e, False)
+            out.append(("\n".join(lines), tmark))
         elif k == "test_end" and ("test_end", e.get("t")) not in done:
             rs = [r for r in es if r.get("type") == "test_reading" and r.get("start_t") == e.get("start_t")]
             if any(("test_reading", r.get("t")) not in done for r in rs):

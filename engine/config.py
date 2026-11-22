@@ -1960,6 +1960,27 @@ PORTFOLIO_DESK_SEND = "06:00"
 # evening). Outside it nothing desk-like happens but a reading the friend files. Not a time, or not after the send
 # time: the desk is off, said once.
 PORTFOLIO_DESK_UNTIL = "10:00"
+# PORTFOLIO_DESK_HOLD: the message to your phone waits for the send time even when the reading is filed earlier (one
+# message at PORTFOLIO_DESK_SEND); a reading filed after it goes when filed. False: sent the moment it is filed.
+PORTFOLIO_DESK_HOLD = False
+# PORTFOLIO_DESK_DAYS: the days the desk works — "" or "all": every day; "workdays": your work week as KEEPER_WORK_WEEK
+# and your days off count it; or days like "mon, tue, wed, thu, fri". Not a desk day: no desk wake and no numbers alone
+# (a reading the friend files still goes, "From the desk"). The first desk morning after skipped days adds each
+# holding's move since the last desk morning.
+PORTFOLIO_DESK_DAYS = ""
+# The analyst's note (PORTFOLIO_ANALYST): an outside source you choose — a scheduled assistant session, a script of your
+# own — reads names.json (the symbols held and watched, their names and currencies, nothing else: no quantities,
+# prices paid, cash or notes; the engine writes it into PORTFOLIO_ANALYST_DIR) and writes a dated note, YYYY-MM-DD.md,
+# into the same folder. Only those symbols leave the house, and only to that folder. The note is data: shown on the
+# friend's desk bell after the numbers, marked as outside text, kept with the morning, shortened in your phone's message
+# (PORTFOLIO_ANALYST_SHORT characters) with 📄 for the whole; PORTFOLIO_ANALYST_CHARS caps it; it counts only when
+# written within PORTFOLIO_ANALYST_FRESH_H hours. A fresh note also makes a morning worth a desk wake. With it on, the
+# friend is asked for a reading in three parts: the case for, the case against, their own view. False: none of it.
+PORTFOLIO_ANALYST = False
+PORTFOLIO_ANALYST_DIR = ""
+PORTFOLIO_ANALYST_CHARS = 6000
+PORTFOLIO_ANALYST_FRESH_H = 12
+PORTFOLIO_ANALYST_SHORT = 1200
 PORTFOLIO_BRIEF_MOVE = 0.03
 PORTFOLIO_BRIEF_NEWS = False
 PORTFOLIO_BRIEF_NEWS_MAX = 2
