@@ -11,6 +11,10 @@ tagged on its own: the first tag after the rename is v0.13.)
 ## 0.16 — 2026-11-11 → (in progress)
 
 ### Added
+- **A quiet desk morning says so** (`PORTFOLIO_ANALYST_SAY_MISSING`, off): with the analyst on, a morning with no new
+  session and no note sent nothing, so a night the outside source wrote nothing was invisible. Now one short line goes
+  to the phone at the send time, once; a note that came after the quiet decision goes with it, shortened with 📄, said
+  as not read by the friend, who is not woken for it. Off: a quiet morning sends nothing, as before.
 - **The analyst's names may carry amounts** (`PORTFOLIO_ANALYST_AMOUNTS`, off): on, `names.json` gives each holding its
   quantity, `paid_per_share` (fees in, in the holding's own currency as the book keeps it) and `paid_total`, and says
   `"amounts": true` — the outside source then sees how much the keeper holds and what was paid. Never cash, deposits,

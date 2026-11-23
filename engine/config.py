@@ -1986,6 +1986,11 @@ PORTFOLIO_ANALYST_SHORT = 1200
 # source sees how much you hold of each name and what you paid. Never cash, deposits, records, dates, gains,
 # dividends, notes or ledgers. False: symbols, names and currencies only.
 PORTFOLIO_ANALYST_AMOUNTS = False
+# PORTFOLIO_ANALYST_SAY_MISSING: with the analyst on, a quiet desk morning (no new session, no note when the desk
+# looked) sends one short line to your phone at the send time — so a night the outside source wrote nothing is never
+# silent; a note that came after the quiet decision goes with it, said as not read by the friend, who is not woken for
+# it. False: a quiet morning sends nothing.
+PORTFOLIO_ANALYST_SAY_MISSING = False
 PORTFOLIO_BRIEF_MOVE = 0.03
 PORTFOLIO_BRIEF_NEWS = False
 PORTFOLIO_BRIEF_NEWS_MAX = 2

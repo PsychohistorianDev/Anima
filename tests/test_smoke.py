@@ -26126,6 +26126,70 @@ check("desk (0.16): the analyst's note — read from its dated file in the analy
       and "(shortened — 📄 the whole note)" in _dn_out[0][0] and "\n│" not in _dn_out[0][0] and _dn_out[0][1].get("note_day") == _dn_day
       and _dn_btn.get("callback_data") == f"tr:dn:{_dn_day}" and _dn_whole.startswith(f"📄 the analyst's note — {_bk_bd.day_label(_dn_day)}, written "),
       (_dn_bell[-900:], _dn_names, _dn_out[:1], _dn_btn, _dn_whole[:120]))
+# PORTFOLIO_ANALYST_SAY_MISSING: a quiet desk morning says so, once, at the send time
+_dn_sm0 = getattr(config, "PORTFOLIO_ANALYST_SAY_MISSING", _bk_MISSING)
+
+
+def _dn_quiet(kind="quiet"):
+    _dn_house()
+    _bk_bd._append({"type": kind, "day": _dn_day, "t": _bk_time.time(), "by": "heartbeat"})
+
+
+_dn_q = {}
+config.PORTFOLIO_ANALYST_SAY_MISSING = False
+_dn_quiet()
+_dn_q["off"] = _bk_bd.outbox(_bk_T(6, 1))
+del config.PORTFOLIO_ANALYST_SAY_MISSING
+_dn_q["absent"] = _bk_bd.outbox(_bk_T(6, 1))
+config.PORTFOLIO_ANALYST_SAY_MISSING = True
+_dn_q["before"] = _bk_bd.outbox(_bk_T(5, 50))
+_dn_q["woken"] = _bk_bd.due(_bk_T(5, 40))
+_bk_clock[0] = _bk_T(6, 1)
+_bk_b, _bk_ph = _bk_bridge()
+_bk_b.desk_tick()
+_dn_q["sent"] = [m["text"] for m in _bk_ph.msgs]
+_bk_b2, _bk_ph2 = _bk_bridge()  # a restart: a new bridge reads the journal
+_bk_b2.desk_tick()
+_dn_q["again"] = [m["text"] for m in _bk_ph2.msgs]
+_dn_quiet()
+_dn_q["after"] = _bk_bd.outbox(_bk_T(10, 30))
+config.PORTFOLIO_ANALYST = False
+_dn_q["analyst_off"] = _bk_bd.outbox(_bk_T(6, 1))
+config.PORTFOLIO_ANALYST = True
+config.PORTFOLIO_DESK_DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"][(_bk_dday.weekday() + 1) % 7]
+_dn_q["notday"] = _bk_bd.outbox(_bk_T(6, 1))
+config.PORTFOLIO_DESK_DAYS = ""
+_bk_bd.set_paused(True)
+_dn_q["paused"] = _bk_bd.outbox(_bk_T(6, 1))
+_bk_bd.set_paused(False)
+_bk_pf.seat("parlor", "Wren")
+_dn_q["guest"] = _bk_bd.outbox(_bk_T(6, 1))
+_bk_pf.seat("parlor", "")
+_dn_quiet("nofeed")
+_dn_q["nofeed"] = _bk_bd.outbox(_bk_T(6, 1))
+_dn_quiet()
+_dn_put(_DN_NOTE)
+_dn_q["late"] = _bk_bd.outbox(_bk_T(6, 1))
+_DN_HEAD = f"📊 The desk — {_bk_bd.day_label(_bk_dday)}"
+check("desk (0.16): PORTFOLIO_ANALYST_SAY_MISSING — a quiet morning: one line at the send time (none before, none again "
+      "after a restart, none after the window), the friend not woken; none with the knob off or absent, the analyst off, "
+      "on a non-desk day, paused, or a guest seated; a morning with no prices keeps its own line; a note that came late "
+      "goes with it, shortened, said as not read by the friend",
+      _dn_q["off"] == [] and _dn_q["absent"] == [] and _dn_q["before"] == [] and _dn_q["woken"] is False
+      and _dn_q["sent"] == [f"{_DN_HEAD}\na quiet morning — no new session since the last desk morning and no analyst's note this "
+                            "morning, so no desk wake."]
+      and _dn_q["again"] == [] and _dn_q["after"] == [] and _dn_q["analyst_off"] == [] and _dn_q["notday"] == []
+      and _dn_q["paused"] == [] and _dn_q["guest"] == []
+      and _dn_q["nofeed"] == [("no brief this morning — prices could not be fetched", {"what": "nofeed"})]
+      and len(_dn_q["late"]) == 1 and _dn_q["late"][0][1] == {"what": "quiet", "note_day": _dn_day}
+      and _dn_q["late"][0][0].startswith(f"{_DN_HEAD}\na quiet morning — no new session since the last desk morning, so no desk "
+                                         "wake.\n\n— the analyst's note —\n(it arrived at ")
+      and f"after the desk had decided not to wake {_bk_FN} — {_bk_FN} has not read it)\nAcme Widgets:" in _dn_q["late"][0][0],
+      _dn_q)
+if _dn_sm0 is _bk_MISSING:
+    config.__dict__.pop("PORTFOLIO_ANALYST_SAY_MISSING", None)
+else:
+    config.PORTFOLIO_ANALYST_SAY_MISSING = _dn_sm0
 # PORTFOLIO_ANALYST_AMOUNTS: names.json may carry the quantities and what was paid
 _dn_am0 = getattr(config, "PORTFOLIO_ANALYST_AMOUNTS", _bk_MISSING)
 _bk_fresh("USD")

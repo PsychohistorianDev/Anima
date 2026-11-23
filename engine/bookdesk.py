@@ -839,7 +839,7 @@ def outbox(at: datetime | None = None) -> list[tuple[str, dict]]:
                 if nofeed:  # the heartbeat's tries failed: said at the send time
                     return [("no brief this morning — prices could not be fetched", {"what": "nofeed"})]
                 if quiet:
-                    return []
+                    return _quiet_line(day, d, t, marks, head)
                 m = prepare(t, by="bridge")  # the heartbeat was off: the numbers never wait for the friend
                 if m is None:
                     return ([("no brief this morning — prices could not be fetched", {"what": "nofeed"})]
@@ -889,6 +889,33 @@ def outbox(at: datetime | None = None) -> list[tuple[str, dict]]:
                     part = [x for x in part if x != "(the numbers are in the desk's message above)"]
                 out.append(("\n".join([head] + body + part), {"what": "reading", "reading_t": e.get("t")}))
     return out
+
+
+def _quiet_line(day: str, d: date, t: datetime, marks: list[dict], head: str) -> list[tuple[str, dict]]:
+    """A quiet desk morning (nothing new, no note when the heartbeat looked) with the analyst on and
+    PORTFOLIO_ANALYST_SAY_MISSING: one short line at the send time, so a night the outside source wrote nothing is
+    never silent. A note that came after the quiet decision goes with it, shortened, said as not read by the friend;
+    the friend is not woken for it. Once (marked "quiet")."""
+    if not (analyst_on() and getattr(config, "PORTFOLIO_ANALYST_SAY_MISSING", False)):
+        return []
+    if any(x.get("what") == "quiet" for x in marks):
+        return []
+    note = next((e["note"] for e in _of_day(day, "late_note") if e.get("note")), None) or analyst_note(day, t)
+    lines = [head, "a quiet morning — no new session since the last desk morning, so no desk wake."]
+    mark = {"what": "quiet"}
+    if note:
+        if not _of_day(day, "late_note"):
+            _append({"type": "late_note", "day": day, "t": time.time(), "note": note})
+        short, cut = note_short(note)
+        lines += ["", "— the analyst's note —",
+                  f"(it arrived at {note.get('written')}, after the desk had decided not to wake {_friend()} — "
+                  f"{_friend()} has not read it)", short]
+        if cut:
+            mark["note_day"] = day
+    else:
+        lines[-1] = ("a quiet morning — no new session since the last desk morning and no analyst's note this morning, "
+                     "so no desk wake.")
+    return [("\n".join(lines), mark)]
 
 
 def _as_of(m: dict, t: datetime) -> str:
