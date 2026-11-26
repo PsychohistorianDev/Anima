@@ -424,6 +424,15 @@ tagged on its own: the first tag after the rename is v0.13.)
   the friend or the keeper reads say "they" throughout. No behaviour changes.
 
 ### Fixed
+- **The book's lock stayed behind on Windows when another process was reading it**: a write let the lock go with a
+  single delete, and a failure was passed over in silence. On Windows a file another process has open can't be
+  deleted, and a process waiting for the book reads the lock to see who holds it — so for that instant the delete
+  failed, the lock stayed, the other processes waited on a lock nobody held (until "the book is busy"), and the
+  holder's next write took over "its own" lock as if left before a restart. Now the release is tried again a few
+  times, briefly (a third of a second at most), and never removes a lock another process has taken meanwhile; one
+  that still can't be removed is said once in the book's log and is taken over as before — by this process at its
+  next write, said as "its release had not gone through", or by another once it is stale. Where the first delete
+  works, nothing changes.
 - **A bookmark in a shelf with two books of similar names** — two collections by one author, both with "Stories" in the
   file name — matched both books in the finder, and two matches are none: every "book" beat of the wake dealt
   something else, silently. Now a file by exactly the bookmark's name wins first (any case, anywhere under `shared/`,

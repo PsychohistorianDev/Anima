@@ -25262,6 +25262,54 @@ check("book (0.16): the house lock — 3 processes × 20 records: 61 records, id
       [o_[0].strip() for o_ in _bk_outs] == ["20", "20", "20"] and len(_bk_ids) == 61 and len(set(_bk_ids)) == 61 and not _bk_left
       and _bk_stale and "took over a lock left by pid 99999" in _bk_log and _bk_busy == (None, "the book is busy — nothing was kept, try again")
       and len(_bk_pf.load("real")["records"]) == 62, (_bk_outs, len(_bk_ids), _bk_left, _bk_busy))
+# the release while another process reads the lock: on Windows a file another process has open can't be deleted
+# (PermissionError) — the delete is made to refuse here, for a few tries and then for good
+_bk_lr_unlink = Path.unlink
+_bk_lr = {"n": 0}
+
+
+def _bk_lr_fake(self, *a, **k):
+    if self.name == ".lock" and _bk_lr["n"]:
+        _bk_lr["n"] -= 1
+        raise PermissionError(32, "the file is being used by another process")
+    return _bk_lr_unlink(self, *a, **k)
+
+
+_bk_lr_logp = _bk_dir / "lock.log"
+_bk_lr_log0 = _bk_lr_logp.read_text(encoding="utf-8") if _bk_lr_logp.exists() else ""
+Path.unlink = _bk_lr_fake
+try:
+    _bk_lr["n"] = 3
+    _bk_lr_t = _bk_time.time()
+    _bk_lr_ok1 = _bk_add("deposit", "USD", None, "1", "2026-03-02", which="real")[0] is not None
+    _bk_lr_r1 = (_bk_lr_ok1, (_bk_dir / ".lock").exists(), _bk_time.time() - _bk_lr_t,
+                 (_bk_lr_logp.read_text(encoding="utf-8") if _bk_lr_logp.exists() else "") == _bk_lr_log0)
+    _bk_lr["n"] = 10 ** 9
+    _bk_lr_t = _bk_time.time()
+    try:
+        _bk_lr_ok2 = _bk_add("deposit", "USD", None, "1", "2026-03-02", which="real")[0] is not None
+        _bk_lr_err = ""
+    except Exception as _bk_lr_e:  # noqa: BLE001
+        _bk_lr_ok2, _bk_lr_err = False, repr(_bk_lr_e)
+    _bk_lr_r2 = (_bk_lr_ok2, _bk_lr_err, (_bk_dir / ".lock").exists(), _bk_time.time() - _bk_lr_t)
+    _bk_lr["n"] = 0
+    _bk_lr_ok3 = _bk_add("deposit", "USD", None, "1", "2026-03-02", which="real")[0] is not None
+    _bk_lr["n"] = 10 ** 9
+    with _bk_pf._locked():
+        pass
+    _bk_lr["n"] = 0
+    _bk_lr_unlink(_bk_dir / ".lock")
+finally:
+    Path.unlink = _bk_lr_unlink
+_bk_lr_new = _bk_lr_logp.read_text(encoding="utf-8")[len(_bk_lr_log0):]
+check("book (0.16): the lock's release while another process reads it — a delete refused three times: tried again, the "
+      "lock gone, nothing said, no wait; refused for good: no error, no long wait, said once, and this process's next "
+      "write takes it over, said truly",
+      _bk_lr_r1[0] and not _bk_lr_r1[1] and _bk_lr_r1[2] < 0.5 and _bk_lr_r1[3]
+      and _bk_lr_r2[0] and not _bk_lr_r2[1] and _bk_lr_r2[2] and _bk_lr_r2[3] < 1.0 and _bk_lr_ok3
+      and _bk_lr_new.count("the lock could not be removed after a write (another process had it open)") == 1
+      and f"took over a lock left by pid {_bk_os.getpid()} (this process's own — its release had not gone through)" in _bk_lr_new
+      and not (_bk_dir / ".lock").exists(), (_bk_lr_r1, _bk_lr_r2, _bk_lr_ok3, _bk_lr_new))
 
 # ---- fix on the phone; the doors' seats; the scrub; what the friend is told since -------------------------------
 _bk_fresh("USD")

@@ -143,10 +143,12 @@ def _take_lock(deadline: float) -> bool:
     while True:
         try:
             fd = os.open(str(lk), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            mine = f"{os.getpid()} {time.time():.3f}"
             try:
-                os.write(fd, f"{os.getpid()} {time.time():.3f}".encode("ascii"))
+                os.write(fd, mine.encode("ascii"))
             finally:
                 os.close(fd)
+            _MINE[0] = mine
             return True
         except FileExistsError:
             pass
@@ -168,7 +170,7 @@ def _take_lock(deadline: float) -> bool:
                 if raw is None or again == raw:
                     lk.unlink()
                     _log(f"took over a lock left by pid {pid or '?'} "
-                         f"({'this process, before a restart' if pid == os.getpid() else f'{time.time() - t:.0f} s old'})")
+                         f"({_own_lock_said() if pid == os.getpid() else f'{time.time() - t:.0f} s old'})")
                     continue
             except OSError:
                 pass
@@ -192,10 +194,52 @@ def _locked():
         finally:
             _HELD[0] -= 1
             if _HELD[0] == 0:
-                try:
-                    (folder() / ".lock").unlink()
-                except OSError:
-                    pass
+                _release_lock()
+
+
+RELEASE_TRIES = 10       # removing the lock: tries, RELEASE_PAUSE_S apart (0.27 s at most in all)
+RELEASE_PAUSE_S = 0.03
+_MINE = [""]             # what this process wrote into the lock it took
+_RELEASE_STUCK = [False]  # this process's last release did not go through
+_RELEASE_SAID = [False]
+
+
+def _release_lock() -> None:
+    """The house lock removed. Windows refuses to delete a file another process has open — a waiter reading
+    who holds it, for an instant — so a refusal is tried again a few times, briefly; one already gone is fine. A lock
+    that still can't be removed is said once in the book's log, and is taken over once it is stale (or by this process
+    at its next write). Never raises."""
+    lk = folder() / ".lock"
+    for n in range(RELEASE_TRIES):
+        try:
+            if n and lk.read_text(encoding="ascii") != _MINE[0]:
+                return  # not this process's lock any more (taken over meanwhile): left alone
+            lk.unlink()
+            _RELEASE_STUCK[0] = False
+            return
+        except FileNotFoundError:
+            _RELEASE_STUCK[0] = False
+            return
+        except PermissionError:
+            if n < RELEASE_TRIES - 1:
+                time.sleep(RELEASE_PAUSE_S)
+        except ValueError:  # what is written there isn't this process's: left alone
+            return
+        except OSError:
+            break
+    _RELEASE_STUCK[0] = True
+    if not _RELEASE_SAID[0]:
+        _RELEASE_SAID[0] = True
+        _log("the lock could not be removed after a write (another process had it open) — it is taken over when it "
+             "is stale; nothing was lost")
+
+
+def _own_lock_said() -> str:
+    """A lock with this process's pid that it doesn't hold: its own release that didn't go through, or a crash before a
+    restart that got the same pid."""
+    if _RELEASE_STUCK[0]:
+        return "this process's own — its release had not gone through"
+    return "this process, before a restart"
 
 
 DOORS = {"parlor": "at the desk page", "telegram": "on the phone"}
