@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "engine"))
@@ -44,9 +46,27 @@ class ScriptedBrain:
 results = []
 
 
+_ON_RUNNER = os.environ.get("GITHUB_ACTIONS") == "true"  # a hosted runner: failures and timings also go out as annotations
+_check_clock = [time.time(), time.time()]  # the suite's start, the last check's end
+_check_gaps = []  # (seconds since the check before, name) — where the time goes
+
+
+def _annotation(kind, title, text):
+    """One workflow command line: an annotation on the run's summary page, readable without opening the log."""
+    def esc(v, prop=False):
+        v = str(v).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        return v.replace(":", "%3A").replace(",", "%2C") if prop else v
+    print(f"::{kind} title={esc(title, True)}::{esc(text)}", flush=True)
+
+
 def check(name, cond, extra=""):
     results.append((name, bool(cond), extra))
     print(f"{'PASS' if cond else 'FAIL'}  {name}" + (f"  [{extra}]" if extra and not cond else ""))
+    now_ = time.time()
+    _check_gaps.append((now_ - _check_clock[1], name))
+    _check_clock[1] = now_
+    if not cond and _ON_RUNNER:
+        _annotation("error", "FAIL", f"{name}" + (f"  [{str(extra)[:600]}]" if extra else ""))
 
 
 _embed_orig = ollama_client.embed  # the real one, kept for the EMBED_ON_CPU test
@@ -26587,5 +26607,17 @@ _bf_sh.rmtree(_bf_dir, ignore_errors=True)
 _bf_top.unlink(missing_ok=True)
 
 failed = [n for n, ok, _ in results if not ok]
+_took = time.time() - _check_clock[0]
+_slow = sorted(_check_gaps, reverse=True)[:12]
+print(f"\nthe suite took {_took:.0f} seconds; the longest stretches before a check:")
+for _gap, _name in _slow:
+    print(f"  {_gap:6.1f} s  {_name[:110]}")
+if _ON_RUNNER:
+    _annotation("notice", f"{len(results) - len(failed)}/{len(results)} passed in {_took:.0f} s on {sys.platform}",
+                "the longest stretches: " + " | ".join(f"{g:.0f} s {n[:70]}" for g, n in _slow))
+if failed:
+    print("\nfailed:")
+    for _name in failed:
+        print(f"  {_name}")
 print(f"\n{len(results) - len(failed)}/{len(results)} passed")
 sys.exit(1 if failed else 0)
