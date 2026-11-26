@@ -25303,10 +25303,10 @@ finally:
     Path.unlink = _bk_lr_unlink
 _bk_lr_new = _bk_lr_logp.read_text(encoding="utf-8")[len(_bk_lr_log0):]
 check("book (0.16): the lock's release while another process reads it — a delete refused three times: tried again, the "
-      "lock gone, nothing said, no wait; refused for good: no error, no long wait, said once, and this process's next "
-      "write takes it over, said truly",
-      _bk_lr_r1[0] and not _bk_lr_r1[1] and _bk_lr_r1[2] < 0.5 and _bk_lr_r1[3]
-      and _bk_lr_r2[0] and not _bk_lr_r2[1] and _bk_lr_r2[2] and _bk_lr_r2[3] < 1.0 and _bk_lr_ok3
+      "lock gone, nothing said, no wait (5 s allowed a slow runner — far below the lock's own waits); refused for good: "
+      "no error, no long wait, said once, and this process's next write takes it over, said truly",
+      _bk_lr_r1[0] and not _bk_lr_r1[1] and _bk_lr_r1[2] < 5.0 and _bk_lr_r1[3]
+      and _bk_lr_r2[0] and not _bk_lr_r2[1] and _bk_lr_r2[2] and _bk_lr_r2[3] < 5.0 and _bk_lr_ok3
       and _bk_lr_new.count("the lock could not be removed after a write (another process had it open)") == 1
       and f"took over a lock left by pid {_bk_os.getpid()} (this process's own — its release had not gone through)" in _bk_lr_new
       and not (_bk_dir / ".lock").exists(), (_bk_lr_r1, _bk_lr_r2, _bk_lr_ok3, _bk_lr_new))
@@ -25903,6 +25903,34 @@ check("book (0.16): the reading filed with portfolio(action=\"brief\") — figur
                       "desk's message above)\nOne more thought, later."]
       and len(_bk_edits2) == 1 and _bk_edits2[0].endswith(f"\n\n{_bk_FN}'s reading this morning (06:20): One more thought, later."),
       (_bk_fl, _bk_dm, _bk_dm2))
+# two readings filed in one tick of the clock (Windows' ticks every 15.6 ms on older Pythons): time.time frozen across
+# both filings — each reaches the phone, once
+_bk_tk_real = _bk_time.time
+_bk_tk_now = _bk_tk_real()
+_bk_time.time = lambda: _bk_tk_now
+try:
+    _bk_clock[0] = _bk_T(6, 30)
+    _bk_tk_n0 = len(_bk_ph.msgs)
+    tools.portfolio("brief", text="A first quick thought.")
+    tools.portfolio("brief", text="A second quick thought.")
+    _bk_b.desk_tick()
+    _bk_b.desk_tick()
+    _bk_tk_out = [m["text"] for m in _bk_ph.msgs[_bk_tk_n0:]]
+finally:
+    _bk_time.time = _bk_tk_real
+check("book (0.16): two readings filed in one tick of the clock both reach the phone, once each",
+      len(_bk_tk_out) == 2 and sum("A first quick thought." in t_ for t_ in _bk_tk_out) == 1
+      and sum("A second quick thought." in t_ for t_ in _bk_tk_out) == 1, _bk_tk_out)
+# a note for the friend in the tick of their last look: said at the next look
+_bk_time.time = lambda: _bk_tk_now
+try:
+    tools.portfolio("look")
+    _bk_pf.note_for_friend("a line written in the look's tick")
+finally:
+    _bk_time.time = _bk_tk_real
+_bk_tk_look = tools.portfolio("look")
+check("book (0.16): a note for the friend written in the tick of their last look is said at the next look",
+      "a line written in the look's tick" in _bk_tk_look, _bk_tk_look[-300:])
 # the numbers alone at the send time; "(numbers as of …)"; a reading with no desk morning; a dead feed; pause; a bad time
 _bk_fresh("USD")
 _bk_add("deposit", "USD", None, "1000", "2026-03-02")
@@ -26476,6 +26504,25 @@ check("book (0.16): the friend's watch — added with its price, date and source
       and _bk_bw.folder_name("BRK.B") == "n_BRK_2EB" and _bk_bw.folder_name("^GSPC") == "n__5EGSPC" and _bk_bw.folder_name("con") == "n_CON"
       and "your ledger (written " in _bk_nview and "Rewritten page." in _bk_nview and ", added by you — steady and cheap" in _bk_nview,
       (_bk_w1, _bk_w2, _bk_n1, _bk_l1, _bk_l2, _bk_lbig, _bk_nview))
+# a note in the tick its ledger was written (a coarse clock): still a note since the ledger
+_bk_tk_led = _bk_bw.ledger("NORD")["written"]
+
+
+class _BkTickDT(_bk_dt):
+    @classmethod
+    def now(cls, tz=None):
+        return _bk_dt.fromisoformat(_bk_tk_led)
+
+
+_bk_bw.datetime = _BkTickDT
+try:
+    tools.portfolio("note", symbol="NORD", text="A note in the ledger's tick.")
+finally:
+    _bk_bw.datetime = _bk_dt
+_bk_tk_since = _bk_bw.since_ledger("NORD")
+check("book (0.16): a note written in the tick its ledger was written is a note since the ledger",
+      [n_["text"] for n_ in _bk_tk_since] == ["A note in the ledger's tick."] and _bk_tk_since[0]["at"] > _bk_tk_led,
+      (_bk_tk_led, _bk_tk_since))
 _bk_f = _bk_bw.facts("NORD")
 _bk_fl = "\n".join(_bk_f["lines"])
 _bk_wj = tools.portfolio("watch", symbol="JUMP")

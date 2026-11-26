@@ -2123,7 +2123,10 @@ def note_for_friend(line: str) -> None:
 
 def _note_locked(line: str) -> None:
     s = state()
-    s.setdefault("for_friend", []).append({"t": time.time(), "line": line})
+    t, last = time.time(), s.get("last_look")
+    if isinstance(last, (int, float)) and not isinstance(last, bool) and t <= last:
+        t = last + 0.001  # a note in the tick of the last look is still after it — the next look says it
+    s.setdefault("for_friend", []).append({"t": t, "line": line})
     s["for_friend"] = s["for_friend"][-30:]
     _write("state.json", s)
 

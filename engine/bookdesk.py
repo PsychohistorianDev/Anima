@@ -446,10 +446,24 @@ def entries() -> list[dict]:
     return out
 
 
+_STEP_PAST = ("reading", "test_reading")  # entries later known by their t (a sent message's reading_t)
+
+
 def _append(e: dict) -> bool:
-    """One line added, under the book's lock (an append — nothing before it is rewritten)."""
+    """One line added, under the book's lock (an append — nothing before it is rewritten). A reading's t — how
+    its message is later known as sent — is made later than every reading of its day and every desk message sent that
+    day (a test reading: later than every test reading). Two readings filed in one tick of a coarse clock (Windows'
+    is 15.6 ms on older Pythons) stay two, and one filed in the tick its morning's message went is still after it.
+    Where the clock has moved on, nothing changes."""
     try:
         with pf._locked():
+            if e.get("type") in _STEP_PAST and isinstance(e.get("t"), (int, float)):
+                kin = (lambda x: x.get("type") == "test_reading") if e["type"] == "test_reading" else (
+                    lambda x: x.get("type") == "reading" or (x.get("type") == "sent" and x.get("what") in ("morning", "reading")))
+                last = max((float(x["t"]) for x in _of_day(str(e.get("day"))) if kin(x)
+                            and isinstance(x.get("t"), (int, float)) and not isinstance(x.get("t"), bool)), default=0.0)
+                if e["t"] <= last:
+                    e["t"] = last + 0.001
             pf.folder().mkdir(parents=True, exist_ok=True)
             with open(pf.folder() / DESK, "a", encoding="utf-8") as f:
                 f.write(json.dumps(e, ensure_ascii=False) + "\n")

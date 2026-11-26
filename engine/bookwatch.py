@@ -505,6 +505,12 @@ def add_note(sym: str, text: str) -> str:
         with pf._locked():
             _dir(s).mkdir(parents=True, exist_ok=True)
             _meta(s)
+            w = (ledger(s) or {}).get("written") or ""
+            if w and rec["at"] <= w:  # a note in the tick its ledger was written is still a note since it
+                try:
+                    rec["at"] = (datetime.fromisoformat(w) + timedelta(microseconds=1)).isoformat(timespec="microseconds")
+                except ValueError:
+                    pass
             with open(_dir(s) / "notes.jsonl", "a", encoding="utf-8") as f:
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
     except (pf.BookBusy, OSError) as e:

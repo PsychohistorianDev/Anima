@@ -424,6 +424,14 @@ tagged on its own: the first tag after the rename is v0.13.)
   the friend or the keeper reads say "they" throughout. No behaviour changes.
 
 ### Fixed
+- **Two readings filed in one tick of the clock: the second never reached the phone.** On Pythons before 3.13
+  Windows' clock moves every 15.6 ms, and a reading is known as sent by its time: a second reading in the same tick
+  as the first — or as the morning's message — was taken as already sent. A reading's time is now made later than every
+  reading and every desk message of its day (a test reading: later than every test reading). The same in two smaller
+  places: a note for the friend in the tick of their last look is said at the next one, and a note on a name in the
+  tick its ledger was written counts as a note since it. Where the clock has moved on, nothing changes.
+- **The lock check allowed no slow runner**: its "no long wait" bounds (half a second, one second) failed on a slow
+  hosted machine though nothing waited; they are now 5 s — still far below the lock's own waits.
 - **The book's lock stayed behind on Windows when another process was reading it**: a write let the lock go with a
   single delete, and a failure was passed over in silence. On Windows a file another process has open can't be
   deleted, and a process waiting for the book reads the lock to see who holds it — so for that instant the delete
